@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "9rqZY7z9mlE=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\DELL\\Desktop\\AI_Labmonitoring\\SmartExam_Root\\Student_Desktop_App\\Student_Desktop_App.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\DELL\\.nuget\\packages\\system.codedom\\9.0.11\\system.codedom.9.0.11.nupkg.sha512",
+    "C:\\Users\\DELL\\.nuget\\packages\\system.management\\9.0.11\\system.management.9.0.11.nupkg.sha512"
+  ],
+  "logs": []
+}
