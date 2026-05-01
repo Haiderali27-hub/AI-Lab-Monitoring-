@@ -3,21 +3,23 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/AuthContext'
 
-type Mode = 'bootstrap' | 'login'
+type Mode = 'setup' | 'login'
 
 export function LandingPage() {
   const navigate = useNavigate()
-  const { bootstrap, isAuthenticated, login } = useAuth()
+  const { setup, isAuthenticated, login } = useAuth()
 
-  const [mode, setMode] = useState<Mode>('bootstrap')
+  const [mode, setMode] = useState<Mode>('login')
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState('Secure Session Enabled (AES-256). All access is monitored.')
+  const [error, setError] = useState<string | null>(null)
 
+  // Setup Form
   const [institutionName, setInstitutionName] = useState('')
   const [setupUsername, setSetupUsername] = useState('')
   const [setupEmail, setSetupEmail] = useState('')
   const [setupPassword, setSetupPassword] = useState('')
 
+  // Login Form
   const [usernameOrEmail, setUsernameOrEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -27,19 +29,20 @@ export function LandingPage() {
     }
   }, [isAuthenticated, navigate])
 
-  async function onBootstrapSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSetupSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true)
+    setError(null)
     try {
-      await bootstrap({
+      await setup({
         institutionName,
         username: setupUsername,
         email: setupEmail,
         password: setupPassword,
       })
       navigate('/admin', { replace: true })
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Bootstrap failed')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Setup failed')
     } finally {
       setBusy(false)
     }
@@ -48,11 +51,12 @@ export function LandingPage() {
   async function onLoginSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true)
+    setError(null)
     try {
       await login({ usernameOrEmail, password })
       navigate('/admin', { replace: true })
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Login failed')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
       setBusy(false)
     }
@@ -60,168 +64,161 @@ export function LandingPage() {
 
   return (
     <div className="auth-page">
-      <nav className="auth-nav">
-        <div className="nav-left">
-          <span className="material-symbols-outlined icon-fill">security</span>
-          <span className="nav-title">SmartExam Control Center</span>
-        </div>
-        <div className="nav-right">
-          <button className="nav-btn">
-            <span className="material-symbols-outlined">language</span>
-            English
-          </button>
-          <button className="nav-btn">
-            <span className="material-symbols-outlined">help_outline</span>
-            Support
-          </button>
-        </div>
-      </nav>
+      <div className="auth-shell">
+        <header className="auth-shell-header">
+          <div className="auth-shell-title">
+            <span className="material-symbols-outlined">admin_panel_settings</span>
+            <span>Admin Login & Institution Access</span>
+          </div>
+          <div className="auth-shell-actions">
+            <button type="button">English</button>
+            <button type="button">Support</button>
+            <button type="button">Connectivity</button>
+          </div>
+        </header>
 
-      <main className="auth-main">
-        <div className="glass-card auth-card">
-          <header className="auth-header">
-            <div className="auth-icon-wrap">
-              <span className="material-symbols-outlined icon-large icon-fill">
-                {mode === 'bootstrap' ? 'domain_add' : 'shield_person'}
-              </span>
+        <div className="auth-card">
+          <div className="auth-header">
+            <div className="auth-logo-wrap">
+              <span className="material-symbols-outlined icon-fill">shield_person</span>
             </div>
-            <h1>SmartExam Control Center</h1>
-            <div className="mode-pill">
-              <span className="dot"></span>
-              {mode === 'bootstrap' ? 'INSTITUTION SETUP' : 'TEACHER LOGIN'}
+            <h1 className="auth-title">SmartExam Control Center</h1>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '8px' }}>
+              <span className="status-badge secure">LAN SECURE</span>
+              <span className="status-badge secure">SYSTEM ADMIN</span>
             </div>
-          </header>
-
-          <div className="auth-mode-toggle">
-            <button
-              className={mode === 'bootstrap' ? 'active' : ''}
-              onClick={() => {
-                setMode('bootstrap')
-                setMessage('Set up your institution to get started.')
-              }}
-            >
-              Register
-            </button>
-            <button
-              className={mode === 'login' ? 'active' : ''}
-              onClick={() => {
-                setMode('login')
-                setMessage('Sign in to access your dashboard.')
-              }}
-            >
-              Login
-            </button>
           </div>
 
-          {mode === 'bootstrap' ? (
-            <form className="auth-form-v2" onSubmit={onBootstrapSubmit}>
+          {error && (
+            <div style={{ background: '#f8d7da', color: '#721c24', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.85rem' }}>
+              {error}
+            </div>
+          )}
+
+          {mode === 'login' ? (
+            <form onSubmit={onLoginSubmit}>
               <div className="input-group">
-                <label>Institution Name</label>
-                <input
-                  placeholder="e.g. Global University"
-                  value={institutionName}
-                  onChange={(e) => setInstitutionName(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="input-grid">
-                <div className="input-group">
-                  <label>Admin Username</label>
-                  <input
-                    placeholder="e.g. admin_pro"
-                    value={setupUsername}
-                    onChange={(e) => setSetupUsername(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="input-group">
-                  <label>Admin Email</label>
-                  <input
-                    type="email"
-                    placeholder="admin@institution.edu"
-                    value={setupEmail}
-                    onChange={(e) => setSetupEmail(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="input-group">
-                <label>Password</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={setupPassword}
-                  onChange={(e) => setSetupPassword(e.target.value)}
-                  minLength={8}
-                  required
-                />
+                <label className="input-label">Institution Access</label>
+                <select className="input-control select-control" defaultValue="">
+                  <option value="" disabled>Select Campus / Site</option>
+                  <option value="main">Main Campus - Lab Alpha</option>
+                </select>
               </div>
 
-              <button className="auth-submit" type="submit" disabled={busy}>
-                {busy ? 'Creating...' : 'Initialize Control Center'}
-                <span className="material-symbols-outlined">rocket_launch</span>
-              </button>
-            </form>
-          ) : (
-            <form className="auth-form-v2" onSubmit={onLoginSubmit}>
               <div className="input-group">
-                <label>Email or Username</label>
+                <label className="input-label">Email or Username</label>
                 <input
-                  placeholder="e.g. j.smith@university.edu"
+                  className="input-control"
+                  placeholder="admin@smartexam.edu"
                   value={usernameOrEmail}
                   onChange={(e) => setUsernameOrEmail(e.target.value)}
                   required
                 />
               </div>
+
               <div className="input-group">
-                <div className="label-row">
-                  <label>Password</label>
-                  <a href="#" className="forgot-link">
-                    Forgot?
-                  </a>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label className="input-label" style={{ margin: 0 }}>Password</label>
+                  <a href="#" style={{ fontSize: '0.75rem', color: 'var(--primary)', textDecoration: 'none' }}>Forgot?</a>
                 </div>
                 <input
                   type="password"
+                  className="input-control"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  minLength={8}
                   required
                 />
               </div>
 
-              <div className="security-status">
-                <div className="status-indicator">
-                  <span className="pulse"></span>
-                  <span className="dot-static"></span>
-                </div>
-                <span className="status-text">LAN SECURE</span>
+              <div className="security-banner">
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>lock</span>
+                <span>Secure Session Enabled (AES-256)</span>
               </div>
 
-              <button className="auth-submit" type="submit" disabled={busy}>
+              <button className="btn btn-primary" type="submit" disabled={busy}>
                 {busy ? 'Authenticating...' : 'Authenticate Access'}
-                <span className="material-symbols-outlined">arrow_forward</span>
+                {!busy && <span className="material-symbols-outlined">arrow_forward</span>}
               </button>
+
+              <div style={{ marginTop: '20px' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)' }}>
+                  New institution? <button type="button" onClick={() => setMode('setup')} style={{ border: 'none', background: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}>Register here</button>
+                </p>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={onSetupSubmit}>
+              <div className="input-group">
+                <label className="input-label">Institution Name</label>
+                <input
+                  className="input-control"
+                  placeholder="e.g. University of Technology"
+                  value={institutionName}
+                  onChange={(e) => setInstitutionName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">Admin Username</label>
+                <input
+                  className="input-control"
+                  placeholder="j.smith"
+                  value={setupUsername}
+                  onChange={(e) => setSetupUsername(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">Admin Email</label>
+                <input
+                  type="email"
+                  className="input-control"
+                  placeholder="admin@institution.edu"
+                  value={setupEmail}
+                  onChange={(e) => setSetupEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">Master Password</label>
+                <input
+                  type="password"
+                  className="input-control"
+                  placeholder="••••••••"
+                  value={setupPassword}
+                  onChange={(e) => setSetupPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <button className="btn btn-primary" type="submit" disabled={busy}>
+                {busy ? 'Setting up...' : 'Create Platform Admin'}
+                {!busy && <span className="material-symbols-outlined">add_business</span>}
+              </button>
+
+              <div style={{ marginTop: '20px' }}>
+                <button type="button" onClick={() => setMode('login')} style={{ border: 'none', background: 'none', color: 'var(--neutral)', fontSize: '0.85rem', cursor: 'pointer' }}>
+                  Back to Login
+                </button>
+              </div>
             </form>
           )}
-
-          <footer className="auth-card-footer">
-            <p>{message}</p>
-          </footer>
         </div>
-      </main>
+      </div>
 
-      <footer className="page-footer">
-        <div className="footer-copyright">© 2026 SmartExam Systems. Secured by Deep Azure Encryption.</div>
+      <footer className="auth-footer">
+        <p>© 2026 SMARTEXAM GLOBAL SYSTEMS</p>
         <div className="footer-links">
-          <a href="#">Privacy Policy</a>
-          <a href="#">Terms of Service</a>
-          <a href="#">Security Whitepaper</a>
+          <a href="#">Version 4.2.0-LTS</a>
+          <a href="#">Help Center</a>
+          <a href="#">Terms</a>
+          <a href="#">Privacy</a>
         </div>
       </footer>
-
-      <div className="blob blob-1"></div>
-      <div className="blob blob-2"></div>
     </div>
   )
 }

@@ -16,13 +16,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     navigate('/login')
   }
 
-  const menuItems = [
-    { label: 'Dashboard', icon: 'dashboard', path: '/admin' },
-    { label: 'User Management', icon: 'group', path: '/admin/users' },
-    { label: 'Exam Sessions', icon: 'security', path: '/admin/exams' },
-    { label: 'Security Logs', icon: 'history_edu', path: '/admin/logs' },
-    { label: 'Reports', icon: 'assessment', path: '/admin/reports' },
-  ]
+  const menuItems = user?.role === 'SuperAdmin' 
+    ? [
+        { label: 'Institutions', icon: 'business_center', path: '/super-admin' },
+        { label: 'Platform Logs', icon: 'dvr', path: '/super-admin/logs' },
+        { label: 'Security Overview', icon: 'policy', path: '/super-admin/security' },
+      ]
+    : [
+        { label: 'Dashboard', icon: 'dashboard', path: '/admin' },
+        { label: 'User Management', icon: 'group', path: '/admin/users' },
+        { label: 'Exam Sessions', icon: 'security', path: '/admin/exams' },
+        { label: 'Security Logs', icon: 'history_edu', path: '/admin/logs' },
+        { label: 'Reports', icon: 'assessment', path: '/admin/reports' },
+      ]
 
   return (
     <div className="admin-page">
@@ -48,10 +54,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <span>{item.label}</span>
             </Link>
           ))}
-          <Link to="/admin/settings" className={`nav-item ${location.pathname === '/admin/settings' ? 'active' : ''}`}>
-            <span className="material-symbols-outlined">settings</span>
-            <span>Settings</span>
-          </Link>
+          {user?.role !== 'SuperAdmin' && (
+            <Link to="/admin/settings" className={`nav-item ${location.pathname === '/admin/settings' ? 'active' : ''}`}>
+              <span className="material-symbols-outlined">settings</span>
+              <span>Settings</span>
+            </Link>
+          )}
         </nav>
 
         <div className="sidebar-footer">

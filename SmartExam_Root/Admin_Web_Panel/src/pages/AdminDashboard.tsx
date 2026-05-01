@@ -2,27 +2,9 @@ import type { FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { createStudent, createTeacher, forceStudentLogout, getStudentBindings, resetStudentBinding, uploadStudentCsv } from '../api/admin'
 import { getLiveRoster } from '../api/exams'
-import { UserTable } from '../components/UserTable'
-import { useAuth } from '../store/AuthContext'
-import type { LiveRosterItem, StudentBindingStatus } from '../types'
-
-function formatSeconds(totalSeconds: number): string {
-  const clamped = Math.max(totalSeconds, 0)
-  const hours = Math.floor(clamped / 3600)
-  const minutes = Math.floor((clamped % 3600) / 60)
-  const seconds = clamped % 60
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds
-    .toString()
-    .padStart(2, '0')}`
-}
-
-import type { FormEvent } from 'react'
-import { useEffect, useMemo, useState } from 'react'
-import { createStudent, createTeacher, forceStudentLogout, getStudentBindings, resetStudentBinding, uploadStudentCsv } from '../api/admin'
-import { getLiveRoster } from '../api/exams'
-import { UserTable } from '../components/UserTable'
-import { useAuth } from '../store/AuthContext'
 import { AdminLayout } from '../components/AdminLayout'
+import { UserTable } from '../components/UserTable'
+import { useAuth } from '../store/AuthContext'
 import type { LiveRosterItem, StudentBindingStatus } from '../types'
 
 function formatSeconds(totalSeconds: number): string {
@@ -179,8 +161,8 @@ export function AdminDashboard() {
           </div>
         </header>
 
-        <section className="stats-grid-v2">
-          <div className="glass-card stat-card">
+        <section className="stats-grid">
+          <div className="card stat-card">
             <div className="stat-icon blue">
               <span className="material-symbols-outlined icon-fill">group</span>
             </div>
@@ -189,7 +171,7 @@ export function AdminDashboard() {
               <span className="stat-value">{bindings.length}</span>
             </div>
           </div>
-          <div className="glass-card stat-card">
+          <div className="card stat-card">
             <div className="stat-icon green">
               <span className="material-symbols-outlined icon-fill">devices</span>
             </div>
@@ -198,7 +180,7 @@ export function AdminDashboard() {
               <span className="stat-value">{bindings.filter((x) => x.hasBinding).length}</span>
             </div>
           </div>
-          <div className="glass-card stat-card">
+          <div className="card stat-card">
             <div className="stat-icon purple">
               <span className="material-symbols-outlined icon-fill">bolt</span>
             </div>
@@ -207,7 +189,7 @@ export function AdminDashboard() {
               <span className="stat-value">{onlineCount}</span>
             </div>
           </div>
-          <div className="glass-card stat-card">
+          <div className="card stat-card">
             <div className="stat-icon red">
               <span className="material-symbols-outlined icon-fill">report_problem</span>
             </div>
@@ -226,7 +208,7 @@ export function AdminDashboard() {
               onForceLogout={onForceLogout}
             />
 
-            <section className="glass-card roster-card">
+            <section className="card roster-card">
               <div className="card-header">
                 <h3>Live Exam Roster</h3>
                 <span className="live-indicator">
@@ -277,7 +259,7 @@ export function AdminDashboard() {
           </div>
 
           <aside className="grid-right">
-            <section className="glass-card quick-action-card">
+            <section className="card quick-action-card">
               <h3>Teacher Onboarding</h3>
               <form className="quick-form" onSubmit={onCreateTeacher}>
                 <div className="form-group">
@@ -315,7 +297,7 @@ export function AdminDashboard() {
               </form>
             </section>
 
-            <section className="glass-card quick-action-card">
+            <section className="card quick-action-card">
               <h3>Batch Registration</h3>
               <p className="card-subtext">Upload a CSV file with student details.</p>
               <form className="quick-form" onSubmit={onUploadCsv}>
