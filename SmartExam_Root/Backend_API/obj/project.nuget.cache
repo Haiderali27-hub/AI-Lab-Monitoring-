@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "obnvEkoXEno=",
+  "dgSpecHash": "AdvyMN29mp0=",
   "success": true,
-  "projectFilePath": "C:\\Users\\DELL\\Desktop\\AI_Labmonitoring\\SmartExam_Root\\Backend_API\\Backend_API.csproj",
+  "projectFilePath": "c:\\Users\\DELL\\Desktop\\AI_Labmonitoring\\SmartExam_Root\\Backend_API\\Backend_API.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\DELL\\.nuget\\packages\\bcrypt.net-next\\4.0.3\\bcrypt.net-next.4.0.3.nupkg.sha512",
     "C:\\Users\\DELL\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
