@@ -9,12 +9,13 @@ namespace Backend_API.Controllers;
 
 [ApiController]
 [Route("api/institution")]
-[Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.SuperAdmin)}")]
+[Authorize]
 public class InstitutionController(IInstitutionService institutionService) : ControllerBase
 {
     private readonly IInstitutionService _institutionService = institutionService;
 
     [HttpGet("settings")]
+    [Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.SuperAdmin)}")]
     public async Task<IActionResult> GetSettings(CancellationToken cancellationToken)
     {
         if (!TryGetInstitutionId(out var institutionId)) return Unauthorized();
@@ -23,6 +24,7 @@ public class InstitutionController(IInstitutionService institutionService) : Con
     }
 
     [HttpPut("settings")]
+    [Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.SuperAdmin)}")]
     public async Task<IActionResult> UpdateSettings([FromBody] UpdateInstitutionRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetInstitutionId(out var institutionId)) return Unauthorized();
@@ -31,6 +33,7 @@ public class InstitutionController(IInstitutionService institutionService) : Con
     }
 
     [HttpGet("labs")]
+    [Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.SuperAdmin)},{nameof(SystemRole.Teacher)}")]
     public async Task<IActionResult> GetLabs(CancellationToken cancellationToken)
     {
         if (!TryGetInstitutionId(out var institutionId)) return Unauthorized();
@@ -39,6 +42,7 @@ public class InstitutionController(IInstitutionService institutionService) : Con
     }
 
     [HttpPost("labs")]
+    [Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.SuperAdmin)}")]
     public async Task<IActionResult> CreateLab([FromBody] CreateLabRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetInstitutionId(out var institutionId)) return Unauthorized();
@@ -47,6 +51,7 @@ public class InstitutionController(IInstitutionService institutionService) : Con
     }
 
     [HttpDelete("labs/{labId:guid}")]
+    [Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.SuperAdmin)}")]
     public async Task<IActionResult> DeleteLab(Guid labId, CancellationToken cancellationToken)
     {
         if (!TryGetInstitutionId(out var institutionId)) return Unauthorized();

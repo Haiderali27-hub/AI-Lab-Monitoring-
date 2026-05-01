@@ -4,25 +4,25 @@ using Backend_API.Models;
 namespace Backend_API.Contracts;
 
 public record BootstrapAdminRequest(
-    [property: Required, MinLength(2), MaxLength(200)] string InstitutionName,
-    [property: Required, MinLength(3), MaxLength(120)] string Username,
-    [property: Required, EmailAddress, MaxLength(256)] string Email,
-    [property: Required, MinLength(8), MaxLength(128)] string Password);
+    [Required, MinLength(2), MaxLength(200)] string InstitutionName,
+    [Required, MinLength(3), MaxLength(120)] string Username,
+    [Required, EmailAddress, MaxLength(256)] string Email,
+    [Required, MinLength(8), MaxLength(128)] string Password);
 
 public record LoginRequest(
-    [property: Required, MaxLength(256)] string UsernameOrEmail,
-    [property: Required, MinLength(8), MaxLength(128)] string Password);
+    [Required, MaxLength(256)] string UsernameOrEmail,
+    [Required, MinLength(8), MaxLength(128)] string Password);
 
 public record StudentLoginRequest(
-    [property: Required, MaxLength(256)] string UsernameOrEmail,
-    [property: Required, MinLength(8), MaxLength(128)] string Password,
-    [property: Required, MinLength(8), MaxLength(512)] string HardwareFingerprint);
+    [Required, MaxLength(256)] string UsernameOrEmail,
+    [Required, MinLength(8), MaxLength(128)] string Password,
+    [Required, MinLength(8), MaxLength(512)] string HardwareFingerprint);
 
-public record RefreshTokenRequest([property: Required] string RefreshToken);
+public record RefreshTokenRequest([Required] string RefreshToken);
 
 public record UserSummaryDto(
     Guid Id,
-    Guid InstitutionId,
+    Guid? InstitutionId,
     string Username,
     string Email,
     SystemRole Role);

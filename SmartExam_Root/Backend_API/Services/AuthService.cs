@@ -25,28 +25,47 @@ public class AuthService(
         BootstrapAdminRequest request,
         CancellationToken cancellationToken)
     {
-        var existingSuperAdmin = await _dbContext.Users.AnyAsync(x => x.Role == SystemRole.SuperAdmin, cancellationToken);
-        if (existingSuperAdmin)
+        try 
         {
-            return ServiceResult<TokenResponse>.Fail(
-                "BOOTSTRAP_ALREADY_COMPLETED",
-                "SuperAdmin bootstrap is already completed.");
+            if (await _dbContext.Users.AnyAsync(x => x.Role == SystemRole.SuperAdmin, cancellationToken))
+            {
+                return ServiceResult<TokenResponse>.Fail("BOOTSTRAP_ALREADY_COMPLETED", "Platform is already initialized.");
+            }
+
+            var institution = await _dbContext.Institutions
+                .FirstOrDefaultAsync(x => x.Name == request.InstitutionName.Trim(), cancellationToken);
+
+            if (institution == null)
+            {
+                institution = new Institution
+                {
+                    Name = request.InstitutionName.Trim(),
+                    ContactEmail = request.Email.Trim().ToLowerInvariant()
+                };
+                _dbContext.Institutions.Add(institution);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            var admin = new User
+            {
+                InstitutionId = institution.Id,
+                Username = request.Username.Trim(),
+                Email = request.Email.Trim().ToLowerInvariant(),
+                PasswordHash = _passwordService.HashPassword(request.Password),
+                Role = SystemRole.SuperAdmin,
+                IsActive = true
+            };
+
+            _dbContext.Users.Add(admin);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return await IssueTokensAsync(admin, false, cancellationToken);
         }
-
-        var admin = new User
+        catch (Exception ex)
         {
-            InstitutionId = null,
-            Username = request.Username.Trim(),
-            Email = request.Email.Trim().ToLowerInvariant(),
-            PasswordHash = _passwordService.HashPassword(request.Password),
-            Role = SystemRole.SuperAdmin,
-            IsActive = true
-        };
-
-        _dbContext.Users.Add(admin);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return await IssueTokensAsync(admin, false, cancellationToken);
+            Console.WriteLine($"[BOOTSTRAP ERROR] {ex.Message}");
+            return ServiceResult<TokenResponse>.Fail("DATABASE_ERROR", $"Setup failed: {ex.Message}");
+        }
     }
 
     public async Task<ServiceResult<TokenResponse>> BootstrapAdminAsync(
@@ -63,7 +82,8 @@ public class AuthService(
 
         var institution = new Institution
         {
-            Name = request.InstitutionName.Trim()
+            Name = request.InstitutionName.Trim(),
+            ContactEmail = request.Email.Trim().ToLowerInvariant()
         };
 
         var admin = new User
@@ -103,7 +123,7 @@ public class AuthService(
 
     public async Task<bool> IsBootstrappedAsync(CancellationToken cancellationToken)
     {
-        return await _dbContext.Institutions.AnyAsync(cancellationToken);
+        return await _dbContext.Users.AnyAsync(x => x.Role == SystemRole.SuperAdmin, cancellationToken);
     }
 
     public async Task<ServiceResult<TokenResponse>> StudentLoginAsync(
@@ -480,7 +500,7 @@ public class AuthService(
     }
 
     private static UserSummaryDto ToUserSummary(User user) =>
-        new(user.Id, user.InstitutionId, user.Username, user.Email, user.Role);
+        new UserSummaryDto(user.Id, user.InstitutionId, user.Username, user.Email, user.Role);
 
     private async Task<bool> IsStudentBoundAsync(Guid studentId, CancellationToken cancellationToken) =>
         await _dbContext.DeviceBindings.AnyAsync(x => x.StudentUserId == studentId, cancellationToken);

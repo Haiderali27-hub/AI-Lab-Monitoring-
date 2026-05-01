@@ -19,8 +19,13 @@ public record StudentExamStatus(
     DateTime? ExamEndUtc,
     int RemainingSeconds,
     bool IsEligible,
-    string Message);
+    string Message,
+    string? Instructions,
+    string? LabName,
+    string? ProctorName);
 
 public record StartExamResult(Guid Id, string Status, DateTime? StartedAtUtc);
 
 public record HeartbeatPayload(Guid? ExamSessionId, bool IsForegroundExamApp, string? ActiveWindowTitle, string? ProcessListSnapshot);
+
+public record MonitoringEventPayload(string EventType, Guid? ExamSessionId, string PayloadJson);
