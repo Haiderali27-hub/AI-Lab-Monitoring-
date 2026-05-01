@@ -23,6 +23,15 @@ export type TokenResponse = {
   deviceBound: boolean
 }
 
+export type UserListItem = {
+  id: string
+  username: string
+  email: string
+  role: SystemRole
+  isActive: boolean
+  createdAtUtc: string
+}
+
 export type StudentBindingStatus = {
   studentId: string
   username: string
@@ -54,6 +63,14 @@ export type Lab = {
   isActive: boolean
 }
 
+export type Workstation = {
+  id: string
+  labId: string
+  name: string
+  ipAddress: string | null
+  isActive: boolean
+}
+
 export type InstitutionSettings = {
   id: string
   name: string
@@ -64,6 +81,14 @@ export type InstitutionSettings = {
   allowTeacherResetBinding: boolean
   sessionTimeoutMinutes: number
   createdAtUtc: string
+}
+
+export type InstitutionListItem = InstitutionSettings
+
+export type CreateInstitutionAdminPayload = {
+  username: string
+  email: string
+  password: string
 }
 
 export type UpdateInstitutionPayload = {
@@ -79,6 +104,17 @@ export type UpdateInstitutionPayload = {
 export type CreateLabPayload = {
   name: string
   registeredTerminals: number
+}
+
+export type CreateWorkstationPayload = {
+  name: string
+  ipAddress: string | null
+}
+
+export type UpdateWorkstationPayload = {
+  name: string
+  ipAddress: string | null
+  isActive: boolean
 }
 
 export type ExamReportSummary = {
@@ -147,9 +183,20 @@ export type ExamSummary = {
   instructions: string | null
 }
 
+export type ExamAssignmentDetail = {
+  assignmentId: string
+  studentId: string
+  username: string
+  email: string
+  isEligible: boolean
+  workstationId: string | null
+  workstationName: string | null
+}
+
 export type ExamAssignmentInput = {
   studentId: string
   isEligible: boolean
+  workstationId: string | null
 }
 
 export type CreateExamPayload = {
@@ -160,4 +207,14 @@ export type CreateExamPayload = {
   proctorUserId: string | null
   instructions: string | null
   assignments: ExamAssignmentInput[]
+}
+
+export type UpdateExamPayload = {
+  name: string
+  startUtc: string
+  endUtc: string
+  labId: string | null
+  proctorUserId: string | null
+  instructions: string | null
+  isActive: boolean
 }

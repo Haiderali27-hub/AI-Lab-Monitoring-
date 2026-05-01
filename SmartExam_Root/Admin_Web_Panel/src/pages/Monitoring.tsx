@@ -62,6 +62,7 @@ export default function Monitoring() {
     if (!user?.institutionId || !accessToken) {
       return
     }
+    const institutionId = user.institutionId
 
     const baseUrl = apiClient.defaults.baseURL ?? ''
     const hubUrl = `${baseUrl.replace(/\/$/, '')}/hubs/monitoring`
@@ -82,7 +83,7 @@ export default function Monitoring() {
     async function startConnection() {
       try {
         await connection.start()
-        await connection.invoke('JoinInstitution', user.institutionId)
+        await connection.invoke('JoinInstitution', institutionId)
         setStatus('Live monitoring feed connected.')
       } catch {
         setStatus('Monitoring feed connection failed.')

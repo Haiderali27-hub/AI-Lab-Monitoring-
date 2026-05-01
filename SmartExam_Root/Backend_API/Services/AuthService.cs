@@ -123,7 +123,9 @@ public class AuthService(
 
     public async Task<bool> IsBootstrappedAsync(CancellationToken cancellationToken)
     {
-        return await _dbContext.Users.AnyAsync(x => x.Role == SystemRole.SuperAdmin, cancellationToken);
+        return await _dbContext.Users.AnyAsync(
+            x => x.Role == SystemRole.SuperAdmin || x.Role == SystemRole.OrganizationAdmin,
+            cancellationToken);
     }
 
     public async Task<ServiceResult<TokenResponse>> StudentLoginAsync(
@@ -344,6 +346,7 @@ public class AuthService(
     {
         return await _dbContext.Users
             .Where(x => x.InstitutionId == institutionId && x.Role == SystemRole.Student)
+            .OrderBy(x => x.Username)
             .Select(x => new StudentBindingStatusDto(
                 x.Id,
                 x.Username,
@@ -351,7 +354,6 @@ public class AuthService(
                 x.DeviceBindings.Any(),
                 x.DeviceBindings.Select(b => (DateTime?)b.BoundAtUtc).FirstOrDefault(),
                 x.DeviceBindings.Select(b => (DateTime?)b.LastSeenAtUtc).FirstOrDefault()))
-            .OrderBy(x => x.Username)
             .ToListAsync(cancellationToken);
     }
 
