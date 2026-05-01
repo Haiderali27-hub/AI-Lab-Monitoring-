@@ -22,6 +22,8 @@ public record ExamSummaryDto(
     DateTime EndUtc,
     string Status,
     bool IsActive,
+    bool IsCancelled,
+    bool IsArchived,
     string? LabName,
     Guid? LabId,
     string? ProctorName,
@@ -85,3 +87,6 @@ public record LiveRosterItemDto(
     int RemainingSeconds,
     DateTime? LastHeartbeatUtc,
     bool IsOnline);
+
+// Lifecycle requests
+public record ArchiveExamRequest(bool IsArchived);

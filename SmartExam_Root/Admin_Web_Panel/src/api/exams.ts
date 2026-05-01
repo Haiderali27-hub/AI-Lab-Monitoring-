@@ -33,6 +33,20 @@ export async function updateExam(examId: string, payload: UpdateExamPayload): Pr
   return unwrap<{ id: string }>(apiClient.put(`/api/exams/${examId}`, payload))
 }
 
+export async function deleteExam(examId: string): Promise<void> {
+  await unwrap<object>(apiClient.delete(`/api/exams/${examId}`))
+}
+
+export async function cancelExam(examId: string): Promise<void> {
+  await unwrap<{ id: string }>(apiClient.patch(`/api/exams/${examId}/cancel`))
+}
+
+export async function archiveExam(examId: string, isArchived: boolean): Promise<void> {
+  await unwrap<{ id: string; isArchived: boolean }>(
+    apiClient.patch(`/api/exams/${examId}/archive`, { isArchived }),
+  )
+}
+
 export async function getExamAssignments(examId: string): Promise<ExamAssignmentDetail[]> {
   return unwrap<ExamAssignmentDetail[]>(apiClient.get(`/api/exams/${examId}/assignments`))
 }

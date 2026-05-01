@@ -14,6 +14,7 @@ import {
   getTeachers,
   resetStudentBinding,
   toggleUserActive,
+  updateUser,
   uploadStudentCsv,
 } from '../api/admin'
 import { getLiveRoster } from '../api/exams'
@@ -55,6 +56,17 @@ export function AdminDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  // User table search
+  const [userSearch, setUserSearch] = useState('')
+  const [userPage, setUserPage] = useState(1)
+  const PAGE_SIZE = 10
+
+  // Edit user modal
+  const [editingUser, setEditingUser] = useState<UserListItem | null>(null)
+  const [editUsername, setEditUsername] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editIsActive, setEditIsActive] = useState(true)
+
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -75,6 +87,19 @@ export function AdminDashboard() {
     () => sections.filter((section) => !selectedDepartmentId || section.departmentId === selectedDepartmentId),
     [sections, selectedDepartmentId],
   )
+
+  const filteredUsers = useMemo(() => {
+    const list = activeTab === 'teachers' ? teachers : students
+    const term = userSearch.trim().toLowerCase()
+    return term ? list.filter((u) => `${u.username} ${u.email}`.toLowerCase().includes(term)) : list
+  }, [activeTab, teachers, students, userSearch])
+
+  const pagedUsers = useMemo(() => {
+    const start = (userPage - 1) * PAGE_SIZE
+    return filteredUsers.slice(start, start + PAGE_SIZE)
+  }, [filteredUsers, userPage])
+
+  const totalPages = Math.ceil(filteredUsers.length / PAGE_SIZE)
 
   async function loadRoster() {
     setRoster(await getLiveRoster())
@@ -110,6 +135,10 @@ export function AdminDashboard() {
     const timer = window.setInterval(() => void loadRoster().catch(() => undefined), 10000)
     return () => window.clearInterval(timer)
   }, [canManageUsers])
+
+  useEffect(() => {
+    setUserPage(1)
+  }, [userSearch, activeTab])
 
   useEffect(() => {
     if (selectedSectionId && !availableSections.some((section) => section.id === selectedSectionId)) {
@@ -288,17 +317,37 @@ export function AdminDashboard() {
   }
 
   async function onForceLogout(studentId: string) {
-    setBusy(true)
-    setError(null)
+    setBusy(true); setError(null)
     try {
       await forceStudentLogout(studentId)
       await loadRoster()
       setNotice('Active student sessions terminated.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to force logout.')
-    } finally {
-      setBusy(false)
-    }
+    } finally { setBusy(false) }
+  }
+
+  function openEditUser(account: UserListItem) {
+    setEditingUser(account)
+    setEditUsername(account.username)
+    setEditEmail(account.email)
+    setEditIsActive(account.isActive)
+    setError(null)
+  }
+
+  async function onUpdateUser() {
+    if (!editingUser) return
+    if (editUsername.trim().length < 3) { setError('Username must be at least 3 characters.'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editEmail)) { setError('Enter a valid email address.'); return }
+    setBusy(true); setError(null)
+    try {
+      await updateUser(editingUser.id, { username: editUsername.trim(), email: editEmail.trim(), isActive: editIsActive })
+      setEditingUser(null)
+      await loadAdminData()
+      setNotice('User updated.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update user.')
+    } finally { setBusy(false) }
   }
 
   const currentUsers = activeTab === 'teachers' ? teachers : students
@@ -492,7 +541,11 @@ export function AdminDashboard() {
           <section className="glass-card table-container">
             <div className="table-header-row">
               <h3>{activeTab === 'students' ? 'Student Accounts' : 'Teacher Accounts'}</h3>
-              <span className="status-badge secure">{currentUsers.length} records</span>
+              <span className="status-badge secure">{filteredUsers.length} records</span>
+            </div>
+            <div className="search-bar-v2" style={{ marginBottom: '1rem' }}>
+              <span className="material-symbols-outlined">search</span>
+              <input placeholder={`Search ${activeTab}...`} value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
             </div>
             <div className="table-wrapper">
               <table className="admin-table">
@@ -509,7 +562,7 @@ export function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentUsers.map((account) => {
+                  {pagedUsers.map((account) => {
                     const binding = bindings.find((x) => x.studentId === account.id)
                     return (
                       <tr key={account.id}>
@@ -523,20 +576,23 @@ export function AdminDashboard() {
                           <td><span className={`status-pill ${binding?.hasBinding ? 'bound' : 'unbound'}`}>{binding?.hasBinding ? 'Bound' : 'Unbound'}</span></td>
                         )}
                         <td>
-                          <button className="icon-action-btn" type="button" onClick={() => onToggleUser(account.id)} disabled={busy}>
+                          <button className="icon-action-btn" type="button" title="Edit user" onClick={() => openEditUser(account)} disabled={busy}>
+                            <span className="material-symbols-outlined">edit</span>
+                          </button>
+                          <button className="icon-action-btn" type="button" onClick={() => void onToggleUser(account.id)} disabled={busy}>
                             <span className="material-symbols-outlined">{account.isActive ? 'block' : 'check_circle'}</span>
                           </button>
                           {activeTab === 'students' && (
                             <>
-                              <button className="icon-action-btn" type="button" onClick={() => onResetBinding(account.id)} disabled={busy}>
+                              <button className="icon-action-btn" type="button" onClick={() => void onResetBinding(account.id)} disabled={busy}>
                                 <span className="material-symbols-outlined">devices_off</span>
                               </button>
-                              <button className="icon-action-btn" type="button" onClick={() => onForceLogout(account.id)} disabled={busy}>
+                              <button className="icon-action-btn" type="button" onClick={() => void onForceLogout(account.id)} disabled={busy}>
                                 <span className="material-symbols-outlined">logout</span>
                               </button>
                             </>
                           )}
-                          <button className="icon-action-btn danger" type="button" onClick={() => onDeleteUser(account.id)} disabled={busy}>
+                          <button className="icon-action-btn danger" type="button" onClick={() => void onDeleteUser(account.id)} disabled={busy}>
                             <span className="material-symbols-outlined">delete</span>
                           </button>
                         </td>
@@ -545,10 +601,22 @@ export function AdminDashboard() {
                   })}
                 </tbody>
               </table>
-              {currentUsers.length === 0 && <p className="empty-state">No {activeTab} created yet.</p>}
+              {filteredUsers.length === 0 && <p className="empty-state">No {activeTab} match your search.</p>}
             </div>
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', paddingTop: '1rem' }}>
+                <button className="secondary-btn" type="button" disabled={userPage === 1} onClick={() => setUserPage((p) => p - 1)}>
+                  <span className="material-symbols-outlined">chevron_left</span>
+                </button>
+                <span style={{ alignSelf: 'center', fontSize: '0.85rem' }}>{userPage} / {totalPages}</span>
+                <button className="secondary-btn" type="button" disabled={userPage === totalPages} onClick={() => setUserPage((p) => p + 1)}>
+                  <span className="material-symbols-outlined">chevron_right</span>
+                </button>
+              </div>
+            )}
           </section>
         )}
+
 
         {!canManageUsers && (
           <section className="glass-card table-container">
@@ -574,6 +642,45 @@ export function AdminDashboard() {
               {roster.length === 0 && <p className="empty-state">No active or historical student sessions yet.</p>}
             </div>
           </section>
+        )}
+
+        {/* ── Edit User Modal ─────────────────────────────── */}
+        {editingUser && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <div className="glass-card" style={{ width: 440, padding: '2rem', position: 'relative' }}>
+              <div className="section-title-row" style={{ marginBottom: '1.25rem' }}>
+                <span className="material-symbols-outlined">manage_accounts</span>
+                <h3>Edit User — {editingUser.username}</h3>
+              </div>
+              {error && <div className="inline-alert error" style={{ marginBottom: '1rem' }}>{error}</div>}
+              <div className="form-grid-2">
+                <div className="input-group">
+                  <label className="input-label">Username</label>
+                  <input className="input-control" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Email</label>
+                  <input className="input-control" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Status</label>
+                  <select className="input-control select-control" value={editIsActive ? 'active' : 'inactive'} onChange={(e) => setEditIsActive(e.target.value === 'active')}>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+                <button className="secondary-btn" type="button" onClick={() => { setEditingUser(null); setError(null) }}>Cancel</button>
+                <button className="primary-btn" type="button" onClick={() => void onUpdateUser()} disabled={busy}>
+                  {busy ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </AdminLayout>

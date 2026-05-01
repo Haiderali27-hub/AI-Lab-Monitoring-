@@ -131,6 +131,43 @@ public class AdminController(IAuthService authService, ISeedService seedService,
         return Ok(ApiResponse<object>.Ok(new { }));
     }
 
+    [HttpPut("users/{userId:guid}")]
+    public async Task<IActionResult> UpdateUser(
+        Guid userId,
+        [FromBody] UpdateUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetInstitutionId(out var institutionId))
+            return Unauthorized(ApiResponse<object>.Fail("UNAUTHORIZED", "Institution claim missing."));
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(
+            x => x.Id == userId && x.InstitutionId == institutionId &&
+                 (x.Role == SystemRole.Teacher || x.Role == SystemRole.Student),
+            cancellationToken);
+
+        if (user is null)
+            return NotFound(ApiResponse<object>.Fail("NOT_FOUND", "User not found."));
+
+        var username = request.Username.Trim();
+        var email = request.Email.Trim().ToLowerInvariant();
+
+        var duplicate = await _dbContext.Users.AnyAsync(
+            x => x.Id != userId && x.InstitutionId == institutionId &&
+                 (x.Username.ToLower() == username.ToLower() || x.Email.ToLower() == email),
+            cancellationToken);
+
+        if (duplicate)
+            return Conflict(ApiResponse<object>.Fail("USER_EXISTS", "Username or email already in use."));
+
+        user.Username = username;
+        user.Email = email;
+        user.IsActive = request.IsActive;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(ApiResponse<object>.Ok(new { user.Id, user.Username, user.Email, user.IsActive }));
+    }
+
+
     // Device binding management
 
     [HttpPost("students/batch-upload")]

@@ -179,6 +179,8 @@ public class ExamController(AppDbContext dbContext) : ControllerBase
                 exam.EndUtc,
                 ResolveExamStatus(exam, now),
                 exam.IsActive,
+                exam.IsCancelled,
+                exam.IsArchived,
                 exam.Lab?.Name,
                 exam.LabId,
                 exam.ProctorUser?.Username,
@@ -482,6 +484,95 @@ public class ExamController(AppDbContext dbContext) : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { examId }));
     }
 
+    [HttpDelete("{examId:guid}")]
+    [Authorize(Roles = "OrganizationAdmin,Teacher")]
+    public async Task<IActionResult> DeleteExam(Guid examId, CancellationToken cancellationToken)
+    {
+        if (!TryGetInstitutionId(out var institutionId))
+            return Unauthorized(ApiResponse<object>.Fail("UNAUTHORIZED", "Institution claim missing."));
+
+        var exam = await _dbContext.Exams
+            .Include(x => x.Sessions)
+            .FirstOrDefaultAsync(x => x.Id == examId && x.InstitutionId == institutionId, cancellationToken);
+
+        if (exam is null)
+            return NotFound(ApiResponse<object>.Fail("NOT_FOUND", "Exam not found."));
+
+        var hasActiveSessions = exam.Sessions.Any(s =>
+            s.Status == ExamSessionStatus.InProgress);
+
+        if (hasActiveSessions)
+            return Conflict(ApiResponse<object>.Fail(
+                "SESSIONS_ACTIVE",
+                "Cannot delete an exam while student sessions are in progress. Cancel it first."));
+
+        // Remove child assignments first (sessions are preserved for audit)
+        var assignments = await _dbContext.ExamAssignments
+            .Where(x => x.ExamId == examId)
+            .ToListAsync(cancellationToken);
+        _dbContext.ExamAssignments.RemoveRange(assignments);
+        _dbContext.Exams.Remove(exam);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(ApiResponse<object>.Ok(new { }));
+    }
+
+    [HttpPatch("{examId:guid}/cancel")]
+    [Authorize(Roles = "OrganizationAdmin,Teacher")]
+    public async Task<IActionResult> CancelExam(Guid examId, CancellationToken cancellationToken)
+    {
+        if (!TryGetInstitutionId(out var institutionId))
+            return Unauthorized(ApiResponse<object>.Fail("UNAUTHORIZED", "Institution claim missing."));
+
+        var exam = await _dbContext.Exams
+            .FirstOrDefaultAsync(x => x.Id == examId && x.InstitutionId == institutionId, cancellationToken);
+
+        if (exam is null)
+            return NotFound(ApiResponse<object>.Fail("NOT_FOUND", "Exam not found."));
+
+        if (exam.IsCancelled)
+            return Ok(ApiResponse<object>.Ok(new { exam.Id }, "Exam is already cancelled."));
+
+        exam.IsCancelled = true;
+        exam.IsActive = false;
+
+        // Terminate any in-progress sessions
+        var activeSessions = await _dbContext.ExamSessions
+            .Where(x => x.ExamId == examId && x.Status == ExamSessionStatus.InProgress)
+            .ToListAsync(cancellationToken);
+
+        foreach (var session in activeSessions)
+        {
+            session.Status = ExamSessionStatus.Terminated;
+            session.EndedAtUtc = DateTime.UtcNow;
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return Ok(ApiResponse<object>.Ok(new { exam.Id }));
+    }
+
+    [HttpPatch("{examId:guid}/archive")]
+    [Authorize(Roles = "OrganizationAdmin,Teacher")]
+    public async Task<IActionResult> ArchiveExam(
+        Guid examId,
+        [FromBody] ArchiveExamRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetInstitutionId(out var institutionId))
+            return Unauthorized(ApiResponse<object>.Fail("UNAUTHORIZED", "Institution claim missing."));
+
+        var exam = await _dbContext.Exams
+            .FirstOrDefaultAsync(x => x.Id == examId && x.InstitutionId == institutionId, cancellationToken);
+
+        if (exam is null)
+            return NotFound(ApiResponse<object>.Fail("NOT_FOUND", "Exam not found."));
+
+        exam.IsArchived = request.IsArchived;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(ApiResponse<object>.Ok(new { exam.Id, exam.IsArchived }));
+    }
+
     [HttpGet("admin/live-roster")]
     [Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.Teacher)}")]
     public async Task<IActionResult> GetLiveRoster(CancellationToken cancellationToken)
@@ -552,20 +643,20 @@ public class ExamController(AppDbContext dbContext) : ControllerBase
 
     private static string ResolveExamStatus(Exam exam, DateTime now)
     {
+        if (exam.IsCancelled)
+            return "Cancelled";
+
+        if (exam.IsArchived)
+            return "Archived";
+
         if (!exam.IsActive)
-        {
             return "Draft";
-        }
 
         if (exam.StartUtc > now)
-        {
             return "Scheduled";
-        }
 
         if (exam.EndUtc < now)
-        {
             return "Completed";
-        }
 
         return "Live";
     }

@@ -34,3 +34,9 @@ public record UserListDto(
     string? DepartmentName,
     Guid? SectionId,
     string? SectionName);
+
+public record UpdateUserRequest(
+    [Required, MinLength(3), MaxLength(120)] string Username,
+    [Required, EmailAddress, MaxLength(256)] string Email,
+    bool IsActive);
+

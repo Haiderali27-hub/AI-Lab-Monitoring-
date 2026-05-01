@@ -1,4 +1,4 @@
-import type { AcademicSection, BatchUploadResult, Department, StudentBindingStatus, UserListItem, UserSummary } from '../types'
+import type { AcademicSection, BatchUploadResult, Department, StudentBindingStatus, UpdateUserPayload, UserListItem, UserSummary } from '../types'
 import { apiClient, unwrap } from './client'
 
 type CreateUserPayload = {
@@ -71,6 +71,11 @@ export async function toggleUserActive(userId: string): Promise<void> {
 export async function deleteUser(userId: string): Promise<void> {
   await unwrap<object>(apiClient.delete(`/api/admin/users/${userId}`))
 }
+
+export async function updateUser(userId: string, payload: UpdateUserPayload): Promise<void> {
+  await unwrap<object>(apiClient.put(`/api/admin/users/${userId}`, payload))
+}
+
 
 export async function getStudentBindings(): Promise<StudentBindingStatus[]> {
   return unwrap<StudentBindingStatus[]>(apiClient.get('/api/admin/students/device-bindings'))

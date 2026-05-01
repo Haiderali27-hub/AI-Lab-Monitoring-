@@ -199,6 +199,8 @@ export type ExamSummary = {
   endUtc: string
   status: string
   isActive: boolean
+  isCancelled: boolean
+  isArchived: boolean
   labName: string | null
   labId: string | null
   proctorName: string | null
@@ -244,3 +246,10 @@ export type UpdateExamPayload = {
   instructions: string | null
   isActive: boolean
 }
+
+export type UpdateUserPayload = {
+  username: string
+  email: string
+  isActive: boolean
+}
+

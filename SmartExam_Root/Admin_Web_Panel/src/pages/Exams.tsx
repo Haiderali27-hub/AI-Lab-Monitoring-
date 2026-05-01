@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  archiveExam,
+  cancelExam,
   createExam,
+  deleteExam,
   getExamAssignments,
   getExamCandidates,
   getExamProctors,
@@ -21,6 +24,20 @@ import type {
 } from '../types'
 
 type Mode = 'list' | 'create' | 'edit'
+type StatusFilter = 'All' | 'Scheduled' | 'Live' | 'Completed' | 'Cancelled' | 'Archived' | 'Draft'
+
+const STATUS_FILTERS: StatusFilter[] = ['All', 'Scheduled', 'Live', 'Completed', 'Cancelled', 'Archived', 'Draft']
+
+function statusBadgeClass(status: string): string {
+  switch (status) {
+    case 'Live': return 'active'
+    case 'Scheduled': return 'secure'
+    case 'Completed': return 'secure'
+    case 'Cancelled': return 'danger'
+    case 'Archived': return 'muted'
+    default: return 'secure'
+  }
+}
 
 function toDateInput(value: string): string {
   return new Date(value).toISOString().slice(0, 10)
@@ -49,6 +66,7 @@ export default function Exams() {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('All')
 
   const [name, setName] = useState('')
   const [date, setDate] = useState('')
@@ -64,12 +82,17 @@ export default function Exams() {
   const filteredCandidates = useMemo(() => {
     const term = search.trim().toLowerCase()
     if (!term) return candidates
-    return candidates.filter((candidate) => `${candidate.username} ${candidate.email}`.toLowerCase().includes(term))
+    return candidates.filter((c) => `${c.username} ${c.email}`.toLowerCase().includes(term))
   }, [candidates, search])
 
   const selectedAssignments = useMemo(() => Object.values(assignments), [assignments])
-  const selectedLab = useMemo(() => labs.find((lab) => lab.id === labId) ?? null, [labs, labId])
-  const availableWorkstations = useMemo(() => workstations.filter((machine) => machine.isActive), [workstations])
+  const selectedLab = useMemo(() => labs.find((l) => l.id === labId) ?? null, [labs, labId])
+  const availableWorkstations = useMemo(() => workstations.filter((w) => w.isActive), [workstations])
+
+  const visibleExams = useMemo(() => {
+    if (statusFilter === 'All') return exams
+    return exams.filter((e) => e.status === statusFilter)
+  }, [exams, statusFilter])
 
   async function loadStaticData() {
     const [examResult, candidateResult, labResult, proctorResult] = await Promise.all([
@@ -85,10 +108,7 @@ export default function Exams() {
   }
 
   async function loadWorkstationsForLab(nextLabId: string | null) {
-    if (!nextLabId) {
-      setWorkstations([])
-      return
-    }
+    if (!nextLabId) { setWorkstations([]); return }
     setWorkstations(await getWorkstations(nextLabId))
   }
 
@@ -98,112 +118,66 @@ export default function Exams() {
 
   useEffect(() => {
     void loadWorkstationsForLab(labId).catch((err) => setError(err instanceof Error ? err.message : 'Failed to load lab machines.'))
-    setAssignments((current) => {
+    setAssignments((cur) => {
       const next: Record<string, ExamAssignmentInput> = {}
-      Object.entries(current).forEach(([studentId, assignment]) => {
-        next[studentId] = { ...assignment, workstationId: null }
-      })
+      Object.entries(cur).forEach(([sid, a]) => { next[sid] = { ...a, workstationId: null } })
       return next
     })
   }, [labId])
 
   function resetForm() {
-    setEditingExamId(null)
-    setName('')
-    setDate('')
-    setStartTime('09:00')
-    setDuration(120)
-    setLabId(null)
-    setProctorUserId(null)
-    setInstructions('')
-    setIsActive(true)
-    setSearch('')
-    setAssignments({})
-    setError(null)
+    setEditingExamId(null); setName(''); setDate(''); setStartTime('09:00')
+    setDuration(120); setLabId(null); setProctorUserId(null)
+    setInstructions(''); setIsActive(true); setSearch(''); setAssignments({}); setError(null)
   }
 
-  function startCreate() {
-    resetForm()
-    setMode('create')
-  }
+  function startCreate() { resetForm(); setMode('create') }
 
   async function startEdit(exam: ExamSummary) {
-    setBusy(true)
-    setError(null)
+    setBusy(true); setError(null)
     try {
-      setEditingExamId(exam.id)
-      setName(exam.name)
-      setDate(toDateInput(exam.startUtc))
-      setStartTime(toTimeInput(exam.startUtc))
+      setEditingExamId(exam.id); setName(exam.name)
+      setDate(toDateInput(exam.startUtc)); setStartTime(toTimeInput(exam.startUtc))
       setDuration(minutesBetween(exam.startUtc, exam.endUtc))
-      setLabId(exam.labId)
-      setProctorUserId(exam.proctorUserId)
-      setInstructions(exam.instructions ?? '')
-      setIsActive(exam.isActive)
+      setLabId(exam.labId); setProctorUserId(exam.proctorUserId)
+      setInstructions(exam.instructions ?? ''); setIsActive(exam.isActive)
       await loadWorkstationsForLab(exam.labId)
-      const existingAssignments = await getExamAssignments(exam.id)
+      const existing = await getExamAssignments(exam.id)
       const next: Record<string, ExamAssignmentInput> = {}
-      existingAssignments.forEach((assignment) => {
-        next[assignment.studentId] = {
-          studentId: assignment.studentId,
-          isEligible: assignment.isEligible,
-          workstationId: assignment.workstationId,
-        }
-      })
-      setAssignments(next)
-      setMode('edit')
+      existing.forEach((a) => { next[a.studentId] = { studentId: a.studentId, isEligible: a.isEligible, workstationId: a.workstationId } })
+      setAssignments(next); setMode('edit')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load exam assignments.')
-    } finally {
-      setBusy(false)
-    }
+      setError(err instanceof Error ? err.message : 'Failed to load exam.')
+    } finally { setBusy(false) }
   }
 
   function toggleStudent(studentId: string, checked: boolean) {
-    setAssignments((current) => {
-      const next = { ...current }
-      if (!checked) {
-        delete next[studentId]
-      } else {
-        next[studentId] = { studentId, isEligible: true, workstationId: null }
-      }
+    setAssignments((cur) => {
+      const next = { ...cur }
+      if (!checked) { delete next[studentId] } else { next[studentId] = { studentId, isEligible: true, workstationId: null } }
       return next
     })
   }
 
   function updateStudentAssignment(studentId: string, patch: Partial<ExamAssignmentInput>) {
-    setAssignments((current) => {
-      const existing = current[studentId]
-      if (!existing) return current
-      return { ...current, [studentId]: { ...existing, ...patch } }
+    setAssignments((cur) => {
+      const existing = cur[studentId]
+      if (!existing) return cur
+      return { ...cur, [studentId]: { ...existing, ...patch } }
     })
   }
 
   async function onSaveExam() {
     if (!name.trim() || !date || !startTime || duration <= 0) {
-      setError('Complete exam title, date, start time, and duration.')
-      return
+      setError('Complete exam title, date, start time, and duration.'); return
     }
-
-    setBusy(true)
-    setError(null)
-    setNotice(null)
-
+    setBusy(true); setError(null); setNotice(null)
     try {
       const startUtc = toUtcIso(date, startTime)
       const endDate = new Date(`${date}T${startTime}`)
       endDate.setMinutes(endDate.getMinutes() + duration)
       const endUtc = endDate.toISOString()
-
-      const basePayload = {
-        name: name.trim(),
-        startUtc,
-        endUtc,
-        labId,
-        proctorUserId,
-        instructions: instructions.trim() ? instructions.trim() : null,
-      }
-
+      const basePayload = { name: name.trim(), startUtc, endUtc, labId, proctorUserId, instructions: instructions.trim() || null }
       if (mode === 'edit' && editingExamId) {
         await updateExam(editingExamId, { ...basePayload, isActive })
         await updateExamAssignments(editingExamId, selectedAssignments)
@@ -213,31 +187,61 @@ export default function Exams() {
         await createExam(payload)
         setNotice('Exam created.')
       }
-
-      await loadStaticData()
-      resetForm()
-      setMode('list')
+      await loadStaticData(); resetForm(); setMode('list')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save exam.')
-    } finally {
-      setBusy(false)
-    }
+    } finally { setBusy(false) }
   }
 
+  async function onCancelExam(exam: ExamSummary) {
+    if (!window.confirm(`Cancel exam "${exam.name}"? Active student sessions will be terminated.`)) return
+    setBusy(true); setError(null)
+    try {
+      await cancelExam(exam.id)
+      await loadStaticData()
+      setNotice(`Exam "${exam.name}" has been cancelled.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel exam.')
+    } finally { setBusy(false) }
+  }
+
+  async function onArchiveExam(exam: ExamSummary) {
+    const willArchive = !exam.isArchived
+    setBusy(true); setError(null)
+    try {
+      await archiveExam(exam.id, willArchive)
+      await loadStaticData()
+      setNotice(willArchive ? `Exam "${exam.name}" archived.` : `Exam "${exam.name}" unarchived.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to archive exam.')
+    } finally { setBusy(false) }
+  }
+
+  async function onDeleteExam(exam: ExamSummary) {
+    if (!window.confirm(`Permanently delete exam "${exam.name}"? This cannot be undone.`)) return
+    setBusy(true); setError(null)
+    try {
+      await deleteExam(exam.id)
+      await loadStaticData()
+      setNotice(`Exam "${exam.name}" deleted.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete exam.')
+    } finally { setBusy(false) }
+  }
+
+  // ── Create / Edit Form ──────────────────────────────────────────────────────
   if (mode !== 'list') {
     return (
       <AdminLayout>
         <div className="dashboard-content">
           <header className="page-header">
             <div className="header-text">
-              <p className="eyebrow">Exam Configuration & Scheduling</p>
+              <p className="eyebrow">Exam Configuration &amp; Scheduling</p>
               <h1>{mode === 'edit' ? 'Edit Exam' : 'Create New Exam'}</h1>
-              <p className="subtext">Set the schedule, assign a teacher proctor, select candidates, and map students to lab machines.</p>
+              <p className="subtext">Set the schedule, assign a proctor, select candidates, and map students to lab machines.</p>
             </div>
             <div className="header-actions" style={{ display: 'flex', gap: '0.75rem' }}>
-              <button className="secondary-btn" type="button" onClick={() => { resetForm(); setMode('list') }}>
-                Cancel
-              </button>
+              <button className="secondary-btn" type="button" onClick={() => { resetForm(); setMode('list') }}>Cancel</button>
               <button className="primary-btn" type="button" onClick={() => void onSaveExam()} disabled={busy}>
                 {busy ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Publish Exam'}
               </button>
@@ -257,30 +261,30 @@ export default function Exams() {
                 <div className="form-grid-2">
                   <div className="input-group" style={{ gridColumn: 'span 2' }}>
                     <label className="input-label">Exam Title</label>
-                    <input className="input-control" value={name} onChange={(event) => setName(event.target.value)} placeholder="Database Systems Midterm" />
+                    <input className="input-control" value={name} onChange={(e) => setName(e.target.value)} placeholder="Database Systems Midterm" />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Date</label>
-                    <input className="input-control" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+                    <input className="input-control" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Start Time</label>
-                    <input className="input-control" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
+                    <input className="input-control" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
                   </div>
                   <div className="input-group">
-                    <label className="input-label">Duration Minutes</label>
-                    <input className="input-control" type="number" min={15} value={duration} onChange={(event) => setDuration(Number(event.target.value))} />
+                    <label className="input-label">Duration (minutes)</label>
+                    <input className="input-control" type="number" min={15} value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Exam State</label>
-                    <select className="input-control select-control" value={isActive ? 'active' : 'draft'} onChange={(event) => setIsActive(event.target.value === 'active')}>
+                    <select className="input-control select-control" value={isActive ? 'active' : 'draft'} onChange={(e) => setIsActive(e.target.value === 'active')}>
                       <option value="active">Active / Scheduled</option>
                       <option value="draft">Draft / Disabled</option>
                     </select>
                   </div>
                   <div className="input-group" style={{ gridColumn: 'span 2' }}>
                     <label className="input-label">Instructions</label>
-                    <textarea className="input-control" rows={4} value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder="Exam rules, allowed tools, and submission instructions..." />
+                    <textarea className="input-control" rows={4} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Exam rules, allowed tools, and submission instructions..." />
                   </div>
                 </div>
               </section>
@@ -288,21 +292,21 @@ export default function Exams() {
               <section className="glass-card form-section">
                 <div className="section-title-row">
                   <span className="material-symbols-outlined">settings_input_component</span>
-                  <h3>Lab & Proctor</h3>
+                  <h3>Lab &amp; Proctor</h3>
                 </div>
                 <div className="form-grid-2">
                   <div className="input-group">
                     <label className="input-label">Lab</label>
-                    <select className="input-control select-control" value={labId ?? ''} onChange={(event) => setLabId(event.target.value || null)}>
+                    <select className="input-control select-control" value={labId ?? ''} onChange={(e) => setLabId(e.target.value || null)}>
                       <option value="">No lab selected</option>
-                      {labs.map((lab) => <option key={lab.id} value={lab.id}>{lab.name} ({lab.registeredTerminals} terminals)</option>)}
+                      {labs.map((l) => <option key={l.id} value={l.id}>{l.name} ({l.registeredTerminals} terminals)</option>)}
                     </select>
                   </div>
                   <div className="input-group">
                     <label className="input-label">Teacher Proctor</label>
-                    <select className="input-control select-control" value={proctorUserId ?? ''} onChange={(event) => setProctorUserId(event.target.value || null)}>
+                    <select className="input-control select-control" value={proctorUserId ?? ''} onChange={(e) => setProctorUserId(e.target.value || null)}>
                       <option value="">No proctor selected</option>
-                      {proctors.map((proctor) => <option key={proctor.id} value={proctor.id}>{proctor.username}</option>)}
+                      {proctors.map((p) => <option key={p.id} value={p.id}>{p.username}</option>)}
                     </select>
                   </div>
                 </div>
@@ -311,11 +315,11 @@ export default function Exams() {
               <section className="glass-card form-section">
                 <div className="section-title-row">
                   <span className="material-symbols-outlined">group_add</span>
-                  <h3>Student Assignment & Workstations</h3>
+                  <h3>Student Assignment &amp; Workstations</h3>
                 </div>
                 <div className="search-bar-v2">
                   <span className="material-symbols-outlined">search</span>
-                  <input placeholder="Search students..." value={search} onChange={(event) => setSearch(event.target.value)} />
+                  <input placeholder="Search students..." value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
                 <div className="student-list" style={{ maxHeight: 520 }}>
                   {filteredCandidates.map((candidate) => {
@@ -323,7 +327,7 @@ export default function Exams() {
                     return (
                       <div key={candidate.id} className="student-item" style={{ alignItems: 'stretch', gap: '1rem' }}>
                         <div className="student-item-left" style={{ minWidth: 220 }}>
-                          <input type="checkbox" checked={Boolean(assignment)} onChange={(event) => toggleStudent(candidate.id, event.target.checked)} />
+                          <input type="checkbox" checked={Boolean(assignment)} onChange={(e) => toggleStudent(candidate.id, e.target.checked)} />
                           <div className="student-details">
                             <span className="student-name">{candidate.username}</span>
                             <span className="student-email">{candidate.email}</span>
@@ -333,13 +337,13 @@ export default function Exams() {
                           <span className={`status-pill ${candidate.hasBinding ? 'bound' : 'unbound'}`}>{candidate.hasBinding ? 'Device Bound' : 'Unbound'}</span>
                           {assignment && (
                             <>
-                              <select className="input-control select-control" style={{ width: 190 }} value={assignment.isEligible ? 'yes' : 'no'} onChange={(event) => updateStudentAssignment(candidate.id, { isEligible: event.target.value === 'yes' })}>
+                              <select className="input-control select-control" style={{ width: 190 }} value={assignment.isEligible ? 'yes' : 'no'} onChange={(e) => updateStudentAssignment(candidate.id, { isEligible: e.target.value === 'yes' })}>
                                 <option value="yes">Eligible</option>
                                 <option value="no">Ineligible</option>
                               </select>
-                              <select className="input-control select-control" style={{ width: 220 }} value={assignment.workstationId ?? ''} onChange={(event) => updateStudentAssignment(candidate.id, { workstationId: event.target.value || null })} disabled={!labId}>
+                              <select className="input-control select-control" style={{ width: 220 }} value={assignment.workstationId ?? ''} onChange={(e) => updateStudentAssignment(candidate.id, { workstationId: e.target.value || null })} disabled={!labId}>
                                 <option value="">No workstation</option>
-                                {availableWorkstations.map((machine) => <option key={machine.id} value={machine.id}>{machine.name}{machine.ipAddress ? ` - ${machine.ipAddress}` : ''}</option>)}
+                                {availableWorkstations.map((w) => <option key={w.id} value={w.id}>{w.name}{w.ipAddress ? ` - ${w.ipAddress}` : ''}</option>)}
                               </select>
                             </>
                           )}
@@ -365,25 +369,13 @@ export default function Exams() {
                     <span>{selectedLab ? `${selectedAssignments.length}/${selectedLab.registeredTerminals}` : 'No lab'}</span>
                   </div>
                   <div className="capacity-bar">
-                    <div
-                      className="capacity-fill"
-                      style={{ width: selectedLab ? `${Math.min(100, (selectedAssignments.length / Math.max(selectedLab.registeredTerminals, 1)) * 100)}%` : '0%' }}
-                    />
+                    <div className="capacity-fill" style={{ width: selectedLab ? `${Math.min(100, (selectedAssignments.length / Math.max(selectedLab.registeredTerminals, 1)) * 100)}%` : '0%' }} />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
-                  <span className="status-pill bound">{selectedAssignments.filter((item) => item.isEligible).length} eligible</span>
-                  <span className="status-pill unbound">{selectedAssignments.filter((item) => !item.isEligible).length} ineligible</span>
-                  <span className="status-pill active">{selectedAssignments.filter((item) => item.workstationId).length} machines mapped</span>
-                </div>
-                <div className="alert-card" style={{ marginTop: '1rem' }}>
-                  <span className="material-symbols-outlined">info</span>
-                  <div className="alert-text">
-                    <span className="alert-label">WORKSTATION CONTROL</span>
-                    <p className="alert-message">
-                      Select a lab to assign physical machines. Machine mapping is saved with each student assignment.
-                    </p>
-                  </div>
+                  <span className="status-pill bound">{selectedAssignments.filter((a) => a.isEligible).length} eligible</span>
+                  <span className="status-pill unbound">{selectedAssignments.filter((a) => !a.isEligible).length} ineligible</span>
+                  <span className="status-pill active">{selectedAssignments.filter((a) => a.workstationId).length} machines mapped</span>
                 </div>
               </section>
             </aside>
@@ -393,31 +385,51 @@ export default function Exams() {
     )
   }
 
+  // ── List View ───────────────────────────────────────────────────────────────
   return (
     <AdminLayout>
       <div className="dashboard-content">
         <header className="page-header">
           <div className="header-text">
-            <p className="eyebrow">Exam Configuration & Scheduling</p>
-            <h1>Exams & Assessments</h1>
-            <p className="subtext">Create exams, assign students, and allocate lab machines for scheduled sessions.</p>
+            <p className="eyebrow">Exam Configuration &amp; Scheduling</p>
+            <h1>Exams &amp; Assessments</h1>
+            <p className="subtext">Create exams, assign students, and manage the full exam lifecycle.</p>
           </div>
-          <button className="primary-btn" type="button" onClick={startCreate}>
-            <span className="material-symbols-outlined">add</span>
-            Create Exam
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button className="secondary-btn" type="button" onClick={() => void loadStaticData()}>
+              <span className="material-symbols-outlined">refresh</span>Refresh
+            </button>
+            <button className="primary-btn" type="button" onClick={startCreate}>
+              <span className="material-symbols-outlined">add</span>Create Exam
+            </button>
+          </div>
         </header>
 
         {notice && <div className="inline-alert">{notice}</div>}
         {error && <div className="inline-alert error">{error}</div>}
 
+        {/* Status filter tabs */}
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          {STATUS_FILTERS.map((filter) => {
+            const count = filter === 'All' ? exams.length : exams.filter((e) => e.status === filter).length
+            return (
+              <button
+                key={filter}
+                type="button"
+                className={statusFilter === filter ? 'primary-btn' : 'secondary-btn'}
+                style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem' }}
+                onClick={() => setStatusFilter(filter)}
+              >
+                {filter} <span style={{ opacity: 0.7, marginLeft: 4 }}>({count})</span>
+              </button>
+            )
+          })}
+        </div>
+
         <section className="glass-card table-container">
           <div className="table-header-row">
             <h3>Exam Schedule</h3>
-            <button className="secondary-btn" type="button" onClick={() => void loadStaticData()}>
-              <span className="material-symbols-outlined">refresh</span>
-              Refresh
-            </button>
+            <span className="status-badge secure">{visibleExams.length} exams</span>
           </div>
           <div className="table-wrapper">
             <table className="admin-table">
@@ -433,7 +445,7 @@ export default function Exams() {
                 </tr>
               </thead>
               <tbody>
-                {exams.map((exam) => (
+                {visibleExams.map((exam) => (
                   <tr key={exam.id} className="table-row">
                     <td>
                       <div className="student-details">
@@ -444,23 +456,44 @@ export default function Exams() {
                     <td>
                       <div className="student-details">
                         <span className="student-name">{new Date(exam.startUtc).toLocaleDateString()}</span>
-                        <span className="student-email">{new Date(exam.startUtc).toLocaleTimeString()} - {new Date(exam.endUtc).toLocaleTimeString()}</span>
+                        <span className="student-email">{new Date(exam.startUtc).toLocaleTimeString()} – {new Date(exam.endUtc).toLocaleTimeString()}</span>
                       </div>
                     </td>
                     <td>{exam.labName ?? 'Unassigned'}</td>
                     <td>{exam.proctorName ?? 'Unassigned'}</td>
                     <td>{exam.eligibleCount}/{exam.candidateCount}</td>
-                    <td><span className={`status-badge ${exam.status === 'Live' ? 'active' : 'secure'}`}>{exam.status}</span></td>
                     <td>
-                      <button className="icon-action-btn" type="button" onClick={() => void startEdit(exam)} disabled={busy}>
-                        <span className="material-symbols-outlined">edit</span>
+                      <span className={`status-badge ${statusBadgeClass(exam.status)}`}>{exam.status}</span>
+                    </td>
+                    <td style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                      {/* Edit — only if not cancelled/archived */}
+                      {!exam.isCancelled && !exam.isArchived && (
+                        <button className="icon-action-btn" type="button" title="Edit" onClick={() => void startEdit(exam)} disabled={busy}>
+                          <span className="material-symbols-outlined">edit</span>
+                        </button>
+                      )}
+                      {/* Cancel — only active/scheduled exams */}
+                      {!exam.isCancelled && !exam.isArchived && (
+                        <button className="icon-action-btn" type="button" title="Cancel exam" onClick={() => void onCancelExam(exam)} disabled={busy} style={{ color: 'var(--color-warning, #f59e0b)' }}>
+                          <span className="material-symbols-outlined">cancel</span>
+                        </button>
+                      )}
+                      {/* Archive / Unarchive */}
+                      <button className="icon-action-btn" type="button" title={exam.isArchived ? 'Unarchive' : 'Archive'} onClick={() => void onArchiveExam(exam)} disabled={busy}>
+                        <span className="material-symbols-outlined">{exam.isArchived ? 'unarchive' : 'archive'}</span>
                       </button>
+                      {/* Delete — only draft, cancelled, or archived */}
+                      {(exam.status === 'Draft' || exam.isCancelled || exam.isArchived) && (
+                        <button className="icon-action-btn danger" type="button" title="Delete permanently" onClick={() => void onDeleteExam(exam)} disabled={busy}>
+                          <span className="material-symbols-outlined">delete</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {exams.length === 0 && <p className="empty-state">No exams scheduled yet.</p>}
+            {visibleExams.length === 0 && <p className="empty-state">No exams match the selected filter.</p>}
           </div>
         </section>
       </div>

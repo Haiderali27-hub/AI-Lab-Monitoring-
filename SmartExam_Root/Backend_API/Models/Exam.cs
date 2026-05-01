@@ -11,6 +11,8 @@ public class Exam
     public DateTime StartUtc { get; set; }
     public DateTime EndUtc { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsCancelled { get; set; } = false;
+    public bool IsArchived { get; set; } = false;
 
     public Institution Institution { get; set; } = null!;
     public Lab? Lab { get; set; }
