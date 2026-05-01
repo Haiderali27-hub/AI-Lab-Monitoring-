@@ -13,6 +13,7 @@ import {
   getStudents,
   getTeachers,
   resetStudentBinding,
+  resetUserPassword,
   toggleUserActive,
   updateUser,
   uploadStudentCsv,
@@ -66,6 +67,10 @@ export function AdminDashboard() {
   const [editUsername, setEditUsername] = useState('')
   const [editEmail, setEditEmail] = useState('')
   const [editIsActive, setEditIsActive] = useState(true)
+  const [editRole, setEditRole] = useState<'Student' | 'Teacher'>('Student')
+  const [editNewPassword, setEditNewPassword] = useState('')
+  const [editPasswordVisible, setEditPasswordVisible] = useState(false)
+  const [showPasswordReset, setShowPasswordReset] = useState(false)
 
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
@@ -332,6 +337,10 @@ export function AdminDashboard() {
     setEditUsername(account.username)
     setEditEmail(account.email)
     setEditIsActive(account.isActive)
+    setEditRole(account.role === 'Teacher' ? 'Teacher' : 'Student')
+    setEditNewPassword('')
+    setShowPasswordReset(false)
+    setEditPasswordVisible(false)
     setError(null)
   }
 
@@ -341,12 +350,32 @@ export function AdminDashboard() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editEmail)) { setError('Enter a valid email address.'); return }
     setBusy(true); setError(null)
     try {
-      await updateUser(editingUser.id, { username: editUsername.trim(), email: editEmail.trim(), isActive: editIsActive })
+      const roleChanged = editRole !== (editingUser.role === 'Teacher' ? 'Teacher' : 'Student')
+      await updateUser(editingUser.id, {
+        username: editUsername.trim(),
+        email: editEmail.trim(),
+        isActive: editIsActive,
+        ...(roleChanged ? { newRole: editRole } : {}),
+      })
       setEditingUser(null)
       await loadAdminData()
-      setNotice('User updated.')
+      setNotice(`User "${editUsername.trim()}" updated${roleChanged ? ` — role changed to ${editRole}` : ''}.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update user.')
+    } finally { setBusy(false) }
+  }
+
+  async function onResetPassword() {
+    if (!editingUser) return
+    if (editNewPassword.length < 8) { setError('New password must be at least 8 characters.'); return }
+    setBusy(true); setError(null)
+    try {
+      await resetUserPassword(editingUser.id, editNewPassword)
+      setEditNewPassword('')
+      setShowPasswordReset(false)
+      setNotice(`Password reset for "${editingUser.username}". Their active sessions have been revoked.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset password.')
     } finally { setBusy(false) }
   }
 
@@ -647,16 +676,25 @@ export function AdminDashboard() {
         {/* ── Edit User Modal ─────────────────────────────── */}
         {editingUser && (
           <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 999,
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <div className="glass-card" style={{ width: 440, padding: '2rem', position: 'relative' }}>
+            <div className="glass-card" style={{ width: 480, padding: '2rem', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
               <div className="section-title-row" style={{ marginBottom: '1.25rem' }}>
                 <span className="material-symbols-outlined">manage_accounts</span>
                 <h3>Edit User — {editingUser.username}</h3>
               </div>
               {error && <div className="inline-alert error" style={{ marginBottom: '1rem' }}>{error}</div>}
-              <div className="form-grid-2">
+
+              {/* Role change warning */}
+              {editRole !== (editingUser.role === 'Teacher' ? 'Teacher' : 'Student') && (
+                <div className="inline-alert" style={{ marginBottom: '1rem', borderLeft: '3px solid var(--color-warning, #f59e0b)' }}>
+                  ⚠️ Changing role from <strong>{editingUser.role}</strong> to <strong>{editRole}</strong> will remove all associated section {editingUser.role === 'Teacher' ? 'assignments' : 'enrollments and exam slots'}.
+                </div>
+              )}
+
+              {/* Core fields */}
+              <div className="form-grid-2" style={{ marginBottom: '1rem' }}>
                 <div className="input-group">
                   <label className="input-label">Username</label>
                   <input className="input-control" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} />
@@ -672,12 +710,92 @@ export function AdminDashboard() {
                     <option value="inactive">Inactive</option>
                   </select>
                 </div>
+                <div className="input-group">
+                  <label className="input-label">Role</label>
+                  <select
+                    className="input-control select-control"
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value as 'Student' | 'Teacher')}
+                  >
+                    <option value="Student">Student</option>
+                    <option value="Teacher">Teacher</option>
+                  </select>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
-                <button className="secondary-btn" type="button" onClick={() => { setEditingUser(null); setError(null) }}>Cancel</button>
-                <button className="primary-btn" type="button" onClick={() => void onUpdateUser()} disabled={busy}>
-                  {busy ? 'Saving...' : 'Save Changes'}
+
+              {/* Save Profile */}
+              <button
+                className="primary-btn"
+                type="button"
+                style={{ width: '100%', marginBottom: '1.25rem' }}
+                onClick={() => void onUpdateUser()}
+                disabled={busy}
+              >
+                {busy ? 'Saving...' : 'Save Profile Changes'}
+              </button>
+
+              {/* Reset Password accordion */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  style={{ width: '100%', justifyContent: 'space-between', display: 'flex' }}
+                  onClick={() => { setShowPasswordReset((v) => !v); setEditNewPassword('') }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>lock_reset</span>
+                    Reset Password
+                  </span>
+                  <span className="material-symbols-outlined">{showPasswordReset ? 'expand_less' : 'expand_more'}</span>
                 </button>
+
+                {showPasswordReset && (
+                  <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <p style={{ fontSize: '0.8rem', opacity: 0.7, margin: 0 }}>
+                      Setting a new password will immediately revoke all active sessions for this user.
+                    </p>
+                    <div className="input-group">
+                      <label className="input-label">New Password</label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          className="input-control"
+                          type={editPasswordVisible ? 'text' : 'password'}
+                          value={editNewPassword}
+                          onChange={(e) => setEditNewPassword(e.target.value)}
+                          placeholder="Min 8 characters"
+                          style={{ paddingRight: '2.5rem' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setEditPasswordVisible((v) => !v)}
+                          style={{
+                            position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
+                            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', opacity: 0.6 }}>
+                            {editPasswordVisible ? 'visibility_off' : 'visibility'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      className="secondary-btn"
+                      type="button"
+                      onClick={() => void onResetPassword()}
+                      disabled={busy || editNewPassword.length < 8}
+                      style={{ color: 'var(--color-warning, #f59e0b)' }}
+                    >
+                      <span className="material-symbols-outlined">lock</span>
+                      {busy ? 'Resetting...' : 'Confirm Password Reset'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Dismiss */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
+                <button className="secondary-btn" type="button" onClick={() => { setEditingUser(null); setError(null) }}>Close</button>
               </div>
             </div>
           </div>

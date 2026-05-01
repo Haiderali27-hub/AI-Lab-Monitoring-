@@ -38,5 +38,8 @@ public record UserListDto(
 public record UpdateUserRequest(
     [Required, MinLength(3), MaxLength(120)] string Username,
     [Required, EmailAddress, MaxLength(256)] string Email,
-    bool IsActive);
+    bool IsActive,
+    SystemRole? NewRole = null);
 
+public record ResetPasswordRequest(
+    [Required, MinLength(8), MaxLength(128)] string NewPassword);

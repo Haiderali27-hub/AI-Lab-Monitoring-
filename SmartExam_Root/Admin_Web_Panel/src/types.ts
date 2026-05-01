@@ -251,5 +251,6 @@ export type UpdateUserPayload = {
   username: string
   email: string
   isActive: boolean
+  newRole?: 'Student' | 'Teacher'
 }
 

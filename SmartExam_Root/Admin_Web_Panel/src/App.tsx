@@ -4,12 +4,7 @@ import { AdminDashboard } from './pages/AdminDashboard'
 import Exams from './pages/Exams'
 import LabManagement from './pages/LabManagement'
 import { LandingPage } from './pages/LandingPage'
-import Monitoring from './pages/Monitoring'
-import OrganizationSettings from './pages/OrganizationSettings'
-import Reports from './pages/Reports'
 import SetupPage from './pages/SetupPage'
-import { StitchGallery } from './pages/StitchGallery'
-import { StitchScreen } from './pages/StitchScreen'
 import SuperAdminDashboard from './pages/SuperAdminDashboard'
 import { destinationForRole } from './roleUtils'
 import { useAuth } from './store/AuthContext'
@@ -35,11 +30,12 @@ function HomeRedirect() {
 function App() {
   return (
     <Routes>
+      {/* Core routes */}
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/setup" element={<SetupPage />} />
-      <Route path="/ui" element={<StitchGallery />} />
-      <Route path="/ui/:slug" element={<StitchScreen />} />
       <Route path="/login" element={<LandingPage />} />
+
+      {/* ── Module 1: User Management (Dashboard) ── */}
       <Route
         path="/admin"
         element={
@@ -56,6 +52,8 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* ── Module 2: Exam Management ── */}
       <Route
         path="/admin/exams"
         element={
@@ -64,6 +62,8 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* ── Module 3: Lab & Machine Management ── */}
       <Route
         path="/admin/labs"
         element={
@@ -72,30 +72,8 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/admin/settings"
-        element={
-          <ProtectedRoute roles={['OrganizationAdmin']}>
-            <OrganizationSettings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/logs"
-        element={
-          <ProtectedRoute roles={['OrganizationAdmin', 'Teacher']}>
-            <Monitoring />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/reports"
-        element={
-          <ProtectedRoute roles={['OrganizationAdmin', 'Teacher']}>
-            <Reports />
-          </ProtectedRoute>
-        }
-      />
+
+      {/* ── SuperAdmin ── */}
       <Route
         path="/super-admin"
         element={
@@ -104,6 +82,15 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* ── Disabled / out-of-scope — redirect to home ── */}
+      <Route path="/admin/settings" element={<Navigate to="/admin" replace />} />
+      <Route path="/admin/logs"     element={<Navigate to="/admin" replace />} />
+      <Route path="/admin/reports"  element={<Navigate to="/admin" replace />} />
+      <Route path="/ui"             element={<Navigate to="/admin" replace />} />
+      <Route path="/ui/:slug"       element={<Navigate to="/admin" replace />} />
+
+      {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

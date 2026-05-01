@@ -76,6 +76,9 @@ export async function updateUser(userId: string, payload: UpdateUserPayload): Pr
   await unwrap<object>(apiClient.put(`/api/admin/users/${userId}`, payload))
 }
 
+export async function resetUserPassword(userId: string, newPassword: string): Promise<void> {
+  await unwrap<object>(apiClient.post(`/api/admin/users/${userId}/reset-password`, { newPassword }))
+}
 
 export async function getStudentBindings(): Promise<StudentBindingStatus[]> {
   return unwrap<StudentBindingStatus[]>(apiClient.get('/api/admin/students/device-bindings'))

@@ -36,18 +36,24 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   const role = normalizeRole(user?.role)
+
+  // ── Navigation: only the 3 core modules ─────────────────────────────────
   const menuItems = role === 'SuperAdmin'
     ? [
         { label: 'Institutions', icon: 'business_center', path: '/super-admin' },
-        { label: 'Institution Users', icon: 'group', path: '/admin/users' },
       ]
-    : [
-        { label: 'Dashboard', icon: 'dashboard', path: '/admin' },
-        { label: 'User Management', icon: 'group', path: '/admin/users' },
-        { label: 'Exam Management', icon: 'assignment', path: '/admin/exams' },
-        { label: 'Labs & Machines', icon: 'desktop_windows', path: '/admin/labs' },
-        { label: 'Security Logs', icon: 'history_edu', path: '/admin/logs' },
-        { label: 'Reports', icon: 'assessment', path: '/admin/reports' },
+    : role === 'OrganizationAdmin'
+    ? [
+        { label: 'Dashboard',        icon: 'dashboard',        path: '/admin' },
+        { label: 'User Management',  icon: 'group',            path: '/admin/users' },
+        { label: 'Exam Management',  icon: 'assignment',       path: '/admin/exams' },
+        { label: 'Labs & Machines',  icon: 'desktop_windows',  path: '/admin/labs' },
+      ]
+    : // Teacher
+      [
+        { label: 'Dashboard',        icon: 'dashboard',        path: '/admin' },
+        { label: 'Exam Management',  icon: 'assignment',       path: '/admin/exams' },
+        { label: 'Labs & Machines',  icon: 'desktop_windows',  path: '/admin/labs' },
       ]
 
   return (
@@ -74,12 +80,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <span>{item.label}</span>
             </Link>
           ))}
-          {role !== 'SuperAdmin' && (
-            <Link to="/admin/settings" className={`nav-item ${location.pathname === '/admin/settings' ? 'active' : ''}`}>
-              <span className="material-symbols-outlined">settings</span>
-              <span>Settings</span>
-            </Link>
-          )}
         </nav>
 
         <div className="sidebar-footer">

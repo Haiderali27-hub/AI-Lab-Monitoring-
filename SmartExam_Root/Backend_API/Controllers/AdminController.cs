@@ -12,10 +12,15 @@ namespace Backend_API.Controllers;
 [ApiController]
 [Route("api/admin")]
 [Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.SuperAdmin)}")]
-public class AdminController(IAuthService authService, ISeedService seedService, AppDbContext dbContext) : ControllerBase
+public class AdminController(
+    IAuthService authService,
+    ISeedService seedService,
+    IPasswordService passwordService,
+    AppDbContext dbContext) : ControllerBase
 {
     private readonly IAuthService _authService = authService;
     private readonly ISeedService _seedService = seedService;
+    private readonly IPasswordService _passwordService = passwordService;
     private readonly AppDbContext _dbContext = dbContext;
 
     [HttpGet("organization")]
@@ -159,12 +164,92 @@ public class AdminController(IAuthService authService, ISeedService seedService,
         if (duplicate)
             return Conflict(ApiResponse<object>.Fail("USER_EXISTS", "Username or email already in use."));
 
+        // ── Role Transition Cascade ─────────────────────────────────────────
+        if (request.NewRole.HasValue && request.NewRole.Value != user.Role)
+        {
+            var targetRole = request.NewRole.Value;
+
+            // Only allow transitions between Student and Teacher
+            if (targetRole != SystemRole.Student && targetRole != SystemRole.Teacher)
+                return BadRequest(ApiResponse<object>.Fail("INVALID_ROLE",
+                    "Admin users can only be assigned the Student or Teacher role."));
+
+            if (user.Role == SystemRole.Student && targetRole == SystemRole.Teacher)
+            {
+                // Remove all section enrollments
+                var enrollments = await _dbContext.SectionEnrollments
+                    .Where(x => x.StudentUserId == userId)
+                    .ToListAsync(cancellationToken);
+                _dbContext.SectionEnrollments.RemoveRange(enrollments);
+
+                // Remove from any exam assignments
+                var examAssignments = await _dbContext.ExamAssignments
+                    .Where(x => x.StudentUserId == userId)
+                    .ToListAsync(cancellationToken);
+                _dbContext.ExamAssignments.RemoveRange(examAssignments);
+            }
+            else if (user.Role == SystemRole.Teacher && targetRole == SystemRole.Student)
+            {
+                // Remove all teacher section assignments
+                var teacherAssignments = await _dbContext.TeacherSectionAssignments
+                    .Where(x => x.TeacherUserId == userId)
+                    .ToListAsync(cancellationToken);
+                _dbContext.TeacherSectionAssignments.RemoveRange(teacherAssignments);
+
+                // Remove as proctor from exams (set to null)
+                var proctored = await _dbContext.Exams
+                    .Where(x => x.ProctorUserId == userId)
+                    .ToListAsync(cancellationToken);
+                foreach (var exam in proctored)
+                    exam.ProctorUserId = null;
+            }
+
+            user.Role = targetRole;
+        }
+
         user.Username = username;
         user.Email = email;
         user.IsActive = request.IsActive;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(ApiResponse<object>.Ok(new { user.Id, user.Username, user.Email, user.IsActive }));
+        return Ok(ApiResponse<object>.Ok(new
+        {
+            user.Id,
+            user.Username,
+            user.Email,
+            user.IsActive,
+            Role = user.Role.ToString()
+        }));
+    }
+
+    [HttpPost("users/{userId:guid}/reset-password")]
+    public async Task<IActionResult> ResetPassword(
+        Guid userId,
+        [FromBody] ResetPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetInstitutionId(out var institutionId))
+            return Unauthorized(ApiResponse<object>.Fail("UNAUTHORIZED", "Institution claim missing."));
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(
+            x => x.Id == userId && x.InstitutionId == institutionId &&
+                 (x.Role == SystemRole.Teacher || x.Role == SystemRole.Student),
+            cancellationToken);
+
+        if (user is null)
+            return NotFound(ApiResponse<object>.Fail("NOT_FOUND", "User not found."));
+
+        user.PasswordHash = _passwordService.HashPassword(request.NewPassword);
+
+        // Revoke all active sessions so the user must log in again with the new password
+        var sessions = await _dbContext.UserSessions
+            .Where(x => x.UserId == userId && x.RevokedAtUtc == null && x.ExpiresAtUtc > DateTime.UtcNow)
+            .ToListAsync(cancellationToken);
+        foreach (var s in sessions)
+            s.RevokedAtUtc = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return Ok(ApiResponse<object>.Ok(new { user.Id, PasswordReset = true }));
     }
 
 

@@ -147,11 +147,11 @@ export function LandingPage() {
             </div>
             <h1 className="auth-title">SmartExam Control Center</h1>
             <p className="auth-subtitle" style={{ marginTop: '8px' }}>
-              Sign in to manage an existing organization, or register a new one when you are setting up SmartExam for the first time.
+              Sign in with your admin or teacher credentials. Your role and dashboard are loaded automatically.
             </p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '8px' }}>
               <span className="status-badge secure">LAN SECURE</span>
-              <span className="status-badge secure">SYSTEM ADMIN</span>
+              <span className="status-badge secure">ROLE AUTO-DETECT</span>
             </div>
           </div>
 
@@ -164,19 +164,10 @@ export function LandingPage() {
           {mode === 'login' ? (
             <form onSubmit={onLoginSubmit} noValidate>
               <div className="input-group">
-                <label className="input-label">Institution Access</label>
-                <select className="input-control select-control" defaultValue="">
-                  <option value="" disabled>Select Campus / Site</option>
-                  <option value="main">Main Campus - Lab Alpha</option>
-                </select>
-                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem', marginTop: '4px', marginBottom: 0 }}>Select your campus or site location</p>
-              </div>
-
-              <div className="input-group">
                 <label className="input-label">Email or Username</label>
                 <input
                   className="input-control"
-                  placeholder="admin@smartexam.edu"
+                  placeholder="e.g. admin@institution.edu or j.smith"
                   value={usernameOrEmail}
                   onChange={(e) => setUsernameOrEmail(e.target.value)}
                   style={errorBorder('usernameOrEmail')}
