@@ -20,14 +20,15 @@ type AuthContextValue = {
   isAuthenticated: boolean
   isPlatformBootstrapped: boolean | null
   checkBootstrapStatus: () => Promise<void>
-  setup: (payload: BootstrapPayload) => Promise<void>
-  login: (payload: LoginPayload) => Promise<void>
+  setup: (payload: BootstrapPayload) => Promise<UserSummary>
+  login: (payload: LoginPayload) => Promise<UserSummary>
   logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 const TOKEN_KEY = 'smartexam_access_token'
+const REFRESH_TOKEN_KEY = 'smartexam_refresh_token'
 const USER_KEY = 'smartexam_user'
 
 function getInitialUser(): UserSummary | null {
@@ -45,11 +46,13 @@ function getInitialUser(): UserSummary | null {
 
 function setSession(tokenResponse: TokenResponse): void {
   localStorage.setItem(TOKEN_KEY, tokenResponse.accessToken)
+  localStorage.setItem(REFRESH_TOKEN_KEY, tokenResponse.refreshToken)
   localStorage.setItem(USER_KEY, JSON.stringify(tokenResponse.user))
 }
 
 function clearSession(): void {
   localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
 }
 
@@ -82,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const tokenResponse = await authApi.setupPlatform(payload)
       applySession(tokenResponse)
       setIsPlatformBootstrapped(true)
+      return tokenResponse.user
     },
     [applySession],
   )
@@ -90,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (payload: LoginPayload) => {
       const tokenResponse = await authApi.loginUser(payload)
       applySession(tokenResponse)
+      return tokenResponse.user
     },
     [applySession],
   )

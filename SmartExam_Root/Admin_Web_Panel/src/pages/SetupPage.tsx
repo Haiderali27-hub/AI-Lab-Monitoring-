@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { destinationForRole } from '../roleUtils'
 import { useAuth } from '../store/AuthContext'
+import type { UserSummary } from '../types'
+
+type FieldErrors = Record<string, string>
+
+function destinationForUser(user: UserSummary): string {
+  return destinationForRole(user.role)
+}
+
+function validateEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
 
 export default function SetupPage() {
   const navigate = useNavigate()
@@ -15,6 +27,7 @@ export default function SetupPage() {
     confirmPassword: ''
   })
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   useEffect(() => {
     if (isPlatformBootstrapped === true) {
@@ -22,39 +35,72 @@ export default function SetupPage() {
     }
   }, [isPlatformBootstrapped, navigate])
 
+  function validateStep1(): FieldErrors {
+    const errors: FieldErrors = {}
+    if (formData.institutionName.trim().length < 2) errors.institutionName = 'Minimum 2 characters required'
+    return errors
+  }
+
+  function validateStep2(): FieldErrors {
+    const errors: FieldErrors = {}
+    if (formData.username.trim().length < 3) errors.username = 'Minimum 3 characters required'
+    if (!validateEmail(formData.email)) errors.email = 'Enter a valid email address'
+    if (formData.password.length < 8) errors.password = 'Minimum 8 characters required'
+    if (formData.confirmPassword !== formData.password) errors.confirmPassword = 'Passwords do not match'
+    return errors
+  }
+
+  function goToStep2() {
+    const errors = validateStep1()
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      return
+    }
+    setFieldErrors({})
+    setStep(2)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // If user presses Enter on Step 1, just move to Step 2
-    if (step === 1) {
-      if (formData.institutionName.trim()) {
-        setStep(2);
-      }
-      return;
-    }
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
+    if (step === 1) {
+      goToStep2()
       return
     }
 
+    const errors = validateStep2()
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      return
+    }
+    setFieldErrors({})
     setLoading(true)
     setError('')
 
     try {
-      await setup({
+      const nextUser = await setup({
         institutionName: formData.institutionName,
         username: formData.username,
         email: formData.email,
         password: formData.password
       })
-      navigate('/admin')
+      navigate(destinationForUser(nextUser))
     } catch (err: any) {
       setError(err.message || 'Setup failed')
     } finally {
       setLoading(false)
     }
   }
+
+  const fieldError = (key: string) =>
+    fieldErrors[key] ? (
+      <p style={{ color: '#dc3545', fontSize: '0.75rem', marginTop: '4px', marginBottom: 0 }}>
+        {fieldErrors[key]}
+      </p>
+    ) : null
+
+  const errorBorder = (key: string): React.CSSProperties =>
+    fieldErrors[key] ? { borderColor: '#dc3545' } : {}
 
   if (isPlatformBootstrapped === null) {
     return (
@@ -72,8 +118,8 @@ export default function SetupPage() {
             <span className="material-symbols-outlined icon-fill">shield_person</span>
           </div>
           <h1 className="auth-title">Platform Initialization</h1>
-          <p className="auth-subtitle">Step {step} of 2: {step === 1 ? 'Institution Details' : 'Super Admin Account'}</p>
-          
+          <p className="auth-subtitle">Step {step} of 2: {step === 1 ? 'Institution Details' : 'Organization Admin Account'}</p>
+
           <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '16px' }}>
             <div style={{ width: '32px', height: '4px', borderRadius: '2px', background: step >= 1 ? 'var(--primary)' : 'var(--surface-alt)' }}></div>
             <div style={{ width: '32px', height: '4px', borderRadius: '2px', background: step >= 2 ? 'var(--primary)' : 'var(--surface-alt)' }}></div>
@@ -86,26 +132,27 @@ export default function SetupPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           {step === 1 ? (
             <div className="animate-in">
               <div className="input-group">
                 <label className="input-label">Institution Name</label>
-                <input 
+                <input
                   className="input-control"
-                  required
                   placeholder="e.g. Global Tech University"
                   value={formData.institutionName}
-                  onChange={e => setFormData({...formData, institutionName: e.target.value})}
+                  onChange={e => setFormData({ ...formData, institutionName: e.target.value })}
+                  style={errorBorder('institutionName')}
                 />
+                {fieldError('institutionName')}
               </div>
-              
+
               <div className="security-banner">
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>info</span>
                 <span>This name will be displayed on all exam headers.</span>
               </div>
 
-              <button type="button" className="btn btn-primary" onClick={() => setStep(2)}>
+              <button type="button" className="btn btn-primary" onClick={goToStep2}>
                 Next Step
                 <span className="material-symbols-outlined">arrow_forward</span>
               </button>
@@ -114,52 +161,61 @@ export default function SetupPage() {
             <div className="animate-in">
               <div className="input-group">
                 <label className="input-label">Username</label>
-                <input 
+                <input
                   className="input-control"
-                  required
                   placeholder="admin"
                   value={formData.username}
-                  onChange={e => setFormData({...formData, username: e.target.value})}
+                  onChange={e => setFormData({ ...formData, username: e.target.value })}
+                  style={errorBorder('username')}
                 />
+                {fieldError('username')}
               </div>
 
               <div className="input-group">
                 <label className="input-label">Email Address</label>
-                <input 
+                <input
                   className="input-control"
-                  required
                   type="email"
                   placeholder="admin@institution.edu"
                   value={formData.email}
-                  onChange={e => setFormData({...formData, email: e.target.value})}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
+                  style={errorBorder('email')}
                 />
+                {fieldError('email')}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div className="input-group">
                   <label className="input-label">Password</label>
-                  <input 
+                  <input
                     className="input-control"
-                    required
                     type="password"
+                    placeholder="Min. 8 characters"
                     value={formData.password}
-                    onChange={e => setFormData({...formData, password: e.target.value})}
+                    onChange={e => setFormData({ ...formData, password: e.target.value })}
+                    style={errorBorder('password')}
                   />
+                  {fieldErrors.password
+                    ? fieldError('password')
+                    : <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem', marginTop: '4px', marginBottom: 0 }}>Min. 8 characters</p>
+                  }
                 </div>
                 <div className="input-group">
                   <label className="input-label">Confirm</label>
-                  <input 
+                  <input
                     className="input-control"
-                    required
                     type="password"
+                    placeholder="Repeat password"
                     value={formData.confirmPassword}
-                    onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+                    onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    style={errorBorder('confirmPassword')}
                   />
+                  {fieldError('confirmPassword')}
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-                <button type="button" className="btn btn-secondary" style={{ flex: '0 0 80px' }} onClick={() => setStep(1)}>
+                <button type="button" className="btn btn-secondary" style={{ flex: '0 0 80px' }} onClick={() => { setStep(1); setFieldErrors({}) }}>
                   Back
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={loading}>

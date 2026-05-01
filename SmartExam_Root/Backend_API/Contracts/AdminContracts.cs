@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Backend_API.Models;
 
 namespace Backend_API.Contracts;
 
@@ -19,3 +20,11 @@ public record BatchUploadResultDto(
     int CreatedCount,
     int SkippedCount,
     IReadOnlyList<string> Errors);
+
+public record UserListDto(
+    Guid Id,
+    string Username,
+    string Email,
+    SystemRole Role,
+    bool IsActive,
+    DateTime CreatedAtUtc);

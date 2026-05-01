@@ -1,4 +1,12 @@
-import type { CreateExamPayload, ExamCandidate, ExamSummary, LiveRosterItem, Proctor } from '../types'
+import type {
+  CreateExamPayload,
+  ExamAssignmentDetail,
+  ExamCandidate,
+  ExamSummary,
+  LiveRosterItem,
+  Proctor,
+  UpdateExamPayload,
+} from '../types'
 import { apiClient, unwrap } from './client'
 
 export async function getLiveRoster(): Promise<LiveRosterItem[]> {
@@ -19,6 +27,14 @@ export async function getExamProctors(): Promise<Proctor[]> {
 
 export async function createExam(payload: CreateExamPayload): Promise<{ id: string }> {
   return unwrap<{ id: string }>(apiClient.post('/api/exams', payload))
+}
+
+export async function updateExam(examId: string, payload: UpdateExamPayload): Promise<{ id: string }> {
+  return unwrap<{ id: string }>(apiClient.put(`/api/exams/${examId}`, payload))
+}
+
+export async function getExamAssignments(examId: string): Promise<ExamAssignmentDetail[]> {
+  return unwrap<ExamAssignmentDetail[]>(apiClient.get(`/api/exams/${examId}/assignments`))
 }
 
 export async function updateExamAssignments(examId: string, assignments: CreateExamPayload['assignments']): Promise<void> {

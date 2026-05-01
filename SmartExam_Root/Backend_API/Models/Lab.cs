@@ -11,4 +11,5 @@ public class Lab
 
     public Institution Institution { get; set; } = null!;
     public ICollection<Exam> Exams { get; set; } = new List<Exam>();
+    public ICollection<Workstation> Workstations { get; set; } = new List<Workstation>();
 }

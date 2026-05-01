@@ -45,7 +45,17 @@ public record ProctorDto(
 
 public record ExamAssignmentRequest(
     Guid StudentId,
-    bool IsEligible);
+    bool IsEligible,
+    Guid? WorkstationId = null);
+
+public record ExamAssignmentDetailDto(
+    Guid AssignmentId,
+    Guid StudentId,
+    string Username,
+    string Email,
+    bool IsEligible,
+    Guid? WorkstationId,
+    string? WorkstationName);
 
 public record CreateExamRequest(
     string Name,

@@ -307,7 +307,8 @@ public class ExamController(AppDbContext dbContext) : ControllerBase
             {
                 Exam = exam,
                 StudentUserId = assignment.StudentId,
-                IsEligible = assignment.IsEligible
+                IsEligible = assignment.IsEligible,
+                WorkstationId = assignment.WorkstationId
             });
         }
 
@@ -374,12 +375,9 @@ public class ExamController(AppDbContext dbContext) : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { exam.Id }));
     }
 
-    [HttpPut("{examId:guid}/assignments")]
+    [HttpGet("{examId:guid}/assignments")]
     [Authorize(Roles = "OrganizationAdmin,Teacher")]
-    public async Task<IActionResult> UpdateAssignments(
-        Guid examId,
-        [FromBody] UpdateExamAssignmentsRequest request,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAssignments(Guid examId, CancellationToken cancellationToken)
     {
         if (!TryGetInstitutionId(out var institutionId))
         {
@@ -394,6 +392,45 @@ public class ExamController(AppDbContext dbContext) : ControllerBase
             return NotFound(ApiResponse<object>.Fail("NOT_FOUND", "Exam not found."));
         }
 
+        var assignments = await _dbContext.ExamAssignments
+            .Include(x => x.StudentUser)
+            .Include(x => x.Workstation)
+            .Where(x => x.ExamId == examId)
+            .OrderBy(x => x.StudentUser.Username)
+            .Select(x => new ExamAssignmentDetailDto(
+                x.Id,
+                x.StudentUserId,
+                x.StudentUser.Username,
+                x.StudentUser.Email,
+                x.IsEligible,
+                x.WorkstationId,
+                x.Workstation != null ? x.Workstation.Name : null))
+            .ToListAsync(cancellationToken);
+
+        return Ok(ApiResponse<IReadOnlyList<ExamAssignmentDetailDto>>.Ok(assignments));
+    }
+
+    [HttpPut("{examId:guid}/assignments")]
+    [Authorize(Roles = "OrganizationAdmin,Teacher")]
+    public async Task<IActionResult> UpdateAssignments(
+        Guid examId,
+        [FromBody] UpdateExamAssignmentsRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetInstitutionId(out var institutionId))
+        {
+            return Unauthorized(ApiResponse<object>.Fail("UNAUTHORIZED", "Institution claim missing."));
+        }
+
+        var exam = await _dbContext.Exams
+            .Include(x => x.Lab)
+            .FirstOrDefaultAsync(x => x.Id == examId && x.InstitutionId == institutionId, cancellationToken);
+
+        if (exam is null)
+        {
+            return NotFound(ApiResponse<object>.Fail("NOT_FOUND", "Exam not found."));
+        }
+
         var incomingAssignments = request.Assignments ?? Array.Empty<ExamAssignmentRequest>();
         var requestedIds = incomingAssignments
             .Select(x => x.StudentId)
@@ -404,6 +441,13 @@ public class ExamController(AppDbContext dbContext) : ControllerBase
             .Where(x => x.InstitutionId == institutionId && x.Role == SystemRole.Student && requestedIds.Contains(x.Id))
             .Select(x => x.Id)
             .ToListAsync(cancellationToken);
+
+        var validWorkstationIds = exam.LabId.HasValue
+            ? await _dbContext.Workstations
+                .Where(x => x.LabId == exam.LabId.Value && x.IsActive)
+                .Select(x => x.Id)
+                .ToHashSetAsync(cancellationToken)
+            : new HashSet<Guid>();
 
         var existingAssignments = await _dbContext.ExamAssignments
             .Where(x => x.ExamId == examId)
@@ -420,11 +464,16 @@ public class ExamController(AppDbContext dbContext) : ControllerBase
             }
 
             assigned.Add(assignment.StudentId);
+            var workstationId = assignment.WorkstationId.HasValue && validWorkstationIds.Contains(assignment.WorkstationId.Value)
+                ? assignment.WorkstationId
+                : null;
+
             _dbContext.ExamAssignments.Add(new ExamAssignment
             {
                 ExamId = examId,
                 StudentUserId = assignment.StudentId,
-                IsEligible = assignment.IsEligible
+                IsEligible = assignment.IsEligible,
+                WorkstationId = workstationId
             });
         }
 

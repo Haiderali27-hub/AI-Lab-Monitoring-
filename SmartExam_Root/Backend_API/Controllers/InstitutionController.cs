@@ -32,6 +32,8 @@ public class InstitutionController(IInstitutionService institutionService) : Con
         return this.FromServiceResult(result);
     }
 
+    // Labs
+
     [HttpGet("labs")]
     [Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.SuperAdmin)},{nameof(SystemRole.Teacher)}")]
     public async Task<IActionResult> GetLabs(CancellationToken cancellationToken)
@@ -56,6 +58,44 @@ public class InstitutionController(IInstitutionService institutionService) : Con
     {
         if (!TryGetInstitutionId(out var institutionId)) return Unauthorized();
         var result = await _institutionService.DeleteLabAsync(institutionId, labId, cancellationToken);
+        return this.FromServiceResult(result);
+    }
+
+    // Workstations
+
+    [HttpGet("labs/{labId:guid}/workstations")]
+    [Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.SuperAdmin)},{nameof(SystemRole.Teacher)}")]
+    public async Task<IActionResult> GetWorkstations(Guid labId, CancellationToken cancellationToken)
+    {
+        if (!TryGetInstitutionId(out var institutionId)) return Unauthorized();
+        var data = await _institutionService.GetWorkstationsAsync(institutionId, labId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<WorkstationDto>>.Ok(data));
+    }
+
+    [HttpPost("labs/{labId:guid}/workstations")]
+    [Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.SuperAdmin)}")]
+    public async Task<IActionResult> CreateWorkstation(Guid labId, [FromBody] CreateWorkstationRequest request, CancellationToken cancellationToken)
+    {
+        if (!TryGetInstitutionId(out var institutionId)) return Unauthorized();
+        var result = await _institutionService.CreateWorkstationAsync(institutionId, labId, request, cancellationToken);
+        return this.FromServiceResult(result, StatusCodes.Status201Created);
+    }
+
+    [HttpPut("labs/{labId:guid}/workstations/{workstationId:guid}")]
+    [Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.SuperAdmin)}")]
+    public async Task<IActionResult> UpdateWorkstation(Guid labId, Guid workstationId, [FromBody] UpdateWorkstationRequest request, CancellationToken cancellationToken)
+    {
+        if (!TryGetInstitutionId(out var institutionId)) return Unauthorized();
+        var result = await _institutionService.UpdateWorkstationAsync(institutionId, labId, workstationId, request, cancellationToken);
+        return this.FromServiceResult(result);
+    }
+
+    [HttpDelete("labs/{labId:guid}/workstations/{workstationId:guid}")]
+    [Authorize(Roles = $"{nameof(SystemRole.OrganizationAdmin)},{nameof(SystemRole.SuperAdmin)}")]
+    public async Task<IActionResult> DeleteWorkstation(Guid labId, Guid workstationId, CancellationToken cancellationToken)
+    {
+        if (!TryGetInstitutionId(out var institutionId)) return Unauthorized();
+        var result = await _institutionService.DeleteWorkstationAsync(institutionId, labId, workstationId, cancellationToken);
         return this.FromServiceResult(result);
     }
 

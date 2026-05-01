@@ -1,16 +1,53 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createExam, getExamCandidates, getExamProctors, getExams } from '../api/exams'
-import { getLabs } from '../api/institution'
+import {
+  createExam,
+  getExamAssignments,
+  getExamCandidates,
+  getExamProctors,
+  getExams,
+  updateExam,
+  updateExamAssignments,
+} from '../api/exams'
+import { getLabs, getWorkstations } from '../api/institution'
 import { AdminLayout } from '../components/AdminLayout'
-import type { CreateExamPayload, ExamCandidate, ExamSummary, Lab, Proctor } from '../types'
+import type {
+  CreateExamPayload,
+  ExamAssignmentInput,
+  ExamCandidate,
+  ExamSummary,
+  Lab,
+  Proctor,
+  Workstation,
+} from '../types'
+
+type Mode = 'list' | 'create' | 'edit'
+
+function toDateInput(value: string): string {
+  return new Date(value).toISOString().slice(0, 10)
+}
+
+function toTimeInput(value: string): string {
+  return new Date(value).toTimeString().slice(0, 5)
+}
+
+function minutesBetween(startUtc: string, endUtc: string): number {
+  return Math.max(15, Math.round((new Date(endUtc).getTime() - new Date(startUtc).getTime()) / 60000))
+}
+
+function toUtcIso(dateValue: string, timeValue: string): string {
+  return new Date(`${dateValue}T${timeValue}`).toISOString()
+}
 
 export default function Exams() {
-  const [isCreating, setIsCreating] = useState(false)
+  const [mode, setMode] = useState<Mode>('list')
+  const [editingExamId, setEditingExamId] = useState<string | null>(null)
   const [exams, setExams] = useState<ExamSummary[]>([])
   const [candidates, setCandidates] = useState<ExamCandidate[]>([])
   const [labs, setLabs] = useState<Lab[]>([])
+  const [workstations, setWorkstations] = useState<Workstation[]>([])
   const [proctors, setProctors] = useState<Proctor[]>([])
   const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const [name, setName] = useState('')
@@ -20,113 +57,194 @@ export default function Exams() {
   const [labId, setLabId] = useState<string | null>(null)
   const [proctorUserId, setProctorUserId] = useState<string | null>(null)
   const [instructions, setInstructions] = useState('')
+  const [isActive, setIsActive] = useState(true)
   const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<Record<string, boolean>>({})
+  const [assignments, setAssignments] = useState<Record<string, ExamAssignmentInput>>({})
 
   const filteredCandidates = useMemo(() => {
     const term = search.trim().toLowerCase()
     if (!term) return candidates
-    return candidates.filter((candidate) =>
-      `${candidate.username} ${candidate.email}`.toLowerCase().includes(term),
-    )
+    return candidates.filter((candidate) => `${candidate.username} ${candidate.email}`.toLowerCase().includes(term))
   }, [candidates, search])
 
-  const selectedAssignments = useMemo(() => {
-    return Object.entries(selected)
-      .filter(([, isAssigned]) => isAssigned)
-      .map(([studentId]) => ({ studentId, isEligible: true }))
-  }, [selected])
+  const selectedAssignments = useMemo(() => Object.values(assignments), [assignments])
+  const selectedLab = useMemo(() => labs.find((lab) => lab.id === labId) ?? null, [labs, labId])
+  const availableWorkstations = useMemo(() => workstations.filter((machine) => machine.isActive), [workstations])
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [examResult, candidateResult, labResult, proctorResult] = await Promise.all([
-          getExams(),
-          getExamCandidates(),
-          getLabs(),
-          getExamProctors(),
-        ])
-        setExams(examResult)
-        setCandidates(candidateResult)
-        setLabs(labResult)
-        setProctors(proctorResult)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load exam data.')
-      }
-    }
-
-    void loadData()
-  }, [])
-
-  function toUtcIso(dateValue: string, timeValue: string): string {
-    const local = new Date(`${dateValue}T${timeValue}`)
-    return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString()
+  async function loadStaticData() {
+    const [examResult, candidateResult, labResult, proctorResult] = await Promise.all([
+      getExams(),
+      getExamCandidates(),
+      getLabs(),
+      getExamProctors(),
+    ])
+    setExams(examResult)
+    setCandidates(candidateResult)
+    setLabs(labResult)
+    setProctors(proctorResult)
   }
 
-  async function onPublishExam() {
+  async function loadWorkstationsForLab(nextLabId: string | null) {
+    if (!nextLabId) {
+      setWorkstations([])
+      return
+    }
+    setWorkstations(await getWorkstations(nextLabId))
+  }
+
+  useEffect(() => {
+    void loadStaticData().catch((err) => setError(err instanceof Error ? err.message : 'Failed to load exam data.'))
+  }, [])
+
+  useEffect(() => {
+    void loadWorkstationsForLab(labId).catch((err) => setError(err instanceof Error ? err.message : 'Failed to load lab machines.'))
+    setAssignments((current) => {
+      const next: Record<string, ExamAssignmentInput> = {}
+      Object.entries(current).forEach(([studentId, assignment]) => {
+        next[studentId] = { ...assignment, workstationId: null }
+      })
+      return next
+    })
+  }, [labId])
+
+  function resetForm() {
+    setEditingExamId(null)
+    setName('')
+    setDate('')
+    setStartTime('09:00')
+    setDuration(120)
+    setLabId(null)
+    setProctorUserId(null)
+    setInstructions('')
+    setIsActive(true)
+    setSearch('')
+    setAssignments({})
+    setError(null)
+  }
+
+  function startCreate() {
+    resetForm()
+    setMode('create')
+  }
+
+  async function startEdit(exam: ExamSummary) {
+    setBusy(true)
+    setError(null)
+    try {
+      setEditingExamId(exam.id)
+      setName(exam.name)
+      setDate(toDateInput(exam.startUtc))
+      setStartTime(toTimeInput(exam.startUtc))
+      setDuration(minutesBetween(exam.startUtc, exam.endUtc))
+      setLabId(exam.labId)
+      setProctorUserId(exam.proctorUserId)
+      setInstructions(exam.instructions ?? '')
+      setIsActive(exam.isActive)
+      await loadWorkstationsForLab(exam.labId)
+      const existingAssignments = await getExamAssignments(exam.id)
+      const next: Record<string, ExamAssignmentInput> = {}
+      existingAssignments.forEach((assignment) => {
+        next[assignment.studentId] = {
+          studentId: assignment.studentId,
+          isEligible: assignment.isEligible,
+          workstationId: assignment.workstationId,
+        }
+      })
+      setAssignments(next)
+      setMode('edit')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load exam assignments.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function toggleStudent(studentId: string, checked: boolean) {
+    setAssignments((current) => {
+      const next = { ...current }
+      if (!checked) {
+        delete next[studentId]
+      } else {
+        next[studentId] = { studentId, isEligible: true, workstationId: null }
+      }
+      return next
+    })
+  }
+
+  function updateStudentAssignment(studentId: string, patch: Partial<ExamAssignmentInput>) {
+    setAssignments((current) => {
+      const existing = current[studentId]
+      if (!existing) return current
+      return { ...current, [studentId]: { ...existing, ...patch } }
+    })
+  }
+
+  async function onSaveExam() {
     if (!name.trim() || !date || !startTime || duration <= 0) {
-      setError('Please complete all exam details before publishing.')
+      setError('Complete exam title, date, start time, and duration.')
       return
     }
 
     setBusy(true)
     setError(null)
+    setNotice(null)
 
     try {
       const startUtc = toUtcIso(date, startTime)
-      const endUtcDate = new Date(`${date}T${startTime}`)
-      endUtcDate.setMinutes(endUtcDate.getMinutes() + duration)
-      const endUtc = new Date(endUtcDate.getTime() - endUtcDate.getTimezoneOffset() * 60000).toISOString()
+      const endDate = new Date(`${date}T${startTime}`)
+      endDate.setMinutes(endDate.getMinutes() + duration)
+      const endUtc = endDate.toISOString()
 
-      const payload: CreateExamPayload = {
+      const basePayload = {
         name: name.trim(),
         startUtc,
         endUtc,
         labId,
         proctorUserId,
         instructions: instructions.trim() ? instructions.trim() : null,
-        assignments: selectedAssignments,
       }
 
-      await createExam(payload)
-      const refreshed = await getExams()
-      setExams(refreshed)
-      setIsCreating(false)
-      setName('')
-      setDate('')
-      setStartTime('09:00')
-      setDuration(120)
-      setLabId(null)
-      setProctorUserId(null)
-      setInstructions('')
-      setSelected({})
+      if (mode === 'edit' && editingExamId) {
+        await updateExam(editingExamId, { ...basePayload, isActive })
+        await updateExamAssignments(editingExamId, selectedAssignments)
+        setNotice('Exam updated.')
+      } else {
+        const payload: CreateExamPayload = { ...basePayload, assignments: selectedAssignments }
+        await createExam(payload)
+        setNotice('Exam created.')
+      }
+
+      await loadStaticData()
+      resetForm()
+      setMode('list')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to publish exam.')
+      setError(err instanceof Error ? err.message : 'Failed to save exam.')
     } finally {
       setBusy(false)
     }
   }
 
-  if (isCreating) {
+  if (mode !== 'list') {
     return (
       <AdminLayout>
         <div className="dashboard-content">
           <header className="page-header">
             <div className="header-text">
-              <p className="eyebrow">Exam Management</p>
-              <h1>Create New Exam</h1>
-              <p className="subtext">Configure details, proctors, and candidate assignments.</p>
+              <p className="eyebrow">Exam Configuration & Scheduling</p>
+              <h1>{mode === 'edit' ? 'Edit Exam' : 'Create New Exam'}</h1>
+              <p className="subtext">Set the schedule, assign a teacher proctor, select candidates, and map students to lab machines.</p>
             </div>
-            <div className="header-actions">
-              <button className="secondary-btn" onClick={() => setIsCreating(false)}>
+            <div className="header-actions" style={{ display: 'flex', gap: '0.75rem' }}>
+              <button className="secondary-btn" type="button" onClick={() => { resetForm(); setMode('list') }}>
                 Cancel
               </button>
-              <button className="primary-btn" onClick={() => void onPublishExam()} disabled={busy}>
-                {busy ? 'Publishing...' : 'Publish Exam'}
+              <button className="primary-btn" type="button" onClick={() => void onSaveExam()} disabled={busy}>
+                {busy ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Publish Exam'}
               </button>
             </div>
           </header>
 
+          {notice && <div className="inline-alert">{notice}</div>}
           {error && <div className="inline-alert error">{error}</div>}
 
           <div className="exam-grid">
@@ -137,43 +255,32 @@ export default function Exams() {
                   <h3>Exam Details</h3>
                 </div>
                 <div className="form-grid-2">
-                  <div className="input-group col-span-2" style={{ gridColumn: 'span 2' }}>
+                  <div className="input-group" style={{ gridColumn: 'span 2' }}>
                     <label className="input-label">Exam Title</label>
-                    <input
-                      className="input-control"
-                      placeholder="e.g. Advanced Cybersecurity Finals 2026"
-                      value={name}
-                      onChange={(event) => setName(event.target.value)}
-                      required
-                    />
+                    <input className="input-control" value={name} onChange={(event) => setName(event.target.value)} placeholder="Database Systems Midterm" />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Date</label>
                     <input className="input-control" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
                   </div>
                   <div className="input-group">
-                    <label className="input-label">Duration (Minutes)</label>
-                    <input
-                      className="input-control"
-                      type="number"
-                      min={15}
-                      value={duration}
-                      onChange={(event) => setDuration(Number(event.target.value))}
-                    />
-                  </div>
-                  <div className="input-group">
                     <label className="input-label">Start Time</label>
                     <input className="input-control" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
                   </div>
-                  <div className="input-group col-span-2" style={{ gridColumn: 'span 2' }}>
-                    <label className="input-label">Instructions / Allowed Resources</label>
-                    <textarea
-                      className="input-control"
-                      rows={4}
-                      placeholder="Explain tasks, submission rules, and allowed tools..."
-                      value={instructions}
-                      onChange={(event) => setInstructions(event.target.value)}
-                    />
+                  <div className="input-group">
+                    <label className="input-label">Duration Minutes</label>
+                    <input className="input-control" type="number" min={15} value={duration} onChange={(event) => setDuration(Number(event.target.value))} />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Exam State</label>
+                    <select className="input-control select-control" value={isActive ? 'active' : 'draft'} onChange={(event) => setIsActive(event.target.value === 'active')}>
+                      <option value="active">Active / Scheduled</option>
+                      <option value="draft">Draft / Disabled</option>
+                    </select>
+                  </div>
+                  <div className="input-group" style={{ gridColumn: 'span 2' }}>
+                    <label className="input-label">Instructions</label>
+                    <textarea className="input-control" rows={4} value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder="Exam rules, allowed tools, and submission instructions..." />
                   </div>
                 </div>
               </section>
@@ -181,117 +288,100 @@ export default function Exams() {
               <section className="glass-card form-section">
                 <div className="section-title-row">
                   <span className="material-symbols-outlined">settings_input_component</span>
-                  <h3>Configuration</h3>
+                  <h3>Lab & Proctor</h3>
                 </div>
                 <div className="form-grid-2">
                   <div className="input-group">
-                    <label className="input-label">Select Lab/Room</label>
-                    <select className="select-control" value={labId ?? ''} onChange={(event) => setLabId(event.target.value || null)}>
-                      <option value="">Select lab</option>
-                      {labs.map((lab) => (
-                        <option key={lab.id} value={lab.id}>{lab.name} (Cap: {lab.registeredTerminals})</option>
-                      ))}
+                    <label className="input-label">Lab</label>
+                    <select className="input-control select-control" value={labId ?? ''} onChange={(event) => setLabId(event.target.value || null)}>
+                      <option value="">No lab selected</option>
+                      {labs.map((lab) => <option key={lab.id} value={lab.id}>{lab.name} ({lab.registeredTerminals} terminals)</option>)}
                     </select>
                   </div>
                   <div className="input-group">
-                    <label className="input-label">Assign Teacher Proctor</label>
-                    <select className="select-control" value={proctorUserId ?? ''} onChange={(event) => setProctorUserId(event.target.value || null)}>
-                      <option value="">Select proctor</option>
-                      {proctors.map((proctor) => (
-                        <option key={proctor.id} value={proctor.id}>{proctor.username}</option>
-                      ))}
+                    <label className="input-label">Teacher Proctor</label>
+                    <select className="input-control select-control" value={proctorUserId ?? ''} onChange={(event) => setProctorUserId(event.target.value || null)}>
+                      <option value="">No proctor selected</option>
+                      {proctors.map((proctor) => <option key={proctor.id} value={proctor.id}>{proctor.username}</option>)}
                     </select>
                   </div>
                 </div>
               </section>
 
-              <section className="glass-card student-assign-card">
+              <section className="glass-card form-section">
                 <div className="section-title-row">
                   <span className="material-symbols-outlined">group_add</span>
-                  <h3>Student Assignment</h3>
+                  <h3>Student Assignment & Workstations</h3>
                 </div>
                 <div className="search-bar-v2">
                   <span className="material-symbols-outlined">search</span>
-                  <input placeholder="Search by name or email..." value={search} onChange={(event) => setSearch(event.target.value)} />
+                  <input placeholder="Search students..." value={search} onChange={(event) => setSearch(event.target.value)} />
                 </div>
-                <div className="student-list">
-                  {filteredCandidates.map((candidate) => (
-                    <div key={candidate.id} className="student-item">
-                      <div className="student-item-left">
-                        <input
-                          type="checkbox"
-                          className="custom-checkbox"
-                          checked={Boolean(selected[candidate.id])}
-                          onChange={(event) =>
-                            setSelected((prev) => ({ ...prev, [candidate.id]: event.target.checked }))
-                          }
-                        />
-                        <div className="student-details">
-                          <span className="student-name">{candidate.username}</span>
-                          <span className="student-email">{candidate.email}</span>
+                <div className="student-list" style={{ maxHeight: 520 }}>
+                  {filteredCandidates.map((candidate) => {
+                    const assignment = assignments[candidate.id]
+                    return (
+                      <div key={candidate.id} className="student-item" style={{ alignItems: 'stretch', gap: '1rem' }}>
+                        <div className="student-item-left" style={{ minWidth: 220 }}>
+                          <input type="checkbox" checked={Boolean(assignment)} onChange={(event) => toggleStudent(candidate.id, event.target.checked)} />
+                          <div className="student-details">
+                            <span className="student-name">{candidate.username}</span>
+                            <span className="student-email">{candidate.email}</span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <span className={`status-pill ${candidate.hasBinding ? 'bound' : 'unbound'}`}>{candidate.hasBinding ? 'Device Bound' : 'Unbound'}</span>
+                          {assignment && (
+                            <>
+                              <select className="input-control select-control" style={{ width: 190 }} value={assignment.isEligible ? 'yes' : 'no'} onChange={(event) => updateStudentAssignment(candidate.id, { isEligible: event.target.value === 'yes' })}>
+                                <option value="yes">Eligible</option>
+                                <option value="no">Ineligible</option>
+                              </select>
+                              <select className="input-control select-control" style={{ width: 220 }} value={assignment.workstationId ?? ''} onChange={(event) => updateStudentAssignment(candidate.id, { workstationId: event.target.value || null })} disabled={!labId}>
+                                <option value="">No workstation</option>
+                                {availableWorkstations.map((machine) => <option key={machine.id} value={machine.id}>{machine.name}{machine.ipAddress ? ` - ${machine.ipAddress}` : ''}</option>)}
+                              </select>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <span className={`status-pill ${candidate.hasBinding ? 'bound' : 'unbound'}`}>
-                        {candidate.hasBinding ? 'Bound' : 'Unbound'}
-                      </span>
-                    </div>
-                  ))}
-                  {filteredCandidates.length === 0 && (
-                    <div className="empty-state">No students match your search.</div>
-                  )}
+                    )
+                  })}
+                  {filteredCandidates.length === 0 && <div className="empty-state">No students match your search.</div>}
                 </div>
               </section>
             </div>
 
             <aside className="exam-sidebar">
               <section className="glass-card assignment-summary-card">
-                <h3 className="font-h3 mb-6">Assignment Summary</h3>
+                <h3>Assignment Summary</h3>
                 <div className="summary-stat">
-                  <p className="summary-stat-label">Total Assigned</p>
+                  <p className="summary-stat-label">Assigned Students</p>
                   <p className="summary-stat-value">{selectedAssignments.length}</p>
                 </div>
-                <div className="form-grid-2 mb-6">
-                  <div className="bg-surface-alt p-4 rounded-lg">
-                    <p className="summary-stat-label" style={{ fontSize: '0.6rem' }}>Eligible</p>
-                    <p className="font-bold text-green-600">{selectedAssignments.length}</p>
-                  </div>
-                  <div className="bg-surface-alt p-4 rounded-lg">
-                    <p className="summary-stat-label" style={{ fontSize: '0.6rem' }}>Ineligible</p>
-                    <p className="font-bold text-red-600">0</p>
-                  </div>
-                </div>
                 <div className="capacity-info">
-                  <div className="capacity-header">
-                    <span>Room Capacity Status</span>
-                    <span>{labId ? 'Configured' : 'Unassigned'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span>Lab Capacity</span>
+                    <span>{selectedLab ? `${selectedAssignments.length}/${selectedLab.registeredTerminals}` : 'No lab'}</span>
                   </div>
                   <div className="capacity-bar">
-                    <div className="capacity-fill" style={{ width: labId ? '70%' : '0%' }}></div>
+                    <div
+                      className="capacity-fill"
+                      style={{ width: selectedLab ? `${Math.min(100, (selectedAssignments.length / Math.max(selectedLab.registeredTerminals, 1)) * 100)}%` : '0%' }}
+                    />
                   </div>
                 </div>
-                <div className="proctor-preview">
-                  <img
-                    className="proctor-avatar"
-                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
-                      proctors.find((p) => p.id === proctorUserId)?.username ?? 'Proctor',
-                    )}&background=0040a1&color=fff`}
-                    alt="Proctor"
-                  />
-                  <div className="proctor-info">
-                    <span className="proctor-name">
-                      {proctors.find((p) => p.id === proctorUserId)?.username ?? 'Select a proctor'}
-                    </span>
-                    <span className="proctor-role">Assigned proctor</span>
-                  </div>
+                <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
+                  <span className="status-pill bound">{selectedAssignments.filter((item) => item.isEligible).length} eligible</span>
+                  <span className="status-pill unbound">{selectedAssignments.filter((item) => !item.isEligible).length} ineligible</span>
+                  <span className="status-pill active">{selectedAssignments.filter((item) => item.workstationId).length} machines mapped</span>
                 </div>
-                <div className="alert-card">
-                  <span className="material-symbols-outlined">warning</span>
+                <div className="alert-card" style={{ marginTop: '1rem' }}>
+                  <span className="material-symbols-outlined">info</span>
                   <div className="alert-text">
-                    <span className="alert-label">SYSTEM ALERT</span>
+                    <span className="alert-label">WORKSTATION CONTROL</span>
                     <p className="alert-message">
-                      {selectedAssignments.length === 0
-                        ? 'No students assigned yet. Add candidates before publishing.'
-                        : 'Review assignment list before publishing.'}
+                      Select a lab to assign physical machines. Machine mapping is saved with each student assignment.
                     </p>
                   </div>
                 </div>
@@ -308,78 +398,69 @@ export default function Exams() {
       <div className="dashboard-content">
         <header className="page-header">
           <div className="header-text">
-            <p className="eyebrow">Exam Control</p>
+            <p className="eyebrow">Exam Configuration & Scheduling</p>
             <h1>Exams & Assessments</h1>
-            <p className="subtext">Manage your scheduled exams and create new assessment sessions.</p>
+            <p className="subtext">Create exams, assign students, and allocate lab machines for scheduled sessions.</p>
           </div>
-          <div className="header-actions">
-            <button className="primary-btn" onClick={() => setIsCreating(true)}>
-              <span className="material-symbols-outlined">add</span>
-              Create New Exam
-            </button>
-          </div>
+          <button className="primary-btn" type="button" onClick={startCreate}>
+            <span className="material-symbols-outlined">add</span>
+            Create Exam
+          </button>
         </header>
 
+        {notice && <div className="inline-alert">{notice}</div>}
         {error && <div className="inline-alert error">{error}</div>}
 
         <section className="glass-card table-container">
           <div className="table-header-row">
-            <h3>Active & Scheduled Exams</h3>
-            <div className="table-actions">
-              <button className="secondary-btn">
-                <span className="material-symbols-outlined">filter_list</span>
-                Filter
-              </button>
-            </div>
+            <h3>Exam Schedule</h3>
+            <button className="secondary-btn" type="button" onClick={() => void loadStaticData()}>
+              <span className="material-symbols-outlined">refresh</span>
+              Refresh
+            </button>
           </div>
           <div className="table-wrapper">
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Exam Title</th>
-                  <th>Date & Time</th>
-                  <th>Room / Lab</th>
+                  <th>Exam</th>
+                  <th>Schedule</th>
+                  <th>Lab</th>
                   <th>Proctor</th>
                   <th>Candidates</th>
                   <th>Status</th>
-                  <th></th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {exams.map((exam) => (
                   <tr key={exam.id} className="table-row">
                     <td>
-                      <span className="font-semibold">{exam.name}</span>
+                      <div className="student-details">
+                        <span className="student-name">{exam.name}</span>
+                        <span className="student-email">{exam.instructions ?? 'No instructions'}</span>
+                      </div>
                     </td>
                     <td>
                       <div className="student-details">
-                        <span className="student-name" style={{ fontSize: '0.85rem' }}>{new Date(exam.startUtc).toLocaleDateString()}</span>
-                        <span className="student-email">{new Date(exam.startUtc).toLocaleTimeString()}</span>
+                        <span className="student-name">{new Date(exam.startUtc).toLocaleDateString()}</span>
+                        <span className="student-email">{new Date(exam.startUtc).toLocaleTimeString()} - {new Date(exam.endUtc).toLocaleTimeString()}</span>
                       </div>
                     </td>
                     <td>{exam.labName ?? 'Unassigned'}</td>
                     <td>{exam.proctorName ?? 'Unassigned'}</td>
-                    <td>{exam.candidateCount}</td>
+                    <td>{exam.eligibleCount}/{exam.candidateCount}</td>
+                    <td><span className={`status-badge ${exam.status === 'Live' ? 'active' : 'secure'}`}>{exam.status}</span></td>
                     <td>
-                      <span className={`status-badge ${exam.status === 'Live' ? 'active' : ''}`}>
-                        <span className="dot"></span>
-                        {exam.status}
-                      </span>
-                    </td>
-                    <td className="action-cell">
-                      <button className="icon-action-btn" title="Edit disabled">
+                      <button className="icon-action-btn" type="button" onClick={() => void startEdit(exam)} disabled={busy}>
                         <span className="material-symbols-outlined">edit</span>
                       </button>
                     </td>
                   </tr>
                 ))}
-                {exams.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="empty-state">No exams scheduled yet.</td>
-                  </tr>
-                )}
               </tbody>
             </table>
+            {exams.length === 0 && <p className="empty-state">No exams scheduled yet.</p>}
           </div>
         </section>
       </div>

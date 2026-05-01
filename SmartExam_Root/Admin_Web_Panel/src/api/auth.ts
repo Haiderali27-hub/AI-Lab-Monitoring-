@@ -25,6 +25,10 @@ export async function loginUser(payload: LoginPayload): Promise<TokenResponse> {
   return unwrap<TokenResponse>(apiClient.post('/api/auth/login', payload))
 }
 
+export async function refreshSession(refreshToken: string): Promise<TokenResponse> {
+  return unwrap<TokenResponse>(apiClient.post('/api/auth/refresh', { refreshToken }))
+}
+
 export async function logoutUser(): Promise<void> {
   await unwrap<boolean>(apiClient.post('/api/auth/logout', {}))
 }

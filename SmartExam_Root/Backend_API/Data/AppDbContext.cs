@@ -14,6 +14,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ExamSession> ExamSessions => Set<ExamSession>();
     public DbSet<MonitoringEvent> MonitoringEvents => Set<MonitoringEvent>();
     public DbSet<Lab> Labs => Set<Lab>();
+    public DbSet<Workstation> Workstations => Set<Workstation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,6 +36,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasOne(x => x.Institution)
                 .WithMany(x => x.Labs)
                 .HasForeignKey(x => x.InstitutionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Workstation>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.IpAddress).HasMaxLength(50);
+            entity.HasIndex(x => new { x.LabId, x.Name }).IsUnique();
+            entity
+                .HasOne(x => x.Lab)
+                .WithMany(x => x.Workstations)
+                .HasForeignKey(x => x.LabId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -116,6 +130,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany(x => x.ExamAssignments)
                 .HasForeignKey(x => x.StudentUserId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(x => x.Workstation)
+                .WithMany(x => x.ExamAssignments)
+                .HasForeignKey(x => x.WorkstationId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<ExamSession>(entity =>
