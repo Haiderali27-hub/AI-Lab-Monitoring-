@@ -1,8 +1,111 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createExam, getExamCandidates, getExamProctors, getExams } from '../api/exams'
+import { getLabs } from '../api/institution'
 import { AdminLayout } from '../components/AdminLayout'
+import type { CreateExamPayload, ExamCandidate, ExamSummary, Lab, Proctor } from '../types'
 
 export default function Exams() {
   const [isCreating, setIsCreating] = useState(false)
+  const [exams, setExams] = useState<ExamSummary[]>([])
+  const [candidates, setCandidates] = useState<ExamCandidate[]>([])
+  const [labs, setLabs] = useState<Lab[]>([])
+  const [proctors, setProctors] = useState<Proctor[]>([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const [name, setName] = useState('')
+  const [date, setDate] = useState('')
+  const [startTime, setStartTime] = useState('09:00')
+  const [duration, setDuration] = useState(120)
+  const [labId, setLabId] = useState<string | null>(null)
+  const [proctorUserId, setProctorUserId] = useState<string | null>(null)
+  const [instructions, setInstructions] = useState('')
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<Record<string, boolean>>({})
+
+  const filteredCandidates = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    if (!term) return candidates
+    return candidates.filter((candidate) =>
+      `${candidate.username} ${candidate.email}`.toLowerCase().includes(term),
+    )
+  }, [candidates, search])
+
+  const selectedAssignments = useMemo(() => {
+    return Object.entries(selected)
+      .filter(([, isAssigned]) => isAssigned)
+      .map(([studentId]) => ({ studentId, isEligible: true }))
+  }, [selected])
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [examResult, candidateResult, labResult, proctorResult] = await Promise.all([
+          getExams(),
+          getExamCandidates(),
+          getLabs(),
+          getExamProctors(),
+        ])
+        setExams(examResult)
+        setCandidates(candidateResult)
+        setLabs(labResult)
+        setProctors(proctorResult)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load exam data.')
+      }
+    }
+
+    void loadData()
+  }, [])
+
+  function toUtcIso(dateValue: string, timeValue: string): string {
+    const local = new Date(`${dateValue}T${timeValue}`)
+    return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString()
+  }
+
+  async function onPublishExam() {
+    if (!name.trim() || !date || !startTime || duration <= 0) {
+      setError('Please complete all exam details before publishing.')
+      return
+    }
+
+    setBusy(true)
+    setError(null)
+
+    try {
+      const startUtc = toUtcIso(date, startTime)
+      const endUtcDate = new Date(`${date}T${startTime}`)
+      endUtcDate.setMinutes(endUtcDate.getMinutes() + duration)
+      const endUtc = new Date(endUtcDate.getTime() - endUtcDate.getTimezoneOffset() * 60000).toISOString()
+
+      const payload: CreateExamPayload = {
+        name: name.trim(),
+        startUtc,
+        endUtc,
+        labId,
+        proctorUserId,
+        instructions: instructions.trim() ? instructions.trim() : null,
+        assignments: selectedAssignments,
+      }
+
+      await createExam(payload)
+      const refreshed = await getExams()
+      setExams(refreshed)
+      setIsCreating(false)
+      setName('')
+      setDate('')
+      setStartTime('09:00')
+      setDuration(120)
+      setLabId(null)
+      setProctorUserId(null)
+      setInstructions('')
+      setSelected({})
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to publish exam.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   if (isCreating) {
     return (
@@ -18,11 +121,13 @@ export default function Exams() {
               <button className="secondary-btn" onClick={() => setIsCreating(false)}>
                 Cancel
               </button>
-              <button className="primary-btn">
-                Publish Exam
+              <button className="primary-btn" onClick={() => void onPublishExam()} disabled={busy}>
+                {busy ? 'Publishing...' : 'Publish Exam'}
               </button>
             </div>
           </header>
+
+          {error && <div className="inline-alert error">{error}</div>}
 
           <div className="exam-grid">
             <div className="exam-main">
@@ -34,23 +139,41 @@ export default function Exams() {
                 <div className="form-grid-2">
                   <div className="input-group col-span-2" style={{ gridColumn: 'span 2' }}>
                     <label className="input-label">Exam Title</label>
-                    <input className="input-control" placeholder="e.g. Advanced Cybersecurity Finals 2024" />
+                    <input
+                      className="input-control"
+                      placeholder="e.g. Advanced Cybersecurity Finals 2026"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      required
+                    />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Date</label>
-                    <input className="input-control" type="date" />
+                    <input className="input-control" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Duration (Minutes)</label>
-                    <input className="input-control" type="number" placeholder="120" />
+                    <input
+                      className="input-control"
+                      type="number"
+                      min={15}
+                      value={duration}
+                      onChange={(event) => setDuration(Number(event.target.value))}
+                    />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Start Time</label>
-                    <input className="input-control" type="time" />
+                    <input className="input-control" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
                   </div>
-                  <div className="input-group">
-                    <label className="input-label">End Time</label>
-                    <input className="input-control" type="time" />
+                  <div className="input-group col-span-2" style={{ gridColumn: 'span 2' }}>
+                    <label className="input-label">Instructions / Allowed Resources</label>
+                    <textarea
+                      className="input-control"
+                      rows={4}
+                      placeholder="Explain tasks, submission rules, and allowed tools..."
+                      value={instructions}
+                      onChange={(event) => setInstructions(event.target.value)}
+                    />
                   </div>
                 </div>
               </section>
@@ -63,18 +186,20 @@ export default function Exams() {
                 <div className="form-grid-2">
                   <div className="input-group">
                     <label className="input-label">Select Lab/Room</label>
-                    <select className="select-control">
-                      <option>Main Computer Lab A (Cap: 50)</option>
-                      <option>Science Wing Lab 2 (Cap: 30)</option>
-                      <option>Remote/Virtual Proctoring</option>
+                    <select className="select-control" value={labId ?? ''} onChange={(event) => setLabId(event.target.value || null)}>
+                      <option value="">Select lab</option>
+                      {labs.map((lab) => (
+                        <option key={lab.id} value={lab.id}>{lab.name} (Cap: {lab.registeredTerminals})</option>
+                      ))}
                     </select>
                   </div>
                   <div className="input-group">
                     <label className="input-label">Assign Teacher Proctor</label>
-                    <select className="select-control">
-                      <option>Dr. Sarah Jenkins</option>
-                      <option>Marcus Thorne</option>
-                      <option>Elena Rodriguez</option>
+                    <select className="select-control" value={proctorUserId ?? ''} onChange={(event) => setProctorUserId(event.target.value || null)}>
+                      <option value="">Select proctor</option>
+                      {proctors.map((proctor) => (
+                        <option key={proctor.id} value={proctor.id}>{proctor.username}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -87,28 +212,33 @@ export default function Exams() {
                 </div>
                 <div className="search-bar-v2">
                   <span className="material-symbols-outlined">search</span>
-                  <input placeholder="Search by name or student ID..." />
+                  <input placeholder="Search by name or email..." value={search} onChange={(event) => setSearch(event.target.value)} />
                 </div>
                 <div className="student-list">
-                  {[
-                    { name: 'Alexander Wright', id: '29301', status: 'Eligible' },
-                    { name: 'Mia Chen', id: '29442', status: 'Eligible' },
-                    { name: 'Julian Vane', id: '29012', status: 'Ineligible' },
-                    { name: 'Sophia Sterling', id: '29111', status: 'Eligible' },
-                  ].map((s) => (
-                    <div key={s.id} className="student-item">
+                  {filteredCandidates.map((candidate) => (
+                    <div key={candidate.id} className="student-item">
                       <div className="student-item-left">
-                        <input type="checkbox" className="custom-checkbox" defaultChecked={s.status === 'Eligible'} />
+                        <input
+                          type="checkbox"
+                          className="custom-checkbox"
+                          checked={Boolean(selected[candidate.id])}
+                          onChange={(event) =>
+                            setSelected((prev) => ({ ...prev, [candidate.id]: event.target.checked }))
+                          }
+                        />
                         <div className="student-details">
-                          <span className="student-name">{s.name}</span>
-                          <span className="student-email">ID: {s.id}</span>
+                          <span className="student-name">{candidate.username}</span>
+                          <span className="student-email">{candidate.email}</span>
                         </div>
                       </div>
-                      <span className={`status-pill ${s.status === 'Eligible' ? 'unbound' : 'bound'}`}>
-                        {s.status}
+                      <span className={`status-pill ${candidate.hasBinding ? 'bound' : 'unbound'}`}>
+                        {candidate.hasBinding ? 'Bound' : 'Unbound'}
                       </span>
                     </div>
                   ))}
+                  {filteredCandidates.length === 0 && (
+                    <div className="empty-state">No students match your search.</div>
+                  )}
                 </div>
               </section>
             </div>
@@ -118,39 +248,51 @@ export default function Exams() {
                 <h3 className="font-h3 mb-6">Assignment Summary</h3>
                 <div className="summary-stat">
                   <p className="summary-stat-label">Total Assigned</p>
-                  <p className="summary-stat-value">42</p>
+                  <p className="summary-stat-value">{selectedAssignments.length}</p>
                 </div>
                 <div className="form-grid-2 mb-6">
                   <div className="bg-surface-alt p-4 rounded-lg">
                     <p className="summary-stat-label" style={{ fontSize: '0.6rem' }}>Eligible</p>
-                    <p className="font-bold text-green-600">38</p>
+                    <p className="font-bold text-green-600">{selectedAssignments.length}</p>
                   </div>
                   <div className="bg-surface-alt p-4 rounded-lg">
                     <p className="summary-stat-label" style={{ fontSize: '0.6rem' }}>Ineligible</p>
-                    <p className="font-bold text-red-600">4</p>
+                    <p className="font-bold text-red-600">0</p>
                   </div>
                 </div>
                 <div className="capacity-info">
                   <div className="capacity-header">
                     <span>Room Capacity Status</span>
-                    <span>84% Full</span>
+                    <span>{labId ? 'Configured' : 'Unassigned'}</span>
                   </div>
                   <div className="capacity-bar">
-                    <div className="capacity-fill" style={{ width: '84%' }}></div>
+                    <div className="capacity-fill" style={{ width: labId ? '70%' : '0%' }}></div>
                   </div>
                 </div>
                 <div className="proctor-preview">
-                  <img className="proctor-avatar" src="https://ui-avatars.com/api/?name=Sarah+Jenkins&background=0040a1&color=fff" alt="SJ" />
+                  <img
+                    className="proctor-avatar"
+                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      proctors.find((p) => p.id === proctorUserId)?.username ?? 'Proctor',
+                    )}&background=0040a1&color=fff`}
+                    alt="Proctor"
+                  />
                   <div className="proctor-info">
-                    <span className="proctor-name">Dr. Sarah Jenkins</span>
-                    <span className="proctor-role">Head of Science Dept.</span>
+                    <span className="proctor-name">
+                      {proctors.find((p) => p.id === proctorUserId)?.username ?? 'Select a proctor'}
+                    </span>
+                    <span className="proctor-role">Assigned proctor</span>
                   </div>
                 </div>
                 <div className="alert-card">
                   <span className="material-symbols-outlined">warning</span>
                   <div className="alert-text">
                     <span className="alert-label">SYSTEM ALERT</span>
-                    <p className="alert-message">4 students have unresolved security flags. review recommended.</p>
+                    <p className="alert-message">
+                      {selectedAssignments.length === 0
+                        ? 'No students assigned yet. Add candidates before publishing.'
+                        : 'Review assignment list before publishing.'}
+                    </p>
                   </div>
                 </div>
               </section>
@@ -178,6 +320,8 @@ export default function Exams() {
           </div>
         </header>
 
+        {error && <div className="inline-alert error">{error}</div>}
+
         <section className="glass-card table-container">
           <div className="table-header-row">
             <h3>Active & Scheduled Exams</h3>
@@ -202,40 +346,38 @@ export default function Exams() {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  { title: 'Cybersecurity Finals', date: '2024-05-15', time: '10:00 AM', room: 'Lab A', proctor: 'Dr. Sarah', students: 42, status: 'Scheduled' },
-                  { title: 'Data Structures Quiz', date: '2024-05-16', time: '02:00 PM', room: 'Lab 2', proctor: 'Marcus T.', students: 28, status: 'Draft' },
-                  { title: 'Advanced Algorithms', date: '2024-05-14', time: '09:00 AM', room: 'Main Hall', proctor: 'Elena R.', students: 120, status: 'Live' },
-                ].map((e, i) => (
-                  <tr key={i} className="table-row">
+                {exams.map((exam) => (
+                  <tr key={exam.id} className="table-row">
                     <td>
-                      <span className="font-semibold">{e.title}</span>
+                      <span className="font-semibold">{exam.name}</span>
                     </td>
                     <td>
                       <div className="student-details">
-                        <span className="student-name" style={{ fontSize: '0.85rem' }}>{e.date}</span>
-                        <span className="student-email">{e.time}</span>
+                        <span className="student-name" style={{ fontSize: '0.85rem' }}>{new Date(exam.startUtc).toLocaleDateString()}</span>
+                        <span className="student-email">{new Date(exam.startUtc).toLocaleTimeString()}</span>
                       </div>
                     </td>
-                    <td>{e.room}</td>
-                    <td>{e.proctor}</td>
-                    <td>{e.students}</td>
+                    <td>{exam.labName ?? 'Unassigned'}</td>
+                    <td>{exam.proctorName ?? 'Unassigned'}</td>
+                    <td>{exam.candidateCount}</td>
                     <td>
-                      <span className={`status-badge ${e.status === 'Live' ? 'active' : ''}`}>
+                      <span className={`status-badge ${exam.status === 'Live' ? 'active' : ''}`}>
                         <span className="dot"></span>
-                        {e.status}
+                        {exam.status}
                       </span>
                     </td>
                     <td className="action-cell">
-                      <button className="icon-action-btn">
+                      <button className="icon-action-btn" title="Edit disabled">
                         <span className="material-symbols-outlined">edit</span>
-                      </button>
-                      <button className="icon-action-btn danger">
-                        <span className="material-symbols-outlined">delete</span>
                       </button>
                     </td>
                   </tr>
                 ))}
+                {exams.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="empty-state">No exams scheduled yet.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

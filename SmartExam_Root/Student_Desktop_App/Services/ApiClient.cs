@@ -86,6 +86,18 @@ public class ApiClient
         return await SendWithRefreshAsync<object>(request, cancellationToken);
     }
 
+    public async Task<ApiResult<object>> SendMonitoringEventAsync(
+        string accessToken,
+        string eventType,
+        Guid? examSessionId,
+        object payload,
+        CancellationToken cancellationToken = default)
+    {
+        var envelope = new MonitoringEventPayload(eventType, examSessionId, JsonSerializer.Serialize(payload));
+        using var request = CreateAuthorizedJsonRequest(HttpMethod.Post, "api/monitoring/event", accessToken, envelope);
+        return await SendWithRefreshAsync<object>(request, cancellationToken);
+    }
+
     public async Task<ApiResult<object>> LogoutAsync(
         string accessToken,
         CancellationToken cancellationToken = default)

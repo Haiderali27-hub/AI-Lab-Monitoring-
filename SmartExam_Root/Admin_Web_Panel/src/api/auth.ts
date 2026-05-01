@@ -13,8 +13,12 @@ type LoginPayload = {
   password: string
 }
 
-export async function bootstrapAdmin(payload: BootstrapPayload): Promise<TokenResponse> {
-  return unwrap<TokenResponse>(apiClient.post('/api/auth/bootstrap-admin', payload))
+export async function getBootstrapStatus(): Promise<{ isBootstrapped: boolean }> {
+  return unwrap<{ isBootstrapped: boolean }>(apiClient.get('/api/auth/bootstrap-status'))
+}
+
+export async function setupPlatform(payload: BootstrapPayload): Promise<TokenResponse> {
+  return unwrap<TokenResponse>(apiClient.post('/api/auth/setup', payload))
 }
 
 export async function loginUser(payload: LoginPayload): Promise<TokenResponse> {

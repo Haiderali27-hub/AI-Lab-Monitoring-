@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
-import { bootstrapAdmin, loginUser, logoutUser } from '../api/auth'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import * as authApi from '../api/auth'
 import type { TokenResponse, UserSummary } from '../types'
 
 type BootstrapPayload = {
@@ -18,7 +18,9 @@ type AuthContextValue = {
   user: UserSummary | null
   accessToken: string | null
   isAuthenticated: boolean
-  bootstrap: (payload: BootstrapPayload) => Promise<void>
+  isPlatformBootstrapped: boolean | null
+  checkBootstrapStatus: () => Promise<void>
+  setup: (payload: BootstrapPayload) => Promise<void>
   login: (payload: LoginPayload) => Promise<void>
   logout: () => Promise<void>
 }
@@ -54,6 +56,20 @@ function clearSession(): void {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(localStorage.getItem(TOKEN_KEY))
   const [user, setUser] = useState<UserSummary | null>(getInitialUser)
+  const [isPlatformBootstrapped, setIsPlatformBootstrapped] = useState<boolean | null>(null)
+
+  const checkBootstrapStatus = useCallback(async () => {
+    try {
+      const data = await authApi.getBootstrapStatus()
+      setIsPlatformBootstrapped(data.isBootstrapped)
+    } catch {
+      setIsPlatformBootstrapped(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    checkBootstrapStatus()
+  }, [checkBootstrapStatus])
 
   const applySession = useCallback((tokenResponse: TokenResponse) => {
     setSession(tokenResponse)
@@ -61,17 +77,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(tokenResponse.user)
   }, [])
 
-  const bootstrap = useCallback(
+  const setup = useCallback(
     async (payload: BootstrapPayload) => {
-      const tokenResponse = await bootstrapAdmin(payload)
+      const tokenResponse = await authApi.setupPlatform(payload)
       applySession(tokenResponse)
+      setIsPlatformBootstrapped(true)
     },
     [applySession],
   )
 
   const login = useCallback(
     async (payload: LoginPayload) => {
-      const tokenResponse = await loginUser(payload)
+      const tokenResponse = await authApi.loginUser(payload)
       applySession(tokenResponse)
     },
     [applySession],
@@ -80,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     try {
       if (accessToken) {
-        await logoutUser()
+        await authApi.logoutUser()
       }
     } finally {
       clearSession()
@@ -94,11 +111,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       accessToken,
       isAuthenticated: Boolean(accessToken && user),
-      bootstrap,
+      isPlatformBootstrapped,
+      checkBootstrapStatus,
+      setup,
       login,
       logout,
     }),
-    [accessToken, bootstrap, login, logout, user],
+    [accessToken, checkBootstrapStatus, isPlatformBootstrapped, login, logout, setup, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

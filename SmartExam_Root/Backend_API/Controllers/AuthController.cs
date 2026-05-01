@@ -20,13 +20,13 @@ public class AuthController(IAuthService authService) : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { isBootstrapped }));
     }
 
-    [HttpPost("bootstrap-admin")]
+    [HttpPost("setup")]
     [AllowAnonymous]
-    public async Task<IActionResult> BootstrapAdmin(
+    public async Task<IActionResult> Setup(
         [FromBody] BootstrapAdminRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _authService.BootstrapAdminAsync(request, cancellationToken);
+        var result = await _authService.BootstrapSuperAdminAsync(request, cancellationToken);
         return this.FromServiceResult(result, StatusCodes.Status201Created);
     }
 

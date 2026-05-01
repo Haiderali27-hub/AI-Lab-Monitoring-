@@ -10,4 +10,5 @@ public class Lab
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public Institution Institution { get; set; } = null!;
+    public ICollection<Exam> Exams { get; set; } = new List<Exam>();
 }

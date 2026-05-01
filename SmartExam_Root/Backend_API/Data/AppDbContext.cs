@@ -84,11 +84,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.Instructions).HasMaxLength(4000);
             entity
                 .HasOne(x => x.Institution)
                 .WithMany(x => x.Exams)
                 .HasForeignKey(x => x.InstitutionId)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(x => x.Lab)
+                .WithMany(x => x.Exams)
+                .HasForeignKey(x => x.LabId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity
+                .HasOne(x => x.ProctorUser)
+                .WithMany(x => x.ProctoredExams)
+                .HasForeignKey(x => x.ProctorUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<ExamAssignment>(entity =>

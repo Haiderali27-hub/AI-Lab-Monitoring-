@@ -1,0 +1,1579 @@
+
+=== 2280133, 2280354, 2280327.pdf ===
+AI-Driven Lab Exam Monitoring
+and Management System
+Final Year Project Proposal
+by
+Muhammad Haider Ali (2280354)
+Zain Ali Mehmood (2280133)
+Roshaan Ali Shah (2280327)
+Supervised by: Ms. Zainab Iftikhar
+Faculty of Computing and Engineering Sciences
+Shaheed Zulfikar Ali Bhutto Institute of Science and Technology
+Islamabad, Pakistan
+Spring 2026
+Project Description
+The AI-Driven Lab Exam Monitoring and Management System is a secure exam-
+ination platform designed for university computer laboratories. The system provides
+controlled exam execution, real-time monitoring, AI-assisted evaluation, and plagiarism
+detection within a unified framework.
+It enforces authorized device access, restricts unauthorized applications through a
+lockdown mechanism, collects monitoring evidence during exams, and automates the
+grading for MCQ, coding, and theory-based assessments.
+The proposed solution aims to improve fairness, efficiency, and academic integrity in
+laboratory-based examinations.
+1 Introduction
+With the increasing digitalization of higher education, universities are conducting a
+growing number of examinations in computer laboratories. These exams often involve
+programming, database management, and other technical tasks that require controlled
+system access and strict supervision.
+Despite being conducted in a controlled environment, lab-based examinations face sev-
+eral challenges. Students may attempt to access unauthorized applications, switch tasks,
+use external storage devices, or collaborate unfairly. Manual invigilation alone is often
+insufficient to monitor all students effectively, especially in large classes. Additionally,
+grading technical exams manually is time-consuming and may lead to inconsistencies.
+Detecting plagiarism within the same class is also difficult without automated analysis
+tools.
+These limitations highlight the need for a secure, intelligent, and integrated system
+tailored specifically for laboratory examination environments.
+This proposal presents the design and development of an AI-Driven Lab Exam Mon-
+itoring and Management System that aims to enhance examination security, automate
+evaluation, and promote academic integrity in university lab settings.
+2 Application/Literature Review
+Several examination and proctoring systems have been developed to manage digital
+exams and reduce cheating. However, most existing solutions focus either on online quiz
+delivery, browser-level lockdown, or remote proctoring. They typically do not provide a
+unified, lab-focused system that combines operating system restrictions, evidence collec-
+tion, AI-assisted evaluation, and integrated reporting.
+1
+Moodle Quiz [1]is a widely used Learning Management System (LMS) feature that
+supports online quizzes and assessments. It provides tools for quiz scheduling, question
+banks, grading for objective questions, and reports.
+Features:
+•Quiz creation and scheduling
+•Question bank management
+•Automatic grading for MCQs
+•Time limits and attempt control
+•Basic reports and statistics
+Limitations:
+•No operating-system level lockdown for lab machines
+•Limited real-time monitoring during the exam
+•Does not natively restrict desktop applications (e.g., compiler-only access)
+•Limited support for automated evaluation of coding problems
+Safe Exam Browser (SEB) [2]is a secure browser environment used for e-assessments.
+It turns a computer into a restricted workstation by controlling access to system functions,
+websites, and applications during an exam.
+Features:
+•Browser-based lockdown
+•Restricts access to websites and system functions
+•Can restrict applications based on configuration
+•Used with LMS systems such as Moodle
+Limitations:
+•Monitoring evidence (screenshots/webcam) is not a complete built-in solution
+•No AI-assisted evaluation for coding/theory exams
+•No integrated plagiarism detection and reporting
+Respondus LockDown Browser [3]is another exam security tool that locks down
+the testing environment within an LMS. When enabled, students are prevented from
+printing, copying, accessing other applications, or navigating away until the exam is
+submitted.
+Features:
+2
+•Locks down the exam environment within supported LMS platforms
+•Prevents switching to other applications during the exam
+•Restricts printing, copying, and other actions
+•Optional webcam-based monitoring through companion tools
+Limitations:
+•Primarily designed for browser-based exams, not full lab workflows
+•Limited integration of AI grading for coding/theory exams
+•Plagiarism reporting is not the core focus and may require external tools
+ProctorU [4]is an online proctoring service designed mainly for remote examina-
+tions. It supports identity verification, secure browser usage, and live/recorded monitor-
+ing to reduce cheating.
+Features:
+•Live and/or recorded remote proctoring
+•Identity verification and session monitoring
+•Incident reporting and exam-day guidance
+Limitations:
+•Focused on remote exams rather than controlled lab environments
+•Cost and privacy concerns for some institutions
+•Limited operating-system level control in a lab-specific setup
+Based on the reviewed systems, there is a gap for a laboratory-focused solution that
+combines strict lockdown control, continuous evidence collection, AI-assisted evaluation,
+and integrated plagiarism detection within a single platform.
+3 Problem Statement
+Universities increasingly conduct technical examinations in computer laboratories for
+programming, database, and software-related courses [9]. Although these exams are held
+in controlled environments, maintaining strict academic integrity remains a significant
+challenge.
+During lab-based examinations, students may attempt to switch applications, access
+unauthorized software, use external storage devices, or collaborate with peers [8]. Manual
+invigilation alone may not effectively detect subtle violations, especially in large classes
+3
+Table 1: Applications Comparison
+FeaturesApplicationsMoodle [1]
+SEB [2]
+Respondus [3]
+Proposed System
+Exam Scheduling & Delivery ✓ ✓ ✓ ✓
+OS/App Restriction (Lockdown) ✗ ✓ ✓ ✓
+Real-time Evidence Collection ✗ ✗ ✓ ✓
+AI-assisted Evaluation ✗ ✗ ✗ ✓
+Intra-class Plagiarism Detection ✗ ✗ ✗ ✓
+Lab-based Device Control ✗ ✗ ✗ ✓
+where a single invigilator supervises dozens of students simultaneously. This increases
+the risk of unfair practices and reduces trust in the examination process.
+Furthermore, grading coding and theory-based exams manually is time-consuming
+and prone to inconsistencies. In large classes, evaluating each submission individually
+requires significant effort from instructors. Additionally, detecting plagiarism among
+students within the same class is difficult without automated similarity analysis tools.
+Automated plagiarism detection systems such as MOSS [5] have been widely adopted in
+programming courses to identify similarity between student submissions. Comparative
+studies of source-code plagiarism detection engines [6, 7] highlight the importance of
+structured similarity analysis mechanisms in maintaining academic integrity.
+Existing solutions such as LMS-based quiz systems, browser-level lockdown tools,
+or remote proctoring services address only partial aspects of the problem. They often
+lack full operating system-level control in laboratory environments, integrated AI-assisted
+evaluation for coding and theory exams, and comprehensive reporting with audit trails.
+The unmet need is therefore a unified, laboratory-focused examination management
+system that enforces strict system control, provides real-time monitoring, automates eval-
+uation, and detects plagiarism within a single integrated platform.
+The primary stakeholders for such a system include universities, examination de-
+partments, faculty members, and academic institutions conducting technical lab-based
+assessments. As higher education institutions continue to digitize examination processes,
+the demand for secure and intelligent lab examination systems is expected to grow sig-
+nificantly.
+4
+4 Project Aim and Objectives
+Project Aim:
+The primary aim of this project is to design and implement a secure, intelligent, and
+integrated laboratory examination management system that ensures controlled exam ex-
+ecution, real-time monitoring, automated evaluation, and academic integrity enforcement
+within university computer labs.
+Value Proposition:
+Unlike existing solutions that focus either on online quiz management, browser-level
+restriction, or remote proctoring, the proposed system provides a unified laboratory-
+focused architecture. It combines operating system-level lockdown, continuous moni-
+toring, AI-assisted grading, and intra-class plagiarism detection into a single integrated
+platform specifically designed for controlled lab environments.
+Project Objectives:
+•Develop a secure authentication system with authorized laboratory device access
+control.
+•Implement a lockdown-based exam execution environment with strict application
+restrictions.
+•Design a monitoring system that captures screenshots, webcam evidence, and sys-
+tem activity during exams.
+•Develop AI-assisted evaluation for MCQ, coding, and theory-based assessments.
+•Implement intra-class plagiarism detection using similarity analysis techniques.
+•Provide a teacher dashboard for live proctoring and administrative control.
+•Generate structured reports, audit logs, and analytics for transparency and review.
+•Ensure system scalability, reliability, and security for multiple lab environments.
+Final Project Output:
+The final deliverable of this project will include:
+•A desktop-based student examination application (Windows-based lab environ-
+ment).
+•A web-based teacher and administrator control panel.
+5
+•A backend API server for data processing and communication.
+•A centralized database for exam data, monitoring records, and logs.
+•An AI processing module for automated grading and similarity detection.
+The system will be deployed on a university-controlled server environment and tested
+within a laboratory setup to simulate real examination conditions.
+5 Scope and Significance
+5.1 Project Scope
+The scope of the proposed system is limited to laboratory-based examinations con-
+ducted within university-controlled computer labs. The system focuses on secure exam
+execution, monitoring, automated evaluation, and structured reporting within a con-
+trolled environment.
+The project includes the development of the following core modules:
+1. User Authentication and Role Management
+2. Device Authorization and Access Control
+3. Exam Creation and Configuration
+4. Exam Scheduling and Dashboard Interface
+5. Pre-Exam System Verification and Mock Testing
+6. Secure Lockdown Exam Environment
+7. Monitoring and Evidence Collection
+8. Behavior Analysis and Violation Detection
+9. Live Proctoring Dashboard
+10. Submission and Auto-Save Mechanism
+11. AI-Assisted Evaluation and Plagiarism Detection
+12. Reporting and Audit Trail System
+The system is designed specifically for institutional lab settings. Remote home-based
+examinations, biometric hardware integration, and cross-university cloud deployment are
+beyond the scope of this project.
+6
+5.2 Project Significance
+The proposed system enhances the integrity and transparency of laboratory exami-
+nations by providing structured control, monitoring, and evaluation mechanisms within
+a single unified platform.
+Key benefits of the system include:
+•Improved academic integrity through strict system-level restrictions.
+•Reduced instructor workload through automated grading.
+•Faster and more consistent evaluation of coding and theory exams.
+•Automated plagiarism detection within the same class.
+•Centralized monitoring and audit logging for accountability.
+•Scalability for multiple lab sections and large student groups.
+By integrating security, monitoring, evaluation, and reporting into one system, the
+project contributes toward a more reliable and efficient digital examination framework
+for higher education institutions.
+6 Project Development Methodology
+The proposed system will be developed using an iterative and modular development
+approach. The project will be divided into structured phases including analysis, design,
+implementation, testing, and integration. Each core module will be developed and tested
+independently before system-level integration.
+Development Approach
+An iterative development model will be adopted to ensure continuous improvement
+and early detection of issues. Each module will be implemented as a separate component
+and validated before integration with other modules. This approach ensures flexibility,
+better debugging, and progressive system refinement.
+System-Level Architecture Overview
+The system will follow a client-server architecture consisting of the following major
+components:
+•Student Examination Application (Desktop Client)
+•Teacher/Admin Web Panel
+7
+•Backend API Server
+•Centralized Database Server
+•AI Evaluation and Analysis Module
+The student application will run in a controlled laboratory environment and commu-
+nicate securely with the backend server. Monitoring data and exam submissions will be
+transmitted to the server for storage and analysis. The teacher panel will access processed
+data for real-time monitoring and post-exam evaluation.
+Module-wise Development and Deliverables
+Phase 1: Core Access Control Modules
+•Authentication and Role Management
+•Device Authorization
+•Eligibility Verification
+Deliverable: Secure login and access control prototype.
+Phase 2: Exam Execution Modules
+•Exam Creation and Scheduling
+•Lockdown Environment Implementation
+•Pre-Exam Verification
+Deliverable: Functional exam execution environment with restrictions.
+Phase 3: Monitoring and Detection Modules
+•Screenshot and Webcam Capture
+•Activity Logging
+•Suspicious Behavior Detection
+•Live Proctoring Dashboard
+Deliverable: Real-time monitoring and alert system.
+Phase 4: Evaluation and Reporting Modules
+8
+Figure 1: System Architecture Block Diagram
+9
+•AI-Assisted MCQ Grading
+•Coding Test Case Evaluation
+•Theory Similarity Analysis
+•Plagiarism Detection
+•Reporting and Audit Logs
+Deliverable: Automated grading system and structured reports.
+7 Tools and Technologies
+The implementation of the AI-Driven Lab Exam Monitoring and Management System
+will involve a combination of desktop application development, web technologies, backend
+services, and AI-based processing tools.
+1. Student Examination Application:The student-side examination client will
+be developed using C# with .NET (WPF or WinForms). This platform is chosen because
+it provides strong integration with Windows-based laboratory systems and allows operat-
+ing system-level control required for implementing lockdown mechanisms and application
+restrictions.
+2. Backend API Server:ASP.NET Core will be used to develop a RESTful API
+for secure communication between the student application, teacher panel, and database
+server. It provides scalability, performance, and built-in security features such as authen-
+tication and role-based access control.
+3. Teacher and Admin Web Panel:The web-based dashboard will be developed
+using ASP.NET Core with Razor Pages or a modern frontend framework (such as React,
+if required). This interface will allow teachers to create exams, monitor students, and
+generate reports.
+4. Database Management System:SQL Server or PostgreSQL will be used as the
+relational database system to store user data, exam configurations, monitoring records,
+submissions, and logs. A relational database is suitable due to the structured nature of
+examination data.
+5. AI and Similarity Analysis Module:Python may be integrated as a microser-
+vice for implementing similarity analysis and automated grading algorithms. Modern
+AI-based evaluation approaches such as Deep Knowledge Tracing [10] demonstrate how
+machine learning can model student performance patterns. Similarly, clustering-based
+grading techniques [11] show that automated short-answer and structured-response grad-
+ing can reduce instructor workload while maintaining consistency.
+10
+6. Communication and Security:Secure HTTP (HTTPS) protocols will be used
+for data transmission between clients and servers. Authentication tokens and encrypted
+session handling will ensure secure access control.
+7. Development and Version Control Tools:Visual Studio will be used as the
+primary development environment. Git will be used for version control and collaborative
+development among team members.
+This combination of technologies ensures secure system-level control, scalable backend
+processing, structured data management, and reliable deployment within a university-
+controlled laboratory environment.
+8 Work Plan
+8.1 Team Structure
+The successful execution of this project relies on a structured division of roles. Table
+2 outlines the core team members and their primary responsibilities.
+Table 2: Team Structure
+Sr. No. Team Members Role
+1 Muhammad Haider Ali Project Manager & Backend Developer
+2 Zain Ali Mehmood Desktop Application Developer
+3 Roshaan Ali Shah AI Module Developer & QA Engineer
+8.2 Work Distribution
+To ensure efficient progress, development tasks have been divided among the team
+based on individual expertise. Table 3 details the specific work assignments for the
+project.
+Table 3: Work Distribution
+Sr. No. Team Member Work Assignment
+1 Muhammad Haider Ali System Architecture Design, Backend API Develop-
+ment, Database Design
+2 Zain Ali Mehmood Student Desktop Application, Lockdown Implemen-
+tation, Monitoring Client
+3 Roshaan Ali Shah AI Evaluation Module, Plagiarism Detection, Testing
+& Validation
+8.3 Gantt Chart
+Fig. 2 presents the planned development timeline of the project. The work is divided
+into structured phases including requirement analysis, system design, core module im-
+11
+plementation, monitoring and AI module development, system integration, testing, and
+final deployment.
+Major milestones include:
+•Completion of system architecture design
+•Implementation of secure exam execution modules
+•Integration of monitoring and AI evaluation modules
+•Full system testing and validation
+•Final deployment and documentation
+The Gantt chart ensures structured progress tracking and timely completion of project
+deliverables.
+Figure 2: Gantt Chart
+12
+References
+[1] Moodle. “Quiz Activity Documentation.” Available:https://docs.moodle.org/
+en/Quiz_activityAccessed: February 2026.
+[2] Safe Exam Browser. “About Safe Exam Browser.” Available:https://safeexambr
+owser.org/Accessed: February 2026.
+[3] Respondus. “LockDown Browser Overview.” Available:https://web.respondus.
+com/he/lockdownbrowser/Accessed: February 2026.
+[4] ProctorU. “Online Proctoring Platform.” Available:https://www.proctoru.com/
+Accessed: February 2026.
+[5] Aiken, A. (1994). “MOSS: A System for Detecting Software Plagiarism.” University
+of California, Berkeley.
+[6] Lancaster, T., & Culwin, F. (2004). “A Comparison of Source Code Plagiarism
+Detection Engines.” Computer Science Education, 14(2), 101–112.
+[7] Clough, P. (2000). “Plagiarism in Natural and Programming Languages: An
+Overview of Current Tools and Technologies.” Department of Computer Science,
+University of Sheffield.
+[8] Dawson, P. (2016). “Five Ways to Hack and Cheat with Bring-Your-Own-Device
+Electronic Examinations.” British Journal of Educational Technology, 47(4), 592–
+600.
+[9] Kumar, A. N. (2005). “The Effect of Closed Labs in Computer Science Courses.”
+SIGCSE Bulletin, 37(3), 9–13.
+[10] Piech, C., et al. (2015). “Deep Knowledge Tracing.” Advances in Neural Information
+Processing Systems (NeurIPS).
+[11] Basu, S., Jacobs, C., & Vanderwende, L. (2013). “Powergrading: A Clustering Ap-
+proach to Amplify Human Effort for Short Answer Grading.” Transactions of the
+Association for Computational Linguistics, 1, 391–402.
+13
+
+=== fyp doc .pdf ===
+AI-Driven Lab Exam Monitoring
+and Management System
+Zain Ali Mehmood (2280133)
+Muhammad Haider Ali (2280354)
+Roshaan Ali Shah (2280327)
+Supervised by: Ms. Zainab iftikhar
+In partial fulfillment of requirement for the degree
+Bachelor of Science (Software Engineering)
+Shaheed Zulfikar Ali Bhutto Institute of Science and Technology
+Islamabad, Pakistan
+Spring, 2026
+AI-Driven Lab Exam Monitoring and
+Management System
+By
+Zain Ali Mehmood (2280133)
+Muhammad Haider Ali (2280354)
+Roshaan Ali Shah (2280327)
+CERTIFICATE
+It is to certify that the above students thesis has been completed to my satisfaction
+and, to my belief, its standard is appropriate for submission for Evaluation. I have
+also conducted plagiarism test of this thesis using HEC prescribed software and found
+similarity index ”write plagiarism percentage” that is within the permissible limit set by
+the HEC for the BSSE degree thesis. I have also found the thesis in a format recognized
+by the SZABIST for the BSSE thesis.
+(Supervisor)
+Ms. Zainab Iftikhar(FYP Committee Head)
+Name
+Date:
+Department of Computer Science, Shaheed Zulfikar Ali Bhutto Institute of
+Science and Technology, Islamabad Campus
+Spring, 2026
+i
+DECLARATION
+We, Zain Ali Mehmood (2280133), Muhammad Haider Ali (2280354), and Roshaan
+Ali Shah (2280327), students of Bachelor of Science in Software Engineering at Shaheed
+Zulfikar Ali Bhutto Institute of Science and Technology, Islamabad, hereby declare that
+the project titled “AI-Driven Lab Exam Monitoring and Management System” is our
+own work.
+This project has not been submitted previously for any degree or examination at any
+other university or institute. All sources of information and data used in this document
+have been duly acknowledged.
+Zain Ali Mehmood Muhammad Haider Ali
+(2280133) (2280354)
+Roshaan Ali Shah
+(2280327)
+Project Overview
+The proposed project, AI-Driven Lab Exam Monitoring and Management System, ad-
+dresses the need for a controlled and well-managed environment for practical laboratory
+examinations conducted in universities and other academic institutions. In courses such
+as programming, databases, software engineering, networking, and operating systems,
+students are assessed on institutional machines where academic integrity depends on
+secure access, proper scheduling, controlled workstation usage, continuous monitoring,
+organized submission handling, and dependable reporting. Existing tools usually address
+only one part of this process, such as browser lockdown, online quiz delivery, plagiarism
+detection, or grading support, but they do not provide one integrated workflow specifically
+designed for in-person lab examinations.
+The scope of the project is to develop a unified academic platform that supports exam
+scheduling, user and role management, lab allocation, student authentication, face recog-
+nition support, AI-assisted monitoring, evidence logging, submission collection, result
+management, and report generation. The system is intended to reduce manual invigila-
+tion burden, improve institutional visibility during live exams, and maintain a stronger
+evidence trail for post-exam review. By combining these functions in one platform, the
+project aims to improve fairness, consistency, and accountability in practical assessments.
+The development approach of the project is iterative and modular because the solu-
+tion contains administrator, teacher, and student workflows along with backend services,
+database support, monitoring functions, and reporting modules. The expected outcome
+is a practical prototype that can help institutions manage the complete lifecycle of a lab
+exam more effectively, from pre-exam planning to post-exam analysis, while also serving
+as a foundation for future academic process automation.
+ii
+Dedication
+Firstly, we dedicate this project to Allah Almighty, whose blessings, mercy, and guidance
+made this effort possible. We also dedicate this work to our Holy Prophet Muhammad
+(Peace Be Upon Him), whose teachings remain a source of inspiration in all aspects
+of life. Finally, we dedicate this project to our beloved parents, respected teachers,
+supervisor, and supportive friends whose prayers, encouragement, and sacrifices have
+helped us continue our academic journey with determination and hope.
+iii
+Acknowledgement
+This Final Year Project has been completed in partial fulfillment of the requirements
+for the degree of Bachelor of Science in Software Engineering. We sincerely thank our
+supervisor, Ms. Zainab Iftikhar, for her guidance, encouragement, and constructive feed-
+back throughout the development of this project. We are also grateful to the faculty
+members of the Department of Computer Science, SZABIST Islamabad, and our families
+and friends for their continuous support, motivation, and prayers during the planning,
+implementation, and report-writing phases of this work.
+iv
+Revision History
+Compiled By Checked By Date Description Version
+M.Haider Ali Mam Zainab Iftikhar
+Chaudhary10 Mar 2026 Section 1.0 1.0
+Roshaan Ali shah Mam Zainab Iftikhar
+Chaudhary12 Mar 2026 Section 1.1 1.1
+Zain Ali Mehmood Mam Zainab Iftikhar
+Chaudhary14 Mar 2026 Section 1.2 1.2
+M.Haider Ali Mam Zainab Iftikhar
+Chaudhary16 Mar 2026 Section 1.3 1.3
+Roshaan Ali shah Mam Zainab Iftikhar
+Chaudhary18 Mar 2026 Section 1.4, 1.5 1.4
+Zain Ali Mehmood Mam Zainab Iftikhar
+Chaudhary20 Mar 2026 Section 1.6 1.5
+M.Haider Ali Mam Zainab Iftikhar
+Chaudhary22 Mar 2026 Section 1.7 1.6
+Roshaan Ali shah Mam Zainab Iftikhar
+Chaudhary24 Mar 2026 Section 1.8 1.7
+Zain Ali Mehmood Mam Zainab Iftikhar
+Chaudhary26 Mar 2026 Section 2.0 1.8
+M.Haider Ali Mam Zainab Iftikhar
+Chaudhary28 Mar 2026 Section 2.1 1.9
+Roshaan Ali shah Mam Zainab Iftikhar
+Chaudhary30 Mar 2026 Section 2.2 2.0
+Zain Ali Mehmood Mam Zainab Iftikhar
+Chaudhary01 Apr 2026 Section 3.0 2.1
+M.Haider Ali Mam Zainab Iftikhar
+Chaudhary03 Apr 2026 Section 3.1 2.2
+Roshaan Ali shah Mam Zainab Iftikhar
+Chaudhary05 Apr 2026 Section 3.2 2.3
+Contents
+Project Overview ii
+Dedication iii
+Acknowledgements iv
+Revision History
+List of Figures iii
+List of Tables 1
+1 Introduction 2
+1.1 Product Scope . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2
+1.1.1 Existing System Description . . . . . . . . . . . . . . . . . . . . . 2
+1.1.2 Future System Usage Analysis . . . . . . . . . . . . . . . . . . . . 7
+1.2 Objectives . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+1.3 Problem Statement / Limitations . . . . . . . . . . . . . . . . . . . . . . 8
+1.4 Benefits of Proposed System . . . . . . . . . . . . . . . . . . . . . . . . . 9
+1.5 Intended Market of Product . . . . . . . . . . . . . . . . . . . . . . . . . 10
+1.5.1 Target Audience . . . . . . . . . . . . . . . . . . . . . . . . . . . 10
+1.5.2 Institutional Environment . . . . . . . . . . . . . . . . . . . . . . 10
+1.6 Intended Users of the Product . . . . . . . . . . . . . . . . . . . . . . . . 10
+1.6.1 Administrator . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 10
+1.6.2 Teachers and Students . . . . . . . . . . . . . . . . . . . . . . . . 10
+1.7 Software Process Model . . . . . . . . . . . . . . . . . . . . . . . . . . . 11
+1.7.1 Process Model Introduction . . . . . . . . . . . . . . . . . . . . . 11
+1.7.2 Justification of Proposing the Process Model . . . . . . . . . . . . 12
+1.7.3 Steps of Process Model . . . . . . . . . . . . . . . . . . . . . . . . 12
+2 SOFTWARE REQUIREMENTS SPECIFICATION 14
+2.1 Introduction . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+2.1.1 Document Scope . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+2.1.2 Audience . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+2.2 Functional Requirements . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+2.2.1 User and Access Management Requirements . . . . . . . . . . . . 16
+2.2.2 Examination Planning and Scheduling Requirements . . . . . . . 17
+2.2.3 Monitoring and Supervision Requirements . . . . . . . . . . . . . 17
+2.2.4 Submission and Evidence Requirements . . . . . . . . . . . . . . . 17
+2.2.5 Reporting and Post-Exam Review Requirements . . . . . . . . . . 17
+2.3 Non-Functional Requirements . . . . . . . . . . . . . . . . . . . . . . . . 18
+2.3.1 Software Quality Attributes . . . . . . . . . . . . . . . . . . . . . 18
+2.3.2 Other Non-Functional Requirements . . . . . . . . . . . . . . . . 18
+2.4 Requirement Gathering Techniques Used . . . . . . . . . . . . . . . . . . 19
+2.5 Time Frame . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+i
+3 SOFTWARE PROJECT PLAN 22
+3.1 Deliverables of the Project . . . . . . . . . . . . . . . . . . . . . . . . . . 22
+3.1.1 Requirements and Analysis Deliverables . . . . . . . . . . . . . . 22
+3.1.2 Design Deliverables . . . . . . . . . . . . . . . . . . . . . . . . . . 23
+3.1.3 Prototype and Module Deliverables . . . . . . . . . . . . . . . . . 23
+3.1.4 Testing and Validation Deliverables . . . . . . . . . . . . . . . . . 23
+3.1.5 Documentation and Presentation Deliverables . . . . . . . . . . . 23
+3.1.6 Gantt Chart . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 23
+3.1.7 Work Breakdown Structure . . . . . . . . . . . . . . . . . . . . . 24
+3.1.8 Critical Path Method . . . . . . . . . . . . . . . . . . . . . . . . . 25
+3.2 Project Risk Management . . . . . . . . . . . . . . . . . . . . . . . . . . 26
+3.2.1 Risk Identification . . . . . . . . . . . . . . . . . . . . . . . . . . 26
+3.2.2 Risk Analysis . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 26
+3.2.3 Risk Mitigation Plan . . . . . . . . . . . . . . . . . . . . . . . . . 27
+3.2.4 Risk Monitoring and Control . . . . . . . . . . . . . . . . . . . . 27
+List of Figures
+1.1 Detailed Agile Workflow with Sprint Feedback and Review Loops . . . . 11
+3.1 Project Gantt Chart Based on Eight Agile Sprints . . . . . . . . . . . . . 24
+3.2 Work Breakdown Structure of the Proposed Project . . . . . . . . . . . . 25
+3.3 Critical Path of the Proposed Project Activities . . . . . . . . . . . . . . 26
+iii
+List of Tables
+1.1 Abbreviations . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+1.2 Application Comparison . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+2.1 Functional Requirements . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+2.2 Non-Functional Requirements . . . . . . . . . . . . . . . . . . . . . . . . 19
+2.3 Project Time Frame (8 Sprints) . . . . . . . . . . . . . . . . . . . . . . . 21
+3.1 Risk Likelihood and Impact Assessment . . . . . . . . . . . . . . . . . . 27
+1
+Chapter 1
+Introduction
+The growing dependence of higher education on digital infrastructure has transformed
+not only classroom delivery but also the way assessment is planned, conducted, and
+evaluated. In computer science and software engineering programs, practical laboratory
+examinations occupy a central place because they test problem solving, coding abil-
+ity, system usage skills, and real-time decision-making in controlled academic settings.
+However, many institutions still conduct such examinations through fragmented work-
+flows in which exam scheduling, laboratory readiness, invigilation, student attendance,
+suspicious-activity monitoring, submission collection, and post-exam reporting are han-
+dled using separate manual or semi-digital methods. This fragmentation reduces opera-
+tional clarity and creates avoidable pressure on instructors and invigilators during already
+time-sensitive exam sessions. For this reason, the proposed AI-Driven Lab Exam Moni-
+toring and Management System has been conceived as an integrated academic platform
+that improves visibility, control, traceability, and institutional reliability throughout the
+full life cycle of a laboratory examination.
+The idea of combining examination management with monitoring support emerges
+from a practical institutional need. In many university labs, supervisors are required to
+observe multiple students simultaneously, enforce timing rules, answer operational issues,
+verify candidate identity, track attendance, and later justify the validity of the conducted
+exam. When these responsibilities are distributed across paper lists, messaging groups,
+manual observation, local file collection, and after-the-fact reporting, the academic pro-
+cess becomes difficult to standardize. Errors are more likely to occur, evidence is harder
+to retain, and the fairness of the assessment may become difficult to demonstrate. A
+unified digital system can therefore provide an important institutional benefit by con-
+necting planning, monitoring, secure execution, submission handling, and reporting into
+one auditable workflow.
+1.1 Product Scope
+The scope of the proposed AI-Driven Lab Exam Monitoring and Management Sys-
+tem is limited to the planning, controlled execution, monitoring, submission handling,
+and reporting of practical laboratory examinations in an academic environment. The
+proposed system covers twelve project modules: user authentication, role management,
+exam scheduling, question and instruction management, laboratory allocation, worksta-
+tion control, student attendance, face recognition, AI-based monitoring, incident logging,
+result management, and reporting. Within this scope, the product delivers five core fea-
+ture groups: secure role-based access for administrators, teachers, and students; scheduled
+exam creation with lab and machine mapping; monitored exam execution with face ver-
+ification and AI-supported alerts; organized submission, result, and evidence handling;
+and administrative reporting for review, audit, and decision support.
+1.1.1 Existing System Description
+The current practical laboratory examination environment in many academic insti-
+tutions is still managed through a mix of manual supervision, isolated software tools,
+verbal coordination, and post-exam documentation. Instructors often prepare the exam
+separately, communicate schedules through informal channels, verify attendance manu-
+2
+CHAPTER 1. INTRODUCTION3
+Table 1.1: Abbreviations
+Serial # Abbreviation Definition
+1 AI Artificial Intelligence
+2 LMS Learning Management System
+3 CBT Computer-Based Testing
+4 SRS Software Requirements Specification
+5 RBAC Role-Based Access Control
+6 UI User Interface
+7 UX User Experience
+8 WBS Work Breakdown Structure
+9 CPM Critical Path Method
+10 QA Quality Assurance
+11 DBMS Database Management System
+12 API Application Programming Interface
+ally, collect files from multiple sources, and later reconstruct incidents from memory or
+incomplete notes. This fragmented setup becomes difficult to manage when the number
+of students, workstations, and simultaneous lab sessions increases.
+The following application review highlights ten widely used systems related to online
+assessment, secure testing, plagiarism analysis, and learning management. Each review
+shows that existing tools solve selected parts of the examination problem, but none of
+them fully combines lab scheduling, identity verification, machine control, AI-assisted
+monitoring, result management, and institutional reporting in one workflow tailored for
+supervised lab exams.
+1.1.1.1 Respondus LockDown BrowserRespondus LockDown Browser is a dedi-
+cated assessment browser that helps institutions protect online tests by restricting access
+to other applications, browser functions, printing options, and copy-paste behavior during
+an exam session [4]. It is widely used in universities because it integrates with popular
+learning platforms and focuses on maintaining a controlled test-taking interface.
+Features
+•Integrates with major learning management systems.
+•Restricts opening of new tabs and applications.
+•Disables printing and copy-paste actions.
+•Supports controlled quiz launch processes.
+•Offers add-on monitoring support through Respondus Monitor.
+Limitations
+•Does not provide complete lab scheduling workflows.
+•Offers limited institution-specific workstation mapping.
+•Does not focus on result and report management for lab exams.
+•Incident handling is narrower than a dedicated invigilator dashboard.
+•Practical file-based lab workflows require additional systems.
+CHAPTER 1. INTRODUCTION4
+1.1.1.2 Safe Exam BrowserSafe Exam Browser is an open-source secure browser
+environment that turns a computer into a locked-down workstation for e-assessments [5].
+Features
+•Creates a locked-down exam workstation.
+•Supports configurable exam settings.
+•Restricts navigation outside the exam environment.
+•Works with supported assessment platforms.
+•Is available for multiple operating systems.
+Limitations
+•Does not provide full exam administration workflows.
+•Lacks dedicated result management functions.
+•Does not include built-in face recognition.
+•Provides limited multi-role institutional reporting.
+•Requires external platforms for many academic processes.
+1.1.1.3 MOSSMOSS is a source-code similarity detection service used to detect pla-
+giarism in programming submissions [5].
+Features
+•Detects similarity across code submissions.
+•Supports multiple programming languages.
+•Helps instructors review plagiarism cases.
+•Generates comparative similarity reports.
+•Is widely used in programming education.
+Limitations
+•Does not schedule exams.
+•Does not monitor students during live sessions.
+•Does not manage labs or workstations.
+•Has no attendance or face verification support.
+•Requires a separate system for exam administration.
+1.1.1.4 ExamSoftExamSoft is a digital assessment platform supporting secure exams
+and analytics [6].
+Features
+•Supports secure digital exam delivery.
+•Allows offline testing workflows.
+•Provides assessment analytics.
+•Supports question and exam management.
+•Maintains institutional records.
+CHAPTER 1. INTRODUCTION5
+Limitations
+•Not specialized for lab workstation control.
+•Limited seat and machine mapping.
+•Weak focus on programming lab workflows.
+•AI monitoring is not core feature.
+•Requires customization for departments.
+1.1.1.5 MoodleMoodle is a learning management system supporting course delivery
+and assessment [7].
+Features
+•Supports quizzes and assignments.
+•Provides user management.
+•Allows plugin extensions.
+•Supports communication features.
+•Maintains course records.
+Limitations
+•Not built for lab exams.
+•Requires plugins for security.
+•No machine-level tracking.
+•Limited real-time invigilation.
+•Weak incident evidence handling.
+1.1.1.6 ProctorioProctorio is an automated online proctoring system [8].
+Features
+•Browser lockdown support.
+•Automated monitoring.
+•Identity verification.
+•Session recording.
+•LMS integration.
+Limitations
+•Focused on remote exams.
+•No lab resource allocation.
+•Limited workstation control.
+•Depends on external systems for results.
+•Needs customization for institutions.
+1.1.1.7 HonorlockHonorlock is an AI-based proctoring solution [9].
+Features
+•Identity verification.
+•Browser monitoring.
+•Video review support.
+•AI-based detection.
+•LMS integration.
+CHAPTER 1. INTRODUCTION6
+Limitations
+•Focus on remote exams.
+•No lab scheduling.
+•Limited workstation mapping.
+•External result handling.
+•Not focused on coding labs.
+1.1.1.8 Blackboard LearnBlackboard Learn is an LMS platform for academic man-
+agement [10].
+Features
+•Supports quizzes and grading.
+•Role-based management.
+•Communication tools.
+•Centralized records.
+•Integration support.
+Limitations
+•Not designed for lab exams.
+•Needs add-ons for security.
+•No machine monitoring.
+•Limited incident logging.
+•Requires customization.
+1.1.1.9 Canvas LMSCanvas LMS supports course-level assessments [11].
+Features
+•Quiz and assignment support.
+•Grading workflows.
+•Role-based access.
+•Third-party integrations.
+•Communication tools.
+Limitations
+•Not standalone exam system.
+•Needs lockdown tools.
+•No workstation control.
+•Limited invigilation.
+•Weak evidence handling.
+1.1.1.10 Google ClassroomGoogle Classroom is a lightweight class management
+system [12].
+CHAPTER 1. INTRODUCTION7
+Features
+•Assignment management.
+•Communication tools.
+•Google integration.
+•Easy to use.
+•Cloud-based access.
+Limitations
+•No secure exam support.
+•No browser lockdown.
+•No invigilation dashboard.
+•Limited logging.
+•No lab control features.
+The application review shows that existing systems usually emphasize one dimension
+of the problem, such as browser lockdown, remote proctoring, plagiarism checking, gen-
+eral LMS support, or formal assessment delivery. The gap remains the absence of one
+institution-focused platform that combines secure access, face verification, AI-supported
+monitoring, lab allocation, submission control, result handling, and reporting for practical
+computer-lab examinations.
+Table 1.2: Application Comparison
+Application Lock IDAI
+Mon.Sched. ResultLab
+Ctrl.Ref.
+Respondus LockDown
+Browser✓ ✗ ✗ ✗ ✗ ✗[4]
+Safe Exam Browser✓ ✗ ✗ ✗ ✗ ✗[5]
+MOSS✗ ✗ ✗ ✗ ✗ ✗[5]
+ExamSoft✓ ✓ ✗ ✓ ✓ ✗[6]
+Moodle✗ ✗ ✗ ✓ ✓ ✗[7]
+Proctorio✓ ✓ ✓ ✗ ✗ ✗[8]
+Honorlock✓ ✓ ✓ ✗ ✗ ✗[9]
+Blackboard Learn✗ ✗ ✗ ✓ ✓ ✗[10]
+Canvas LMS✗ ✗ ✗ ✓ ✓ ✗[11]
+Google Classroom✗ ✗ ✗ ✗ ✗ ✗[12]
+Proposed System✓ ✓ ✓ ✓ ✓ ✓This Work
+1.1.2 Future System Usage Analysis
+The future system is expected to be used as an operational platform across the com-
+plete life cycle of practical laboratory examinations. Before the exam, administrators
+and teachers will use it to configure user roles, define examination sessions, assign labora-
+tories, map students to approved machines, publish instructions, and confirm readiness.
+During the exam, students will use it to access the scheduled assessment under con-
+trolled conditions, while teachers and invigilators will rely on the monitoring dashboard
+to observe status changes, review alerts, and intervene when necessary. After the exam,
+CHAPTER 1. INTRODUCTION8
+teachers and administrators will use it to review submissions, examine incidents, verify
+attendance, manage results, and generate structured reports.
+In a practical institutional deployment, the system will be especially valuable in
+courses involving programming, software construction, data structures, operating sys-
+tems, database laboratories, networking exercises, and related disciplines where each
+student works at a computer and produces digital outputs. It can help standardize op-
+erational conduct across sections and semesters and reduce dependence on improvised
+processes.
+Another important future-use dimension concerns accountability and evidence. The
+proposed system will support a disciplined evidence trail through structured logs and
+linked session records, strengthening institutional memory and supporting academic dis-
+putes, result review, and quality evaluation.
+1.2 Objectives
+The overall objective of the AI-Driven Lab Exam Monitoring and Management System
+is to design and implement an integrated platform that improves the planning, supervi-
+sion, control, and post-exam accountability of practical laboratory examinations. This
+overall objective is operationalized through a set of specific objectives that guide both
+the software solution and the academic direction of the project.
+The first objective is to digitize and centralize the administration of practical lab-
+oratory examinations so that scheduling, user management, laboratory allocation, and
+session configuration can be handled consistently from one platform. The second objec-
+tive is to provide invigilators and instructors with a stronger real-time awareness of the
+ongoing exam through status monitoring, anomaly alerts, and organized session visibility.
+The third objective is to create a dependable submission and evidence-handling workflow
+so that academic decisions can later be supported through structured records instead of
+improvised documentation.
+The fourth objective is to improve fairness and procedural reliability by enforcing
+controlled access, time-bound execution, and consistent handling of student activity in
+the lab environment. The fifth objective is to reduce the burden of manual coordination
+placed on instructors and administrators by automating recurring operational tasks and
+by presenting consolidated reporting after exam completion. The sixth objective is to
+develop the project in a way that is academically meaningful, technically feasible within
+FYP constraints, and extensible for future institutional use.
+1.3 Problem Statement / Limitations
+Practical laboratory examinations are often conducted in environments where the
+technical challenge of the assessment is matched by an equally serious management chal-
+lenge. In many institutions, there is no single platform that coordinates scheduling,
+invigilation, access control, workstation-level tracking, incident recording, and post-exam
+reporting in a unified way. As a result, important parts of the process remain manual,
+fragmented, or weakly documented. This makes the examination workflow harder to
+supervise and more difficult to justify when concerns arise.
+One of the most significant limitations of the current environment is the limited ability
+of invigilators to monitor many students simultaneously with confidence. In a crowded
+computer lab, human attention alone is often insufficient to maintain real-time awareness
+of who has started, who is inactive, who may be experiencing technical issues, and who
+may be deviating from expected behavior. Even when invigilators are experienced, the
+lack of a consolidated dashboard makes consistent situational awareness difficult.
+CHAPTER 1. INTRODUCTION9
+A second limitation concerns evidence and traceability. In many practical exams,
+suspicious activity, submission problems, or timing disputes are difficult to reconstruct
+after the session has ended. Without structured logs and organized incident records,
+academic decisions may depend on fragmented observations rather than well-preserved
+evidence. A third limitation lies in the administrative workload caused by separate tools
+and manual coordination. Scheduling, attendance, monitoring, submission collection, and
+reporting may each require different artifacts or systems, increasing operational overhead
+and the possibility of inconsistency.
+The proposed project itself also has development limitations. As an FYP, it will
+emphasize a well-structured prototype and academically defensible design rather than
+claiming full enterprise-scale deployment across all university departments. Advanced
+AI-driven anomaly detection may initially be represented through configurable monitor-
+ing logic and alert support rather than through a production-trained predictive model.
+Similarly, large-scale live deployment constraints such as network variability, institutional
+integration complexity, and long-term maintenance policies may remain outside the im-
+mediate prototype boundary. These limitations are acknowledged so that the project
+remains realistic while still delivering meaningful academic and operational value.
+1.4 Benefits of Proposed System
+The proposed system offers a set of integrated capabilities that directly address the
+operational difficulties of practical laboratory examinations. Role-based user manage-
+ment supports different workflows for administrators, teachers, invigilators, and students,
+which helps the institution align permissions with responsibilities and reduce unautho-
+rized access to sensitive exam functions.
+Exam creation and scheduling allow authorized academic staff to define practical
+exams, assign dates and durations, publish instructions, and map sessions to relevant
+users and labs. This improves planning consistency and reduces confusion before the
+session begins.
+Lab and workstation control strengthens the connection between the digital work-
+flow and the physical laboratory environment by associating sessions with approved ma-
+chines and locations. This is especially important in practical exams, where the technical
+workspace matters as much as the question paper itself.
+Secure exam execution gives students a controlled and time-bound environment that
+is aligned with the scheduled session. This reduces ambiguity in exam start and finish
+conditions and supports procedural fairness.
+The live monitoring dashboard gives invigilators a centralized view of active students,
+session status, timing, and alerts. This directly addresses the supervision challenges that
+emerge when many students are simultaneously working in the lab.
+Alerting and evidence logging preserve meaningful exam events and suspicious occur-
+rences as structured evidence. This improves post-exam review and strengthens account-
+ability.
+Submission management organizes student work through a controlled workflow that
+links each file or output with the correct candidate and session. This reduces the risk of
+disorganized file collection and supports cleaner evaluation.
+Instructor review and administrative reporting help departments review attendance,
+incidents, session histories, and submission records through consolidated reporting fea-
+tures. This improves institutional documentation and helps departments learn from each
+conducted session.
+CHAPTER 1. INTRODUCTION10
+The proposed solution is therefore not simply a secure browser, not simply a submis-
+sion portal, and not simply an academic reporting tool. It is an integrated environment
+deliberately tailored to the needs of practical laboratory examinations. By addressing
+planning, supervision, traceability, and reporting in one coherent platform, it aims to
+produce a system that is academically useful, operationally realistic, and institutionally
+defensible.
+1.5 Intended Market of Product
+The intended market of the proposed product consists of educational institutions that
+conduct supervised practical examinations in computer laboratories and require stronger
+operational control, monitoring, and post-exam accountability.
+1.5.1 Target Audience
+The primary target audience includes universities, colleges, and departments offering
+programs in computer science, software engineering, information technology, cybersecu-
+rity, data science, and related technical disciplines. These institutions regularly conduct
+lab-based examinations where students work on institutional machines and produce dig-
+ital outputs within a fixed time window. They need a system that not only delivers an
+exam but also supports role management, student verification, monitoring, submission
+handling, result management, and reporting.
+1.5.2 Institutional Environment
+A second important market segment includes academic training centers, skill-development
+institutes, certification labs, and departmental examination cells that manage scheduled
+practical tests for batches of students. Such environments require machine allocation,
+attendance control, restricted usage, and evidence-based review of exam sessions. The
+proposed system is suitable for these environments because it is designed around struc-
+tured lab operations rather than general classroom administration alone.
+1.6 Intended Users of the Product
+The proposed system is intended for academic stakeholders who participate in prac-
+tical laboratory examinations before, during, and after the scheduled session. Each user
+group interacts with the platform differently according to its responsibilities, but all of
+them contribute to a controlled and accountable exam workflow.
+1.6.1 Administrator
+The administrator uses the system to manage user accounts, assign roles and permis-
+sions, register laboratories, map available machines, configure institutional settings, and
+review overall exam records. This role is responsible for maintaining operational readi-
+ness, ensuring that approved users can access the appropriate modules, and generating
+administrative reports for audit and policy review.
+1.6.2 Teachers and Students
+Teachers use the system to create exams, upload instructions, schedule lab sessions,
+monitor live exam activity, review submissions, manage results, and study generated re-
+ports after the exam. Students use the system to log in to their assigned exam session,
+complete identity verification, access instructions, perform the practical task in a con-
+trolled environment, and submit the required files within the scheduled time. These two
+groups represent the core academic interaction supported by the platform.
+CHAPTER 1. INTRODUCTION11
+1.7 Software Process Model
+The development of the AI-Driven Lab Exam Monitoring and Management System
+follows the Agile process model. Agile is particularly suitable for this project because
+the system contains several interdependent modules, requires continuous refinement of
+workflows, and must respond to user feedback related to usability, security, and academic
+practicality. In projects involving dashboards, access roles, examination rules, event
+logging, and post-exam reporting, it is difficult to finalize every detail correctly at the
+very beginning. Agile provides a controlled but iterative way to build the system in
+increments, validate assumptions early, and refine the product across repeated feedback
+cycles.
+1.7.1 Process Model Introduction
+Agile is an iterative and incremental development model in which software evolves
+through repeated short cycles called sprints. Each sprint focuses on a manageable subset
+of work and produces a meaningful improvement in the system. Rather than postpon-
+ing user feedback until the final stage, Agile encourages continuous interaction between
+planning, implementation, review, and refinement. This makes it highly appropriate for
+academic systems where stakeholders often understand their needs more clearly after
+seeing early prototypes and working workflows.
+In the context of the proposed system, Agile supports a practical balance between
+technical implementation and institutional feedback. An early sprint can validate whether
+the role-based dashboard structure is clear, while a later sprint can refine monitoring logic,
+face verification flow, or reporting outputs based on observed weaknesses. Such iterative
+evolution helps reduce the risk of investing too much effort in features that are technically
+complete but operationally unsuitable. It also helps the project remain realistic within
+semester constraints while still demonstrating meaningful progress [1] [2].
+Figure 1.1: Detailed Agile Workflow with Sprint Feedback and Review Loops
+CHAPTER 1. INTRODUCTION12
+1.7.2 Justification of Proposing the Process Model
+Agile is chosen over a rigid sequential model because the proposed system is not
+a single-purpose utility; it is a multi-role academic platform whose usefulness depends
+heavily on workflow suitability. A strictly linear process would assume that scheduling
+logic, monitoring interface needs, alert behavior, evidence presentation, and reporting
+expectations can all be finalized with certainty before implementation begins. In reality,
+these design decisions benefit from iterative refinement. A dashboard that appears clear
+on paper may prove cluttered in a simulated invigilation scenario. A submission flow
+that seems simple in design may become confusing when aligned with real timing rules.
+Agile offers a way to respond to such issues before they become deeply embedded in the
+system.
+Agile is also appropriate because the FYP itself develops under academic review
+conditions. Supervisor input, testing observations, and prototype demonstrations all
+contribute to the maturity of the final result. Instead of viewing change as a disruption,
+Agile treats controlled change as a normal and productive part of development. This
+aligns well with a student project in which requirements become sharper through research,
+modeling, and demonstration. Furthermore, the modular nature of the proposed system
+means that high-priority features such as login, scheduling, monitoring, and evidence
+logging can be developed first, while secondary enhancements can be refined later without
+destabilizing the project.
+1.7.3 Steps of Process Model
+The Agile process model for this project is organized into eight sprints. Each sprint
+spans four weeks, which is treated as an approximately thirty-day working cycle for plan-
+ning, implementation, review, and refinement. The twelve project modules are distributed
+across these eight sprints so that each increment produces a meaningful and reviewable
+outcome.
+Sprint 1 (Weeks 1–4):Requirement Analysis and System Planning. This sprint
+establishes the project backlog and defines the architecture baseline. The major modules
+covered are requirement analysis and project planning. Activities include stakeholder
+discussion, use-case identification, product backlog preparation, initial workflow sketches,
+and approval of the project scope.
+Sprint 2 (Weeks 5–8):User Authentication and Role Management. This sprint
+focuses on secure access to the platform. The modules delivered are user authentication
+and role management. Activities include login design, account creation rules, session
+handling, access permissions, and dashboard routing for administrators, teachers, and
+students.
+Sprint 3 (Weeks 9–12):Exam Scheduling and Question Management. This sprint
+addresses academic setup before the live exam. The modules delivered are exam schedul-
+ing and question or instruction management. Activities include exam creation, date and
+duration assignment, course mapping, instruction upload, and controlled publication of
+scheduled sessions.
+Sprint 4 (Weeks 13–16):Laboratory Allocation and Workstation Control. This
+sprint develops the physical-lab administration layer. The modules delivered are labo-
+ratory allocation and workstation control. Activities include machine registration, lab
+mapping, seat assignment logic, approved-device association, and readiness checks before
+exam launch.
+Sprint 5 (Weeks 17–20):Student Attendance and Face Recognition. This sprint
+strengthens candidate verification. The modules delivered are student attendance and
+CHAPTER 1. INTRODUCTION13
+face recognition. Activities include attendance marking, pre-exam identity confirmation,
+candidate image matching flow, and validation of authorized student access to the as-
+signed exam session.
+Sprint 6 (Weeks 21–24):AI Monitoring and Incident Logging. This sprint covers
+active invigilation support during the exam. The modules delivered are AI-based mon-
+itoring and incident logging. Activities include live status tracking, suspicious-activity
+detection rules, alert creation, evidence capture, timestamped event records, and teacher-
+facing monitoring views.
+Sprint 7 (Weeks 25–28):Result Management and Reporting. This sprint handles
+the post-exam management layer. The modules delivered are result management and re-
+porting. Activities include submission review linkage, result entry, attendance summaries,
+incident summaries, report generation, and administrative retrieval of exam records.
+Sprint 8 (Weeks 29–32):Integration, Testing, and Final Refinement. This sprint
+consolidates all previously completed work into one stable prototype. Activities include
+module integration, usability improvement, bug fixing, end-to-end testing, sprint review
+closure, documentation completion, and preparation of final academic deliverables for
+demonstration and report submission.
+Chapter 2
+SOFTWARE REQUIREMENTS
+SPECIFICATION
+The Software Requirements Specification (SRS) defines the expected behaviour, quality
+attributes, user constraints, and operational boundaries of the proposed AI-Driven Lab
+Exam Monitoring and Management System. In academic software projects, the SRS
+performs a critical role because it transforms a general idea into a verifiable and structured
+description of what the product must accomplish. For this project, the SRS is especially
+important because the system is not limited to a simple examination portal. It must
+coordinate scheduling, restricted access, live supervision, evidence recording, controlled
+submission, instructor review, and administrative reporting in one coherent environment.
+The specification also creates a shared understanding between the student develop-
+ment team, academic supervisor, and future stakeholders who may review the project. A
+well-written SRS reduces ambiguity by explaining not only which functions should exist,
+but also how those functions relate to institutional needs such as fairness, accountability,
+transparency, and operational continuity. In the context of lab examinations, unclear
+requirements can lead to serious problems. For example, if timing rules are not clearly
+defined, students may receive unequal working conditions. If monitoring requirements are
+not specified, suspicious incidents may be handled inconsistently. If reporting require-
+ments are vague, academic staff may lack the evidence needed to interpret examination
+outcomes responsibly.
+This chapter therefore explains the scope, audience, functional requirements, non-
+functional requirements, requirement elicitation techniques, and project time frame in a
+structured manner. The intention is to document the proposed system in sufficient depth
+so that later design and implementation decisions remain traceable to academic needs
+rather than being driven only by technical convenience. The chapter also supports future
+verification because every major feature described here can be translated into design
+elements, interface components, or test cases in later phases of the project.
+2.1 Introduction
+The introduction to the SRS provides the conceptual foundation for understanding
+the remainder of this chapter. It clarifies why the specification exists, who is expected to
+use it, and how the information should be interpreted during the later stages of develop-
+ment. For the proposed AI-Driven Lab Exam Monitoring and Management System, the
+introduction is necessary because the system combines educational administration, secure
+assessment control, and real-time monitoring workflows. These three dimensions make the
+project more complex than a conventional classroom application or static record-keeping
+tool.
+The proposed system is intended to support practical laboratory examinations in a
+manner that is structured, transparent, and operationally manageable. Traditional lab-
+exam arrangements often depend heavily on manual invigilation, verbal coordination, file
+collection through ad hoc methods, and informal post-exam judgments about irregulari-
+ties. Such practices can work on a small scale, but they become increasingly problematic
+when fairness, evidence preservation, and consistent policy enforcement are required. The
+14
+CHAPTER 2. SOFTWARE REQUIREMENTS SPECIFICATION15
+proposed system addresses this issue by specifying an integrated platform through which
+the exam can be planned, monitored, controlled, documented, and reviewed.
+2.1.1 Document Scope
+The scope of this SRS includes the description of all major user-facing and process-
+oriented requirements needed for the proposed system. It covers user authentication
+and role management, examination scheduling, student access control, live supervision
+support, irregularity alerting, event logging, controlled submission management, result-
+oriented reporting, and related quality expectations. It also includes the qualitative
+properties the system must exhibit, such as security, reliability, usability, maintainability,
+performance, and privacy sensitivity.
+The document does not attempt to provide detailed algorithmic implementation at
+this stage. Instead, it explains what the system must do and the conditions under which
+it must do it. Such separation is important because requirements should remain stable
+enough to guide design, while implementation methods may evolve as prototypes are
+refined. The SRS therefore functions as a stable contract for expected product behaviour
+while allowing technical flexibility in how those behaviours are eventually realized.
+2.1.2 Audience
+This document is intended for several audiences. The primary audience includes the
+project team members who will use the SRS as the foundation for design, coding, testing,
+and report writing. A second important audience consists of the project supervisor and
+academic evaluators who need to determine whether the project scope is appropriate,
+coherent, and academically worthwhile. A third audience includes future stakeholders
+such as instructors, invigilators, lab administrators, or institutional reviewers who may
+examine the prototype or extend it later.
+Each audience reads the SRS differently. Developers use it as a technical reference.
+Supervisors use it as a quality and scope-control document. Academic stakeholders use
+it to judge whether the system meaningfully addresses practical examination challenges.
+For this reason, the chapter is written in a way that combines technical clarity with
+institutional context. The specification should therefore be readable enough for academic
+review while remaining precise enough to guide development decisions.
+2.2 Functional Requirements
+Functional requirements define the explicit services, interactions, and behaviours that
+the system must provide in order to satisfy stakeholder expectations. In the proposed
+AI-Driven Lab Exam Monitoring and Management System, these requirements are in-
+terconnected because a practical lab exam must move in a controlled sequence from
+configuration to execution, monitoring, submission, and reporting.
+Another important characteristic of these requirements is that they reflect academic
+control as well as software capability. The purpose of the system is not only to auto-
+mate routine work, but also to provide exam governance in a form that is transparent,
+auditable, and fair. The following requirements are therefore written in operational se-
+quence.
+CHAPTER 2. SOFTWARE REQUIREMENTS SPECIFICATION16
+Table 2.1: Functional Requirements
+Requirement ID Description
+FR1 The administrator shall create and manage user accounts
+for teachers, students, and other authorized users.
+FR2 The system shall authenticate each user through a con-
+trolled login process.
+FR3 The system shall assign role-based permissions according to
+administrator, teacher, and student responsibilities.
+FR4 Teachers can create practical exams with course, date, du-
+ration, and instruction details.
+FR5 The system shall assign each exam to a specific laboratory
+and approved workstation set.
+FR6 Students can view only their scheduled exam session and
+related instructions.
+FR7 The system shall mark student attendance before the exam
+begins.
+FR8 The system shall verify student identity through face recog-
+nition before granting exam access.
+FR9 Students can start the exam only within the allowed session
+time.
+FR10 The system shall monitor live exam activity and present
+status updates to the teacher dashboard.
+FR11 The system shall record alerts, suspicious events, and times-
+tamped incident logs during the exam.
+FR12 Students can submit required files or outputs through a
+controlled submission workflow.
+FR13 Teachers can review submissions and manage results after
+exam completion.
+FR14 The system shall generate attendance, incident, and result
+reports for administrative review.
+The table above provides the compact list of the system’s functional expectations.
+However, each requirement becomes more meaningful when interpreted within the actual
+practical-exam environment. The following narrative expands the major functional areas
+so that the intended product behaviour is clearer.
+2.2.1 User and Access Management Requirements
+The proposed system must support structured user administration because the aca-
+demic examination process depends on role separation. Administrators manage users
+and configuration rules. Teachers create and review exams. Invigilators supervise ongo-
+ing sessions. Students participate in the examination and upload their work. If these
+responsibilities are not separated properly, the exam environment can become confusing
+or open to misuse. Therefore, account creation, role assignment, permission control, and
+secure authentication are fundamental requirements rather than optional convenience
+features.
+CHAPTER 2. SOFTWARE REQUIREMENTS SPECIFICATION17
+The user-management component must also preserve operational simplicity. Aca-
+demic environments often involve users with different technical skill levels. The system
+should therefore make it easy to activate or deactivate accounts, assign users to courses
+or exam sessions, and verify access privileges before an exam begins. These functions
+reduce the risk of confusion on exam day and strengthen institutional control.
+2.2.2 Examination Planning and Scheduling Requirements
+A major requirement of the system is the ability to plan practical examinations in an
+organized and policy-aligned manner. Authorized users should be able to define exam ti-
+tles, descriptions, practical tasks, time limits, start and end windows, permitted locations,
+and related instructional details. This planning capability is essential because practical
+exams differ widely from one course to another. Some may require coding tasks, others
+software tool usage, and others file-based outputs. The system therefore needs scheduling
+flexibility without losing procedural discipline.
+Scheduling requirements also include the ability to associate an exam with a specific
+laboratory, candidate group, or workstation context. In many institutions, different sec-
+tions may share labs or conduct sessions at different times. Without structured scheduling
+support, such arrangements become difficult to manage fairly. The scheduling functions
+must therefore provide enough information for both teachers and invigilators to under-
+stand who is appearing, where they are appearing, and under what timing constraints.
+2.2.3 Monitoring and Supervision Requirements
+Monitoring is one of the defining features of the proposed system. Unlike ordinary
+learning platforms that focus mainly on content delivery or grading, this project aims to
+strengthen visibility during live practical exams. The system must therefore provide in-
+vigilators with a monitoring dashboard that displays active student sessions, timing infor-
+mation, progress state, and noteworthy alerts. This dashboard should support situational
+awareness rather than forcing invigilators to depend entirely on physical observation.
+The monitoring requirement also includes the ability to register suspicious or irregular
+events. Depending on the final prototype implementation, such events may include inac-
+tivity anomalies, session interruptions, unauthorized state changes, or other configurable
+behaviours. The system should not make irreversible judgments automatically, but it
+should highlight events that deserve human review. In this way, the monitoring feature
+acts as a decision-support mechanism rather than a rigid disciplinary instrument.
+2.2.4 Submission and Evidence Requirements
+Practical exams often involve source files, outputs, project artifacts, screenshots, or
+documents that must be collected in a controlled manner. The system must therefore
+provide a clear submission workflow so that students know how to upload their required
+work before the session ends. A proper workflow minimizes ambiguity and helps prevent
+lost or misfiled submissions.
+Evidence handling is equally important. The system should maintain structured link-
+age between the submission, the student identity, the assigned exam, the session timing,
+and the relevant event history. This evidence-oriented requirement supports academic
+fairness because it enables instructors or reviewers to interpret a submission within its
+full examination context. For example, if a technical interruption or suspicious event
+occurred, the evidence record should help explain that context during review.
+2.2.5 Reporting and Post-Exam Review Requirements
+The project must also support the post-exam phase, which is frequently neglected
+in simpler exam systems. After an examination has concluded, academic staff often
+CHAPTER 2. SOFTWARE REQUIREMENTS SPECIFICATION18
+need more than raw student files. They need structured summaries showing attendance,
+submission completion, irregularity history, and session-level observations. Therefore, the
+system shall generate reports that help instructors and administrators review the exam
+in an organized manner.
+Such reports are valuable for several reasons. They support internal quality review,
+help resolve student concerns, and improve future exam planning. They also elevate the
+system from being a real-time monitoring tool to being a broader management platform
+for practical examination governance.
+2.3 Non-Functional Requirements
+Non-functional requirements define the quality conditions under which the functional
+services must operate. In a project concerned with secure and fair academic assessment,
+non-functional properties are not secondary. If the system is difficult to use, invigilators
+may ignore it during the exam. If it performs poorly, the dashboard may become op-
+erationally irrelevant. If it is insecure, confidence in the entire assessment process may
+decline. For these reasons, the proposed system must satisfy multiple quality dimensions
+simultaneously.
+2.3.1 Software Quality Attributes
+The main software quality attributes for the proposed system are security, reliability,
+usability, performance, maintainability, and data integrity. Security is essential because
+the platform manages identities, exam schedules, student records, and potentially sen-
+sitive monitoring evidence. Reliability is equally important because a lab exam cannot
+pause simply because the system behaves inconsistently. Usability matters because ad-
+ministrators and teachers must interact with the platform under time pressure, while
+students need a clear and low-confusion exam interface.
+Performance is also important because the system must respond quickly during lo-
+gin, attendance verification, exam launch, live monitoring, and file submission. Main-
+tainability is relevant because the project may later be refined, extended, or integrated
+with broader institutional workflows. Data integrity remains critical throughout because
+schedules, attendance status, incident logs, results, and reports must remain consistent
+and auditable.
+2.3.2 Other Non-Functional Requirements
+Other relevant non-functional requirements include portability, privacy sensitivity,
+compatibility with university lab settings, and support for structured backup practices.
+The proposed system should operate within the technological realities of academic com-
+puter labs, where hardware and operating environments may vary. It should also preserve
+logs and exam records in a consistent manner so that important information is not lost
+due to technical disruption or later review needs.
+Privacy considerations are particularly important when user activity, event logs, or
+submission-related evidence are retained. The system should therefore support responsi-
+ble access control and discourage unnecessary exposure of sensitive student-related infor-
+mation. In addition, the platform should remain easy to document and explain within
+an academic environment, because FYP success depends not only on implementation but
+also on clarity of presentation and justification.
+CHAPTER 2. SOFTWARE REQUIREMENTS SPECIFICATION19
+Table 2.2: Non-Functional Requirements
+Category Requirement
+Security The system shall enforce secure authentication, per-
+mission control, and protected access to examination
+records and evidence.
+Reliability The system shall preserve timing data, session status,
+event history, and submission records with minimal in-
+consistency risk.
+Usability The system shall provide clear interfaces for administra-
+tors, teachers, and students with minimum operational
+confusion.
+Performance The system shall respond quickly during login, exam
+launch, live monitoring, and submission actions.
+Maintainability The system shall support modular updates so that fu-
+ture improvements can be introduced without major re-
+design.
+Privacy The system shall restrict sensitive student, attendance,
+and monitoring information to authorized users only.
+Compatibility The system shall remain suitable for university
+computer-lab environments and commonly available in-
+stitutional hardware.
+Backup and Recovery The system shall preserve important logs, reports, and
+result records through structured storage and recovery
+support.
+The non-functional requirements show that the platform must be technically sound
+and institutionally dependable at the same time. Quality in this project cannot be judged
+only by whether a screen works. It must also be judged by whether the platform remains
+trustworthy when used under real examination pressure.
+2.4 Requirement Gathering Techniques Used
+The requirements for the proposed system were gathered through a multi-perspective
+process because lab examination problems are operational, academic, and technical at
+the same time. No single elicitation technique could capture the full picture. The project
+therefore used interviews, prototyping, and brainstorming sessions to define realistic re-
+quirements.
+2.4.0.1 InterviewsInterviews are a direct requirement elicitation technique in which
+stakeholders are asked structured questions to explain their current workflow, difficulties,
+and expectations. In this project, interviews were used to understand how teachers and
+academic staff currently schedule practical exams, supervise students, collect files, and
+review incidents.
+Two key questions guided this technique. The first question asked what difficulties
+arise during practical lab exams when many students must be supervised at the same
+time. The second question asked what information teachers and administrators need
+after the exam for attendance verification, result handling, and academic review.
+The outcomes of the interviews were clear and actionable. First, they highlighted
+CHAPTER 2. SOFTWARE REQUIREMENTS SPECIFICATION20
+the need for role-based access and controlled scheduling. Second, they showed that live
+monitoring and incident logging are essential for exam oversight. Third, they confirmed
+that teachers need structured reporting after the session rather than scattered manual
+records.
+2.4.0.2 PrototypingPrototyping is a requirement elicitation technique in which early
+interface sketches or mock workflows are shown to stakeholders so that hidden usability
+issues can be discovered before full implementation. In this project, simple interface ideas
+for login, scheduling, monitoring, and submission were considered to refine the system
+flow.
+Two key questions guided this technique. The first question asked whether the pro-
+posed dashboards and screens were understandable enough for use during time-sensitive
+exam conditions. The second question asked whether the sequence from login to submis-
+sion matched the actual working pattern of a lab exam.
+The outcomes of prototyping improved the requirement quality in three ways. First,
+it clarified the need for a simpler teacher dashboard with visible student status. Second,
+it confirmed that students need a guided exam flow with clear timing and submission
+prompts. Third, it exposed the importance of integrating attendance, monitoring, and
+reporting instead of treating them as unrelated screens.
+2.4.0.3 Brainstorming Session 1: Academic Workflow DiscussionBrainstorm-
+ing is a collaborative elicitation technique in which team members discuss ideas, prob-
+lems, and possible solutions in multiple sessions to identify realistic and prioritized system
+requirements. In the first session, the discussion focused on the complete academic work-
+flow, starting from exam creation and ending with final result review.
+Two key questions guided this session. The first question asked which steps of the
+current practical exam workflow consume the most manual effort. The second question
+asked which modules are essential if the system is to provide value from the very first
+prototype.
+The outcomes of the first brainstorming session established three priorities. First,
+exam scheduling and role management were identified as foundation modules. Second,
+lab allocation and attendance were recognized as necessary controls for a real computer-
+lab environment. Third, the team agreed that result management must remain connected
+to the earlier monitoring and submission steps.
+2.4.0.4 Brainstorming Session 2: Monitoring and Reporting DiscussionThe
+second brainstorming session focused specifically on monitoring, identity verification, inci-
+dent handling, and reporting. This session explored how AI-based alerts, face recognition,
+and evidence logging could be made useful within the practical limitations of an FYP
+project.
+Two key questions guided this session. The first question asked which monitoring
+events should be recorded as meaningful evidence during a live exam. The second question
+asked what type of final reports would help teachers and administrators review the session
+efficiently.
+The outcomes of the second brainstorming session refined the advanced modules of
+the project. First, the team prioritized face recognition before exam access rather than
+after the session. Second, it defined incident logs and alerts as central monitoring outputs.
+Third, it confirmed that attendance, incidents, and results should appear in one reporting
+layer so that post-exam review remains coherent.
+CHAPTER 2. SOFTWARE REQUIREMENTS SPECIFICATION21
+2.5 Time Frame
+The project time frame translates the Agile development plan into a structured sched-
+ule consisting of eight sprints. Each sprint lasts four weeks, allowing iterative develop-
+ment, review, and refinement while keeping the project aligned with academic deadlines.
+Table 2.3: Project Time Frame (8 Sprints)
+Sprint Major Activities Duration
+Sprint 1 User and Access Management, Requirement
+Discovery, and Backlog Formation.4 Weeks
+Sprint 2 Exam Configuration, Scheduling, and Ques-
+tion & Instruction Management.4 Weeks
+Sprint 3 Laboratory Allocation and Workstation Con-
+trol.4 Weeks
+Sprint 4 Student Exam Execution, Attendance, Face
+Recognition, and Submission Workflow.4 Weeks
+Sprint 5 Live Monitoring Dashboard, AI-based Alerts,
+and Real-time Supervision Features.4 Weeks
+Sprint 6 Evidence Logging, Incident Tracking, and
+Alert Management.4 Weeks
+Sprint 7 Result Management and Reporting Module
+Development.4 Weeks
+Sprint 8 System Integration, Testing, Validation, Doc-
+umentation, and Final Refinement.4 Weeks
+This sprint-based schedule ensures continuous progress, regular supervisor feedback,
+and balanced development across all twelve modules of the proposed system. The fi-
+nal sprint focuses on integration and polishing so that the prototype is complete and
+academically presentable.
+Chapter 3
+SOFTWARE PROJECT PLAN
+The Software Project Plan explains how the AI-Driven Lab Exam Monitoring and Man-
+agement System will be organized, managed, tracked, and delivered throughout the final
+year project lifecycle. In software projects that involve multiple user roles, security-
+sensitive assessment workflows, real-time monitoring, evidence capture, and reporting
+obligations, planning is not a formality. It is the mechanism that holds the project to-
+gether. Without a clear project plan, separate modules may be built in isolation, key
+deadlines may be missed, quality checks may become inconsistent, and documentation
+may fail to reflect the actual development journey.
+For the proposed project, the plan is particularly important because the system inte-
+grates administrative control, invigilation support, and student-facing exam interaction
+within a single platform. Such integration creates dependency chains across modules.
+Scheduling logic affects monitoring. Monitoring affects evidence handling. Evidence han-
+dling affects reports. Reports affect post-exam academic decisions. Therefore, the project
+must be guided through a structured plan that balances ambition, feasibility, academic
+deadlines, and iterative improvement.
+This chapter describes the deliverables, management approach, scheduling logic, man-
+agerial process assumptions, and risk management strategy that will guide the project.
+The overall aim is to ensure that development remains practical, measurable, and aca-
+demically defensible from the first sprint to the final presentation.
+3.1 Deliverables of the Project
+Project deliverables are the concrete outputs that demonstrate whether the project is
+progressing in a meaningful and measurable way. In the context of a final year project,
+deliverables are not limited to the final software prototype. They also include planning
+artifacts, design descriptions, chapter documentation, diagrams, testing evidence, and
+presentation material. These deliverables help the team measure progress, align expecta-
+tions with the supervisor, and ensure that the project remains grounded in documented
+academic work rather than ad hoc development.
+For the proposed AI-Driven Lab Exam Monitoring and Management System, deliver-
+ables are especially important because the project combines practical software construc-
+tion with report-based academic justification. A deliverable must therefore contribute
+either to system realization, project control, or academic evaluation. The following sub-
+sections explain the major deliverables in a more detailed manner.
+3.1.1 Requirements and Analysis Deliverables
+The first class of deliverables includes the problem analysis, literature grounding,
+requirement specification, workflow interpretation, and chapter documentation produced
+during the early stage of the project. These deliverables are important because they
+establish why the project is needed and what the system is expected to accomplish.
+They also act as a baseline against which later design and implementation decisions
+can be judged. If the analysis deliverables are weak, later development may become
+technically active but academically unfocused.
+22
+CHAPTER 3. SOFTWARE PROJECT PLAN23
+3.1.2 Design Deliverables
+Design deliverables include the system model, process model illustration, work break-
+down structure, scheduling diagrams, comparison tables, and any architecture-oriented
+descriptions used to convert requirements into a buildable plan. These outputs clarify how
+the system should be structured and how the development process should unfold. They
+reduce ambiguity by transforming general ideas into visual and textual planning artifacts.
+In this project, design deliverables are particularly important because the system must
+coordinate several interdependent modules such as scheduling, monitoring, submission
+management, and reporting.
+3.1.3 Prototype and Module Deliverables
+The major software deliverable of the project is a functional prototype of the AI-
+Driven Lab Exam Monitoring and Management System. However, the prototype itself is
+composed of smaller module-level deliverables. These include role-based login and dash-
+board access, exam creation and scheduling, candidate-session management, invigilator
+monitoring support, event logging, controlled submission handling, and report-oriented
+review support. Each module contributes to the completeness of the overall system, and
+each one must be sufficiently mature for the prototype to appear coherent rather than
+fragmented.
+3.1.4 Testing and Validation Deliverables
+Testing-related deliverables include structured validation of module behaviour, review
+of user flows, checking of reporting outputs, and confirmation that scheduling and moni-
+toring logic work in a consistent manner. In an academic project, testing deliverables are
+essential because they show that the prototype has been examined critically rather than
+merely assembled. They also make it easier to explain which parts of the project were
+validated and which parts remain open to future improvement.
+3.1.5 Documentation and Presentation Deliverables
+The project report, final presentation, supervisor review responses, and supporting
+explanations are also critical deliverables. These outputs help communicate the purpose,
+structure, limitations, and contribution of the project. In many FYPs, a strong system
+can still be undervalued if the documentation does not explain its significance clearly.
+Therefore, written and presentation deliverables must be treated as central project out-
+puts rather than end-stage formalities.
+3.1.6 Gantt Chart
+The Gantt chart visually represents the timing and overlap of major activities such
+as requirement analysis, sprint planning, interface design, module development, testing,
+and final review. In this revised plan, the chart is aligned with the eight sprint structure
+defined in the Agile process model so that the implementation schedule and the written
+process model remain consistent.
+CHAPTER 3. SOFTWARE PROJECT PLAN24
+Figure 3.1: Project Gantt Chart Based on Eight Agile Sprints
+The chart should be read together with the sprint descriptions because each four-
+week sprint represents a focused development increment with specific modules and review
+outcomes. When viewed in that way, the Gantt chart becomes a practical coordination
+tool rather than only a visual schedule.
+3.1.7 Work Breakdown Structure
+The work breakdown structure decomposes the project into manageable work pack-
+ages. It helps the team see how the final system emerges from smaller responsibilities
+such as requirement analysis, dashboard planning, scheduling logic, monitoring logic,
+submission handling, reporting, testing, and documentation.
+CHAPTER 3. SOFTWARE PROJECT PLAN25
+Figure 3.2: Work Breakdown Structure of the Proposed Project
+The WBS is especially helpful in team coordination because it reduces ambiguity
+around what must be completed and how tasks relate to one another.
+3.1.8 Critical Path Method
+The critical path method identifies the chain of activities that most directly determines
+whether the project can finish on time. In this FYP, activities such as requirement
+stability, design completion, core-module development, integration, testing, and final
+documentation are part of that path. The critical path perspective is valuable because it
+helps the team recognize that some delays are more dangerous than others.
+CHAPTER 3. SOFTWARE PROJECT PLAN26
+Figure 3.3: Critical Path of the Proposed Project Activities
+3.1.8.1 Schedule Control and ReviewSchedule control in this project depends on
+regular sprint review, comparison of completed tasks against planned outcomes, and
+early adjustment when a task begins to slip. This approach is more useful than passive
+calendar tracking because it links time management with actual deliverables such as
+working modules, diagrams, documentation updates, and testing evidence.
+3.2 Project Risk Management
+Risk management is the process through which potential problems are identified, as-
+sessed, and prepared for before they seriously affect project success. In the proposed
+AI-Driven Lab Exam Monitoring and Management System, risk management is espe-
+cially important because the project involves technical integration, real-time workflow
+assumptions, multiple stakeholder expectations, and strict academic deadlines. Risks
+do not need to become actual failures if they are recognized early and managed in a
+disciplined way.
+3.2.1 Risk Identification
+Several categories of risk may affect the project. Technical risks include integration
+difficulties between modules, instability in monitoring features, or data-handling com-
+plexity. Schedule risks include delays in design completion, incomplete sprint outcomes,
+or documentation falling behind implementation. Academic risks include misunderstand-
+ing stakeholder needs, insufficient justification in the report, or weak alignment between
+written chapters and the evolving prototype. Resource risks may include limited access
+to realistic testing conditions, hardware constraints, or tool-related limitations.
+3.2.2 Risk Analysis
+Risk analysis helps the team determine which risks deserve the most attention. A risk
+is not important only because it is possible; it becomes important when its likelihood
+combines with meaningful impact. For example, a small wording correction in a chapter
+CHAPTER 3. SOFTWARE PROJECT PLAN27
+may be likely but low impact, whereas instability in a monitoring feature during late-stage
+integration may be both moderately likely and highly disruptive. The team therefore
+evaluates risks in terms of both probability and seriousness.
+Table 3.1: Risk Likelihood and Impact Assessment
+Risk Likelihood Impact Explanation
+Requirement instabil-
+ityMedium High Frequent refinement of
+academic expectations
+may require redesign of
+chapters, figures, or sys-
+tem workflows.
+Module integration
+difficultyMedium High Scheduling, monitoring,
+and reporting mod-
+ules may not combine
+smoothly without rework.
+Documentation delay High Medium If report writing lags be-
+hind development, final
+academic quality may suf-
+fer even if the prototype
+improves.
+Testing constraints Medium Medium Limited access to realistic
+lab scenarios may reduce
+confidence in workflow val-
+idation.
+Time pressure near
+submissionHigh High Delays in one critical mod-
+ule may compress testing
+and revision time across
+the whole project.
+3.2.3 Risk Mitigation Plan
+Risk mitigation involves planning responses before problems grow. Requirement in-
+stability can be reduced through early scope clarification and regular supervisor review.
+Integration risk can be reduced through modular development and early testing of inter-
+faces between key components. Documentation delay can be reduced by writing chapters
+incrementally throughout the project rather than postponing them. Testing constraints
+can be reduced through scenario-based validation even when full real-world deployment
+is not possible. Time pressure can be reduced through milestone tracking and careful
+attention to critical-path activities.
+3.2.4 Risk Monitoring and Control
+Risk management is not a one-time exercise performed only at the proposal stage.
+Risks must be monitored throughout the semester as the project evolves. New risks
+may appear when modules become more detailed or when feedback changes priorities.
+Therefore, the team should review risk status regularly, especially after each sprint or
+milestone. Continuous risk monitoring supports more stable project execution and re-
+duces the likelihood that late-stage surprises will undermine the final deliverable.
+References
+[1] NCBI, “Computer-based testing in higher education,” Available:
+https://pmc.ncbi.nlm.nih.gov/articles/PMC12874087/
+[2] MIT Open Learning, “Computer-based testing: secure, efficient, cost-
+effective,” Available: https://openlearning.mit.edu/mit-faculty/residential-digital-
+innovations/computer-based-testing-secure-efficient-cost-effective
+[3] ProductPlan, “Product Scope,” Available: https://www.productplan.com/glossary/product-
+scope/
+[4] Respondus, “LockDown Browser,” Available: https://web.respondus.com/he/lockdownbrowser/
+[5] Safe Exam Browser, “About Safe Exam Browser,” Available:
+https://safeexambrowser.org/about overview en.html
+[5] Stanford University, “MOSS: A System for Detecting Software Similarities,” Avail-
+able: https://theory.stanford.edu/ aiken/moss/
+[6] ExamSoft, “Learning Assessment Tools & Software,” Available:
+https://examsoft.com/
+[7] Moodle, “Moodle and Assessment,” Available: https://moodle.com/moodle-and-
+assessment/
+[8] Proctorio, “The Learning Integrity Platform,” Available: https://proctorio.com/
+[9] Honorlock, “What is Online Proctoring? Types, Features, and Integrations,” Avail-
+able: https://honorlock.com/blog/what-is-proctored-testing/
+[10] Anthology, “Blackboard Learn,” Available: https://www.anthology.com/products/teaching-
+and-learning/learning-effectiveness/blackboard/blackboard-learn
+[11] Instructure, “Canvas LMS,” Available: https://www.instructure.com/canvas
+[12] Google for Education, “Google Classroom,” Available:
+https://edu.google.com/workspace-for-education/classroom/
+[13] Atlassian, “Project deliverables,” Available: https://www.atlassian.com/work-
+management/project-management/project-deliverables
+28

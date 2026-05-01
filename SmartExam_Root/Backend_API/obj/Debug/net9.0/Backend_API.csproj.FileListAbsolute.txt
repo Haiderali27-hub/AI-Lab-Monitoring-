@@ -139,3 +139,4 @@ c:\Users\DELL\Desktop\AI_Labmonitoring\SmartExam_Root\Backend_API\obj\Debug\net9
 c:\Users\DELL\Desktop\AI_Labmonitoring\SmartExam_Root\Backend_API\obj\Debug\net9.0\Backend_API.pdb
 c:\Users\DELL\Desktop\AI_Labmonitoring\SmartExam_Root\Backend_API\obj\Debug\net9.0\Backend_API.genruntimeconfig.cache
 c:\Users\DELL\Desktop\AI_Labmonitoring\SmartExam_Root\Backend_API\obj\Debug\net9.0\ref\Backend_API.dll
+C:\Users\DELL\Desktop\AI_Labmonitoring\SmartExam_Root\Backend_API\obj\Debug\net9.0\Backend_API.sourcelink.json

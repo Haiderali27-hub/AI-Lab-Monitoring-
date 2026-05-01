@@ -16,5 +16,6 @@ public class User
     public ICollection<UserSession> Sessions { get; set; } = new List<UserSession>();
     public ICollection<ExamAssignment> ExamAssignments { get; set; } = new List<ExamAssignment>();
     public ICollection<ExamSession> ExamSessions { get; set; } = new List<ExamSession>();
+    public ICollection<Exam> ProctoredExams { get; set; } = new List<Exam>();
     public ICollection<MonitoringEvent> MonitoringEvents { get; set; } = new List<MonitoringEvent>();
 }
