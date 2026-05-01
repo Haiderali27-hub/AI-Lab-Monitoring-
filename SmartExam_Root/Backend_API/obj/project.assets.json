@@ -3595,31 +3595,24 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\DELL\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "/Users/zayn/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "c:\\Users\\DELL\\Desktop\\AI_Labmonitoring\\SmartExam_Root\\Backend_API\\Backend_API.csproj",
+      "projectUniqueName": "/Users/zayn/AI-Lab-Monitoring-/SmartExam_Root/Backend_API/Backend_API.csproj",
       "projectName": "Backend_API",
-      "projectPath": "c:\\Users\\DELL\\Desktop\\AI_Labmonitoring\\SmartExam_Root\\Backend_API\\Backend_API.csproj",
-      "packagesPath": "C:\\Users\\DELL\\.nuget\\packages\\",
-      "outputPath": "c:\\Users\\DELL\\Desktop\\AI_Labmonitoring\\SmartExam_Root\\Backend_API\\obj\\",
+      "projectPath": "/Users/zayn/AI-Lab-Monitoring-/SmartExam_Root/Backend_API/Backend_API.csproj",
+      "packagesPath": "/Users/zayn/.nuget/packages/",
+      "outputPath": "/Users/zayn/AI-Lab-Monitoring-/SmartExam_Root/Backend_API/obj/",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\DELL\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        "/Users/zayn/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net9.0"
       ],
       "sources": {
-        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -3694,7 +3687,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.307/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/9.0.313/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

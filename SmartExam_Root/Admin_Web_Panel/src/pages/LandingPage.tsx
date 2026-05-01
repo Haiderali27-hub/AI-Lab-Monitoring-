@@ -1,17 +1,30 @@
 import type { FormEvent } from 'react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { destinationForRole, normalizeRole } from '../roleUtils'
 import { useAuth } from '../store/AuthContext'
+import type { UserSummary } from '../types'
 
 type Mode = 'setup' | 'login'
+type FieldErrors = Record<string, string>
+
+function destinationForUser(user: UserSummary): string {
+  if (normalizeRole(user.role) === 'Student') return '/login'
+  return destinationForRole(user.role)
+}
+
+function validateEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
 
 export function LandingPage() {
   const navigate = useNavigate()
-  const { setup, isAuthenticated, login } = useAuth()
+  const { setup, isAuthenticated, login, user, isPlatformBootstrapped } = useAuth()
 
   const [mode, setMode] = useState<Mode>('login')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   // Setup Form
   const [institutionName, setInstitutionName] = useState('')
@@ -24,23 +37,51 @@ export function LandingPage() {
   const [password, setPassword] = useState('')
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/admin', { replace: true })
+    if (isAuthenticated && user) {
+      navigate(destinationForUser(user), { replace: true })
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, navigate, user])
+
+  function switchMode(next: Mode) {
+    setMode(next)
+    setError(null)
+    setFieldErrors({})
+  }
+
+  function validateSetup(): FieldErrors {
+    const errors: FieldErrors = {}
+    if (institutionName.trim().length < 2) errors.institutionName = 'Minimum 2 characters required'
+    if (setupUsername.trim().length < 3) errors.username = 'Minimum 3 characters required'
+    if (!validateEmail(setupEmail)) errors.email = 'Enter a valid email address'
+    if (setupPassword.length < 8) errors.password = 'Minimum 8 characters required'
+    return errors
+  }
+
+  function validateLogin(): FieldErrors {
+    const errors: FieldErrors = {}
+    if (!usernameOrEmail.trim()) errors.usernameOrEmail = 'Email or username is required'
+    if (password.length < 8) errors.password = 'Minimum 8 characters required'
+    return errors
+  }
 
   async function onSetupSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const errors = validateSetup()
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      return
+    }
+    setFieldErrors({})
     setBusy(true)
     setError(null)
     try {
-      await setup({
+      const nextUser = await setup({
         institutionName,
         username: setupUsername,
         email: setupEmail,
         password: setupPassword,
       })
-      navigate('/admin', { replace: true })
+      navigate(destinationForUser(nextUser), { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Setup failed')
     } finally {
@@ -50,17 +91,37 @@ export function LandingPage() {
 
   async function onLoginSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const errors = validateLogin()
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      return
+    }
+    setFieldErrors({})
     setBusy(true)
     setError(null)
     try {
-      await login({ usernameOrEmail, password })
-      navigate('/admin', { replace: true })
+      const nextUser = await login({ usernameOrEmail, password })
+      if (normalizeRole(nextUser.role) === 'Student') {
+        setError('Student accounts must use the Windows desktop exam app.')
+        return
+      }
+      navigate(destinationForUser(nextUser), { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
       setBusy(false)
     }
   }
+
+  const fieldError = (key: string) =>
+    fieldErrors[key] ? (
+      <p style={{ color: '#dc3545', fontSize: '0.75rem', marginTop: '4px', marginBottom: 0 }}>
+        {fieldErrors[key]}
+      </p>
+    ) : null
+
+  const errorBorder = (key: string): React.CSSProperties =>
+    fieldErrors[key] ? { borderColor: '#dc3545' } : {}
 
   return (
     <div className="auth-page">
@@ -96,7 +157,7 @@ export function LandingPage() {
           )}
 
           {mode === 'login' ? (
-            <form onSubmit={onLoginSubmit}>
+            <form onSubmit={onLoginSubmit} noValidate>
               <div className="input-group">
                 <label className="input-label">Institution Access</label>
                 <select className="input-control select-control" defaultValue="">
@@ -112,8 +173,9 @@ export function LandingPage() {
                   placeholder="admin@smartexam.edu"
                   value={usernameOrEmail}
                   onChange={(e) => setUsernameOrEmail(e.target.value)}
-                  required
+                  style={errorBorder('usernameOrEmail')}
                 />
+                {fieldError('usernameOrEmail')}
               </div>
 
               <div className="input-group">
@@ -127,8 +189,9 @@ export function LandingPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
+                  style={errorBorder('password')}
                 />
+                {fieldError('password')}
               </div>
 
               <div className="security-banner">
@@ -141,14 +204,23 @@ export function LandingPage() {
                 {!busy && <span className="material-symbols-outlined">arrow_forward</span>}
               </button>
 
-              <div style={{ marginTop: '20px' }}>
-                <p style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)' }}>
-                  New institution? <button type="button" onClick={() => setMode('setup')} style={{ border: 'none', background: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}>Register here</button>
-                </p>
-              </div>
+              {isPlatformBootstrapped === false && (
+                <div style={{ marginTop: '20px' }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)' }}>
+                    New institution?{' '}
+                    <button
+                      type="button"
+                      onClick={() => switchMode('setup')}
+                      style={{ border: 'none', background: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Register here
+                    </button>
+                  </p>
+                </div>
+              )}
             </form>
           ) : (
-            <form onSubmit={onSetupSubmit}>
+            <form onSubmit={onSetupSubmit} noValidate>
               <div className="input-group">
                 <label className="input-label">Institution Name</label>
                 <input
@@ -156,8 +228,9 @@ export function LandingPage() {
                   placeholder="e.g. University of Technology"
                   value={institutionName}
                   onChange={(e) => setInstitutionName(e.target.value)}
-                  required
+                  style={errorBorder('institutionName')}
                 />
+                {fieldError('institutionName')}
               </div>
 
               <div className="input-group">
@@ -167,8 +240,9 @@ export function LandingPage() {
                   placeholder="j.smith"
                   value={setupUsername}
                   onChange={(e) => setSetupUsername(e.target.value)}
-                  required
+                  style={errorBorder('username')}
                 />
+                {fieldError('username')}
               </div>
 
               <div className="input-group">
@@ -179,8 +253,9 @@ export function LandingPage() {
                   placeholder="admin@institution.edu"
                   value={setupEmail}
                   onChange={(e) => setSetupEmail(e.target.value)}
-                  required
+                  style={errorBorder('email')}
                 />
+                {fieldError('email')}
               </div>
 
               <div className="input-group">
@@ -188,20 +263,28 @@ export function LandingPage() {
                 <input
                   type="password"
                   className="input-control"
-                  placeholder="••••••••"
+                  placeholder="Min. 8 characters"
                   value={setupPassword}
                   onChange={(e) => setSetupPassword(e.target.value)}
-                  required
+                  style={errorBorder('password')}
                 />
+                {fieldErrors.password
+                  ? fieldError('password')
+                  : <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.75rem', marginTop: '4px', marginBottom: 0 }}>Minimum 8 characters</p>
+                }
               </div>
 
               <button className="btn btn-primary" type="submit" disabled={busy}>
-                {busy ? 'Setting up...' : 'Create Platform Admin'}
+                {busy ? 'Setting up...' : 'Create Organization Admin'}
                 {!busy && <span className="material-symbols-outlined">add_business</span>}
               </button>
 
               <div style={{ marginTop: '20px' }}>
-                <button type="button" onClick={() => setMode('login')} style={{ border: 'none', background: 'none', color: 'var(--neutral)', fontSize: '0.85rem', cursor: 'pointer' }}>
+                <button
+                  type="button"
+                  onClick={() => switchMode('login')}
+                  style={{ border: 'none', background: 'none', color: 'var(--neutral)', fontSize: '0.85rem', cursor: 'pointer' }}
+                >
                   Back to Login
                 </button>
               </div>

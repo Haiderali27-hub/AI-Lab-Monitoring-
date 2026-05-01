@@ -27,10 +27,18 @@ public class SuperAdminController(IAuthService authService, AppDbContext dbConte
     [Authorize(Roles = nameof(SystemRole.SuperAdmin))]
     public async Task<IActionResult> CreateInstitution([FromBody] UpdateInstitutionRequest request, CancellationToken cancellationToken)
     {
+        var name = request.Name.Trim();
+        var email = request.ContactEmail.Trim().ToLowerInvariant();
+        var exists = await _dbContext.Institutions.AnyAsync(x => x.Name == name, cancellationToken);
+        if (exists)
+        {
+            return Conflict(ApiResponse<object>.Fail("INSTITUTION_EXISTS", "An institution with this name already exists."));
+        }
+
         var institution = new Institution
         {
-            Name = request.Name,
-            ContactEmail = request.ContactEmail,
+            Name = name,
+            ContactEmail = email,
             LogoUrl = request.LogoUrl,
             AllowedIpRanges = request.AllowedIpRanges,
             EnforceSingleDeviceBinding = request.EnforceSingleDeviceBinding,
@@ -59,11 +67,23 @@ public class SuperAdminController(IAuthService authService, AppDbContext dbConte
         var institution = await _dbContext.Institutions.FindAsync(new object[] { institutionId }, cancellationToken);
         if (institution == null) return NotFound(ApiResponse<object>.Fail("NOT_FOUND", "Institution not found."));
 
+        var username = request.Username.Trim();
+        var email = request.Email.Trim().ToLowerInvariant();
+        var duplicate = await _dbContext.Users.AnyAsync(
+            x => x.InstitutionId == institutionId &&
+                 (x.Username.ToLower() == username.ToLower() || x.Email.ToLower() == email),
+            cancellationToken);
+
+        if (duplicate)
+        {
+            return Conflict(ApiResponse<object>.Fail("USER_EXISTS", "A user with this username or email already exists."));
+        }
+
         var admin = new User
         {
             InstitutionId = institutionId,
-            Username = request.Username.Trim(),
-            Email = request.Email.Trim().ToLowerInvariant(),
+            Username = username,
+            Email = email,
             PasswordHash = _passwordService.HashPassword(request.Password),
             Role = SystemRole.OrganizationAdmin,
             IsActive = true

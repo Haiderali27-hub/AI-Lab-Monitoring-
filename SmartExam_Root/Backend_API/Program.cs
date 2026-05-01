@@ -135,6 +135,34 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await dbContext.Database.EnsureCreatedAsync();
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS "Workstations" (
+            "Id" uuid NOT NULL,
+            "LabId" uuid NOT NULL,
+            "Name" character varying(100) NOT NULL,
+            "IpAddress" character varying(50),
+            "IsActive" boolean NOT NULL,
+            "CreatedAtUtc" timestamp with time zone NOT NULL,
+            CONSTRAINT "PK_Workstations" PRIMARY KEY ("Id"),
+            CONSTRAINT "FK_Workstations_Labs_LabId" FOREIGN KEY ("LabId") REFERENCES "Labs" ("Id") ON DELETE CASCADE
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_Workstations_LabId_Name" ON "Workstations" ("LabId", "Name");
+
+        ALTER TABLE "ExamAssignments" ADD COLUMN IF NOT EXISTS "WorkstationId" uuid;
+        CREATE INDEX IF NOT EXISTS "IX_ExamAssignments_WorkstationId" ON "ExamAssignments" ("WorkstationId");
+
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname = 'FK_ExamAssignments_Workstations_WorkstationId'
+            ) THEN
+                ALTER TABLE "ExamAssignments"
+                ADD CONSTRAINT "FK_ExamAssignments_Workstations_WorkstationId"
+                FOREIGN KEY ("WorkstationId") REFERENCES "Workstations" ("Id") ON DELETE SET NULL;
+            END IF;
+        END $$;
+        """);
 }
 
 if (app.Environment.IsDevelopment())

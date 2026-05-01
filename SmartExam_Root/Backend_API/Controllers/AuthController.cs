@@ -26,7 +26,7 @@ public class AuthController(IAuthService authService) : ControllerBase
         [FromBody] BootstrapAdminRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _authService.BootstrapSuperAdminAsync(request, cancellationToken);
+        var result = await _authService.BootstrapAdminAsync(request, cancellationToken);
         return this.FromServiceResult(result, StatusCodes.Status201Created);
     }
 
