@@ -499,9 +499,6 @@ export default function Exams() {
           </tbody>
         </table>
         {!loading && visibleExams.length === 0 && <p className="empty-state">No exams match the selected filter.</p>}
-              </tbody>
-            </table>
-            {visibleExams.length === 0 && <p className="empty-state">No exams match the selected filter.</p>}
           </div>
         </section>
         <Toaster toasts={toasts} onDismiss={dismiss} />

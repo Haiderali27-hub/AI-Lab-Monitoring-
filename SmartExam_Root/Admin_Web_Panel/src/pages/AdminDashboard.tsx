@@ -20,7 +20,7 @@ import {
 } from '../api/admin'
 import { getLiveRoster } from '../api/exams'
 import { AdminLayout } from '../components/AdminLayout'
-import { SkeletonStatCard, SkeletonTableRow } from '../components/Skeleton'
+import { SkeletonStatCard } from '../components/Skeleton'
 import { Toaster, useToast } from '../components/Toaster'
 import { formatExamSessionStatus, formatRole, normalizeRole } from '../roleUtils'
 import { useAuth } from '../store/AuthContext'
@@ -385,7 +385,6 @@ export function AdminDashboard() {
     } finally { setBusy(false) }
   }
 
-  const currentUsers = activeTab === 'teachers' ? teachers : students
 
   return (
     <AdminLayout>
@@ -430,10 +429,12 @@ export function AdminDashboard() {
                 <div className="stat-icon purple"><span className="material-symbols-outlined">wifi_tethering</span></div>
                 <div><span className="stat-value">{onlineCount}</span><span className="stat-label">Students Online</span></div>
               </div>
-          <div className="card stat-card">
-            <div className="stat-icon red"><span className="material-symbols-outlined">verified_user</span></div>
-            <div><span className="stat-value">{activeStudents + activeTeachers}</span><span className="stat-label">Active Accounts</span></div>
-          </div>
+              <div className="card stat-card">
+                <div className="stat-icon red"><span className="material-symbols-outlined">verified_user</span></div>
+                <div><span className="stat-value">{activeStudents + activeTeachers}</span><span className="stat-label">Active Accounts</span></div>
+              </div>
+            </>
+          )}
         </div>
 
         {canManageUsers && (
