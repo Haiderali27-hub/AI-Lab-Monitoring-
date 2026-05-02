@@ -20,6 +20,8 @@ import {
 } from '../api/admin'
 import { getLiveRoster } from '../api/exams'
 import { AdminLayout } from '../components/AdminLayout'
+import { SkeletonStatCard, SkeletonTableRow } from '../components/Skeleton'
+import { Toaster, useToast } from '../components/Toaster'
 import { formatExamSessionStatus, formatRole, normalizeRole } from '../roleUtils'
 import { useAuth } from '../store/AuthContext'
 import type { AcademicSection, Department, LiveRosterItem, StudentBindingStatus, UserListItem } from '../types'
@@ -45,7 +47,9 @@ export function AdminDashboard() {
   const { user } = useAuth()
   const role = normalizeRole(user?.role)
   const canManageUsers = role === 'OrganizationAdmin' || role === 'SuperAdmin'
+  const { toasts, push: toast, dismiss } = useToast()
 
+  const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<UserTab>('students')
   const [students, setStudents] = useState<UserListItem[]>([])
   const [teachers, setTeachers] = useState<UserListItem[]>([])
@@ -53,7 +57,6 @@ export function AdminDashboard() {
   const [sections, setSections] = useState<AcademicSection[]>([])
   const [bindings, setBindings] = useState<StudentBindingStatus[]>([])
   const [roster, setRoster] = useState<LiveRosterItem[]>([])
-  const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -127,11 +130,14 @@ export function AdminDashboard() {
   }
 
   async function loadAll() {
+    setLoading(true)
     setError(null)
     try {
       await Promise.all([loadRoster(), loadAdminData()])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -173,7 +179,7 @@ export function AdminDashboard() {
           departmentId: selectedDepartmentId || null,
           sectionId: selectedSectionId || null,
         })
-        setNotice('Teacher account created.')
+        toast('Teacher account created.')
       } else {
         await createStudent({
           username: username.trim(),
@@ -182,7 +188,7 @@ export function AdminDashboard() {
           departmentId: selectedDepartmentId || null,
           sectionId: selectedSectionId || null,
         })
-        setNotice('Student account created.')
+        toast('Student account created.')
       }
       setUsername('')
       setEmail('')
@@ -215,7 +221,7 @@ export function AdminDashboard() {
       setDepartmentCode('')
       await loadAdminData()
       setSelectedDepartmentId(department.id)
-      setNotice('Department created.')
+      toast('Department created.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create department.')
     } finally {
@@ -251,7 +257,7 @@ export function AdminDashboard() {
       setSectionSemester('')
       await loadAdminData()
       setSelectedSectionId(section.id)
-      setNotice('Section created.')
+      toast('Section created.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create section.')
     } finally {
@@ -270,8 +276,8 @@ export function AdminDashboard() {
       const result = await uploadStudentCsv(csvFile)
       setCsvFile(null)
       await loadAdminData()
-      setNotice(`CSV imported. Created ${result.createdCount}, skipped ${result.skippedCount}.`)
-      if (result.errors.length > 0) setError(result.errors.slice(0, 3).join(' '))
+      toast(`CSV imported. Created ${result.createdCount}, skipped ${result.skippedCount}.`)
+      if (result.errors.length > 0) toast(result.errors.slice(0, 3).join(' '), 'error')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'CSV upload failed.')
     } finally {
@@ -299,7 +305,7 @@ export function AdminDashboard() {
     try {
       await deleteUser(userId)
       await loadAdminData()
-      setNotice('User deleted.')
+      toast('User deleted.', 'warning')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete user.')
     } finally {
@@ -313,7 +319,7 @@ export function AdminDashboard() {
     try {
       await resetStudentBinding(studentId)
       await loadAdminData()
-      setNotice('Device binding reset.')
+      toast('Device binding reset.', 'warning')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reset binding.')
     } finally {
@@ -326,7 +332,7 @@ export function AdminDashboard() {
     try {
       await forceStudentLogout(studentId)
       await loadRoster()
-      setNotice('Active student sessions terminated.')
+      toast('Active student sessions terminated.', 'warning')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to force logout.')
     } finally { setBusy(false) }
@@ -359,7 +365,7 @@ export function AdminDashboard() {
       })
       setEditingUser(null)
       await loadAdminData()
-      setNotice(`User "${editUsername.trim()}" updated${roleChanged ? ` — role changed to ${editRole}` : ''}.`)
+      toast(`User "${editUsername.trim()}" updated${roleChanged ? ` — role changed to ${editRole}` : ''}.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update user.')
     } finally { setBusy(false) }
@@ -373,7 +379,7 @@ export function AdminDashboard() {
       await resetUserPassword(editingUser.id, editNewPassword)
       setEditNewPassword('')
       setShowPasswordReset(false)
-      setNotice(`Password reset for "${editingUser.username}". Their active sessions have been revoked.`)
+      toast(`Password reset for "${editingUser.username}". Active sessions revoked.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reset password.')
     } finally { setBusy(false) }
@@ -400,22 +406,30 @@ export function AdminDashboard() {
           </button>
         </div>
 
-        {notice && <div className="inline-alert">{notice}</div>}
         {error && <div className="inline-alert error">{error}</div>}
 
         <div className="stats-grid">
-          <div className="card stat-card">
-            <div className="stat-icon blue"><span className="material-symbols-outlined">groups</span></div>
-            <div><span className="stat-value">{students.length}</span><span className="stat-label">Students</span></div>
-          </div>
-          <div className="card stat-card">
-            <div className="stat-icon green"><span className="material-symbols-outlined">school</span></div>
-            <div><span className="stat-value">{teachers.length}</span><span className="stat-label">Teachers</span></div>
-          </div>
-          <div className="card stat-card">
-            <div className="stat-icon purple"><span className="material-symbols-outlined">wifi_tethering</span></div>
-            <div><span className="stat-value">{onlineCount}</span><span className="stat-label">Students Online</span></div>
-          </div>
+          {loading ? (
+            <>
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+            </>
+          ) : (
+            <>
+              <div className="card stat-card">
+                <div className="stat-icon blue"><span className="material-symbols-outlined">groups</span></div>
+                <div><span className="stat-value">{students.length}</span><span className="stat-label">Students</span></div>
+              </div>
+              <div className="card stat-card">
+                <div className="stat-icon green"><span className="material-symbols-outlined">school</span></div>
+                <div><span className="stat-value">{teachers.length}</span><span className="stat-label">Teachers</span></div>
+              </div>
+              <div className="card stat-card">
+                <div className="stat-icon purple"><span className="material-symbols-outlined">wifi_tethering</span></div>
+                <div><span className="stat-value">{onlineCount}</span><span className="stat-label">Students Online</span></div>
+              </div>
           <div className="card stat-card">
             <div className="stat-icon red"><span className="material-symbols-outlined">verified_user</span></div>
             <div><span className="stat-value">{activeStudents + activeTeachers}</span><span className="stat-label">Active Accounts</span></div>
@@ -801,6 +815,7 @@ export function AdminDashboard() {
           </div>
         )}
       </div>
+      <Toaster toasts={toasts} onDismiss={dismiss} />
     </AdminLayout>
   )
 }

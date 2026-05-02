@@ -13,6 +13,8 @@ import {
 } from '../api/exams'
 import { getLabs, getWorkstations } from '../api/institution'
 import { AdminLayout } from '../components/AdminLayout'
+import { SkeletonTableRow } from '../components/Skeleton'
+import { Toaster, useToast } from '../components/Toaster'
 import type {
   CreateExamPayload,
   ExamAssignmentInput,
@@ -63,8 +65,9 @@ export default function Exams() {
   const [labs, setLabs] = useState<Lab[]>([])
   const [workstations, setWorkstations] = useState<Workstation[]>([])
   const [proctors, setProctors] = useState<Proctor[]>([])
+  const { toasts, push: toast, dismiss } = useToast()
+  const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All')
 
@@ -113,7 +116,10 @@ export default function Exams() {
   }
 
   useEffect(() => {
-    void loadStaticData().catch((err) => setError(err instanceof Error ? err.message : 'Failed to load exam data.'))
+    setLoading(true)
+    loadStaticData()
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load exam data.'))
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
@@ -171,7 +177,7 @@ export default function Exams() {
     if (!name.trim() || !date || !startTime || duration <= 0) {
       setError('Complete exam title, date, start time, and duration.'); return
     }
-    setBusy(true); setError(null); setNotice(null)
+    setBusy(true); setError(null)
     try {
       const startUtc = toUtcIso(date, startTime)
       const endDate = new Date(`${date}T${startTime}`)
@@ -181,11 +187,11 @@ export default function Exams() {
       if (mode === 'edit' && editingExamId) {
         await updateExam(editingExamId, { ...basePayload, isActive })
         await updateExamAssignments(editingExamId, selectedAssignments)
-        setNotice('Exam updated.')
+        toast('Exam updated.')
       } else {
         const payload: CreateExamPayload = { ...basePayload, assignments: selectedAssignments }
         await createExam(payload)
-        setNotice('Exam created.')
+        toast('Exam created.')
       }
       await loadStaticData(); resetForm(); setMode('list')
     } catch (err) {
@@ -199,7 +205,7 @@ export default function Exams() {
     try {
       await cancelExam(exam.id)
       await loadStaticData()
-      setNotice(`Exam "${exam.name}" has been cancelled.`)
+      toast(`Exam "${exam.name}" cancelled.`, 'warning')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to cancel exam.')
     } finally { setBusy(false) }
@@ -211,7 +217,7 @@ export default function Exams() {
     try {
       await archiveExam(exam.id, willArchive)
       await loadStaticData()
-      setNotice(willArchive ? `Exam "${exam.name}" archived.` : `Exam "${exam.name}" unarchived.`)
+      toast(willArchive ? `Exam "${exam.name}" archived.` : `Exam "${exam.name}" unarchived.`, 'info')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to archive exam.')
     } finally { setBusy(false) }
@@ -223,7 +229,7 @@ export default function Exams() {
     try {
       await deleteExam(exam.id)
       await loadStaticData()
-      setNotice(`Exam "${exam.name}" deleted.`)
+      toast(`Exam "${exam.name}" deleted.`, 'warning')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete exam.')
     } finally { setBusy(false) }
@@ -248,7 +254,6 @@ export default function Exams() {
             </div>
           </header>
 
-          {notice && <div className="inline-alert">{notice}</div>}
           {error && <div className="inline-alert error">{error}</div>}
 
           <div className="exam-grid">
@@ -381,6 +386,7 @@ export default function Exams() {
             </aside>
           </div>
         </div>
+        <Toaster toasts={toasts} onDismiss={dismiss} />
       </AdminLayout>
     )
   }
@@ -405,7 +411,6 @@ export default function Exams() {
           </div>
         </header>
 
-        {notice && <div className="inline-alert">{notice}</div>}
         {error && <div className="inline-alert error">{error}</div>}
 
         {/* Status filter tabs */}
@@ -445,57 +450,61 @@ export default function Exams() {
                 </tr>
               </thead>
               <tbody>
-                {visibleExams.map((exam) => (
-                  <tr key={exam.id} className="table-row">
-                    <td>
-                      <div className="student-details">
-                        <span className="student-name">{exam.name}</span>
-                        <span className="student-email">{exam.instructions ?? 'No instructions'}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="student-details">
-                        <span className="student-name">{new Date(exam.startUtc).toLocaleDateString()}</span>
-                        <span className="student-email">{new Date(exam.startUtc).toLocaleTimeString()} – {new Date(exam.endUtc).toLocaleTimeString()}</span>
-                      </div>
-                    </td>
-                    <td>{exam.labName ?? 'Unassigned'}</td>
-                    <td>{exam.proctorName ?? 'Unassigned'}</td>
-                    <td>{exam.eligibleCount}/{exam.candidateCount}</td>
-                    <td>
-                      <span className={`status-badge ${statusBadgeClass(exam.status)}`}>{exam.status}</span>
-                    </td>
-                    <td style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
-                      {/* Edit — only if not cancelled/archived */}
-                      {!exam.isCancelled && !exam.isArchived && (
-                        <button className="icon-action-btn" type="button" title="Edit" onClick={() => void startEdit(exam)} disabled={busy}>
-                          <span className="material-symbols-outlined">edit</span>
-                        </button>
-                      )}
-                      {/* Cancel — only active/scheduled exams */}
-                      {!exam.isCancelled && !exam.isArchived && (
-                        <button className="icon-action-btn" type="button" title="Cancel exam" onClick={() => void onCancelExam(exam)} disabled={busy} style={{ color: 'var(--color-warning, #f59e0b)' }}>
-                          <span className="material-symbols-outlined">cancel</span>
-                        </button>
-                      )}
-                      {/* Archive / Unarchive */}
-                      <button className="icon-action-btn" type="button" title={exam.isArchived ? 'Unarchive' : 'Archive'} onClick={() => void onArchiveExam(exam)} disabled={busy}>
-                        <span className="material-symbols-outlined">{exam.isArchived ? 'unarchive' : 'archive'}</span>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => <SkeletonTableRow key={i} cols={7} />)
+            ) : (
+              visibleExams.map((exam) => (
+                <tr key={exam.id} className="table-row">
+                  <td>
+                    <div className="student-details">
+                      <span className="student-name">{exam.name}</span>
+                      <span className="student-email">{exam.instructions ?? 'No instructions'}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="student-details">
+                      <span className="student-name">{new Date(exam.startUtc).toLocaleDateString()}</span>
+                      <span className="student-email">{new Date(exam.startUtc).toLocaleTimeString()} – {new Date(exam.endUtc).toLocaleTimeString()}</span>
+                    </div>
+                  </td>
+                  <td>{exam.labName ?? 'Unassigned'}</td>
+                  <td>{exam.proctorName ?? 'Unassigned'}</td>
+                  <td>{exam.eligibleCount}/{exam.candidateCount}</td>
+                  <td>
+                    <span className={`status-badge ${statusBadgeClass(exam.status)}`}>{exam.status}</span>
+                  </td>
+                  <td style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                    {!exam.isCancelled && !exam.isArchived && (
+                      <button className="icon-action-btn" type="button" title="Edit" onClick={() => void startEdit(exam)} disabled={busy}>
+                        <span className="material-symbols-outlined">edit</span>
                       </button>
-                      {/* Delete — only draft, cancelled, or archived */}
-                      {(exam.status === 'Draft' || exam.isCancelled || exam.isArchived) && (
-                        <button className="icon-action-btn danger" type="button" title="Delete permanently" onClick={() => void onDeleteExam(exam)} disabled={busy}>
-                          <span className="material-symbols-outlined">delete</span>
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                    )}
+                    {!exam.isCancelled && !exam.isArchived && (
+                      <button className="icon-action-btn" type="button" title="Cancel exam" onClick={() => void onCancelExam(exam)} disabled={busy} style={{ color: 'var(--color-warning, #f59e0b)' }}>
+                        <span className="material-symbols-outlined">cancel</span>
+                      </button>
+                    )}
+                    <button className="icon-action-btn" type="button" title={exam.isArchived ? 'Unarchive' : 'Archive'} onClick={() => void onArchiveExam(exam)} disabled={busy}>
+                      <span className="material-symbols-outlined">{exam.isArchived ? 'unarchive' : 'archive'}</span>
+                    </button>
+                    {(exam.status === 'Draft' || exam.isCancelled || exam.isArchived) && (
+                      <button className="icon-action-btn danger" type="button" title="Delete permanently" onClick={() => void onDeleteExam(exam)} disabled={busy}>
+                        <span className="material-symbols-outlined">delete</span>
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        {!loading && visibleExams.length === 0 && <p className="empty-state">No exams match the selected filter.</p>}
               </tbody>
             </table>
             {visibleExams.length === 0 && <p className="empty-state">No exams match the selected filter.</p>}
           </div>
         </section>
+        <Toaster toasts={toasts} onDismiss={dismiss} />
       </div>
     </AdminLayout>
   )

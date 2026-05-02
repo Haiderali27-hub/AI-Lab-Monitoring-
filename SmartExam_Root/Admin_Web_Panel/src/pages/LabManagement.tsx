@@ -9,6 +9,8 @@ import {
   updateWorkstation,
 } from '../api/institution'
 import { AdminLayout } from '../components/AdminLayout'
+import { SkeletonStatCard } from '../components/Skeleton'
+import { Toaster, useToast } from '../components/Toaster'
 import { normalizeRole } from '../roleUtils'
 import { useAuth } from '../store/AuthContext'
 import type { Lab, Workstation } from '../types'
@@ -17,10 +19,11 @@ export default function LabManagement() {
   const { user } = useAuth()
   const canManage = normalizeRole(user?.role) === 'OrganizationAdmin'
 
+  const { toasts, push: toast, dismiss } = useToast()
+  const [loading, setLoading] = useState(true)
   const [labs, setLabs] = useState<Lab[]>([])
   const [selectedLabId, setSelectedLabId] = useState('')
   const [workstations, setWorkstations] = useState<Workstation[]>([])
-  const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -49,7 +52,10 @@ export default function LabManagement() {
   }
 
   useEffect(() => {
-    void loadLabs().catch((err) => setError(err instanceof Error ? err.message : 'Failed to load labs.'))
+    setLoading(true)
+    loadLabs()
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load labs.'))
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
@@ -69,7 +75,7 @@ export default function LabManagement() {
       setLabTerminals(30)
       await loadLabs()
       setSelectedLabId(lab.id)
-      setNotice('Lab registered.')
+      toast('Lab registered.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create lab.')
     } finally {
@@ -86,7 +92,7 @@ export default function LabManagement() {
       setSelectedLabId('')
       setWorkstations([])
       await loadLabs()
-      setNotice('Lab deleted.')
+      toast('Lab deleted.', 'warning')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete lab.')
     } finally {
@@ -109,7 +115,7 @@ export default function LabManagement() {
       setMachineName('')
       setMachineIp('')
       await loadWorkstations(selectedLabId)
-      setNotice('Machine registered.')
+      toast('Machine registered.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create machine.')
     } finally {
@@ -142,7 +148,7 @@ export default function LabManagement() {
     try {
       await deleteWorkstation(machine.labId, machine.id)
       await loadWorkstations(machine.labId)
-      setNotice('Machine deleted.')
+      toast('Machine deleted.', 'warning')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete machine.')
     } finally {
@@ -162,22 +168,31 @@ export default function LabManagement() {
           <span className="status-badge secure">{labs.length} labs</span>
         </div>
 
-        {notice && <div className="inline-alert">{notice}</div>}
         {error && <div className="inline-alert error">{error}</div>}
 
         <div className="stats-grid">
-          <div className="card stat-card">
-            <div className="stat-icon blue"><span className="material-symbols-outlined">domain</span></div>
-            <div><span className="stat-value">{labs.length}</span><span className="stat-label">Registered Labs</span></div>
-          </div>
-          <div className="card stat-card">
-            <div className="stat-icon green"><span className="material-symbols-outlined">desktop_windows</span></div>
-            <div><span className="stat-value">{workstations.length}</span><span className="stat-label">Machines in Selected Lab</span></div>
-          </div>
-          <div className="card stat-card">
-            <div className="stat-icon purple"><span className="material-symbols-outlined">verified</span></div>
-            <div><span className="stat-value">{activeMachines}</span><span className="stat-label">Active Machines</span></div>
-          </div>
+          {loading ? (
+            <>
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+            </>
+          ) : (
+            <>
+            <div className="card stat-card">
+              <div className="stat-icon blue"><span className="material-symbols-outlined">domain</span></div>
+              <div><span className="stat-value">{labs.length}</span><span className="stat-label">Registered Labs</span></div>
+            </div>
+            <div className="card stat-card">
+              <div className="stat-icon green"><span className="material-symbols-outlined">desktop_windows</span></div>
+              <div><span className="stat-value">{workstations.length}</span><span className="stat-label">Machines in Selected Lab</span></div>
+            </div>
+            <div className="card stat-card">
+              <div className="stat-icon purple"><span className="material-symbols-outlined">verified</span></div>
+              <div><span className="stat-value">{activeMachines}</span><span className="stat-label">Active Machines</span></div>
+            </div>
+          </>
+          )}
         </div>
 
         <div className="exam-grid">
@@ -288,6 +303,7 @@ export default function LabManagement() {
           </section>
         </div>
       </div>
+      <Toaster toasts={toasts} onDismiss={dismiss} />
     </AdminLayout>
   )
 }

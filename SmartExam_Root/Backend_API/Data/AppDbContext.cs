@@ -185,6 +185,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
             entity.Property(x => x.Instructions).HasMaxLength(4000);
+            // Phase 3 perf: fast dashboard filter by institution + date
+            entity.HasIndex(x => new { x.InstitutionId, x.StartUtc });
             entity
                 .HasOne(x => x.Institution)
                 .WithMany(x => x.Exams)
@@ -206,6 +208,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => new { x.ExamId, x.StudentUserId }).IsUnique();
+            // Phase 3 perf: fast roster load by exam
+            entity.HasIndex(x => x.ExamId);
+            // Phase 3 perf: eligibility check per student
+            entity.HasIndex(x => new { x.StudentUserId, x.IsEligible });
             entity
                 .HasOne(x => x.Exam)
                 .WithMany(x => x.Assignments)
@@ -246,6 +252,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(x => x.EventType).HasMaxLength(80).IsRequired();
             entity.Property(x => x.PayloadJson).HasColumnType("text");
             entity.HasIndex(x => new { x.StudentUserId, x.CreatedAtUtc });
+            // Phase 3 perf: per-session event lookup
+            entity.HasIndex(x => x.ExamSessionId);
             entity
                 .HasOne(x => x.StudentUser)
                 .WithMany(x => x.MonitoringEvents)
