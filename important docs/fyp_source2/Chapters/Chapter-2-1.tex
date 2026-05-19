@@ -1,0 +1,28 @@
+\chapter{SOFTWARE REQUIREMENTS SPECIFICATION}
+\label{chap:srs}
+
+The Software Requirements Specification (SRS) defines the expected behaviour, quality attributes, user constraints, and operational boundaries of the proposed AI-Driven Lab Exam Monitoring and Management System \cite{srs1}. In academic software projects, the SRS performs a critical role because it transforms a general idea into a verifiable and structured description of what the product must accomplish. For this project, the SRS is especially important because the system is not limited to a simple examination portal. It must coordinate scheduling, restricted access, live supervision, evidence recording, controlled submission, instructor review, and administrative reporting in one coherent environment.
+
+The specification also creates a shared understanding between the student development team, academic supervisor, and future stakeholders who may review the project. A well-written SRS reduces ambiguity by explaining not only which functions should exist, but also how those functions relate to institutional needs such as fairness, accountability, transparency, and operational continuity \cite{integ1}. In the context of lab examinations, unclear requirements can lead to serious problems. For example, if timing rules are not clearly defined, students may receive unequal working conditions. If monitoring requirements are not specified, suspicious incidents may be handled inconsistently. If reporting requirements are vague, academic staff may lack the evidence needed to interpret examination outcomes responsibly.
+
+This chapter therefore explains the scope, audience, functional requirements, non-functional requirements, requirement elicitation techniques, and project time frame in a structured manner. The intention is to document the proposed system in sufficient depth so that later design and implementation decisions remain traceable to academic needs rather than being driven only by technical convenience. The chapter also supports future verification because every major feature described here can be translated into design elements, interface components, or test cases in later phases of the project.
+
+
+\section{Introduction}
+
+The introduction to the SRS provides the conceptual foundation for understanding the remainder of this chapter. It clarifies why the specification exists, who is expected to use it, and how the information should be interpreted during the later stages of development. For the proposed AI-Driven Lab Exam Monitoring and Management System, the introduction is necessary because the system combines educational administration, secure assessment control, and real-time monitoring workflows. These three dimensions make the project more complex than a conventional classroom application or static record-keeping tool.
+
+The proposed system is intended to support practical laboratory examinations in a manner that is structured, transparent, and operationally manageable. Traditional lab-exam arrangements often depend heavily on manual invigilation, verbal coordination, file collection through ad hoc methods, and informal post-exam judgments about irregularities. Such practices can work on a small scale, but they become increasingly problematic when fairness, evidence preservation, and consistent policy enforcement are required. The proposed system addresses this issue by specifying an integrated platform through which the exam can be planned, monitored, controlled, documented, and reviewed.
+
+\subsection{Document Scope}
+
+The scope of this SRS includes the description of all major user-facing and process-oriented requirements needed for the proposed system. It covers user authentication and role management, examination scheduling, student access control, live supervision support, irregularity alerting, event logging, controlled submission management, result-oriented reporting, and related quality expectations. It also includes the qualitative properties the system must exhibit, such as security, reliability, usability, maintainability, performance, and privacy sensitivity.
+
+The document does not attempt to provide detailed algorithmic implementation at this stage. Instead, it explains what the system must do and the conditions under which it must do it. Such separation is important because requirements should remain stable enough to guide design, while implementation methods may evolve as prototypes are refined. The SRS therefore functions as a stable contract for expected product behaviour while allowing technical flexibility in how those behaviours are eventually realized.
+
+\subsection{Audience}
+
+This document is intended for several audiences. The primary audience includes the project team members who will use the SRS as the foundation for design, coding, testing, and report writing. A second important audience consists of the project supervisor and academic evaluators who need to determine whether the project scope is appropriate, coherent, and academically worthwhile. A third audience includes future stakeholders such as instructors, invigilators, lab administrators, or institutional reviewers who may examine the prototype or extend it later.
+
+Each audience reads the SRS differently. Developers use it as a technical reference. Supervisors use it as a quality and scope-control document. Academic stakeholders use it to judge whether the system meaningfully addresses practical examination challenges. For this reason, the chapter is written in a way that combines technical clarity with institutional context. The specification should therefore be readable enough for academic review while remaining precise enough to guide development decisions.
+

@@ -1,269 +1,125 @@
 using Backend_API.Models;
+using Backend_API.Models.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend_API.Data;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext : DbContext
 {
-    public DbSet<Institution> Institutions => Set<Institution>();
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+
     public DbSet<User> Users => Set<User>();
     public DbSet<DeviceBinding> DeviceBindings => Set<DeviceBinding>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
-    public DbSet<Exam> Exams => Set<Exam>();
-    public DbSet<ExamAssignment> ExamAssignments => Set<ExamAssignment>();
-    public DbSet<ExamSession> ExamSessions => Set<ExamSession>();
-    public DbSet<MonitoringEvent> MonitoringEvents => Set<MonitoringEvent>();
     public DbSet<Lab> Labs => Set<Lab>();
     public DbSet<Workstation> Workstations => Set<Workstation>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<Section> Sections => Set<Section>();
     public DbSet<SectionEnrollment> SectionEnrollments => Set<SectionEnrollment>();
-    public DbSet<TeacherSectionAssignment> TeacherSectionAssignments => Set<TeacherSectionAssignment>();
+    public DbSet<Exam> Exams => Set<Exam>();
+    public DbSet<Question> Questions => Set<Question>();
+    public DbSet<TestCase> TestCases => Set<TestCase>();
+    public DbSet<ExamAssignment> ExamAssignments => Set<ExamAssignment>();
+    public DbSet<ExamSession> ExamSessions => Set<ExamSession>();
+    public DbSet<Answer> Answers => Set<Answer>();
+    public DbSet<MonitoringEvent> MonitoringEvents => Set<MonitoringEvent>();
+    public DbSet<AiGradingResult> AiGradingResults => Set<AiGradingResult>();
+    public DbSet<TeacherGradeOverride> TeacherGradeOverrides => Set<TeacherGradeOverride>();
+    public DbSet<PlagiarismResult> PlagiarismResults => Set<PlagiarismResult>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Institution>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
-            entity.Property(x => x.ContactEmail).HasMaxLength(256).IsRequired();
-            entity.Property(x => x.LogoUrl).HasMaxLength(1024);
-            entity.Property(x => x.AllowedIpRanges).HasMaxLength(2000);
-            entity.HasIndex(x => x.Name).IsUnique();
-        });
+        base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<Lab>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
-            entity
-                .HasOne(x => x.Institution)
-                .WithMany(x => x.Labs)
-                .HasForeignKey(x => x.InstitutionId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
+        // Configure primary keys for entities with non-standard names
+        modelBuilder.Entity<User>().HasKey(u => u.UserId);
+        modelBuilder.Entity<DeviceBinding>().HasKey(d => d.BindingId);
+        modelBuilder.Entity<UserSession>().HasKey(s => s.SessionId);
+        modelBuilder.Entity<Lab>().HasKey(l => l.LabId);
+        modelBuilder.Entity<Workstation>().HasKey(w => w.WorkstationId);
+        modelBuilder.Entity<Department>().HasKey(d => d.DeptId);
+        modelBuilder.Entity<Course>().HasKey(c => c.CourseId);
+        modelBuilder.Entity<Section>().HasKey(s => s.SectionId);
+        modelBuilder.Entity<SectionEnrollment>().HasKey(se => se.EnrollmentId);
+        modelBuilder.Entity<Exam>().HasKey(e => e.ExamId);
+        modelBuilder.Entity<Question>().HasKey(q => q.QuestionId);
+        modelBuilder.Entity<TestCase>().HasKey(tc => tc.TestCaseId);
+        modelBuilder.Entity<ExamAssignment>().HasKey(ea => ea.AssignmentId);
+        modelBuilder.Entity<ExamSession>().HasKey(es => es.SessionId);
+        modelBuilder.Entity<Answer>().HasKey(a => a.AnswerId);
+        modelBuilder.Entity<MonitoringEvent>().HasKey(me => me.EventId);
+        modelBuilder.Entity<AiGradingResult>().HasKey(agr => agr.ResultId);
+        modelBuilder.Entity<TeacherGradeOverride>().HasKey(tgo => tgo.OverrideId);
+        modelBuilder.Entity<PlagiarismResult>().HasKey(pr => pr.PlagId);
+        modelBuilder.Entity<AuditLog>().HasKey(al => al.LogId);
 
-        modelBuilder.Entity<Department>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
-            entity.Property(x => x.Code).HasMaxLength(40);
-            entity
-                .HasOne(x => x.Institution)
-                .WithMany(x => x.Departments)
-                .HasForeignKey(x => x.InstitutionId)
-                .OnDelete(DeleteBehavior.NoAction);
-        });
+        // Enum conversions — store as strings in DB (readable, not magic numbers)
+        modelBuilder.Entity<User>().Property(u => u.Role).HasConversion<string>();
+        modelBuilder.Entity<Exam>().Property(e => e.Status).HasConversion<string>();
+        modelBuilder.Entity<ExamSession>().Property(s => s.Status).HasConversion<string>();
+        modelBuilder.Entity<Question>().Property(q => q.Type).HasConversion<string>();
+        modelBuilder.Entity<MonitoringEvent>().Property(m => m.EventType).HasConversion<string>();
 
-        modelBuilder.Entity<Course>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
-            entity.Property(x => x.Code).HasMaxLength(40);
-            entity
-                .HasOne(x => x.Institution)
-                .WithMany(x => x.Courses)
-                .HasForeignKey(x => x.InstitutionId)
-                .OnDelete(DeleteBehavior.NoAction);
-            entity
-                .HasOne(x => x.Department)
-                .WithMany(x => x.Courses)
-                .HasForeignKey(x => x.DepartmentId)
-                .OnDelete(DeleteBehavior.NoAction);
-        });
+        // Unique constraints
+        modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
+        modelBuilder.Entity<DeviceBinding>().HasIndex(d => d.UserId).IsUnique();
+        modelBuilder.Entity<UserSession>().HasIndex(s => s.Jti).IsUnique();
 
-        modelBuilder.Entity<Section>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
-            entity.Property(x => x.Code).HasMaxLength(60);
-            entity
-                .HasOne(x => x.Institution)
-                .WithMany(x => x.Sections)
-                .HasForeignKey(x => x.InstitutionId)
-                .OnDelete(DeleteBehavior.NoAction);
-            entity
-                .HasOne(x => x.Department)
-                .WithMany(x => x.Sections)
-                .HasForeignKey(x => x.DepartmentId)
-                .OnDelete(DeleteBehavior.NoAction);
-            entity
-                .HasOne(x => x.Course)
-                .WithMany(x => x.Sections)
-                .HasForeignKey(x => x.CourseId)
-                .OnDelete(DeleteBehavior.NoAction);
-        });
+        // DeviceBinding: one-to-one with User
+        modelBuilder.Entity<DeviceBinding>()
+            .HasOne(d => d.User)
+            .WithOne(u => u.DeviceBinding)
+            .HasForeignKey<DeviceBinding>(d => d.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Workstation>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
-            entity.Property(x => x.IpAddress).HasMaxLength(50);
-            entity.HasIndex(x => new { x.LabId, x.Name }).IsUnique();
-            entity
-                .HasOne(x => x.Lab)
-                .WithMany(x => x.Workstations)
-                .HasForeignKey(x => x.LabId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
+        // Section: Teacher FK (no cascade to avoid cycle)
+        modelBuilder.Entity<Section>()
+            .HasOne(s => s.Teacher)
+            .WithMany()
+            .HasForeignKey(s => s.TeacherId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<User>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.Username).HasMaxLength(120).IsRequired();
-            entity.Property(x => x.Email).HasMaxLength(256).IsRequired();
-            entity.Property(x => x.PasswordHash).IsRequired();
-            entity.Property(x => x.Role).HasConversion<string>().HasMaxLength(64);
-            entity.HasIndex(x => new { x.InstitutionId, x.Username }).IsUnique();
-            entity.HasIndex(x => new { x.InstitutionId, x.Email }).IsUnique();
-            entity
-                .HasOne(x => x.Institution)
-                .WithMany(x => x.Users)
-                .HasForeignKey(x => x.InstitutionId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
+        // PlagiarismResult: two student FKs (no cascade)
+        modelBuilder.Entity<PlagiarismResult>()
+            .HasOne(p => p.StudentA)
+            .WithMany()
+            .HasForeignKey(p => p.UserIdA)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<SectionEnrollment>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity
-                .HasOne(x => x.Section)
-                .WithMany(x => x.Enrollments)
-                .HasForeignKey(x => x.SectionId)
-                .OnDelete(DeleteBehavior.NoAction);
-            entity
-                .HasOne(x => x.StudentUser)
-                .WithMany(x => x.SectionEnrollments)
-                .HasForeignKey(x => x.StudentUserId)
-                .OnDelete(DeleteBehavior.NoAction);
-        });
+        modelBuilder.Entity<PlagiarismResult>()
+            .HasOne(p => p.StudentB)
+            .WithMany()
+            .HasForeignKey(p => p.UserIdB)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<TeacherSectionAssignment>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity
-                .HasOne(x => x.Section)
-                .WithMany(x => x.TeacherAssignments)
-                .HasForeignKey(x => x.SectionId)
-                .OnDelete(DeleteBehavior.NoAction);
-            entity
-                .HasOne(x => x.TeacherUser)
-                .WithMany(x => x.TeacherSectionAssignments)
-                .HasForeignKey(x => x.TeacherUserId)
-                .OnDelete(DeleteBehavior.NoAction);
-        });
+        // TeacherGradeOverride: Teacher FK (no cascade)
+        modelBuilder.Entity<TeacherGradeOverride>()
+            .HasOne(t => t.Teacher)
+            .WithMany()
+            .HasForeignKey(t => t.TeacherId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<DeviceBinding>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.HwidHash).HasMaxLength(256).IsRequired();
-            entity.HasIndex(x => x.StudentUserId).IsUnique();
-            entity
-                .HasOne(x => x.StudentUser)
-                .WithMany(x => x.DeviceBindings)
-                .HasForeignKey(x => x.StudentUserId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
+        // AuditLog: optional actor FK
+        modelBuilder.Entity<AuditLog>()
+            .HasOne(a => a.Actor)
+            .WithMany()
+            .HasForeignKey(a => a.ActorId)
+            .OnDelete(DeleteBehavior.SetNull);
 
-        modelBuilder.Entity<UserSession>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.AccessTokenJti).HasMaxLength(128).IsRequired();
-            entity.Property(x => x.RefreshTokenHash).HasMaxLength(256).IsRequired();
-            entity.HasIndex(x => x.RefreshTokenHash).IsUnique();
-            entity.HasIndex(x => new { x.UserId, x.ExpiresAtUtc });
-            entity
-                .HasOne(x => x.User)
-                .WithMany(x => x.Sessions)
-                .HasForeignKey(x => x.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
+        // Answer: one-to-one with AiGradingResult
+        modelBuilder.Entity<AiGradingResult>()
+            .HasOne(a => a.Answer)
+            .WithOne(a => a.AiGradingResult)
+            .HasForeignKey<AiGradingResult>(a => a.AnswerId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Exam>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
-            entity.Property(x => x.Instructions).HasMaxLength(4000);
-            // Phase 3 perf: fast dashboard filter by institution + date
-            entity.HasIndex(x => new { x.InstitutionId, x.StartUtc });
-            entity
-                .HasOne(x => x.Institution)
-                .WithMany(x => x.Exams)
-                .HasForeignKey(x => x.InstitutionId)
-                .OnDelete(DeleteBehavior.Restrict);
-            entity
-                .HasOne(x => x.Lab)
-                .WithMany(x => x.Exams)
-                .HasForeignKey(x => x.LabId)
-                .OnDelete(DeleteBehavior.SetNull);
-            entity
-                .HasOne(x => x.ProctorUser)
-                .WithMany(x => x.ProctoredExams)
-                .HasForeignKey(x => x.ProctorUserId)
-                .OnDelete(DeleteBehavior.SetNull);
-        });
-
-        modelBuilder.Entity<ExamAssignment>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.HasIndex(x => new { x.ExamId, x.StudentUserId }).IsUnique();
-            // Phase 3 perf: fast roster load by exam
-            entity.HasIndex(x => x.ExamId);
-            // Phase 3 perf: eligibility check per student
-            entity.HasIndex(x => new { x.StudentUserId, x.IsEligible });
-            entity
-                .HasOne(x => x.Exam)
-                .WithMany(x => x.Assignments)
-                .HasForeignKey(x => x.ExamId)
-                .OnDelete(DeleteBehavior.Cascade);
-            entity
-                .HasOne(x => x.StudentUser)
-                .WithMany(x => x.ExamAssignments)
-                .HasForeignKey(x => x.StudentUserId)
-                .OnDelete(DeleteBehavior.Cascade);
-            entity
-                .HasOne(x => x.Workstation)
-                .WithMany(x => x.ExamAssignments)
-                .HasForeignKey(x => x.WorkstationId)
-                .OnDelete(DeleteBehavior.SetNull);
-        });
-
-        modelBuilder.Entity<ExamSession>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(64);
-            entity.HasIndex(x => new { x.ExamId, x.StudentUserId, x.Status });
-            entity
-                .HasOne(x => x.Exam)
-                .WithMany(x => x.Sessions)
-                .HasForeignKey(x => x.ExamId)
-                .OnDelete(DeleteBehavior.Cascade);
-            entity
-                .HasOne(x => x.StudentUser)
-                .WithMany(x => x.ExamSessions)
-                .HasForeignKey(x => x.StudentUserId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<MonitoringEvent>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.EventType).HasMaxLength(80).IsRequired();
-            entity.Property(x => x.PayloadJson).HasColumnType("text");
-            entity.HasIndex(x => new { x.StudentUserId, x.CreatedAtUtc });
-            // Phase 3 perf: per-session event lookup
-            entity.HasIndex(x => x.ExamSessionId);
-            entity
-                .HasOne(x => x.StudentUser)
-                .WithMany(x => x.MonitoringEvents)
-                .HasForeignKey(x => x.StudentUserId)
-                .OnDelete(DeleteBehavior.Cascade);
-            entity
-                .HasOne(x => x.ExamSession)
-                .WithMany(x => x.MonitoringEvents)
-                .HasForeignKey(x => x.ExamSessionId)
-                .OnDelete(DeleteBehavior.SetNull);
-        });
+        // Answer: one-to-one with TeacherGradeOverride
+        modelBuilder.Entity<TeacherGradeOverride>()
+            .HasOne(t => t.Answer)
+            .WithOne(a => a.TeacherGradeOverride)
+            .HasForeignKey<TeacherGradeOverride>(t => t.AnswerId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

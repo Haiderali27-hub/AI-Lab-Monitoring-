@@ -2,14 +2,11 @@ namespace Backend_API.Models;
 
 public class Lab
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid InstitutionId { get; set; }
+    public Guid LabId { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = string.Empty;
-    public int RegisteredTerminals { get; set; }
-    public bool IsActive { get; set; } = true;
-    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public string Location { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    public Institution Institution { get; set; } = null!;
-    public ICollection<Exam> Exams { get; set; } = new List<Exam>();
+    // Navigation
     public ICollection<Workstation> Workstations { get; set; } = new List<Workstation>();
 }

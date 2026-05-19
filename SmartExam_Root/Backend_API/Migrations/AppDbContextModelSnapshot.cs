@@ -17,101 +17,174 @@ namespace Backend_API.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.11")
+                .HasAnnotation("ProductVersion", "9.0.1")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Backend_API.Models.AiGradingResult", b =>
+                {
+                    b.Property<Guid>("ResultId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AnswerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Confidence")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("GradedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Justification")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("SuggestedMarks")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("ResultId");
+
+                    b.HasIndex("AnswerId")
+                        .IsUnique();
+
+                    b.ToTable("AiGradingResults");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.Answer", b =>
+                {
+                    b.Property<Guid>("AnswerId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AnswerText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ExamSessionSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("LastSavedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("AnswerId");
+
+                    b.HasIndex("ExamSessionSessionId");
+
+                    b.HasIndex("QuestionId");
+
+                    b.ToTable("Answers");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.AuditLog", b =>
+                {
+                    b.Property<Guid>("LogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EntityId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("LogId");
+
+                    b.HasIndex("ActorId");
+
+                    b.ToTable("AuditLogs");
+                });
+
             modelBuilder.Entity("Backend_API.Models.Course", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("CourseId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Code")
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
+                        .IsRequired()
+                        .HasColumnType("text");
 
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("DepartmentId")
+                    b.Property<Guid>("DepartmentDeptId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("InstitutionId")
+                    b.Property<Guid>("DeptId")
                         .HasColumnType("uuid");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text");
 
-                    b.HasKey("Id");
+                    b.HasKey("CourseId");
 
-                    b.HasIndex("DepartmentId");
-
-                    b.HasIndex("InstitutionId");
+                    b.HasIndex("DepartmentDeptId");
 
                     b.ToTable("Courses");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Department", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("DeptId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Code")
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("InstitutionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text");
 
-                    b.HasKey("Id");
-
-                    b.HasIndex("InstitutionId");
+                    b.HasKey("DeptId");
 
                     b.ToTable("Departments");
                 });
 
             modelBuilder.Entity("Backend_API.Models.DeviceBinding", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("BindingId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("BoundAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("HwidHash")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("text");
 
-                    b.Property<DateTime>("LastSeenAtUtc")
+                    b.Property<DateTime>("LastSeenAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("StudentUserId")
+                    b.Property<DateTime>("RegisteredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
-                    b.HasKey("Id");
+                    b.HasKey("BindingId");
 
-                    b.HasIndex("StudentUserId")
+                    b.HasIndex("UserId")
                         .IsUnique();
 
                     b.ToTable("DeviceBindings");
@@ -119,62 +192,55 @@ namespace Backend_API.Migrations
 
             modelBuilder.Entity("Backend_API.Models.Exam", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("ExamId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("EndUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("InstitutionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Instructions")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<bool>("IsActive")
+                    b.Property<bool>("AiEvaluationEnabled")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsArchived")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsCancelled")
-                        .HasColumnType("boolean");
-
-                    b.Property<Guid?>("LabId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Name")
+                    b.Property<string>("AllowedApps")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text");
 
-                    b.Property<Guid?>("ProctorUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("StartUtc")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.HasKey("Id");
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("integer");
 
-                    b.HasIndex("InstitutionId");
+                    b.Property<int>("PlagiarismThreshold")
+                        .HasColumnType("integer");
 
-                    b.HasIndex("LabId");
+                    b.Property<Guid>("SectionId")
+                        .HasColumnType("uuid");
 
-                    b.HasIndex("ProctorUserId");
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("ExamId");
+
+                    b.HasIndex("SectionId");
 
                     b.ToTable("Exams");
                 });
 
             modelBuilder.Entity("Backend_API.Models.ExamAssignment", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("AssignmentId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("AssignedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<string>("EligibilityNote")
+                        .HasColumnType("text");
 
                     b.Property<Guid>("ExamId")
                         .HasColumnType("uuid");
@@ -182,274 +248,304 @@ namespace Backend_API.Migrations
                     b.Property<bool>("IsEligible")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid>("StudentUserId")
+                    b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("WorkstationId")
                         .HasColumnType("uuid");
 
-                    b.HasKey("Id");
+                    b.HasKey("AssignmentId");
 
-                    b.HasIndex("StudentUserId");
+                    b.HasIndex("ExamId");
+
+                    b.HasIndex("UserId");
 
                     b.HasIndex("WorkstationId");
-
-                    b.HasIndex("ExamId", "StudentUserId")
-                        .IsUnique();
 
                     b.ToTable("ExamAssignments");
                 });
 
             modelBuilder.Entity("Backend_API.Models.ExamSession", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("SessionId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("EndedAtUtc")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("ExamId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime?>("StartedAtUtc")
+                    b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("text");
 
-                    b.Property<Guid>("StudentUserId")
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
-                    b.HasKey("Id");
+                    b.HasKey("SessionId");
 
-                    b.HasIndex("StudentUserId");
+                    b.HasIndex("ExamId");
 
-                    b.HasIndex("ExamId", "StudentUserId", "Status");
+                    b.HasIndex("UserId");
 
                     b.ToTable("ExamSessions");
                 });
 
-            modelBuilder.Entity("Backend_API.Models.Institution", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("AllowTeacherResetBinding")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("AllowedIpRanges")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("ContactEmail")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("EnforceSingleDeviceBinding")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("LogoUrl")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int>("SessionTimeoutMinutes")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("Institutions");
-                });
-
             modelBuilder.Entity("Backend_API.Models.Lab", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("LabId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("CreatedAtUtc")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("InstitutionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text");
 
-                    b.Property<int>("RegisteredTerminals")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("InstitutionId");
+                    b.HasKey("LabId");
 
                     b.ToTable("Labs");
                 });
 
             modelBuilder.Entity("Backend_API.Models.MonitoringEvent", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("EventId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("EventType")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<Guid?>("ExamSessionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("PayloadJson")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("StudentUserId")
+                    b.Property<Guid>("ExamSessionId")
                         .HasColumnType("uuid");
 
-                    b.HasKey("Id");
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("EventId");
 
                     b.HasIndex("ExamSessionId");
-
-                    b.HasIndex("StudentUserId", "CreatedAtUtc");
 
                     b.ToTable("MonitoringEvents");
                 });
 
-            modelBuilder.Entity("Backend_API.Models.Section", b =>
+            modelBuilder.Entity("Backend_API.Models.PlagiarismResult", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("PlagId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Code")
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
+                    b.Property<DateTime>("DetectedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ExamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MatchingSegments")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("SimilarityScore")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("UserIdA")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserIdB")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("PlagId");
+
+                    b.HasIndex("ExamId");
+
+                    b.HasIndex("QuestionId");
+
+                    b.HasIndex("UserIdA");
+
+                    b.HasIndex("UserIdB");
+
+                    b.ToTable("PlagiarismResults");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.Question", b =>
+                {
+                    b.Property<Guid>("QuestionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BodyText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ExamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ExpectedOutput")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Marks")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("QuestionId");
+
+                    b.HasIndex("ExamId");
+
+                    b.ToTable("Questions");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.Section", b =>
+                {
+                    b.Property<Guid>("SectionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("CourseId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("DepartmentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("InstitutionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text");
 
-                    b.HasKey("Id");
+                    b.Property<string>("Semester")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TeacherId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("SectionId");
 
                     b.HasIndex("CourseId");
 
-                    b.HasIndex("DepartmentId");
-
-                    b.HasIndex("InstitutionId");
+                    b.HasIndex("TeacherId");
 
                     b.ToTable("Sections");
                 });
 
             modelBuilder.Entity("Backend_API.Models.SectionEnrollment", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("EnrollmentId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<DateTime>("EnrolledAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
 
                     b.Property<Guid>("SectionId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("StudentUserId")
+                    b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
-                    b.HasKey("Id");
+                    b.HasKey("EnrollmentId");
 
                     b.HasIndex("SectionId");
 
-                    b.HasIndex("StudentUserId");
+                    b.HasIndex("UserId");
 
                     b.ToTable("SectionEnrollments");
                 });
 
-            modelBuilder.Entity("Backend_API.Models.TeacherSectionAssignment", b =>
+            modelBuilder.Entity("Backend_API.Models.TeacherGradeOverride", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("OverrideId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("AssignedAtUtc")
+                    b.Property<Guid>("AnswerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("FinalMarks")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("OverriddenAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("SectionId")
+                    b.Property<Guid>("TeacherId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("TeacherUserId")
+                    b.HasKey("OverrideId");
+
+                    b.HasIndex("AnswerId")
+                        .IsUnique();
+
+                    b.HasIndex("TeacherId");
+
+                    b.ToTable("TeacherGradeOverrides");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.TestCase", b =>
+                {
+                    b.Property<Guid>("TestCaseId")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.HasKey("Id");
+                    b.Property<string>("ExpectedOutput")
+                        .IsRequired()
+                        .HasColumnType("text");
 
-                    b.HasIndex("SectionId");
+                    b.Property<string>("Input")
+                        .IsRequired()
+                        .HasColumnType("text");
 
-                    b.HasIndex("TeacherUserId");
+                    b.Property<bool>("IsHidden")
+                        .HasColumnType("boolean");
 
-                    b.ToTable("TeacherSectionAssignments");
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TestCaseId");
+
+                    b.HasIndex("QuestionId");
+
+                    b.ToTable("TestCases");
                 });
 
             modelBuilder.Entity("Backend_API.Models.User", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("UserId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("CreatedAtUtc")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<Guid?>("InstitutionId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -457,20 +553,15 @@ namespace Backend_API.Migrations
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("text");
 
-                    b.Property<string>("Username")
+                    b.Property<string>("Salt")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
+                        .HasColumnType("text");
 
-                    b.HasKey("Id");
+                    b.HasKey("UserId");
 
-                    b.HasIndex("InstitutionId", "Email")
-                        .IsUnique();
-
-                    b.HasIndex("InstitutionId", "Username")
+                    b.HasIndex("Email")
                         .IsUnique();
 
                     b.ToTable("Users");
@@ -478,138 +569,131 @@ namespace Backend_API.Migrations
 
             modelBuilder.Entity("Backend_API.Models.UserSession", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("SessionId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AccessTokenJti")
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRevoked")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Jti")
                         .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("ExpiresAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("RefreshTokenHash")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<DateTime?>("RevokedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
-                    b.HasKey("Id");
+                    b.HasKey("SessionId");
 
-                    b.HasIndex("RefreshTokenHash")
+                    b.HasIndex("Jti")
                         .IsUnique();
 
-                    b.HasIndex("UserId", "ExpiresAtUtc");
+                    b.HasIndex("UserId");
 
                     b.ToTable("UserSessions");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Workstation", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("WorkstationId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("IpAddress")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<Guid>("LabId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("MachineNumber")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("text");
 
-                    b.HasKey("Id");
+                    b.HasKey("WorkstationId");
 
-                    b.HasIndex("LabId", "Name")
-                        .IsUnique();
+                    b.HasIndex("LabId");
 
                     b.ToTable("Workstations");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.AiGradingResult", b =>
+                {
+                    b.HasOne("Backend_API.Models.Answer", "Answer")
+                        .WithOne("AiGradingResult")
+                        .HasForeignKey("Backend_API.Models.AiGradingResult", "AnswerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Answer");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.Answer", b =>
+                {
+                    b.HasOne("Backend_API.Models.ExamSession", "ExamSession")
+                        .WithMany("Answers")
+                        .HasForeignKey("ExamSessionSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend_API.Models.Question", "Question")
+                        .WithMany("Answers")
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ExamSession");
+
+                    b.Navigation("Question");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.AuditLog", b =>
+                {
+                    b.HasOne("Backend_API.Models.User", "Actor")
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Actor");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Course", b =>
                 {
                     b.HasOne("Backend_API.Models.Department", "Department")
                         .WithMany("Courses")
-                        .HasForeignKey("DepartmentId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("Backend_API.Models.Institution", "Institution")
-                        .WithMany("Courses")
-                        .HasForeignKey("InstitutionId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasForeignKey("DepartmentDeptId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Department");
-
-                    b.Navigation("Institution");
-                });
-
-            modelBuilder.Entity("Backend_API.Models.Department", b =>
-                {
-                    b.HasOne("Backend_API.Models.Institution", "Institution")
-                        .WithMany("Departments")
-                        .HasForeignKey("InstitutionId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Institution");
                 });
 
             modelBuilder.Entity("Backend_API.Models.DeviceBinding", b =>
                 {
-                    b.HasOne("Backend_API.Models.User", "StudentUser")
-                        .WithMany("DeviceBindings")
-                        .HasForeignKey("StudentUserId")
+                    b.HasOne("Backend_API.Models.User", "User")
+                        .WithOne("DeviceBinding")
+                        .HasForeignKey("Backend_API.Models.DeviceBinding", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("StudentUser");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Exam", b =>
                 {
-                    b.HasOne("Backend_API.Models.Institution", "Institution")
+                    b.HasOne("Backend_API.Models.Section", "Section")
                         .WithMany("Exams")
-                        .HasForeignKey("InstitutionId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasForeignKey("SectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Backend_API.Models.Lab", "Lab")
-                        .WithMany("Exams")
-                        .HasForeignKey("LabId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Backend_API.Models.User", "ProctorUser")
-                        .WithMany("ProctoredExams")
-                        .HasForeignKey("ProctorUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Institution");
-
-                    b.Navigation("Lab");
-
-                    b.Navigation("ProctorUser");
+                    b.Navigation("Section");
                 });
 
             modelBuilder.Entity("Backend_API.Models.ExamAssignment", b =>
@@ -620,20 +704,19 @@ namespace Backend_API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Backend_API.Models.User", "StudentUser")
+                    b.HasOne("Backend_API.Models.User", "Student")
                         .WithMany("ExamAssignments")
-                        .HasForeignKey("StudentUserId")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("Backend_API.Models.Workstation", "Workstation")
                         .WithMany("ExamAssignments")
-                        .HasForeignKey("WorkstationId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("WorkstationId");
 
                     b.Navigation("Exam");
 
-                    b.Navigation("StudentUser");
+                    b.Navigation("Student");
 
                     b.Navigation("Workstation");
                 });
@@ -646,26 +729,15 @@ namespace Backend_API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Backend_API.Models.User", "StudentUser")
+                    b.HasOne("Backend_API.Models.User", "Student")
                         .WithMany("ExamSessions")
-                        .HasForeignKey("StudentUserId")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Exam");
 
-                    b.Navigation("StudentUser");
-                });
-
-            modelBuilder.Entity("Backend_API.Models.Lab", b =>
-                {
-                    b.HasOne("Backend_API.Models.Institution", "Institution")
-                        .WithMany("Labs")
-                        .HasForeignKey("InstitutionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Institution");
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("Backend_API.Models.MonitoringEvent", b =>
@@ -673,17 +745,56 @@ namespace Backend_API.Migrations
                     b.HasOne("Backend_API.Models.ExamSession", "ExamSession")
                         .WithMany("MonitoringEvents")
                         .HasForeignKey("ExamSessionId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Backend_API.Models.User", "StudentUser")
-                        .WithMany("MonitoringEvents")
-                        .HasForeignKey("StudentUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("ExamSession");
+                });
 
-                    b.Navigation("StudentUser");
+            modelBuilder.Entity("Backend_API.Models.PlagiarismResult", b =>
+                {
+                    b.HasOne("Backend_API.Models.Exam", "Exam")
+                        .WithMany()
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend_API.Models.Question", "Question")
+                        .WithMany()
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend_API.Models.User", "StudentA")
+                        .WithMany()
+                        .HasForeignKey("UserIdA")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Backend_API.Models.User", "StudentB")
+                        .WithMany()
+                        .HasForeignKey("UserIdB")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Exam");
+
+                    b.Navigation("Question");
+
+                    b.Navigation("StudentA");
+
+                    b.Navigation("StudentB");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.Question", b =>
+                {
+                    b.HasOne("Backend_API.Models.Exam", "Exam")
+                        .WithMany("Questions")
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Exam");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Section", b =>
@@ -691,26 +802,18 @@ namespace Backend_API.Migrations
                     b.HasOne("Backend_API.Models.Course", "Course")
                         .WithMany("Sections")
                         .HasForeignKey("CourseId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Backend_API.Models.Department", "Department")
-                        .WithMany("Sections")
-                        .HasForeignKey("DepartmentId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("Backend_API.Models.Institution", "Institution")
-                        .WithMany("Sections")
-                        .HasForeignKey("InstitutionId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                    b.HasOne("Backend_API.Models.User", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Course");
 
-                    b.Navigation("Department");
-
-                    b.Navigation("Institution");
+                    b.Navigation("Teacher");
                 });
 
             modelBuilder.Entity("Backend_API.Models.SectionEnrollment", b =>
@@ -718,47 +821,48 @@ namespace Backend_API.Migrations
                     b.HasOne("Backend_API.Models.Section", "Section")
                         .WithMany("Enrollments")
                         .HasForeignKey("SectionId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Backend_API.Models.User", "StudentUser")
-                        .WithMany("SectionEnrollments")
-                        .HasForeignKey("StudentUserId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Section");
-
-                    b.Navigation("StudentUser");
-                });
-
-            modelBuilder.Entity("Backend_API.Models.TeacherSectionAssignment", b =>
-                {
-                    b.HasOne("Backend_API.Models.Section", "Section")
-                        .WithMany("TeacherAssignments")
-                        .HasForeignKey("SectionId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("Backend_API.Models.User", "TeacherUser")
-                        .WithMany("TeacherSectionAssignments")
-                        .HasForeignKey("TeacherUserId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                    b.HasOne("Backend_API.Models.User", "Student")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Section");
 
-                    b.Navigation("TeacherUser");
+                    b.Navigation("Student");
                 });
 
-            modelBuilder.Entity("Backend_API.Models.User", b =>
+            modelBuilder.Entity("Backend_API.Models.TeacherGradeOverride", b =>
                 {
-                    b.HasOne("Backend_API.Models.Institution", "Institution")
-                        .WithMany("Users")
-                        .HasForeignKey("InstitutionId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                    b.HasOne("Backend_API.Models.Answer", "Answer")
+                        .WithOne("TeacherGradeOverride")
+                        .HasForeignKey("Backend_API.Models.TeacherGradeOverride", "AnswerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.Navigation("Institution");
+                    b.HasOne("Backend_API.Models.User", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Answer");
+
+                    b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.TestCase", b =>
+                {
+                    b.HasOne("Backend_API.Models.Question", "Question")
+                        .WithMany("TestCases")
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Question");
                 });
 
             modelBuilder.Entity("Backend_API.Models.UserSession", b =>
@@ -783,6 +887,13 @@ namespace Backend_API.Migrations
                     b.Navigation("Lab");
                 });
 
+            modelBuilder.Entity("Backend_API.Models.Answer", b =>
+                {
+                    b.Navigation("AiGradingResult");
+
+                    b.Navigation("TeacherGradeOverride");
+                });
+
             modelBuilder.Entity("Backend_API.Models.Course", b =>
                 {
                     b.Navigation("Sections");
@@ -791,68 +902,52 @@ namespace Backend_API.Migrations
             modelBuilder.Entity("Backend_API.Models.Department", b =>
                 {
                     b.Navigation("Courses");
-
-                    b.Navigation("Sections");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Exam", b =>
                 {
                     b.Navigation("Assignments");
 
+                    b.Navigation("Questions");
+
                     b.Navigation("Sessions");
                 });
 
             modelBuilder.Entity("Backend_API.Models.ExamSession", b =>
                 {
+                    b.Navigation("Answers");
+
                     b.Navigation("MonitoringEvents");
-                });
-
-            modelBuilder.Entity("Backend_API.Models.Institution", b =>
-                {
-                    b.Navigation("Courses");
-
-                    b.Navigation("Departments");
-
-                    b.Navigation("Exams");
-
-                    b.Navigation("Labs");
-
-                    b.Navigation("Sections");
-
-                    b.Navigation("Users");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Lab", b =>
                 {
-                    b.Navigation("Exams");
-
                     b.Navigation("Workstations");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.Question", b =>
+                {
+                    b.Navigation("Answers");
+
+                    b.Navigation("TestCases");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Section", b =>
                 {
                     b.Navigation("Enrollments");
 
-                    b.Navigation("TeacherAssignments");
+                    b.Navigation("Exams");
                 });
 
             modelBuilder.Entity("Backend_API.Models.User", b =>
                 {
-                    b.Navigation("DeviceBindings");
+                    b.Navigation("DeviceBinding");
 
                     b.Navigation("ExamAssignments");
 
                     b.Navigation("ExamSessions");
 
-                    b.Navigation("MonitoringEvents");
-
-                    b.Navigation("ProctoredExams");
-
-                    b.Navigation("SectionEnrollments");
-
                     b.Navigation("Sessions");
-
-                    b.Navigation("TeacherSectionAssignments");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Workstation", b =>

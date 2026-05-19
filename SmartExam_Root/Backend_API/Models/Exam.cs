@@ -1,22 +1,24 @@
+using System.Text.Json;
+using Backend_API.Models.Enums;
+
 namespace Backend_API.Models;
 
 public class Exam
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid InstitutionId { get; set; }
-    public Guid? LabId { get; set; }
-    public Guid? ProctorUserId { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string? Instructions { get; set; }
-    public DateTime StartUtc { get; set; }
-    public DateTime EndUtc { get; set; }
-    public bool IsActive { get; set; } = true;
-    public bool IsCancelled { get; set; } = false;
-    public bool IsArchived { get; set; } = false;
+    public Guid ExamId { get; set; } = Guid.NewGuid();
+    public Guid SectionId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public DateTime StartTime { get; set; }
+    public int DurationMinutes { get; set; }
+    public string AllowedApps { get; set; } = "[]";  // JSON array of exe names e.g. ["code.exe","codeblocks.exe"]
+    public bool AiEvaluationEnabled { get; set; } = true;
+    public int PlagiarismThreshold { get; set; } = 70;  // percentage
+    public ExamStatus Status { get; set; } = ExamStatus.Scheduled;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    public Institution Institution { get; set; } = null!;
-    public Lab? Lab { get; set; }
-    public User? ProctorUser { get; set; }
+    // Navigation
+    public Section Section { get; set; } = null!;
+    public ICollection<Question> Questions { get; set; } = new List<Question>();
     public ICollection<ExamAssignment> Assignments { get; set; } = new List<ExamAssignment>();
     public ICollection<ExamSession> Sessions { get; set; } = new List<ExamSession>();
 }

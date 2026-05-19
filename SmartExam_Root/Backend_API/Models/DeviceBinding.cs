@@ -2,11 +2,12 @@ namespace Backend_API.Models;
 
 public class DeviceBinding
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid StudentUserId { get; set; }
+    public Guid BindingId { get; set; } = Guid.NewGuid();
+    public Guid UserId { get; set; }
     public string HwidHash { get; set; } = string.Empty;
-    public DateTime BoundAtUtc { get; set; } = DateTime.UtcNow;
-    public DateTime LastSeenAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime RegisteredAt { get; set; } = DateTime.UtcNow;
+    public DateTime LastSeenAt { get; set; } = DateTime.UtcNow;
 
-    public User StudentUser { get; set; } = null!;
+    // Navigation
+    public User User { get; set; } = null!;
 }
