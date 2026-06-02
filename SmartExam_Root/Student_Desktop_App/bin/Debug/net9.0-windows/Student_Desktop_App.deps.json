@@ -1,0 +1,60 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "Student_Desktop_App/1.0.0": {
+        "dependencies": {
+          "System.Management": "9.0.11"
+        },
+        "runtime": {
+          "Student_Desktop_App.dll": {}
+        }
+      },
+      "System.CodeDom/9.0.11": {},
+      "System.Management/9.0.11": {
+        "dependencies": {
+          "System.CodeDom": "9.0.11"
+        },
+        "runtime": {
+          "lib/net9.0/System.Management.dll": {
+            "assemblyVersion": "9.0.0.11",
+            "fileVersion": "9.0.1125.51716"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/win/lib/net9.0/System.Management.dll": {
+            "rid": "win",
+            "assetType": "runtime",
+            "assemblyVersion": "9.0.0.11",
+            "fileVersion": "9.0.1125.51716"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Student_Desktop_App/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "System.CodeDom/9.0.11": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-3dQXQ1w7LjiaTD9eJaEGB8cpMcpsayE3aRNoKWslhca8tLLJAUnEJe7tS4rzwn1LFxSm26hgiWuBF+Ll3FmBxw==",
+      "path": "system.codedom/9.0.11",
+      "hashPath": "system.codedom.9.0.11.nupkg.sha512"
+    },
+    "System.Management/9.0.11": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-5jMTeHv8Dt+NB9S+uetLp3TYJyUjaJaHXGzYw8/x+TzOC6CpnobPs0hG+qurFflYlVYv732kwLPIO5W+u8IjZA==",
+      "path": "system.management/9.0.11",
+      "hashPath": "system.management.9.0.11.nupkg.sha512"
+    }
+  }
+}
