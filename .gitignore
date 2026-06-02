@@ -1,0 +1,14 @@
+.DS_Store
+
+# Frontend
+SmartExam_Root/Admin_Web_Panel/.env
+SmartExam_Root/Admin_Web_Panel/dist/
+SmartExam_Root/Admin_Web_Panel/node_modules/
+
+# .NET
+SmartExam_Root/**/bin/
+SmartExam_Root/**/obj/
+
+# Local IDE/editor state
+.idea/
+.vscode/

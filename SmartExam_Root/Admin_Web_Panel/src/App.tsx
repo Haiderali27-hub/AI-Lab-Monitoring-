@@ -1,112 +1,77 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
-import { ProtectedRoute } from './components/ProtectedRoute'
-import { AdminDashboard } from './pages/AdminDashboard'
-import Exams from './pages/Exams'
-import LabManagement from './pages/LabManagement'
-import { LandingPage } from './pages/LandingPage'
-import Monitoring from './pages/Monitoring'
-import OrganizationSettings from './pages/OrganizationSettings'
-import Reports from './pages/Reports'
-import SetupPage from './pages/SetupPage'
-import { StitchGallery } from './pages/StitchGallery'
-import { StitchScreen } from './pages/StitchScreen'
-import { destinationForRole } from './roleUtils'
-import SuperAdminDashboard from './pages/SuperAdminDashboard'
-import { useAuth } from './store/AuthContext'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import type { UserRole } from './types';
 
-function HomeRedirect() {
-  const { isPlatformBootstrapped, isAuthenticated, user } = useAuth()
+// Pages
+import LoginPage from './pages/auth/LoginPage';
+import DashboardPage from './pages/admin/DashboardPage';
+import UsersPage from './pages/admin/UsersPage';
+import DeviceBindingsPage from './pages/admin/DeviceBindingsPage';
+import LabsPage from './pages/admin/LabsPage';
+import AuditLogsPage from './pages/admin/AuditLogsPage';
+import TeacherDashboardPage from './pages/teacher/TeacherDashboardPage';
+import CreateExamPage from './pages/teacher/CreateExamPage';
+import LiveMonitorPage from './pages/teacher/LiveMonitorPage';
+import ResultsPage from './pages/teacher/ResultsPage';
+import EligibilityPage from './pages/teacher/EligibilityPage';
 
-  if (isAuthenticated && user) {
-    return <Navigate to={destinationForRole(user.role)} replace />
-  }
-
-  if (isPlatformBootstrapped === null) {
+function PrivateRoute({ children, roles }: { children: React.ReactNode; roles: UserRole[] }) {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
     return (
-      <div className="auth-page" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <p style={{ color: 'var(--primary)', fontWeight: 600 }}>Checking SmartExam setup...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
       </div>
-    )
+    );
   }
-
-  return <Navigate to={isPlatformBootstrapped ? '/login' : '/setup'} replace />
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (!roles.includes(user.role)) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return <>{children}</>;
 }
 
-function App() {
+function AppRoutes() {
+  const { user } = useAuth();
+  
   return (
     <Routes>
-      <Route path="/" element={<HomeRedirect />} />
-      <Route path="/setup" element={<SetupPage />} />
-      <Route path="/ui" element={<StitchGallery />} />
-      <Route path="/ui/:slug" element={<StitchScreen />} />
-      <Route path="/login" element={<LandingPage />} />
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute roles={['OrganizationAdmin', 'Teacher', 'SuperAdmin']}>
-            <AdminDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/users"
-        element={
-          <ProtectedRoute roles={['OrganizationAdmin', 'SuperAdmin']}>
-            <AdminDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/exams"
-        element={
-          <ProtectedRoute roles={['OrganizationAdmin', 'Teacher']}>
-            <Exams />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/labs"
-        element={
-          <ProtectedRoute roles={['OrganizationAdmin', 'Teacher']}>
-            <LabManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/settings"
-        element={
-          <ProtectedRoute roles={['OrganizationAdmin']}>
-            <OrganizationSettings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/logs"
-        element={
-          <ProtectedRoute roles={['OrganizationAdmin', 'Teacher']}>
-            <Monitoring />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/reports"
-        element={
-          <ProtectedRoute roles={['OrganizationAdmin', 'Teacher']}>
-            <Reports />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/super-admin"
-        element={
-          <ProtectedRoute roles={['SuperAdmin']}>
-            <SuperAdminDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/login" element={
+        user ? <Navigate to={user.role === 'Teacher' ? '/teacher/dashboard' : '/admin/dashboard'} replace /> : <LoginPage />
+      } />
+
+      {/* Admin */}
+      <Route path="/admin/dashboard"      element={<PrivateRoute roles={['Admin','SuperAdmin']}><DashboardPage /></PrivateRoute>} />
+      <Route path="/admin/users"          element={<PrivateRoute roles={['Admin','SuperAdmin']}><UsersPage /></PrivateRoute>} />
+      <Route path="/admin/device-bindings" element={<PrivateRoute roles={['Admin','SuperAdmin']}><DeviceBindingsPage /></PrivateRoute>} />
+      <Route path="/admin/labs"           element={<PrivateRoute roles={['Admin','SuperAdmin']}><LabsPage /></PrivateRoute>} />
+      <Route path="/admin/audit-logs"     element={<PrivateRoute roles={['Admin','SuperAdmin']}><AuditLogsPage /></PrivateRoute>} />
+
+      {/* Teacher */}
+      <Route path="/teacher/dashboard"    element={<PrivateRoute roles={['Teacher']}><TeacherDashboardPage /></PrivateRoute>} />
+      <Route path="/teacher/create-exam"  element={<PrivateRoute roles={['Teacher']}><CreateExamPage /></PrivateRoute>} />
+      <Route path="/teacher/live-monitor" element={<PrivateRoute roles={['Teacher']}><LiveMonitorPage /></PrivateRoute>} />
+      <Route path="/teacher/results/:examId" element={<PrivateRoute roles={['Teacher']}><ResultsPage /></PrivateRoute>} />
+      <Route path="/teacher/eligibility"  element={<PrivateRoute roles={['Teacher']}><EligibilityPage /></PrivateRoute>} />
+
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
-  )
+  );
 }
 
-export default App
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}

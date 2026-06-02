@@ -2,13 +2,13 @@ namespace Backend_API.Models;
 
 public class UserSession
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid SessionId { get; set; } = Guid.NewGuid();
     public Guid UserId { get; set; }
-    public string AccessTokenJti { get; set; } = string.Empty;
-    public string RefreshTokenHash { get; set; } = string.Empty;
-    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
-    public DateTime ExpiresAtUtc { get; set; }
-    public DateTime? RevokedAtUtc { get; set; }
+    public string Jti { get; set; } = string.Empty;  // JWT ID — used to invalidate tokens
+    public DateTime ExpiresAt { get; set; }
+    public bool IsRevoked { get; set; } = false;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    // Navigation
     public User User { get; set; } = null!;
 }
