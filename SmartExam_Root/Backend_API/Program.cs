@@ -15,6 +15,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // ── Auth ─────────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<JwtHelper>();
 
+// Module 4 — Analytics
+builder.Services.AddScoped<Backend_API.Services.Analytics.AnalyticsService>();
+
+// Module 6 — Notifications
+builder.Services.AddScoped<Backend_API.Services.Notifications.EmailService>();
+builder.Services.AddScoped<Backend_API.Services.Notifications.NotificationService>();
+
+// Serve static PDF report files
+builder.Services.AddDirectoryBrowser();
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
