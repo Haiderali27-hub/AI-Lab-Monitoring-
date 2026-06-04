@@ -1,0 +1,403 @@
+--- Page 91 ---
+80
+Chapter 6
+SYSTEM INTERFACE AND
+PHYSICAL DESIGN
+System interface design is about how a system looks and how people interact with it. It
+deals with what users see on screens, how they navigate menus, and what happens when
+they click buttons. The aim is to make these actions easy to understand and perform
+without confusion. Physical design covers the devices and input methods used, making
+sure the system works smoothly on different screens, tablets or phones. Good interface
+and physical design make the interaction clear, comfortable and pleasant for everyone[52].
+The system interface of SmartWash Solution includes all the user-facing parts of
+the platform, such as the web and mobile interfaces. It focuses on providing a smooth
+and easy experience for customers, service providers, and administrators. Users can
+perform tasks like booking car wash services, tracking orders, managing payments, and
+viewing notifications through a clean and clear interface. The design of the system
+focuses on simplicity, accessibility, and visual appeal to make navigation easy for all
+users. By keeping the layout consistent and user-friendly, SmartWash Solution ensures a
+comfortable and satisfying experience for everyone using the system.
+6.0.1 System User Interfaces
+A system user interface (UI) is the visual part of a software or application that users
+see and interact with. It includes all the elements like buttons, icons, menus, and text
+that help people control the system easily. The main goal of UI design is to make the
+system simple, attractive, and easy to use. A well-designed interface helps users complete
+their tasks smoothly without confusion. It focuses on how things look and how users move
+through different screens. In short, the UI is what connects people to the system and
+makes technology feel friendly and clear to use[53].
+The system user interfaces of SmartWash Solution represent the visual and interac-
+tive components that connect users with the platform. These include web and mobile
+screens, buttons, icons, menus, forms, and other graphical elements that allow customers,
+service providers, and administrators to interact with the system easily. The main pur-
+pose of these interfaces is to create a smooth and enjoyable experience where users can
+perform tasks such as booking car wash services, managing schedules, viewing payments,
+or tracking service progress without confusion.The design focuses on important factors
+like usability, accessibility, and responsiveness, ensuring that the platform functions prop-
+erly on all screen sizes and devices. Consistency in layout, color schemes, and navigation
+makes the interface more predictable and easy to use. Following key design principles
+such as simplicity, clarity, and visual hierarchy helps users quickly understand where to
+click and how to complete their tasks efficiently. Additionally, the system includes feed-
+back and error-handling features that guide users through each step, helping them fix
+mistakes and improving their confidence while using the platform.
+--- Page 92 ---
+81
+6.0.1.1 Sign-up Interface:In the given figure 6.1, the Sign-up Interface of Smart-
+Wash Solution allows new users, including customers, service providers, and vendors, to
+create their accounts in the system. The interface collects important information such as
+username, email address, password, and role selection. It also includes input validation
+to ensure the information entered is correct and secure. Additionally, users may need
+to verify their email or phone number to confirm their identity before completing the
+registration process.
+Figure 6.1: Sign Up Interface
+6.0.1.2 Sign-in Interface:In the given figure 6.2, the Login Interface of SmartWash
+Solution allows registered users customers, service providers, and vendors to securely
+access the system. The interface includes input fields for the user’s email and password,
+along with options such as “Forgot Password” and “Remember Me” for convenience
+Figure 6.2: Login Interface
+--- Page 93 ---
+82
+6.0.1.3 Dynamic Scheduling Interface:In the given Figure 6.3, the Dynamic Schedul-
+ing Interface of the SmartWash Solution enables users to efficiently manage and adjust
+car wash appointments based on real-time availability. The interface provides a clear view
+of available time slots, allowing users to quickly select or reschedule appointments. It also
+sends instant notifications to both customers and service providers whenever changes are
+made, ensuring seamless coordination.
+Figure 6.3: Dynamic Scheduling Interface
+6.0.1.4 Discount Engine Interface:In the given Figure 6.4, the Discount Engine
+Interface of the SmartWash Solution allows administrators and vendors to create, manage,
+and apply promotional discounts across various services. The interface includes fields
+for defining discount types, such as percentage-based or fixed-amount offers, along with
+validity dates, usage limits, and eligibility criteria.
+Figure 6.4: Discount Engine Interface
+--- Page 94 ---
+83
+6.0.1.5 Payment Interface:In the given Figure 6.5, the Payment Interface of the
+SmartWash Solution enables users to complete secure and seamless transactions for
+their car wash bookings. The interface provides multiple payment options, including
+credit/debit cards, digital wallets, and online banking. It also displays the transaction
+status in real time and allows users to review their payment history for reference.
+Figure 6.5: Payment Interface
+6.0.1.6 GPS-Based Service Finder Interface:In the given Figure 6.6, the GPS-
+Based Service Finder Interface of the SmartWash Solution helps users locate nearby car
+wash service providers using real-time location data. The interface displays an interactive
+map showing available service stations within the user’s vicinity. Users can filter results
+by distance, ratings, or availability, and quickly access directions to the selected service
+provider, enhancing convenience and efficiency.
+Figure 6.6: GPS-Based Service Finder Interface
+--- Page 95 ---
+84
+6.0.1.7 Review and Rating Interface:In the given Figure 6.7, the Review and
+Rating Interface of the SmartWash Solution allows customers to share their feedback
+after using the car wash services. The interface includes a star-based rating system (from
+1 to 5 stars) and a comment section where users can write detailed reviews about their
+experience.
+Figure 6.7: Review and Rating Interface
+6.0.1.8 Chat Support Interface:In the given Figure 6.8, the Chat Support Interface
+of the SmartWash Solution enables real-time communication between customers and ser-
+vice providers. This interface allows users to send and receive instant messages regarding
+bookings, service details, or inquiries. It also provides notifications for new messages
+and maintains a history of conversations for reference, ensuring clear and continuous
+communication.
+Figure 6.8: Chat Support Interface
+--- Page 96 ---
+85
+6.0.1.9 Admin Dashboard Interface:In the given Figure 6.9, the Admin Dashboard
+Interface of the SmartWash Solution provides administrators with a centralized platform
+to monitor and manage all system activities. It displays key metrics such as total users,
+active bookings, completed services, and revenue reports.
+Figure 6.9: Admin Dashboard Interface
+6.0.2 User Table
+A User Table is an essential component of a database that stores information related
+to individuals who interact with the system. It serves as a central point for managing user
+data, ensuring that the system can identify and handle different users effectively. The User
+Table helps maintain user records for operations such as authentication, authorization,
+and profile management. It also supports smooth communication between the system and
+its users by keeping data organized and easily accessible. Overall, the User Table plays a
+vital role in maintaining the structure and functionality of a system’s user management
+process[54].
+The user table in the SmartWash Solution system acts as a central component for
+managing all user-related information and access controls, storing critical data such as
+usernames, passwords, email addresses, contact numbers, and assigned roles (customer,
+service provider, or vendor). It ensures secure authentication, proper user identifica-
+tion, and role-based authorization throughout the system, enabling users to register, log
+in, manage their accounts, update profiles, and recover passwords efficiently. By main-
+taining structured and consistent user data, the table supports overall system integrity,
+smooth operation, and secure interactions across the platform. It also allows adminis-
+trators to monitor user activity, manage accounts, enforce platform policies, and analyze
+user behavior to improve services. Integration with other system modules, such as book-
+ings, subscriptions, and payments, ensures seamless coordination, while proper indexing
+and secure storage of sensitive information protect against unauthorized access and data
+breaches, making the user table the backbone of identity, access management, and system
+functionality within the SmartWash Solution ecosystem.
+--- Page 97 ---
+86
+6.0.3 User Log Table
+Table 6.1 provides a comprehensive overview of the user-related data fields within the
+SmartWash Solution database, serving as the foundation for managing all user accounts.
+Each record in this table corresponds to a unique user, storing critical information such
+as user ID, full name, email address, contact number, and additional profile details nec-
+essary for identification and communication. It also specifies user roles customer, service
+provider, or vendor which dictate access privileges, available functionalities, and interac-
+tions within the system, ensuring proper role-based control across the platform. The ta-
+ble further includes technical specifications for each field, including data types, maximum
+lengths, default values, and whether a field is mandatory (not null), which helps maintain
+data integrity and prevents incomplete or inconsistent entries. Timestamps for account
+creation, last login, and updates are recorded to provide traceability, facilitate auditing,
+and support system maintenance. Moreover, the table’s structure enables seamless inte-
+gration with other modules such as bookings, subscriptions, payments, and notifications,
+allowing cross-functional operations and improving overall system efficiency. By offering
+a structured, easily queryable format, Table 6.1 ensures rapid retrieval, validation, and
+management of user data, while supporting secure authentication, personalized services,
+and smooth user interactions throughout the SmartWash Solution ecosystem. This de-
+sign not only enhances system reliability but also provides a foundation for scalability,
+performance optimization, and future feature expansion. Additionally, it supports the
+implementation of analytics and reporting functions, allowing administrators to monitor
+user activity and system usage patterns to make informed operational and strategic de-
+cisions. Finally, by maintaining a consistent and standardized data structure, the table
+ensures compliance with data protection policies and regulatory requirements.
+Table 6.1: User Table
+Field Name Description Type Length Default Not Null
+User ID Unique identifier for
+each user
+Object ID - Primary Yes
+Full Name User’s full name Varchar 100 - Yes
+Email User’s email address Varchar 100 - Yes
+Password User’s encrypted pass-
+word
+Varchar 255 - Yes
+Role Defines user type
+(Customer, Service
+Provider, Vendor)
+Varchar 50 - Yes
+Phone Number User’s contact number Varchar 15 - -
+Address User’s address infor-
+mation
+Varchar 255 - -
+Profile Image URL or path to the
+user’s profile image
+Varchar 255 - -
+Created At Timestamp for user
+creation
+Timestamp 26 - Yes
+Updated At Timestamp for last
+update
+Timestamp 26 - Yes
+--- Page 98 ---
+87
+6.0.4 Booking Table
+Table 6.2 represents the Booking Table in SmartWash Solution, storing essential in-
+formation about each service reservation. It allows the system to manage customer ap-
+pointments efficiently and coordinate smoothly between customers and service providers.
+Each record represents a unique booking, including the Booking ID, customer and ser-
+vice provider identifiers, service type, scheduled date and time, booking status, and total
+amount. Additional details like vehicle information, payment references, and service lo-
+cation are managed in the system but excluded from the main table for conciseness.
+Timestamps for creation and updates track all booking activities chronologically, sup-
+porting reporting and auditing. This structure provides a clear, manageable database
+schema, ensuring usability, reliability, and efficiency. It also allows administrators to
+quickly analyze booking patterns, optimize service planning, and maintain consistent,
+secure data for future enhancements or reporting needs.
+Table 6.2: Booking Table
+Field Name Description Type Length Default Not Null
+Booking ID Unique identifier
+for each booking
+Object ID - Primary Yes
+Customer ID References the
+user who made
+the booking
+Object ID - - Yes
+Service Provider ID References the
+car wash service
+provider
+Object ID - - Yes
+Service Type Type of service
+booked (e.g., Ba-
+sic Wash, Pre-
+mium Wash)
+Varchar 100 - Yes
+Booking Date Date when the
+booking is sched-
+uled
+Date - - Yes
+Scheduled Time Selected time slot
+for service
+Time - - Yes
+Booking Status Current status
+of the book-
+ing (Pending,
+Confirmed,
+Completed, Can-
+celled)
+Varchar 50 Pending Yes
+Total Amount Total cost of the
+booking
+Decimal - 0.00 Yes
+Created At Timestamp indi-
+cating booking
+creation time
+Timestamp 26 - Yes
+Updated At Timestamp indi-
+cating last update
+Timestamp 26 - Yes
+--- Page 99 ---
+88
+6.0.5 Service Table
+The Table 6.3 represents the Service Table in SmartWash Solution, which contains de-
+tailed information about all car wash services offered on the platform. Each record in this
+table corresponds to a unique service and stores essential attributes such as the Service
+ID, service name, description, category, estimated duration, and pricing. This table plays
+a critical role in ensuring that customers can easily view and select the services they need
+when making a booking.By maintaining a well-structured Service Table, administrators
+and service providers can efficiently manage service offerings, update service details, and
+add or remove services as required. This flexibility allows the platform to adapt to new
+customer demands, seasonal promotions, or changes in operational capacity. Further-
+more, the Service Table supports operational planning by providing estimated durations
+for each service, which assists in scheduling bookings, allocating staff, and avoiding time
+conflicts between appointments.Pricing information stored within the table ensures that
+customers are charged accurately based on the selected service type, package, and vehi-
+cle specifications. Categorization of services, such as interior, exterior, or full detailing,
+allows for easy filtering and selection during the booking process, improving the overall
+customer experience. Additionally, detailed service descriptions help customers under-
+stand exactly what each service includes, which reduces misunderstandings and increases
+satisfaction.Overall, the Service Table is a foundational component of the SmartWash So-
+lution database, facilitating seamless service management, accurate operational planning,
+and enhanced user experience. By organizing service data systematically, the platform
+achieves both reliability and efficiency, enabling administrators, service providers, and
+customers to interact with the system in a consistent and user-friendly manner.
+Table 6.3: Service Table
+Field Name Description Type Length Default Not Null
+Service ID Unique identifier
+for each service
+Object ID - Primary Yes
+Service Name Name of the ser-
+vice (e.g., Basic
+Wash, Detailing)
+Varchar 100 - Yes
+Description Brief description
+of the service
+Text - - -
+Category Type of service
+(e.g., Interior, Ex-
+terior, Full Pack-
+age)
+Varchar 50 - Yes
+Estimated Duration Approximate
+time required for
+service
+Time - - Yes
+Price Cost of the service Decimal - 0.00 Yes
+Created At Timestamp for
+service creation
+Timestamp 26 - Yes
+Updated At Timestamp for
+last update
+Timestamp 26 - Yes
+--- Page 100 ---
+89
+6.0.6 Payment Table
+Table 6.4 represents the Payment Table in SmartWash Solution, containing com-
+prehensive information about all payment transactions on the platform. Each record
+corresponds to a unique payment and includes attributes such as Payment ID, Book-
+ing ID, User ID, payment method, amount, payment status, transaction reference, and
+timestamps for creation and updates. This table is essential for managing financial oper-
+ations, ensuring every transaction is accurately recorded and traceable. Administrators
+can efficiently monitor payments, track pending or completed transactions, and resolve
+discrepancies, while users can view their payment history, invoices, and receipts. Pay-
+ment methods such as credit/debit cards, digital wallets, and online banking are securely
+recorded, allowing the system to process multiple options. Linking payments to spe-
+cific bookings and users supports operational and reporting needs, while status fields like
+Pending, Completed, or Failed provide real-time insights into transaction success. Trans-
+action references ensure traceability and smooth reconciliation with payment gateways
+or banks. Overall, the Payment Table facilitates secure, accurate, and transparent finan-
+cial management, supporting reliability, efficiency, and user confidence in the system’s
+financial integrity.
+Table 6.4: Payment Table
+Field Name Description Type Length Default Not Null
+Payment ID Unique identifier
+for each payment
+Object ID - Primary Yes
+Booking ID References the
+booking for which
+payment is made
+Object ID - - Yes
+User ID References the
+user making the
+payment
+Object ID - - Yes
+Payment Method Method used for
+payment (Credit
+Card, Wallet,
+etc.)
+Varchar 50 - Yes
+Amount Total payment
+amount
+Decimal - 0.00 Yes
+Payment Status Current status of
+payment (Pend-
+ing, Completed,
+Failed)
+Varchar 50 Pending Yes
+Transaction Reference Reference ID for
+transaction track-
+ing
+Varchar 80 - -
+Payment Date Date and time of
+the payment
+Timestamp 26 - Yes
+Created At Timestamp for
+record creation
+Timestamp 26 - Yes
+Updated At Timestamp for
+last update
+Timestamp 26 - Yes
+--- Page 101 ---
+90
+6.0.7 Admin Table
+Table 6.5 represents the Admin Table in SmartWash Solution, storing detailed infor-
+mation about administrative users who manage and oversee the platform. Each record
+corresponds to a unique admin account and includes attributes such as Admin ID, full
+name, email, username, password, role, contact details, and timestamps for account cre-
+ation and updates. This table is essential for controlling access to sensitive system func-
+tions and maintaining platform security and integrity. A well-structured Admin Table
+enables administrators to efficiently manage operations, monitor service providers, review
+transactions, and resolve customer issues. It supports role-based access control, allowing
+different privilege levels for super-admins, support staff, or finance managers, ensuring
+that sensitive actions, such as modifying service details or managing finances, are re-
+stricted to authorized personnel. Timestamps track administrative activities, supporting
+accountability and auditing by detecting unusual or unauthorized access. Contact in-
+formation ensures effective communication between admins and stakeholders, enhancing
+coordination. Overall, the Admin Table is a crucial component of the SmartWash Solu-
+tion database, providing structured management of administrative accounts, reinforcing
+security, operational oversight, and transparency, while ensuring the reliable management
+of users, services, and transactions.
+Table 6.5: Admin Table
+Field Name Description Type Length Default Not Null
+Admin ID Unique identifier for
+each admin
+Object ID - Primary Yes
+Full Name Admin’s full name Varchar 100 - Yes
+Email Admin’s email address Varchar 100 - Yes
+Username Admin’s chosen user-
+name
+Varchar 50 - Yes
+Password Admin’s encrypted
+password
+Varchar 255 - Yes
+Role Admin role (e.g., Su-
+per Admin, Support
+Staff)
+Varchar 50 - Yes
+Phone Number Admin’s contact num-
+ber
+Varchar 15 - -
+Created At Timestamp indicating
+admin account cre-
+ation
+Timestamp 26 - Yes
+Updated At Timestamp indicating
+last update
+Timestamp 26 - Yes
+Status Indicates if admin ac-
+count is active or inac-
+tive
+Varchar 20 Active Yes
