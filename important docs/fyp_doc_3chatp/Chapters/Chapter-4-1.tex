@@ -257,7 +257,7 @@ In Table 4.5, the use case ‘Monitor Live Proctoring and Handle Alerts’ provi
 \end{minipage} \\
 \hline\hline
 \end{tabular}
-\end{table>
+\end{table}
 
 In Table 4.6, the use case ‘Process Code Compilation and Evaluation’ processes and scores student submissions, forming the core grading pipeline of the platform. The pre-conditions require that the exam session has ended, student submissions are stored in the database, and the grading engine is online. The trigger occurs when a student submits their exam or the teacher clicks the run evaluation button. The main steps involve retrieving submissions, running source code files inside isolated Docker compilers, calculating test case pass percentages, calling the AI microservice to compute similarity vectors for theory answers, and performing pairwise similarity checks across all class files. The post-condition is the successful calculation and storage of scores and plagiarism flags, while the exception flow handles compilation syntax errors or AI service timeouts by logging error logs or flagging questions for manual grading. Additionally, the code execution is sandboxed inside lightweight Docker containers to protect the central server from malicious scripts or infinite loops, recording execution time and memory limits. The AI semantic grader evaluates theory responses against a teacher's reference answer using sentence-transformers, identifying conceptual matches even if different vocabulary is used. This step increases grading speed, reduces subjective bias, and helps teachers detect code copying across the class. Furthermore, the grading panel displays detailed code diffs and plagiarism timelines, making manual review straightforward.
 
