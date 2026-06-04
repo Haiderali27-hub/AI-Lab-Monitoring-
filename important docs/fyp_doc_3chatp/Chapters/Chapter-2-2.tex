@@ -13,20 +13,20 @@ Another important characteristic of these requirements is that they reflect acad
 \hline\hline
 \textbf{Requirement ID} & \textbf{Description} \\
 \hline\hline
-FR1 & The admin shall manage user accounts. \\
-FR2 & The system shall authenticate each user. \\
-FR3 & The system shall manage role-based permissions. \\
-FR4 & Teachers can create and manage exams. \\
-FR5 & The system shall assign exams to labs. \\
-FR6 & Students can view their scheduled exams. \\
-FR7 & The system shall mark student attendance. \\
-FR8 & The system shall verify student identity via face recognition. \\
-FR9 & Students can start exams during allowed sessions. \\
-FR10 & The system shall monitor live exam activity. \\
-FR11 & The system shall record alerts and incident logs. \\
-FR12 & Students can submit files via the submission workflow. \\
-FR13 & Teachers can review and manage exam results. \\
-FR14 & The system shall generate reports for review. \\
+FR1 & The admin shall manage user accounts and role permissions. \\
+FR2 & The system shall authenticate users and enforce device binding via HWID check. \\
+FR3 & The student client shall verify hardware readiness and permissions prior to the exam. \\
+FR4 & Eligible students shall view their scheduled exams and instructions on the dashboard. \\
+FR5 & The student client shall lock down the workstation and restrict unauthorized application usage. \\
+FR6 & The student client shall stream periodic screenshots, focus logs, and process list telemetry. \\
+FR7 & The system shall auto-save answers and support manual or forced exam submissions. \\
+FR8 & Teachers can configure exams, allowed apps lists, coding/theory questions, and test cases. \\
+FR9 & The system shall control exam eligibility using seating mapping or manual overrides. \\
+FR10 & Teachers shall monitor student focus timelines, active processes, and violations live. \\
+FR11 & The system shall compile and grade coding submissions using test cases automatically. \\
+FR12 & The system shall grade subjective theory answers using AI semantic similarity evaluation. \\
+FR13 & The system shall analyze similarity and detect plagiarism among student submissions. \\
+FR14 & The system shall maintain audit logs and generate analytical PDF exam reports. \\
 \hline\hline
 \end{tabular}
 \end{table}
@@ -147,13 +147,13 @@ The project time frame translates the Agile development plan into a structured s
 \textbf{Sprint} & \textbf{Major Activities} & \textbf{Duration} \\
 \hline\hline
 Sprint 1 (Weeks 1--4)   & Requirement analysis, backlog preparation, architecture planning, and scope approval. & 4 Weeks \\
-Sprint 2 (Weeks 5--8)   & User authentication, role management, session handling, and dashboard routing. & 4 Weeks \\
-Sprint 3 (Weeks 9--12)  & Exam scheduling, question and instruction management, and session publication. & 4 Weeks \\
-Sprint 4 (Weeks 13--16) & Laboratory allocation, workstation registration, seat assignment, and readiness checks. & 4 Weeks \\
-Sprint 5 (Weeks 17--20) & Student attendance marking, face recognition, and identity verification. & 4 Weeks \\
-Sprint 6 (Weeks 21--24) & AI-based monitoring, incident logging, alert creation, and evidence capture. & 4 Weeks \\
-Sprint 7 (Weeks 25--28) & Result management, submission review, reporting, and post-exam record retrieval. & 4 Weeks \\
-Sprint 8 (Weeks 29--32) & System integration, end-to-end testing, bug fixing, and final deliverable preparation. & 4 Weeks \\
+Sprint 2 (Weeks 5--8)   & User registration, role assignments, JWT login, and device binding via HWID check. & 4 Weeks \\
+Sprint 3 (Weeks 9--12)  & Exam templates configuration, allowed applications lists, coding questions, and overrides. & 4 Weeks \\
+Sprint 4 (Weeks 13--16) & Student client dashboard, fullscreen locked mode (Alt+Tab disable), and client readiness verification. & 4 Weeks \\
+Sprint 5 (Weeks 17--20) & Background focus tracking, process telemetry, and proctoring dashboard live grid timeline view. & 4 Weeks \\
+Sprint 6 (Weeks 21--24) & Answer auto-save, compilation against test cases, AI theory evaluation, and plagiarism detection. & 4 Weeks \\
+Sprint 7 (Weeks 25--28) & Logs management, database audit trails, performance stats, and QuestPDF exam report export. & 4 Weeks \\
+Sprint 8 (Weeks 29--32) & System integration, end-to-end testing, bug fixing, final documentation and demonstration. & 4 Weeks \\
 \hline\hline
 \end{tabular}
 \end{table}
