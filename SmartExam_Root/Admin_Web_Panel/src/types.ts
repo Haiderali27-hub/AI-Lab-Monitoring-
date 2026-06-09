@@ -218,3 +218,5 @@ export type UpdateExamPayload = {
   instructions: string | null
   isActive: boolean
 }
+
+export * from './types/index';

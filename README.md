@@ -17,6 +17,7 @@ Use this directory map to navigate the guides, scripts, and documentation built 
 | **Modules 4–6 Backend Build** | Detailed documentation of Analytics, Student Portal, and Notification SMTP additions | Developers | [SmartExam_Modules456_Backend_Guide.md](file:///c:/Users/DELL/Desktop/AI_Labmonitoring/SmartExam_Modules456_Backend_Guide.md) |
 | **Frontend UI Design Guide** | Detailed Stitch visual mocks, colors, sizing, typography, and wireframes | UI/UX Designers | [SmartExam_Frontend_UI_Guide.md](file:///c:/Users/DELL/Desktop/AI_Labmonitoring/SmartExam_Frontend_UI_Guide.md) |
 | **Frontend Dev Walkthrough** | Implementation instructions for building the React Web Panel with Tailwind CSS | Frontend Developers | [SmartExam_Frontend_Dev_Guide.md](file:///c:/Users/DELL/Desktop/AI_Labmonitoring/SmartExam_Frontend_Dev_Guide.md) |
+| **Modules 4–6 Frontend Guide** | Detailed guide for Analytics, Student Portal, and Notification dropdown React UI integration | Frontend Developers | [SmartExam_Modules456_Frontend_Guide.md](file:///c:/Users/DELL/Desktop/AI_Labmonitoring/SmartExam_Modules456_Frontend_Guide.md) |
 | **Baseline Certificate** | Validation certificate proving Modules 1–3 compile and pass all tests | Project Stakeholders | [COMPLETION_CERTIFICATE.md](file:///c:/Users/DELL/Desktop/AI_Labmonitoring/COMPLETION_CERTIFICATE.md) |
 
 ---
@@ -28,9 +29,9 @@ Use this directory map to navigate the guides, scripts, and documentation built 
 | **M1** | **Auth & HWID Binding** | ✅ Complete | ✅ Complete | ✅ Complete |
 | **M2** | **Exam Dashboard** | ✅ Complete | ✅ Complete | ✅ Complete |
 | **M3** | **Live Monitoring** | ✅ Complete | ✅ Complete (Live Focus Timeline) | ✅ Complete (Heartbeat + Window Ingestion) |
-| **M4** | **Reporting & Analytics** | ✅ Complete (PDF + System Stats) | ⏳ Not Started | N/A |
-| **M5** | **Student Portal** | ✅ Complete (Grades + AI feedback) | N/A (Ported to Student Portal) | N/A |
-| **M6** | **Notifications** | ✅ Complete (In-app + SMTP Email) | ⏳ Not Started | N/A |
+| **M4** | **Reporting & Analytics** | ✅ Complete (PDF + System Stats) | ✅ Complete (System & Exam Charts) | N/A |
+| **M5** | **Student Portal** | ✅ Complete (Grades + AI feedback) | ✅ Complete (Dashboard & SVG Performance) | N/A |
+| **M6** | **Notifications** | ✅ Complete (In-app + SMTP Email) | ✅ Complete (Bell Dropdown & Broadcasts) | N/A |
 
 ---
 

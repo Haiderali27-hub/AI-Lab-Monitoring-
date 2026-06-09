@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SmartExam Admin - Notifications</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#faf8ff",
+                        "on-primary": "#ffffff",
+                        "on-surface-variant": "#434655",
+                        "surface-container-high": "#e7e7f3",
+                        "primary-fixed": "#dbe1ff",
+                        "tertiary": "#943700",
+                        "surface-container": "#ededf9",
+                        "on-error-container": "#93000a",
+                        "on-error": "#ffffff",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "on-secondary-fixed": "#151c23",
+                        "on-tertiary-container": "#ffede6",
+                        "on-secondary-container": "#5e656d",
+                        "background": "#faf8ff",
+                        "error": "#ba1a1a",
+                        "secondary": "#585f67",
+                        "on-secondary-fixed-variant": "#40484f",
+                        "secondary-fixed-dim": "#c0c7d0",
+                        "outline": "#737686",
+                        "on-background": "#191b23",
+                        "inverse-primary": "#b4c5ff",
+                        "surface-bright": "#faf8ff",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "secondary-container": "#dce3ec",
+                        "error-container": "#ffdad6",
+                        "surface-variant": "#e1e2ed",
+                        "on-surface": "#191b23",
+                        "inverse-surface": "#2e3039",
+                        "tertiary-container": "#bc4800",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "on-secondary": "#ffffff",
+                        "primary": "#004ac6",
+                        "surface-tint": "#0053db",
+                        "on-primary-fixed": "#00174b",
+                        "on-tertiary-fixed": "#360f00",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "outline-variant": "#c3c6d7",
+                        "surface-container-low": "#f3f3fe",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed": "#dce3ec",
+                        "surface-dim": "#d9d9e5",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed": "#ffdbcd",
+                        "surface-container-highest": "#e1e2ed",
+                        "primary-container": "#2563eb",
+                        "on-primary-container": "#eeefff",
+                        "inverse-on-surface": "#f0f0fb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "1rem",
+                        "stack-md": "1rem",
+                        "stack-sm": "0.5rem",
+                        "container-max": "1280px",
+                        "system-b-margin": "1.5rem",
+                        "system-a-margin": "1rem"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .blur-overlay {
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body-md text-on-surface min-h-screen overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="bg-surface border-b border-outline-variant fixed top-0 w-full z-50 flex justify-between items-center px-gutter h-16">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md text-primary">SmartExam</span>
+</div>
+<div class="flex items-center space-x-4">
+<!-- Icons Area -->
+<div class="flex items-center gap-2">
+<button class="p-2 rounded-full hover:bg-surface-container-low transition-colors relative">
+<span class="material-symbols-outlined text-on-surface-variant">help</span>
+</button>
+<button class="p-2 rounded-full bg-surface-container-high transition-colors relative">
+<span class="material-symbols-outlined text-primary">notifications</span>
+<span class="absolute top-1 right-1 bg-error text-on-error text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">4</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">settings</span>
+</button>
+</div>
+<div class="h-8 w-[1px] bg-outline-variant"></div>
+<div class="flex items-center gap-3">
+<img alt="User profile" class="w-8 h-8 rounded-full border border-outline-variant" data-alt="A professional headshot of a university administrator in a modern office setting. The person is wearing a clean charcoal blazer over a white shirt. The lighting is bright and corporate, following a light-mode aesthetic with soft shadows and a focused, reliable expression. The background shows a blurred high-tech educational environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJthXKJqwVwHfQ7i3MHZeloxCNchTTdRJpLtBq7Q7G41xTUakQTX5oRbbrSKJoZV93TVNZisRlzJGYXZiAz8JBtlC9ot6Dmjwqi0dMNa0Wgxe6eq47qBfx6P8t8WQjbJ7xzC2sVmaY7_2SJUldkjzYc0yTe0p31b_k0y8WTqKnfalguNa26Bu_vCW0EmymR_cr7QtHdEcJCvpZQ3Acbmr07dEeRvK7dmlM01_om9vWMJOpx9JF2ZCuCVZHdN4Wv3n04OvgMf85xLE"/>
+</div>
+</div>
+</header>
+<!-- Sidebar (Shared Component) -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-low border-r border-outline-variant pt-20 flex flex-col space-y-2">
+<div class="px-6 mb-6">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Admin Portal</h2>
+<p class="font-label-md text-label-md text-on-surface-variant opacity-70">Institutional Control</p>
+</div>
+<nav class="flex flex-col space-y-1">
+<a class="bg-primary-container text-on-primary-container rounded-lg mx-2 px-4 py-3 flex items-center gap-3 transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-variant mx-2 px-4 py-3 rounded-lg flex items-center gap-3 transition-all" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-md text-label-md">Exams</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-variant mx-2 px-4 py-3 rounded-lg flex items-center gap-3 transition-all" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-md text-label-md">Audit Logs</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-variant mx-2 px-4 py-3 rounded-lg flex items-center gap-3 transition-all" href="#">
+<span class="material-symbols-outlined">notifications</span>
+<span class="font-label-md text-label-md">Notifications</span>
+</a>
+</nav>
+<div class="mt-auto pb-4">
+<a class="text-on-surface-variant hover:bg-surface-variant mx-2 px-4 py-3 rounded-lg flex items-center gap-3 transition-all" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content (Blurred Dashboard) -->
+<main class="ml-64 pt-20 px-8 blur-sm select-none pointer-events-none">
+<div class="grid grid-cols-12 gap-6">
+<!-- Bento Grid Dashboard Mockup -->
+<div class="col-span-8 space-y-6">
+<div class="bg-surface-container border border-outline-variant rounded-xl p-6 h-64 flex flex-col justify-end">
+<h1 class="font-headline-lg text-headline-lg">Welcome back, Administrator</h1>
+<p class="text-on-surface-variant">Here is what happened with your exams today.</p>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="bg-white border border-outline-variant rounded-xl p-6 h-48 shadow-sm"></div>
+<div class="bg-white border border-outline-variant rounded-xl p-6 h-48 shadow-sm"></div>
+</div>
+</div>
+<div class="col-span-4 space-y-6">
+<div class="bg-white border border-outline-variant rounded-xl p-6 h-full shadow-sm"></div>
+</div>
+</div>
+</main>
+<!-- Notification Dropdown Overlay -->
+<div class="fixed inset-0 z-[60] flex justify-end pr-8 pt-16">
+<div class="w-[380px] h-fit bg-white rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-outline-variant flex flex-col animate-in fade-in slide-in-from-top-4 duration-200">
+<!-- Dropdown Header -->
+<div class="flex items-center justify-between px-4 py-4 border-b border-outline-variant">
+<span class="font-bold text-body-lg text-on-surface">Notifications</span>
+<button class="text-primary font-label-md text-label-md hover:underline">Mark all read</button>
+</div>
+<!-- List of Items -->
+<div class="flex-1 overflow-y-auto max-h-[500px]">
+<!-- Item 1: Unread -->
+<div class="flex items-start gap-3 p-4 bg-primary-fixed/10 hover:bg-surface-container transition-colors cursor-pointer border-b border-outline-variant/50">
+<div class="relative mt-1">
+<div class="w-8 h-8 rounded-full bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">assignment</span>
+</div>
+<div class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-primary rounded-full border-2 border-white"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-body-md text-on-surface">Exam Grades Released</h4>
+<span class="text-[10px] text-on-surface-variant font-medium">2 min ago</span>
+</div>
+<p class="text-body-md text-on-surface-variant leading-tight mt-1">Mid-Term Lab Exam grades are now available for review.</p>
+</div>
+</div>
+<!-- Item 2: Unread -->
+<div class="flex items-start gap-3 p-4 bg-primary-fixed/10 hover:bg-surface-container transition-colors cursor-pointer border-b border-outline-variant/50">
+<div class="relative mt-1">
+<div class="w-8 h-8 rounded-full bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">warning</span>
+</div>
+<div class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-primary rounded-full border-2 border-white"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-body-md text-on-surface">Student Violation Alert</h4>
+<span class="text-[10px] text-on-surface-variant font-medium">47 min ago</span>
+</div>
+<p class="text-body-md text-on-surface-variant leading-tight mt-1">Ali Hassan triggered 3 violations in CS301 exam.</p>
+</div>
+</div>
+<!-- Item 3: Unread -->
+<div class="flex items-start gap-3 p-4 bg-primary-fixed/10 hover:bg-surface-container transition-colors cursor-pointer border-b border-outline-variant/50">
+<div class="relative mt-1">
+<div class="w-8 h-8 rounded-full bg-tertiary-fixed flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[18px]">person_off</span>
+</div>
+<div class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-primary rounded-full border-2 border-white"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-body-md text-on-surface">Eligibility Updated</h4>
+<span class="text-[10px] text-on-surface-variant font-medium">2 hours ago</span>
+</div>
+<p class="text-body-md text-on-surface-variant leading-tight mt-1">2 students marked ineligible for Final Exam.</p>
+</div>
+</div>
+<!-- Item 4: Read -->
+<div class="flex items-start gap-3 p-4 bg-white hover:bg-surface-container transition-colors cursor-pointer border-b border-outline-variant/50">
+<div class="mt-1">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-body-md text-on-surface">Exam Scheduled</h4>
+<span class="text-[10px] text-on-surface-variant font-medium">Yesterday</span>
+</div>
+<p class="text-body-md text-on-surface-variant leading-tight mt-1">Data Structures Final has been scheduled for Jun 15.</p>
+</div>
+</div>
+<!-- Item 5: Read -->
+<div class="flex items-start gap-3 p-4 bg-white hover:bg-surface-container transition-colors cursor-pointer">
+<div class="mt-1">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">device_reset</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-body-md text-on-surface">Device Reset</h4>
+<span class="text-[10px] text-on-surface-variant font-medium">2 days ago</span>
+</div>
+<p class="text-body-md text-on-surface-variant leading-tight mt-1">Admin reset device binding for Sara Khan.</p>
+</div>
+</div>
+</div>
+<!-- Dropdown Footer -->
+<div class="p-4 border-t border-outline-variant text-center">
+<a class="text-primary font-label-md text-label-md hover:underline inline-flex items-center gap-2" href="#">
+                    View all notifications <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+</body></html>
+

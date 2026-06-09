@@ -212,6 +212,21 @@ Teachers and Admins can view aggregate statistics for individual exams and the e
    - Top courses list by exam volume.
 4. *Security Check:* Try hitting this endpoint with a **Student** or **Teacher** token. **Expected Result:** `403 Forbidden`.
 
+### 4. Verify in React Web UI
+1. **Teacher - Exam Analytics:**
+   - Log in to the React Web App as the Teacher (`teacher@smartexam.com` / `Teacher@123`).
+   - Click **Analytics** in the left sidebar.
+   - Choose your exam (`Final Programming Assessment`) from the dropdown.
+   - **Expected Result:** The page loads the aggregate stats (Average Score, Pass Rate, Highest Score, Total Violations), renders score distribution buckets dynamically, displays question difficulty percentages as progress indicators, and populates the student leaderboard.
+   - Click **Generate PDF Report**.
+   - **Expected Result:** A success toast triggers, compiling proctor analytics to PDF, and automatically opens it in a new browser tab for download.
+2. **Admin - System Analytics:**
+   - Log in to the React Web App as the Admin (`admin@smartexam.com` / `Admin@123`).
+   - Click **Analytics** in the left sidebar.
+   - **Expected Result:** Renders system-wide counts (Total Students, Total Teachers, Total Exams), month-by-month historical counts as an SVG bar chart, and violation trend lines.
+   - Click **Reports** in the left sidebar.
+   - **Expected Result:** Displays the history table of compiled proctor PDFs with details, download buttons, and action controls.
+
 ---
 
 ## 🧑‍🎓 Scenario 7: Student Portal & Notifications (Student)
@@ -238,4 +253,25 @@ Students can log in to a dedicated portal on their own device to view performanc
 3. Copy a `"notificationId"` from the list.
 4. Expand **PATCH** `/api/student/notifications/{notificationId}/read`. Click **Try it out**, paste the ID, and click **Execute**.
 5. **Expected Result:** Returns `200 OK` marking the notification as read. Re-run `GET /api/student/notifications` to verify `unreadCount` decremented.
+
+### 4. Verify in Student Portal React UI
+1. **Student Login Redirect:**
+   - Open `http://localhost:5173` and log in as the student `teststudent@smartexam.com` (Password: `Student@123`) or Ali.
+   - **Expected Result:** The application detects the student role and redirects the session to the dedicated student route `/student/dashboard`.
+   - **Expected UI:** A horizontal top navbar displays links for *Dashboard*, *My Exams*, *Performance Trend*, *Integrity Check*, and a *Bell icon* on the right. Sidebars are hidden to maximize test review real-estate.
+2. **Dashboard & Performance Graph:**
+   - Check the dashboard summary cards showing total exams taken, pass counts, average score, and total violations.
+   - **Expected Result:** An SVG line graph plots Ali's score trend over recent examinations.
+3. **Review Results with AI Justification:**
+   - Click **My Exams** in the top navbar.
+   - Click **View Result** on a completed exam.
+   - **Expected Result:** Detailed grades are loaded. Under each answer, the AI's justification panel and confidence indicator are rendered.
+4. **Integrity log:**
+   - Click **Integrity Check** in the top navbar.
+   - **Expected Result:** The student sees a list of all flagged window violation logs and event telemetry collected during exams.
+5. **Notification feed:**
+   - Click the **Bell Icon** on the right side of the navbar.
+   - **Expected Result:** A dropdown opens showing the 8 most recent alerts.
+   - Click **Mark all read** or click an alert row to mark it read.
+   - Click **View all notifications** (or **Notifications** in the navbar) to view the full paginated notification list.
 

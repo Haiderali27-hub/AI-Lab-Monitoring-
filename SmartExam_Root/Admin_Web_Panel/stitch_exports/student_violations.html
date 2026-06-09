@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .violation-card-shadow {
+      box-shadow: 0 4px 6px -1px rgba(0, 74, 198, 0.04), 0 2px 4px -1px rgba(0, 74, 198, 0.02);
+    }
+    .glass-effect {
+      backdrop-filter: blur(8px);
+      background: rgba(255, 255, 255, 0.8);
+    }
+  </style>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "tertiary-fixed-dim": "#ffb77d",
+            "surface-container-high": "#e6e8ea",
+            "surface-container-lowest": "#ffffff",
+            "on-background": "#191c1e",
+            "on-tertiary": "#ffffff",
+            "error": "#ba1a1a",
+            "on-primary-fixed": "#00174b",
+            "surface-tint": "#0053db",
+            "secondary-fixed-dim": "#62df7d",
+            "secondary-container": "#7cf994",
+            "surface-container": "#eceef0",
+            "on-primary-fixed-variant": "#003ea8",
+            "outline-variant": "#c3c6d7",
+            "on-secondary-fixed": "#002109",
+            "on-surface-variant": "#434655",
+            "surface-bright": "#f7f9fb",
+            "on-primary": "#ffffff",
+            "tertiary": "#824500",
+            "primary-fixed-dim": "#b4c5ff",
+            "on-tertiary-container": "#ffede1",
+            "surface-container-low": "#f2f4f6",
+            "surface-container-highest": "#e0e3e5",
+            "surface-variant": "#e0e3e5",
+            "inverse-on-surface": "#eff1f3",
+            "secondary": "#006e2d",
+            "primary-fixed": "#dbe1ff",
+            "primary": "#004ac6",
+            "tertiary-container": "#a65900",
+            "on-error-container": "#93000a",
+            "on-tertiary-fixed-variant": "#6e3900",
+            "on-surface": "#191c1e",
+            "on-error": "#ffffff",
+            "on-secondary": "#ffffff",
+            "surface-dim": "#d8dadc",
+            "error-container": "#ffdad6",
+            "tertiary-fixed": "#ffdcc3",
+            "secondary-fixed": "#7ffc97",
+            "background": "#f7f9fb",
+            "primary-container": "#2563eb",
+            "on-secondary-fixed-variant": "#005320",
+            "on-primary-container": "#eeefff",
+            "on-tertiary-fixed": "#2f1500",
+            "on-secondary-container": "#007230",
+            "surface": "#f7f9fb",
+            "inverse-surface": "#2d3133",
+            "inverse-primary": "#b4c5ff",
+            "outline": "#737686"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "8px",
+            "xl": "12px",
+            "full": "9999px"
+          },
+          "spacing": {
+            "md": "16px",
+            "2xl": "48px",
+            "margin-mobile": "16px",
+            "margin-desktop": "40px",
+            "lg": "24px",
+            "xl": "32px",
+            "base": "4px",
+            "xs": "4px",
+            "sm": "8px",
+            "gutter": "24px"
+          },
+          "fontFamily": {
+            "body-sm": ["Inter"],
+            "body-lg": ["Inter"],
+            "display-lg": ["Inter"],
+            "headline-lg": ["Inter"],
+            "label-md": ["Inter"],
+            "stats-numeric": ["Inter"],
+            "headline-lg-mobile": ["Inter"],
+            "title-md": ["Inter"]
+          },
+          "fontSize": {
+            "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+            "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+            "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+            "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+            "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+            "stats-numeric": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+            "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+            "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+          }
+        },
+      },
+    }
+  </script>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col">
+<!-- TopNavBar Component -->
+<header class="bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-outline shadow-sm sticky top-0 z-50 h-[64px]">
+<div class="flex justify-between items-center h-full max-w-[1100px] mx-auto px-lg">
+<div class="text-title-md font-title-md font-bold text-primary dark:text-inverse-primary">SmartExam</div>
+<nav class="hidden md:flex gap-xl items-center h-full">
+<a class="text-on-surface-variant dark:text-surface-variant font-body-lg text-body-lg hover:text-primary dark:hover:text-inverse-primary transition-colors" href="#">Dashboard</a>
+<a class="text-on-surface-variant dark:text-surface-variant font-body-lg text-body-lg hover:text-primary dark:hover:text-inverse-primary transition-colors" href="#">My Exams</a>
+<a class="text-on-surface-variant dark:text-surface-variant font-body-lg text-body-lg hover:text-primary dark:hover:text-inverse-primary transition-colors" href="#">Performance</a>
+<a class="text-primary dark:text-inverse-primary font-bold border-b-2 border-primary dark:border-inverse-primary pb-1" href="#">Violations</a>
+<a class="text-on-surface-variant dark:text-surface-variant font-body-lg text-body-lg hover:text-primary dark:hover:text-inverse-primary transition-colors" href="#">Notifications</a>
+</nav>
+<div class="flex items-center gap-md">
+<div class="hidden sm:flex flex-col items-end mr-sm">
+<span class="font-label-md text-label-md text-on-surface">Ali Hassan</span>
+<span class="text-[10px] text-on-surface-variant">Student ID: 29402</span>
+</div>
+<div class="flex items-center gap-sm">
+<button class="p-sm hover:bg-surface-container-low dark:hover:bg-surface-container-high rounded-lg transition-all active:scale-95">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+</button>
+<button class="p-sm hover:bg-surface-container-low dark:hover:bg-surface-container-high rounded-lg transition-all active:scale-95">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="logout">logout</span>
+</button>
+</div>
+</div>
+</div>
+</header>
+<main class="flex-grow max-w-[1100px] mx-auto w-full px-lg py-xl">
+<!-- Header Section -->
+<div class="mb-xl">
+<h1 class="font-headline-lg text-headline-lg text-on-background mb-md">Violation History</h1>
+<!-- Summary Chips -->
+<div class="flex gap-sm flex-wrap">
+<div class="bg-tertiary-fixed text-on-tertiary-fixed px-md py-sm rounded-full flex items-center gap-xs font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]" data-icon="warning">warning</span>
+          2 Total Violations
+        </div>
+<div class="bg-surface-container-high text-on-surface-variant px-md py-sm rounded-full flex items-center gap-xs font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]" data-icon="schedule">schedule</span>
+          Last violation: 3 weeks ago
+        </div>
+</div>
+</div>
+<!-- Info Banner -->
+<div class="bg-[#FFF4E5] border-l-4 border-[#FF9800] p-lg rounded-xl mb-xl flex gap-md items-start">
+<span class="material-symbols-outlined text-[#ED6C02]" data-icon="info">info</span>
+<div class="flex-grow">
+<p class="font-body-lg text-body-lg text-[#663C00]">
+          These events were automatically recorded by the SmartExam proctoring system. Minor incidents are logged for review and don't necessarily lead to immediate disqualification. Please contact your instructor if you believe a mistake occurred.
+        </p>
+</div>
+</div>
+<!-- Layout Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- List of Violations (Left Column - 8 cols) -->
+<div class="lg:col-span-8 flex flex-col gap-md">
+<!-- Violation Card 1 -->
+<div class="bg-white p-lg rounded-xl border border-outline-variant violation-card-shadow hover:translate-y-[-2px] transition-transform duration-200">
+<div class="flex justify-between items-start mb-md">
+<div>
+<h3 class="font-title-md text-title-md text-on-surface mb-xs">Advanced Macroeconomics - Midterm</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Economics Department • Prof. Sarah Jenkins</p>
+</div>
+<span class="bg-[#FFF4E5] text-[#ED6C02] px-sm py-xs rounded-full font-label-md text-label-md flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]" data-icon="block">block</span>
+              Unauthorized App
+            </span>
+</div>
+<div class="flex items-center gap-xl mb-md">
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="calendar_today">calendar_today</span>
+<span class="font-body-sm text-body-sm">Oct 14, 2023</span>
+</div>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="alarm">alarm</span>
+<span class="font-body-sm text-body-sm">11:24 AM (00:45 into exam)</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-md rounded-lg">
+<p class="font-label-md text-label-md text-on-surface-variant mb-xs">SYSTEM LOG DATA:</p>
+<code class="font-mono text-body-sm text-on-surface block overflow-x-auto whitespace-nowrap">
+              [CRITICAL] Blocked application foreground detection: chrome.exe (External Browser Instance)
+            </code>
+</div>
+</div>
+<!-- Violation Card 2 -->
+<div class="bg-white p-lg rounded-xl border border-outline-variant violation-card-shadow hover:translate-y-[-2px] transition-transform duration-200">
+<div class="flex justify-between items-start mb-md">
+<div>
+<h3 class="font-title-md text-title-md text-on-surface mb-xs">Introduction to Data Structures</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Computer Science • Dr. Michael Chen</p>
+</div>
+<span class="bg-[#FFF4E5] text-[#ED6C02] px-sm py-xs rounded-full font-label-md text-label-md flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]" data-icon="visibility_off">visibility_off</span>
+              Face Out of Frame
+            </span>
+</div>
+<div class="flex items-center gap-xl mb-md">
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="calendar_today">calendar_today</span>
+<span class="font-body-sm text-body-sm">Sep 28, 2023</span>
+</div>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="alarm">alarm</span>
+<span class="font-body-sm text-body-sm">09:12 AM (01:10 into exam)</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-md rounded-lg">
+<p class="font-label-md text-label-md text-on-surface-variant mb-xs">SYSTEM LOG DATA:</p>
+<code class="font-mono text-body-sm text-on-surface block overflow-x-auto whitespace-nowrap">
+              [WARNING] Visual integrity check failed: No human face detected in camera frame for 15+ seconds.
+            </code>
+</div>
+</div>
+</div>
+<!-- Success State / Stats (Right Column - 4 cols) -->
+<div class="lg:col-span-4 space-y-gutter">
+<!-- Success State Container -->
+<div class="bg-[#EBF9F1] border border-[#7CF994]/30 p-lg rounded-xl text-center">
+<div class="inline-flex items-center justify-center w-16 h-16 bg-[#7CF994] rounded-full text-white mb-md">
+<span class="material-symbols-outlined text-[40px]" data-icon="check_circle">check_circle</span>
+</div>
+<h2 class="font-title-md text-title-md text-[#007230] mb-sm">Academic Integrity Streak</h2>
+<p class="font-body-sm text-body-sm text-[#005320] mb-lg">You haven't had any violations in your last 12 exams. Keep maintaining high standards!</p>
+<div class="h-2 w-full bg-[#7CF994]/20 rounded-full mb-xs">
+<div class="h-full bg-[#007230] rounded-full w-[85%]"></div>
+</div>
+<p class="font-label-md text-label-md text-[#007230] text-right">85% Clean History Score</p>
+</div>
+<!-- Proctored Tip -->
+<div class="bg-primary-container p-lg rounded-xl text-on-primary-container relative overflow-hidden group">
+<div class="relative z-10">
+<h4 class="font-label-md text-label-md mb-xs opacity-80 uppercase tracking-widest">Student Tip</h4>
+<p class="font-title-md text-title-md mb-md">Avoid Flagging</p>
+<p class="font-body-sm text-body-sm opacity-90 mb-lg leading-relaxed">Ensure your testing environment is well-lit and you've disabled all browser notifications before starting.</p>
+<button class="bg-white text-primary px-lg py-sm rounded-full font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm">
+              Read Best Practices
+            </button>
+</div>
+<div class="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-[120px]" data-icon="tips_and_updates">tips_and_updates</span>
+</div>
+</div>
+<!-- Visual Context Image -->
+<div class="rounded-xl overflow-hidden border border-outline-variant h-[200px]">
+<img alt="Testing environment best practice" class="w-full h-full object-cover grayscale opacity-80 hover:grayscale-0 transition-all duration-700" data-alt="A clean, minimalist white office desk with a laptop and a soft blue glowing light. The environment is bright and distraction-free, representing a perfect academic testing space with high-key lighting and a sense of calm focus and professional integrity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmLXgVKZVZSDJ6aQh7PAwnMBoDbstTCO5bQgOo8Het8PWlOgxX7PoaDXbrSTModaPID1MiiGJAWaOBqihQ9rW9-gSLxxyWv_nMpGqQEtN3w2we-w4LjbDbQcg51yVajeHvUQskDbjGT8EDovcNCZIOwCO31Soqdb1zb4_CuJZ9mlxYXSwUdCHw6Eta-QlVQVANiN3--wooszTbhJLY-TCyh2VC1kAB0DYVzo6pGpk0QXm2OWiQTqez_kEQhPRjhfGSOMjFLSDd4QQ"/>
+</div>
+</div>
+</div>
+<!-- Empty State Variant (Hidden by Default) -->
+<div class="hidden flex flex-col items-center justify-center py-[100px] text-center" id="empty-state">
+<div class="w-24 h-24 bg-secondary-container rounded-full flex items-center justify-center mb-xl">
+<span class="material-symbols-outlined text-on-secondary-container text-[48px]" data-icon="verified">verified</span>
+</div>
+<h2 class="font-headline-lg text-headline-lg text-on-background mb-sm">No violations recorded</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-xl max-w-[400px]">Your record is perfectly clean. We celebrate your commitment to academic honesty!</p>
+<button class="bg-primary text-on-primary px-xl py-md rounded-full font-label-md text-label-md hover:opacity-90 transition-opacity" onclick="document.getElementById('empty-state').classList.add('hidden'); location.reload();">
+        Keep it up!
+      </button>
+</div>
+</main>
+<!-- Footer Component -->
+<footer class="bg-surface-container-low dark:bg-surface-container-highest border-t border-outline-variant mt-2xl">
+<div class="flex flex-col md:flex-row justify-between items-center py-xl px-lg max-w-[1100px] mx-auto w-full">
+<div class="flex flex-col items-center md:items-start mb-lg md:mb-0">
+<span class="text-label-md font-label-md font-bold text-primary mb-xs">SmartExam</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">© 2024 SmartExam. All rights reserved.</p>
+</div>
+<div class="flex gap-xl">
+<a class="text-on-surface-variant dark:text-surface-variant font-label-md text-label-md hover:underline hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant dark:text-surface-variant font-label-md text-label-md hover:underline hover:text-primary transition-colors" href="#">Terms of Service</a>
+<a class="text-on-surface-variant dark:text-surface-variant font-label-md text-label-md hover:underline hover:text-primary transition-colors" href="#">Support</a>
+</div>
+</div>
+</footer>
+<script>
+    // Logic to toggle empty state for demonstration purposes
+    // In a real app, this would be based on backend data
+    function simulateEmptyState() {
+      const mainContent = document.querySelector('.grid');
+      const infoBanner = document.querySelector('.bg-\\[\\#FFF4E5\\]');
+      const headerSection = document.querySelector('.mb-xl');
+      const emptyState = document.getElementById('empty-state');
+      
+      if(mainContent && emptyState) {
+        mainContent.classList.add('hidden');
+        infoBanner.classList.add('hidden');
+        headerSection.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+      }
+    }
+
+    // Interactive Hover for Cards
+    document.querySelectorAll('.violation-card-shadow').forEach(card => {
+      card.addEventListener('mouseenter', () => {
+        card.style.boxShadow = '0 10px 15px -3px rgba(0, 74, 198, 0.08), 0 4px 6px -2px rgba(0, 74, 198, 0.04)';
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.boxShadow = '0 4px 6px -1px rgba(0, 74, 198, 0.04), 0 2px 4px -1px rgba(0, 74, 198, 0.02)';
+      });
+    });
+  </script>
+</body></html>
+

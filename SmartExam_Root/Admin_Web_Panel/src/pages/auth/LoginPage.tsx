@@ -31,6 +31,8 @@ export default function LoginPage() {
       // Redirect based on role
       if (data.role === 'Teacher') {
         navigate('/teacher/dashboard');
+      } else if (data.role === 'Student') {
+        navigate('/student/dashboard');
       } else {
         navigate('/admin/dashboard');
       }

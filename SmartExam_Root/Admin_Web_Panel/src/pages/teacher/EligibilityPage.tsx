@@ -176,7 +176,7 @@ export default function EligibilityPage() {
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
                             item.isEligible ? 'bg-blue-50 text-primary-500' : 'bg-red-100 text-red-600'
                           }`}>
-                            {item.studentName.split(' ').map((n) => n[0]).join('')}
+                            {item.studentName.split(' ').map((n: string) => n[0]).join('')}
                           </div>
                           <span className={`font-semibold text-sm ${!item.isEligible ? 'text-red-700' : 'text-slate-700'}`}>
                             {item.studentName}

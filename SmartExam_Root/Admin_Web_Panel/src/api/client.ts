@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../utils/constants';
 
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -27,5 +27,10 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export async function unwrap<T>(promise: Promise<{ data: T } | any>): Promise<T> {
+  const response = await promise;
+  return response.data;
+}
 
 export default apiClient;
