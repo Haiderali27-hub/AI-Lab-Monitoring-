@@ -93,7 +93,7 @@ export default function StudentExamResultPage() {
               <div className="flex items-center gap-4 text-xs font-semibold text-slate-400">
                 <div className="flex items-center gap-1">
                   <Calendar size={14} />
-                  <span>Conducted: {format(new Date(result.startedAt), 'MMM dd, yyyy')}</span>
+                  <span>Conducted: {format(new Date(result.startedAt || new Date().toISOString()), 'MMM dd, yyyy')}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Clock size={14} />

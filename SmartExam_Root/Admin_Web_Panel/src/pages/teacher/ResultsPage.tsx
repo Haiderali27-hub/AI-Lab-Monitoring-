@@ -52,7 +52,11 @@ export default function ResultsPage() {
   const [submittingOverride, setSubmittingOverride] = useState<{ [answerId: string]: boolean }>({});
 
   const loadData = async () => {
-    if (!examId) return;
+    if (!examId) {
+      setLoading(false);
+      setExamTitle('No exam selected');
+      return;
+    }
     try {
       setLoading(true);
       const [resData, plagData, examDetail] = await Promise.all([
@@ -235,7 +239,9 @@ export default function ResultsPage() {
             {activeTab === 'submissions' && (
               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                 {results.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 italic">No submissions found for this exam.</div>
+                  <div className="text-center py-12 text-slate-400 italic">
+                    {!examId ? "Please select an exam to view results." : "No submissions found for this exam."}
+                  </div>
                 ) : (
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">

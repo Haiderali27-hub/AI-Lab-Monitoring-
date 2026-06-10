@@ -133,7 +133,7 @@ export default function StudentExamsPage() {
                     </h3>
                     <p className="text-xs text-slate-400 italic">
                       {exam.status === 'Scheduled' ? 'Scheduled for ' : 'Conducted on '}
-                      {format(new Date(exam.startedAt), 'MMMM dd, yyyy')}
+                      {format(new Date(exam.startTime || exam.startedAt || new Date()), 'MMMM dd, yyyy')}
                     </p>
                   </div>
 

@@ -21,7 +21,9 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const data = await authApi.login({ email, password });
+      const emailPrefix = email.split('@')[0].toUpperCase();
+      const hwidHash = `TEST-HWID-HASH-${emailPrefix}-12345`;
+      const data = await authApi.login({ email, password, hwidHash });
       login(data.token, {
         userId: data.userId,
         name: data.name,

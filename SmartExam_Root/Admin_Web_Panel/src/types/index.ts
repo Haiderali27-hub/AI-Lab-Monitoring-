@@ -4,6 +4,7 @@ export type UserRole = 'SuperAdmin' | 'Admin' | 'Teacher' | 'Student';
 export interface LoginRequest {
   email: string;
   password: string;
+  hwidHash?: string;
 }
 
 export interface LoginResponse {

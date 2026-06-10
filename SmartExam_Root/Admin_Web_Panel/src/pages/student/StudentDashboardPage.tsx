@@ -137,7 +137,7 @@ export default function StudentDashboardPage() {
                 <div className="w-16 h-16 bg-primary-500 text-white rounded-full flex items-center justify-center text-xl font-bold mb-3 shadow-md">
                   {initials}
                 </div>
-                <h2 className="text-lg font-bold text-slate-800 leading-tight">{user?.name}</h2>
+                <h2 className="text-lg font-bold text-slate-800 leading-tight">Welcome back, {user?.name}</h2>
                 <p className="text-xs text-slate-400 mt-1">{user?.email}</p>
                 <div className="mt-3 flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1 rounded-full border border-green-200 text-xs font-semibold">
                   <CheckCircle size={14} className="text-green-600" />
@@ -228,7 +228,7 @@ export default function StudentDashboardPage() {
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Date</p>
                         <p className="text-sm font-semibold text-slate-700">
-                          {format(new Date(selectedExamDetails.startTime), 'MMMM dd, yyyy')}
+                          {format(new Date(selectedExamDetails.startTime || selectedExamDetails.startedAt || new Date()), 'MMMM dd, yyyy')}
                         </p>
                       </div>
                     </div>
@@ -240,7 +240,7 @@ export default function StudentDashboardPage() {
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Start Time</p>
                         <p className="text-sm font-semibold text-slate-700">
-                          {format(new Date(selectedExamDetails.startTime), 'hh:mm a')}
+                          {format(new Date(selectedExamDetails.startTime || selectedExamDetails.startedAt || new Date()), 'hh:mm a')}
                         </p>
                       </div>
                     </div>
@@ -323,7 +323,7 @@ export default function StudentDashboardPage() {
                         <Play size={18} />
                         <span>Start Exam</span>
                         <span className="text-xs font-normal opacity-70">
-                          (Available at {format(new Date(selectedExamDetails.startTime), 'hh:mm a')})
+                          (Available at {format(new Date(selectedExamDetails.startTime || selectedExamDetails.startedAt || new Date()), 'hh:mm a')})
                         </span>
                       </button>
                     </div>
@@ -352,7 +352,7 @@ export default function StudentDashboardPage() {
                     <div className="bg-gradient-to-br from-green-50/50 to-emerald-50/20 p-4 rounded-xl border border-green-100/50 flex flex-col justify-between">
                       <Award className="text-green-500 mb-2" size={20} />
                       <div>
-                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Average Grade</span>
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Average Score</span>
                         <span className="text-2xl font-bold text-slate-800">{dashboardData.averageScore}%</span>
                       </div>
                     </div>
@@ -376,7 +376,7 @@ export default function StudentDashboardPage() {
                             <div>
                               <p className="text-sm font-bold text-slate-800 leading-snug">{exam.title}</p>
                               <p className="text-xs text-slate-400 uppercase font-semibold mt-0.5">
-                                {exam.courseName} • {format(new Date(exam.startedAt), 'MMM dd, yyyy')}
+                                {exam.courseName} • {format(new Date(exam.startedAt || new Date().toISOString()), 'MMM dd, yyyy')}
                               </p>
                             </div>
                             <div className="text-right">

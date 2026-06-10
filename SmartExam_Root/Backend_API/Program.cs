@@ -8,9 +8,13 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (builder.Configuration["UseInMemoryDatabase"] != "true")
+    {
+        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+    }
+});
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<JwtHelper>();
@@ -60,6 +64,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -88,10 +93,13 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // ── Seed Database ─────────────────────────────────────────────────────────────
-using (var scope = app.Services.CreateScope())
+if (app.Configuration["UseInMemoryDatabase"] != "true")
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await DbSeeder.SeedAsync(db);
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await DbSeeder.SeedAsync(db);
+    }
 }
 
 // ── Middleware Pipeline ───────────────────────────────────────────────────────
@@ -105,3 +113,5 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }

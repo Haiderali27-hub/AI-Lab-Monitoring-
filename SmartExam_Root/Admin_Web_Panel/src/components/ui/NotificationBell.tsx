@@ -80,6 +80,7 @@ export default function NotificationBell() {
     <div className="relative" ref={ref}>
       {/* Bell button */}
       <button
+        data-testid="notification-bell"
         onClick={() => setOpen(o => !o)}
         className="relative w-10 h-10 flex items-center justify-center text-slate-500 hover:text-primary-500 hover:bg-slate-50 rounded-full transition-colors focus:outline-none"
       >
@@ -93,7 +94,7 @@ export default function NotificationBell() {
 
       {/* Dropdown panel */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-96 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden">
+        <div data-testid="notification-dropdown" className="absolute right-0 top-full mt-2 w-96 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
             <span className="font-semibold text-slate-900 text-sm">Notifications</span>

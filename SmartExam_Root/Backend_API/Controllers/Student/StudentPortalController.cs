@@ -217,7 +217,8 @@ public class StudentPortalController : ControllerBase
                 a.TeacherGradeOverride?.FinalMarks ?? a.AiGradingResult?.SuggestedMarks ?? 0);
             return new
             {
-                ExamTitle = s.Exam.Title,
+                Title = s.Exam.Title,
+                StartedAt = s.StartedAt,
                 Date = s.StartedAt.ToString("MMM dd"),
                 ScorePercent = total > 0 ? Math.Round((earned / total) * 100, 1) : 0
             };

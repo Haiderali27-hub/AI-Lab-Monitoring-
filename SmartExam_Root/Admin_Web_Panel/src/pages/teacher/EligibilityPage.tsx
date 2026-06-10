@@ -188,6 +188,8 @@ export default function EligibilityPage() {
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input
                               type="checkbox"
+                              role="switch"
+                              aria-checked={item.isEligible ? "true" : "false"}
                               checked={item.isEligible}
                               onChange={() => toggleEligibility(item.userId)}
                               className="sr-only peer"

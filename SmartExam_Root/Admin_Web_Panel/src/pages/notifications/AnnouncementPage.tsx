@@ -98,9 +98,10 @@ export default function AnnouncementPage() {
               <div className="p-6 space-y-6">
                 {/* Exam Selection */}
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold tracking-wider text-slate-500 block ml-1 uppercase">Select Exam</label>
+                  <label htmlFor="exam-select" className="text-xs font-semibold tracking-wider text-slate-500 block ml-1 uppercase">Select Exam</label>
                   <div className="relative">
                     <select
+                      id="exam-select"
                       value={selectedExamId}
                       onChange={e => setSelectedExamId(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3.5 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm font-medium text-slate-800 cursor-pointer"
@@ -136,8 +137,9 @@ export default function AnnouncementPage() {
                 {/* Notification Details */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold tracking-wider text-slate-500 block ml-1 uppercase">Notification Title</label>
+                    <label htmlFor="announce-title" className="text-xs font-semibold tracking-wider text-slate-500 block ml-1 uppercase">Notification Title</label>
                     <input
+                      id="announce-title"
                       className="w-full bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm"
                       placeholder="e.g., Change of Venue for Lab Exam"
                       type="text"
@@ -148,8 +150,9 @@ export default function AnnouncementPage() {
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold tracking-wider text-slate-500 block ml-1 uppercase">Message</label>
+                    <label htmlFor="announce-message" className="text-xs font-semibold tracking-wider text-slate-500 block ml-1 uppercase">Message</label>
                     <textarea
+                      id="announce-message"
                       className="w-full bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm resize-none"
                       placeholder="Write your announcement message here..."
                       rows={6}

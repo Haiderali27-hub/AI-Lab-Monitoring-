@@ -132,6 +132,7 @@ export default function UsersPage() {
           {(['All', 'Student', 'Teacher', 'Admin'] as const).map((tab) => (
             <button
               key={tab}
+              role="tab"
               onClick={() => {
                 setActiveTab(tab);
                 setActiveMenuId(null);
@@ -324,7 +325,7 @@ export default function UsersPage() {
       {/* Slide-over Panel */}
       <div
         className={`fixed top-0 right-0 h-screen w-full max-w-[480px] bg-white z-[70] shadow-2xl transition-transform duration-300 ease-in-out flex flex-col ${
-          showPanel ? 'translate-x-0' : 'translate-x-full'
+          showPanel ? 'translate-x-0' : 'translate-x-full invisible'
         }`}
       >
         {/* Panel Header */}
@@ -350,8 +351,9 @@ export default function UsersPage() {
             
             {/* Form Field */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Full Name</label>
+              <label htmlFor="fullName" className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Full Name</label>
               <input
+                id="fullName"
                 className="w-full h-10 px-4 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all text-sm"
                 placeholder="e.g. John Doe"
                 type="text"
@@ -362,8 +364,9 @@ export default function UsersPage() {
             </div>
             {/* Form Field */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Email Address</label>
+              <label htmlFor="email" className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Email Address</label>
               <input
+                id="email"
                 className="w-full h-10 px-4 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all text-sm"
                 placeholder="john.doe@university.edu"
                 type="email"
@@ -374,8 +377,9 @@ export default function UsersPage() {
             </div>
             {/* Form Field */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Password</label>
+              <label htmlFor="password" className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Password</label>
               <input
+                id="password"
                 className="w-full h-10 px-4 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all text-sm"
                 placeholder="Password (min 8 chars)"
                 type="password"
@@ -386,9 +390,10 @@ export default function UsersPage() {
             </div>
             {/* Form Field */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Role</label>
+              <label htmlFor="role" className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Role</label>
               <div className="relative">
                 <select
+                  id="role"
                   className="w-full h-10 px-4 border border-slate-200 rounded-lg bg-transparent focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all cursor-pointer text-sm"
                   value={formRole}
                   onChange={(e) => setFormRole(e.target.value as UserRole)}

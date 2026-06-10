@@ -88,6 +88,7 @@ function AppRoutes() {
       <Route path="/teacher/create-exam"  element={<PrivateRoute roles={['Teacher']}><CreateExamPage /></PrivateRoute>} />
       <Route path="/teacher/live-monitor" element={<PrivateRoute roles={['Teacher']}><LiveMonitorPage /></PrivateRoute>} />
       <Route path="/teacher/results/:examId" element={<PrivateRoute roles={['Teacher']}><ResultsPage /></PrivateRoute>} />
+      <Route path="/teacher/results"      element={<PrivateRoute roles={['Teacher']}><ResultsPage /></PrivateRoute>} />
       <Route path="/teacher/eligibility"  element={<PrivateRoute roles={['Teacher']}><EligibilityPage /></PrivateRoute>} />
       <Route path="/teacher/analytics"    element={<PrivateRoute roles={['Teacher']}><ExamAnalyticsPage /></PrivateRoute>} />
       <Route path="/teacher/analytics/:examId" element={<PrivateRoute roles={['Teacher']}><ExamAnalyticsPage /></PrivateRoute>} />
