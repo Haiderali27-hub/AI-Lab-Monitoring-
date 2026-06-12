@@ -1,6 +1,6 @@
 import { HubConnectionBuilder } from '@microsoft/signalr'
 import { useEffect, useMemo, useState } from 'react'
-import { apiClient } from '../api/client'
+import apiClient from '../api/client'
 import { getLiveRoster } from '../api/exams'
 import { AdminLayout } from '../components/AdminLayout'
 import { useAuth } from '../store/AuthContext'

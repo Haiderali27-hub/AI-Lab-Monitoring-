@@ -53,6 +53,38 @@ namespace Backend_API.Migrations
                     b.ToTable("AiGradingResults");
                 });
 
+            modelBuilder.Entity("Backend_API.Models.Analytics.ExamReport", b =>
+                {
+                    b.Property<Guid>("ReportId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ExamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("GeneratedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GeneratedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReportType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("ReportId");
+
+                    b.HasIndex("ExamId");
+
+                    b.HasIndex("GeneratedBy");
+
+                    b.ToTable("ExamReports");
+                });
+
             modelBuilder.Entity("Backend_API.Models.Answer", b =>
                 {
                     b.Property<Guid>("AnswerId")
@@ -345,6 +377,46 @@ namespace Backend_API.Migrations
                     b.ToTable("MonitoringEvents");
                 });
 
+            modelBuilder.Entity("Backend_API.Models.Notifications.Notification", b =>
+                {
+                    b.Property<Guid>("NotificationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("EmailSent")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("RecipientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RelatedEntityId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("NotificationId");
+
+                    b.HasIndex("RecipientId", "IsRead");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("Backend_API.Models.PlagiarismResult", b =>
                 {
                     b.Property<Guid>("PlagId")
@@ -634,6 +706,25 @@ namespace Backend_API.Migrations
                     b.Navigation("Answer");
                 });
 
+            modelBuilder.Entity("Backend_API.Models.Analytics.ExamReport", b =>
+                {
+                    b.HasOne("Backend_API.Models.Exam", "Exam")
+                        .WithMany()
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend_API.Models.User", "GeneratedByUser")
+                        .WithMany()
+                        .HasForeignKey("GeneratedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Exam");
+
+                    b.Navigation("GeneratedByUser");
+                });
+
             modelBuilder.Entity("Backend_API.Models.Answer", b =>
                 {
                     b.HasOne("Backend_API.Models.ExamSession", "ExamSession")
@@ -749,6 +840,17 @@ namespace Backend_API.Migrations
                         .IsRequired();
 
                     b.Navigation("ExamSession");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.Notifications.Notification", b =>
+                {
+                    b.HasOne("Backend_API.Models.User", "Recipient")
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recipient");
                 });
 
             modelBuilder.Entity("Backend_API.Models.PlagiarismResult", b =>

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SmartExam | Student Notifications</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface": "#faf8ff",
+                    "on-primary": "#ffffff",
+                    "on-surface-variant": "#434655",
+                    "surface-container-high": "#e7e7f3",
+                    "primary-fixed": "#dbe1ff",
+                    "tertiary": "#943700",
+                    "surface-container": "#ededf9",
+                    "on-error-container": "#93000a",
+                    "on-error": "#ffffff",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "on-secondary-fixed": "#151c23",
+                    "on-tertiary-container": "#ffede6",
+                    "on-secondary-container": "#5e656d",
+                    "background": "#faf8ff",
+                    "error": "#ba1a1a",
+                    "secondary": "#585f67",
+                    "on-secondary-fixed-variant": "#40484f",
+                    "secondary-fixed-dim": "#c0c7d0",
+                    "outline": "#737686",
+                    "on-background": "#191b23",
+                    "inverse-primary": "#b4c5ff",
+                    "surface-bright": "#faf8ff",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "secondary-container": "#dce3ec",
+                    "error-container": "#ffdad6",
+                    "surface-variant": "#e1e2ed",
+                    "on-surface": "#191b23",
+                    "inverse-surface": "#2e3039",
+                    "tertiary-container": "#bc4800",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "on-secondary": "#ffffff",
+                    "primary": "#004ac6",
+                    "surface-tint": "#0053db",
+                    "on-primary-fixed": "#00174b",
+                    "on-tertiary-fixed": "#360f00",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "outline-variant": "#c3c6d7",
+                    "surface-container-low": "#f3f3fe",
+                    "on-tertiary": "#ffffff",
+                    "secondary-fixed": "#dce3ec",
+                    "surface-dim": "#d9d9e5",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-fixed": "#ffdbcd",
+                    "surface-container-highest": "#e1e2ed",
+                    "primary-container": "#2563eb",
+                    "on-primary-container": "#eeefff",
+                    "inverse-on-surface": "#f0f0fb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "1rem",
+                    "stack-md": "1rem",
+                    "stack-sm": "0.5rem",
+                    "container-max": "1280px",
+                    "system-b-margin": "1.5rem",
+                    "system-a-margin": "1rem"
+            },
+            "fontFamily": {
+                    "headline-sm": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-md": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .unread-card {
+            border-left: 3px solid #2563eb;
+            background: rgba(37, 99, 235, 0.03);
+        }
+        .pill-shadow {
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+        }
+        .glass-header {
+            backdrop-filter: blur(8px);
+            background: rgba(250, 248, 255, 0.8);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body-md text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 glass-header border-b border-outline-variant px-gutter h-16 flex justify-between items-center">
+<div class="flex items-center gap-8">
+<span class="font-headline-md text-headline-md text-primary">SmartExam</span>
+<nav class="hidden md:flex items-center gap-6 h-full">
+<a class="text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md px-3 py-2 rounded-lg" href="#">Home</a>
+<a class="text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md px-3 py-2 rounded-lg" href="#">Tasks</a>
+<a class="text-primary border-b-2 border-primary font-label-md text-label-md px-3 py-2" href="#">Notifications</a>
+<a class="text-on-surface-variant hover:bg-surface-container-low transition-colors font-label-md text-label-md px-3 py-2 rounded-lg" href="#">Profile</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex items-center bg-surface-container rounded-full px-4 py-1.5 border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px] mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-label-md placeholder:text-outline w-40" placeholder="Search exams..." type="text"/>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer p-2 hover:bg-surface-container rounded-full transition-colors">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer p-2 hover:bg-surface-container rounded-full transition-colors">help</span>
+<div class="w-8 h-8 rounded-full bg-primary-fixed-dim border border-outline-variant overflow-hidden">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A close-up portrait of a young adult student with a friendly expression, set against a softly blurred university library background. The lighting is warm and natural, creating an approachable and studious atmosphere. The visual style is clean and high-definition, consistent with a modern educational platform's user profile aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYDTCSGR-cWsp9ejXZegl129BzhojWqFx6Orim_7usrYJi3wkNsP3IuZBn1ghmF-4Bgcoykd2HIde7ITe5W9fNZvnwx2zJhuzKp7cr9srATJB1bZO8s3C1j6P9YZJkdDpADseY6LMUW6z-wKik98hR1dMJwvotH1Jd9g0yrI4kgHaAXPJEbnn-P6d_uyWMiAW4J-iPQ3I467NFw9eMBbI7DGuabomScrN3hUA9cZQfx1ryJkhUZ9n5lUuNUpC5zmxFRGtXX7aZfeQ"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-24 pb-20 px-4 md:px-0">
+<div class="max-w-[800px] mx-auto space-y-system-b-margin">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div class="flex items-center gap-3">
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">Notifications</h1>
+<span class="bg-[#dcfce7] text-[#166534] font-label-sm text-label-sm px-2.5 py-1 rounded-full flex items-center gap-1">
+                        3 unread
+                    </span>
+</div>
+<button class="text-primary font-label-md text-label-md hover:underline decoration-2 underline-offset-4 transition-all">
+                    Mark all as read
+                </button>
+</div>
+<!-- Notifications Feed -->
+<div class="space-y-4">
+<!-- Notification 1: Grades Ready (Unread) -->
+<div class="unread-card pill-shadow bg-surface-container-lowest rounded-xl p-[20px] flex gap-4 transition-all hover:translate-y-[-2px] active:scale-[0.99] cursor-pointer">
+<div class="flex-shrink-0 w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-green-600 text-[24px]" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+</div>
+<div class="flex-1 space-y-1">
+<div class="flex justify-between items-start">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Your Grades Are Ready! 🎉</h3>
+<span class="text-on-surface-variant text-label-sm font-label-sm opacity-70">5 min ago</span>
+</div>
+<p class="text-on-surface-variant font-body-md text-body-md leading-relaxed">
+                            Your results for Mid-Term Lab Exam are now available. Check your score and AI feedback.
+                        </p>
+<a class="inline-block text-primary font-label-md text-label-md mt-2 group" href="#">
+                            View Results <span class="group-hover:translate-x-1 transition-transform inline-block">→</span>
+</a>
+</div>
+</div>
+<!-- Notification 2: Exam Reminder (Unread) -->
+<div class="unread-card pill-shadow bg-surface-container-lowest rounded-xl p-[20px] flex gap-4 transition-all hover:translate-y-[-2px] cursor-pointer">
+<div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-blue-600 text-[24px]" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
+</div>
+<div class="flex-1 space-y-1">
+<div class="flex justify-between items-start">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Exam Reminder</h3>
+<span class="text-on-surface-variant text-label-sm font-label-sm opacity-70">3 hours ago</span>
+</div>
+<p class="text-on-surface-variant font-body-md text-body-md leading-relaxed">
+                            Reminder: Your Data Structures Final Exam is tomorrow. Please ensure your environment is set up according to proctoring guidelines.
+                        </p>
+</div>
+</div>
+<!-- Notification 3: Violation (Unread) -->
+<div class="unread-card pill-shadow bg-surface-container-lowest rounded-xl p-[20px] flex gap-4 transition-all hover:translate-y-[-2px] cursor-pointer">
+<div class="flex-shrink-0 w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-orange-600 text-[24px]" style="font-variation-settings: 'FILL' 1;">warning</span>
+</div>
+<div class="flex-1 space-y-1">
+<div class="flex justify-between items-start">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Violation Recorded</h3>
+<span class="text-on-surface-variant text-label-sm font-label-sm opacity-70">2 days ago</span>
+</div>
+<p class="text-on-surface-variant font-body-md text-body-md leading-relaxed">
+                            A violation was recorded during your CS301 exam regarding multiple faces in camera view. Please review the footage.
+                        </p>
+</div>
+</div>
+<!-- Notification 4: Scheduled (Read) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-[20px] flex gap-4 opacity-80 hover:opacity-100 transition-opacity">
+<div class="flex-shrink-0 w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-[24px]">event</span>
+</div>
+<div class="flex-1 space-y-1">
+<div class="flex justify-between items-start">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Exam Scheduled</h3>
+<span class="text-on-surface-variant text-label-sm font-label-sm opacity-70">1 week ago</span>
+</div>
+<p class="text-on-surface-variant font-body-md text-body-md leading-relaxed">
+                            Your Mid-Term Lab Exam for CS301 has been scheduled for Oct 15th at 10:00 AM.
+                        </p>
+</div>
+</div>
+<!-- Notification 5: Eligibility (Read) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-[20px] flex gap-4 opacity-80 hover:opacity-100 transition-opacity">
+<div class="flex-shrink-0 w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-[24px]">verified</span>
+</div>
+<div class="flex-1 space-y-1">
+<div class="flex justify-between items-start">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Eligibility Confirmed</h3>
+<span class="text-on-surface-variant text-label-sm font-label-sm opacity-70">1 week ago</span>
+</div>
+<p class="text-on-surface-variant font-body-md text-body-md leading-relaxed">
+                            You have been marked as eligible for the Honors Track Scholarship program based on your recent performance.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Mobile Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-3 md:hidden bg-surface shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-sm text-label-sm mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">task</span>
+<span class="font-label-sm text-label-sm mt-1">Tasks</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">notifications</span>
+<span class="font-label-sm text-label-sm">Notifications</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm mt-1">Profile</span>
+</a>
+</nav>
+<script>
+        // Simple interaction for cards
+        document.querySelectorAll('.unread-card').forEach(card => {
+            card.addEventListener('click', () => {
+                card.classList.remove('unread-card');
+                card.classList.add('border', 'border-outline-variant', 'opacity-80');
+                const chip = document.querySelector('.bg-\\[\\#dcfce7\\]');
+                if(chip) {
+                    let count = parseInt(chip.innerText);
+                    if(count > 0) {
+                        count--;
+                        chip.innerText = count + (count === 1 ? ' unread' : ' unread');
+                        if(count === 0) chip.classList.add('hidden');
+                    }
+                }
+            });
+        });
+
+        // "Mark all as read" logic
+        document.querySelector('button.text-primary').addEventListener('click', () => {
+            document.querySelectorAll('.unread-card').forEach(card => {
+                card.classList.remove('unread-card');
+                card.classList.add('border', 'border-outline-variant', 'opacity-80');
+            });
+            const chip = document.querySelector('.bg-\\[\\#dcfce7\\]');
+            if(chip) chip.classList.add('hidden');
+        });
+    </script>
+</body></html>
+

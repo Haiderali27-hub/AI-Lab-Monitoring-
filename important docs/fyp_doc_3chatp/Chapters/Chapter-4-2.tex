@@ -1,0 +1,126 @@
+\section{Functional Modeling}
+
+Functional modeling represents the system-centric view of system analysis, focusing on how data is stored, structured, moved, and transformed within the application. While use case modeling details user-system boundaries and behaviors from the actor's viewpoint, functional modeling defines the logical structures and information pipelines required to make those behaviors possible. In the design of the AI-Driven Lab Exam Monitoring and Management System, functional modeling is particularly important because the system must handle highly dynamic, concurrent data streams (such as real-time process events, webcam frames, and code compilations) while maintaining relational consistency for grades, seating configurations, and immutable security audit logs.
+
+This section provides a rigorous definition of the system's database schema and data flow processes. The Entity Relationship Diagram (ERD) outlines the relational architecture of the system, defining the entities, attributes, primary/foreign keys, and cardinalities that structure the Neon PostgreSQL database. The Data Flow Diagrams (DFDs) at Level 0, Level 1, and Level 2 map the system's operational pathways, demonstrating how telemetry data, user inputs, grading commands, and reporting templates flow between client applications, external services, processing components, and database storage.
+
+\subsection{Entity Relationship Diagram}
+
+In designing the data architecture for the SmartExam platform, a relational database model was selected over NoSQL alternatives. Relational databases enforce strict schemas, transactional integrity, and referential constraints which are essential for academic grading systems where financial, identity, and score records must remain completely accurate and consistent \cite{er_diagram_lucidchart}. The database layer is implemented on Neon PostgreSQL, a serverless relational database that provides full ACID (Atomicity, Consistency, Isolation, Durability) compliance while allowing auto-scaling resources to accommodate sudden spikes in connections when hundreds of workstation clients stream telemetry concurrently.
+
+To prevent update, insertion, and deletion anomalies, the database schema is normalized to the Third Normal Form (3NF). This means that every non-key column is fully dependent on the primary key, the whole primary key, and nothing but the primary key. For example, student details, exam schedules, seating mappings, and grading metrics are separated into distinct tables. These tables are linked via foreign key references rather than storing duplicated records. Relational integrity is enforced using foreign key constraints with explicit cascading behaviors, unique constraints on hardware identifiers, and index constraints on frequently queried columns.
+
+The Entity Relationship Diagram (ERD) for the AI-Driven Lab Exam Monitoring and Management System is shown in Figure~\ref{fig:erd_diagram}. It comprises 14 normalized tables that capture the complete operational state of the system:
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/erd_diagram.png}
+\caption{Entity Relationship Diagram (ERD) of the SmartExam Database Schema}
+\label{fig:erd_diagram}
+\end{figure}
+
+The database schema illustrated in Figure~\ref{fig:erd_diagram} is structured around the following entity groups, relationship rules, and data structures:
+
+\subsubsection{Database Dictionary and Table Definitions}
+\begin{enumerate}
+    \item \textbf{Roles Table (\texttt{Roles}):} Stores the authorization levels within the system (e.g., Student, Teacher, Administrator). It contains a primary key \texttt{Id} (integer) and the role name \texttt{RoleName} (varchar). This table forms a one-to-many relationship with the \texttt{Users} table, ensuring that every user account is bound to a single set of privileges.
+    \item \textbf{Users Table (\texttt{Users}):} Manages student, teacher, and administrator accounts. Columns include \texttt{Id} (Primary Key), \texttt{Email} (Varchar, unique index), \texttt{PasswordHash} (Varchar), \texttt{FullName} (Varchar), \texttt{RoleId} (Foreign Key referencing \texttt{Roles}), and \texttt{CreatedAt} (Timestamp). 
+    \item \textbf{Device Bindings Table (\texttt{DeviceBindings}):} Enforces the workstation hardware locks. Columns include \texttt{Id} (Primary Key), \texttt{UserId} (Foreign Key referencing \texttt{Users}, unique constraint), \texttt{HWID} (Varchar, unique hardware identifier hash), \texttt{DeviceDetails} (Text), and \texttt{BoundAt} (Timestamp). This table forms a strict one-to-one relationship with the \texttt{Users} table, ensuring a student cannot log in from multiple devices.
+    \item \textbf{Exams Table (\texttt{Exams}):} Main metadata store for assessments. Columns include \texttt{Id} (Primary Key), \texttt{Title} (Varchar), \texttt{Description} (Text), \texttt{Duration} (Integer, in minutes), \texttt{StartTime} (Timestamp), \texttt{EndTime} (Timestamp), \texttt{IsActive} (Boolean), and \texttt{CreatedBy} (Foreign Key referencing \texttt{Users}). It has a one-to-many relationship with questions, allowed applications, and seating mappings.
+    \item \textbf{Questions Table (\texttt{Questions}):} Stores individual questions. Columns include \texttt{Id} (Primary Key), \texttt{ExamId} (Foreign Key referencing \texttt{Exams}), \texttt{QuestionText} (Text), \texttt{QuestionType} (Varchar, e.g., 'Coding' or 'Theory'), and \texttt{MaxMarks} (Integer).
+    \item \textbf{Test Cases Table (\texttt{TestCases}):} Stores test variables for coding questions. Columns include \texttt{Id} (Primary Key), \texttt{QuestionId} (Foreign Key referencing \texttt{Questions}), \texttt{Input} (Text), \texttt{ExpectedOutput} (Text), and \texttt{IsHidden} (Boolean). This forms a one-to-many relationship with \texttt{Questions}, allowing the compiler to test student submissions against multiple scenarios.
+    \item \textbf{Allowed Applications Table (\texttt{AllowedApps}):} Defines lockdown rules. Columns include \texttt{Id} (Primary Key), \texttt{ExamId} (Foreign Key referencing \texttt{Exams}), and \texttt{AppName} (Varchar, e.g., 'code.exe'). This forms a one-to-many relationship with \texttt{Exams}.
+    \item \textbf{Seating Maps Table (\texttt{SeatingMaps}):} Maps candidates to physical locations. Columns include \texttt{Id} (Primary Key), \texttt{ExamId} (Foreign Key referencing \texttt{Exams}), \texttt{UserId} (Foreign Key referencing \texttt{Users}), \texttt{LabName} (Varchar), \texttt{IPRange} (Varchar), and \texttt{SeatNumber} (Varchar). This coordinates seating policies and lab access controls.
+    \item \textbf{Exam Sessions Table (\texttt{ExamSessions}):} Tracks student exam attempts. Columns include \texttt{Id} (Primary Key), \texttt{ExamId} (Foreign Key referencing \texttt{Exams}), \texttt{UserId} (Foreign Key referencing \texttt{Users}), \texttt{StartTime} (Timestamp), \texttt{EndTime} (Timestamp, nullable), \texttt{RemainingTime} (Integer), and \texttt{Status} (Varchar, e.g., 'Ongoing', 'Submitted').
+    \item \textbf{Answers Table (\texttt{Answers}):} Stores student responses. Columns include \texttt{Id} (Primary Key), \texttt{SessionId} (Foreign Key referencing \texttt{ExamSessions}), \texttt{QuestionId} (Foreign Key referencing \texttt{Questions}), \texttt{AnswerText} (Text), and \texttt{LastSavedAt} (Timestamp). It receives auto-save telemetry payloads.
+    \item \textbf{Monitoring Events Table (\texttt{MonitoringEvents}):} Capture log for proctoring alerts. Columns include \texttt{Id} (Primary Key), \texttt{SessionId} (Foreign Key referencing \texttt{ExamSessions}), \texttt{EventType} (Varchar, e.g., 'WindowFocusLoss', 'BlockedAppLaunch'), \texttt{EventDetails} (Text), \texttt{ScreenshotUrl} (Varchar, nullable), and \texttt{Timestamp} (Timestamp).
+    \item \textbf{AI Grading Results Table (\texttt{AiGradingResults}):} Holds scoring logs. Columns include \texttt{Id} (Primary Key), \texttt{AnswerId} (Foreign Key referencing \texttt{Answers}), \texttt{AutoGrade} (Integer), \texttt{ExecutionTime} (Float), \texttt{SemanticSimilarityScore} (Float), and \texttt{AiFeedback} (Text).
+    \item \textbf{Plagiarism Results Table (\texttt{PlagiarismResults}):} Holds plagiarism comparisons. Columns include \texttt{Id} (Primary Key), \texttt{ExamId} (Foreign Key referencing \texttt{Exams}), \texttt{AnswerId1} (Foreign Key referencing \texttt{Answers}), \texttt{AnswerId2} (Foreign Key referencing \texttt{Answers}), \texttt{SimilarityScore} (Float), and \texttt{FlaggedStatus} (Varchar).
+    \item \textbf{Audit Logs Table (\texttt{AuditLogs}):} Immutable ledger. Columns include \texttt{Id} (Primary Key), \texttt{UserId} (Foreign Key referencing \texttt{Users}), \texttt{Action} (Varchar), \texttt{ActionDetails} (Text), and \texttt{Timestamp} (Timestamp).
+\end{enumerate}
+
+\subsubsection{Key Entity Relationships}
+The database diagram defines three main structural relationship types:
+\begin{itemize}
+    \item \textbf{One-to-One Relationships:} A single student user profile links to exactly one hardware binding record in the \texttt{DeviceBindings} table. This ensures that physical machine identification (HWID) remains locked to a single university ID, eliminating proxy exam attempts.
+    \item \textbf{One-to-Many Relationships:} Major templates (e.g., \texttt{Exams}) have one-to-many relations with questions, allowed applications, seating lists, and active student sessions. This structure allows teachers to design complex exam rules, whitelists, and seating maps for each exam.
+    \item \textbf{Junction-Based Operations:} Seating allocations, answers, and plagiarism comparisons coordinate multiple foreign keys, linking exams, users, and submissions together.
+\end{itemize}
+
+\subsection{Data Flow Diagram}
+
+Data Flow Diagrams (DFDs) model the functional flow and logical processes of a system, mapping how inputs are transformed into outputs through processes, data stores, and external entities. DFDs utilize Gane-Sarson notation symbols: Processes are represented by rounded rectangles, External Entities by squares, Data Flows by arrows, and Data Stores by open-ended rectangles. In the SmartExam platform, DFDs help visualize how student telemetry moves from the WPF client, through API validation, to database storage, and to the teacher's proctoring dashboard.
+
+The system's data flows are modeled at three levels of abstraction: Level 0 (Context Diagram), Level 1 (Subsystem Overview), and Level 2 (Detailed Telemetry Processing and AI Evaluation).
+
+\subsubsection{DFD Level 0}
+
+The DFD Level 0, or Context Diagram, defines the external boundaries of the system, modeling the entire platform as a single central process and identifying the primary external entities that interact with it. The Context Diagram is shown in Figure~\ref{fig:dfd_level_0}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/dfd_level_0.png}
+\caption{Data Flow Diagram (DFD) Level 0 --- Context Diagram}
+\label{fig:dfd_level_0}
+\end{figure}
+
+The Context Diagram defines the boundary flows between the central system process and the four external entities:
+\begin{itemize}
+    \item \textbf{Student User:} Sends credentials, device HWID hash, diagnostics status, real-time focus log packets, running process lists, and answer file uploads. The system returns JWT authentication tokens, hardware checks validation status, exam questions, remaining time alerts, and submission confirmations.
+    \item \textbf{Teacher User:} Sends exam schedules, whitelisted allowed applications, seating mapping rules, and manual override commands (such as pausing a student's timer or unlocking a client). The teacher receives live proctoring timelines, real-time violation alerts, auto-grading calculations, and downloadable PDF session reports.
+    \item \textbf{System Administrator:} Sends user profile updates, system configurations, and unbinding approvals. The administrator receives system performance reports and security audit logs.
+    \item \textbf{AI Grading Service:} Receives subjective answer inputs and reference answers from the system. It returns computed semantic similarity scores and key concepts match summaries.
+\end{itemize}
+
+\subsubsection{DFD Level 1}
+
+The DFD Level 1 breaks down the single context process into the main functional subsystems of the platform. It maps how information moves between these subsystems, where data is read from or written to database stores, and how external entities interact with specific modules. The DFD Level 1 diagram is illustrated in Figure~\ref{fig:dfd_level_1}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/dfd_level_1.png}
+\caption{Data Flow Diagram (DFD) Level 1 --- Subsystem Overview}
+\label{fig:dfd_level_1}
+\end{figure}
+
+The Level 1 DFD decomposes the central system process into five core functional processes:
+\begin{enumerate}
+    \item \textbf{Authentication and Device Binding (Process 1.0):} Receives login credentials and the workstation HWID from the student client. It validates these against the \texttt{Users} and \texttt{DeviceBindings} tables, issuing a JWT access token upon successful authentication.
+    \item \textbf{Exam Setup and Access Control (Process 2.0):} Allows teachers to input exam metadata, whitelisted application parameters, and seating maps. This process writes to the \texttt{Exams}, \texttt{AllowedApps}, and \texttt{SeatingMaps} tables, and serves configuration parameters to eligible student clients.
+    \item \textbf{Lockdown and Telemetry Streaming (Process 3.0):} Receives focus logs, process lists, screenshots, and security events from the active student client. It saves these events in the \texttt{MonitoringEvents} table and forwards them to the proctoring hub.
+    \item \textbf{Live Proctoring and Overrides (Process 4.0):} Connects to the \texttt{MonitoringEvents} table and streams active events to the teacher's web dashboard via WebSockets. It also processes incoming teacher override commands, updating \texttt{ExamSessions} status.
+    \item \textbf{Evaluation, Plagiarism, and Reporting (Process 5.0):} Pulls completed student submissions from the \texttt{Answers} table, runs compile-time testing, submits theory texts to the AI grading engine, compares submissions for plagiarism, saves grades to the \texttt{AiGradingResults} table, and exports PDF reports.
+\end{enumerate}
+
+\subsubsection{DFD Level 2}
+
+The DFD Level 2 zooms in on Process 3.0 (Lockdown and Telemetry Streaming) and Process 5.0 (Evaluation, Plagiarism, and Reporting) to trace the exact logical steps and transformations performed on telemetry streams and programming submissions. The DFD Level 2 diagram is shown in Figure~\ref{fig:dfd_level_2}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/dfd_level_2.png}
+\caption{Data Flow Diagram (DFD) Level 2 --- Telemetry and Evaluation Processing}
+\label{fig:dfd_level_2}
+\end{figure}
+
+The detailed flow mapped in Figure~\ref{fig:dfd_level_2} is split into two primary pipelines:
+
+\begin{enumerate}
+    \item \textbf{Telemetry Streaming and Analysis (Processes 3.1 to 3.4):}
+    \begin{itemize}
+        \item \textbf{Process 3.1 (Ingest Client Telemetry):} Receives raw WebSocket JSON packets containing process names, window focus handles, and compressed screenshot payloads from the client.
+        \item \textbf{Process 3.2 (Validate Allowed Apps):} Compares the running process names against the exam's whitelisted applications fetched from \texttt{AllowedApps}.
+        \item \textbf{Process 3.3 (Analyze Anomalies):} Analyzes camera states and window focus durations. If an unauthorized process is detected or camera frames show missing faces, it generates a security alert.
+        \item \textbf{Process 3.4 (Route Alerts and Save Logs):} Writes all telemetry logs to \texttt{MonitoringEvents} and pushes violation alerts to the teacher WebSocket stream.
+    \end{itemize}
+    \item \textbf{Evaluation and Plagiarism Checking (Processes 5.1 to 5.5):}
+    \begin{itemize}
+        \item \textbf{Process 5.1 (Run Isolated Compiler):} Launches submitted code files inside isolated Docker containers, compiles the code, executes it against input parameters retrieved from \texttt{TestCases}, and calculates pass rates.
+        \item \textbf{Process 5.2 (AI Semantic Grader):} Transmits subjective theory text answers to the semantic similarity engine, which calculates closeness vectors against the teacher's key answers.
+        \item \textbf{Process 5.3 (Execute Plagiarism Checker):} Compares submission code ASTs (Abstract Syntax Trees) and text strings pairwise across all class submissions to check for copied content.
+        \item \textbf{Process 5.4 (Aggregate Grades):} Consolidates compiling results, AI semantic scores, and plagiarism metrics, writing them to \texttt{AiGradingResults} and \texttt{PlagiarismResults}.
+        \item \textbf{Process 5.5 (Render QuestPDF Report):} Fetches consolidated grades, audit overrides, and attendance logs to render a styled PDF report for download.
+    \end{itemize}
+\end{enumerate}
+
+These Level 2 processes define the core technical operations of the SmartExam system. By mapping data transforms in detail, the modeling ensures that telemetry classification and auto-grading compilation remain robust and scalable under real lab conditions.

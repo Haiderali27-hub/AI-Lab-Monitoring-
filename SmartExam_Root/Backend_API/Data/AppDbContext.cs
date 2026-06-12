@@ -1,5 +1,7 @@
 using Backend_API.Models;
 using Backend_API.Models.Enums;
+using Backend_API.Models.Analytics;
+using Backend_API.Models.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend_API.Data;
@@ -28,6 +30,8 @@ public class AppDbContext : DbContext
     public DbSet<TeacherGradeOverride> TeacherGradeOverrides => Set<TeacherGradeOverride>();
     public DbSet<PlagiarismResult> PlagiarismResults => Set<PlagiarismResult>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<ExamReport> ExamReports => Set<ExamReport>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +58,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<TeacherGradeOverride>().HasKey(tgo => tgo.OverrideId);
         modelBuilder.Entity<PlagiarismResult>().HasKey(pr => pr.PlagId);
         modelBuilder.Entity<AuditLog>().HasKey(al => al.LogId);
+        modelBuilder.Entity<ExamReport>().HasKey(r => r.ReportId);
+        modelBuilder.Entity<Notification>().HasKey(n => n.NotificationId);
 
         // Enum conversions — store as strings in DB (readable, not magic numbers)
         modelBuilder.Entity<User>().Property(u => u.Role).HasConversion<string>();
@@ -121,5 +127,23 @@ public class AppDbContext : DbContext
             .WithOne(a => a.TeacherGradeOverride)
             .HasForeignKey<TeacherGradeOverride>(t => t.AnswerId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // ExamReport: GeneratedByUser mapping
+        modelBuilder.Entity<ExamReport>()
+            .HasOne(r => r.GeneratedByUser)
+            .WithMany()
+            .HasForeignKey(r => r.GeneratedBy)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Notification: Recipient mapping
+        modelBuilder.Entity<Notification>()
+            .HasOne(n => n.Recipient)
+            .WithMany()
+            .HasForeignKey(n => n.RecipientId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Index for fast unread notification queries
+        modelBuilder.Entity<Notification>()
+            .HasIndex(n => new { n.RecipientId, n.IsRead });
     }
 }

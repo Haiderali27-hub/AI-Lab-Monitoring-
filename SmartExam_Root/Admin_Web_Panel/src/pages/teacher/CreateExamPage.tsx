@@ -328,8 +328,9 @@ export default function CreateExamPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">EXAM TITLE</label>
+                    <label htmlFor="examTitle" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">EXAM TITLE</label>
                     <input 
+                      id="examTitle"
                       type="text" 
                       value={title}
                       onChange={e => setTitle(e.target.value)}
@@ -339,8 +340,9 @@ export default function CreateExamPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">COURSE / SECTION</label>
+                    <label htmlFor="section" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">COURSE / SECTION</label>
                     <select 
+                      id="section"
                       value={selectedSectionId}
                       onChange={e => setSelectedSectionId(e.target.value)}
                       className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all bg-white text-slate-800"
@@ -358,8 +360,9 @@ export default function CreateExamPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">SCHEDULED DATE</label>
+                      <label htmlFor="scheduledDate" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">SCHEDULED DATE</label>
                       <input 
+                        id="scheduledDate"
                         type="date" 
                         value={scheduledDate}
                         onChange={e => setScheduledDate(e.target.value)}
@@ -367,8 +370,9 @@ export default function CreateExamPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">START TIME</label>
+                      <label htmlFor="startTime" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">START TIME</label>
                       <input 
+                        id="startTime"
                         type="time" 
                         value={startTime}
                         onChange={e => setStartTime(e.target.value)}
@@ -378,7 +382,7 @@ export default function CreateExamPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">DURATION (MINUTES)</label>
+                    <label htmlFor="duration" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">DURATION (MINUTES)</label>
                     <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-primary-500/10 focus-within:border-primary-500 transition-all">
                       <button 
                         type="button"
@@ -388,6 +392,7 @@ export default function CreateExamPage() {
                         <span className="material-symbols-outlined text-[20px] font-bold">remove_circle</span>
                       </button>
                       <input 
+                        id="duration"
                         type="number" 
                         value={durationMinutes}
                         onChange={e => setDurationMinutes(Math.max(15, parseInt(e.target.value) || 0))}
@@ -406,8 +411,9 @@ export default function CreateExamPage() {
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">INSTRUCTIONS</label>
+                <label htmlFor="instructions" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">INSTRUCTIONS</label>
                 <textarea 
+                  id="instructions"
                   value={instructions}
                   onChange={e => setInstructions(e.target.value)}
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all resize-none text-slate-800"

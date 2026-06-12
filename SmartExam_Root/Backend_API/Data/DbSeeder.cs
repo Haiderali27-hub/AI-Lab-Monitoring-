@@ -9,8 +9,30 @@ public static class DbSeeder
 {
     public static async Task SeedAsync(AppDbContext db)
     {
-        // Only seed if the database is empty
-        if (await db.Users.AnyAsync()) return;
+        // Always reset database to clean state for E2E tests
+        db.AuditLogs.RemoveRange(db.AuditLogs);
+        db.Notifications.RemoveRange(db.Notifications);
+        db.ExamReports.RemoveRange(db.ExamReports);
+        db.PlagiarismResults.RemoveRange(db.PlagiarismResults);
+        db.TeacherGradeOverrides.RemoveRange(db.TeacherGradeOverrides);
+        db.AiGradingResults.RemoveRange(db.AiGradingResults);
+        db.Answers.RemoveRange(db.Answers);
+        db.MonitoringEvents.RemoveRange(db.MonitoringEvents);
+        db.ExamSessions.RemoveRange(db.ExamSessions);
+        db.ExamAssignments.RemoveRange(db.ExamAssignments);
+        db.TestCases.RemoveRange(db.TestCases);
+        db.Questions.RemoveRange(db.Questions);
+        db.Exams.RemoveRange(db.Exams);
+        db.SectionEnrollments.RemoveRange(db.SectionEnrollments);
+        db.Sections.RemoveRange(db.Sections);
+        db.Courses.RemoveRange(db.Courses);
+        db.Departments.RemoveRange(db.Departments);
+        db.Workstations.RemoveRange(db.Workstations);
+        db.Labs.RemoveRange(db.Labs);
+        db.UserSessions.RemoveRange(db.UserSessions);
+        db.DeviceBindings.RemoveRange(db.DeviceBindings);
+        db.Users.RemoveRange(db.Users);
+        await db.SaveChangesAsync();
 
         // --- Users ---
         var admin = new User
@@ -124,6 +146,60 @@ public static class DbSeeder
             new ExamAssignment { Exam = exam, Student = student1, Workstation = ws1, IsEligible = true },
             new ExamAssignment { Exam = exam, Student = student2, Workstation = ws2, IsEligible = true }
         );
+
+        // --- Device Bindings ---
+        var binding1 = new DeviceBinding
+        {
+            UserId = student1.UserId,
+            HwidHash = "TEST-HWID-HASH-ALI-12345",
+            RegisteredAt = DateTime.UtcNow.AddDays(-5),
+            LastSeenAt = DateTime.UtcNow.AddMinutes(-10)
+        };
+        await db.DeviceBindings.AddAsync(binding1);
+
+        // --- Ended Exam for E2E Results page testing ---
+        var examEnded = new Exam
+        {
+            Section = section,
+            Title = "Final Lab Exam",
+            StartTime = DateTime.UtcNow.AddHours(-3),
+            DurationMinutes = 120,
+            AllowedApps = "[\"code.exe\",\"codeblocks.exe\"]",
+            AiEvaluationEnabled = true,
+            PlagiarismThreshold = 70,
+            Status = ExamStatus.Ended
+        };
+        await db.Exams.AddAsync(examEnded);
+
+        var qEnded = new Question
+        {
+            Exam = examEnded,
+            Type = QuestionType.Coding,
+            BodyText = "Write a function to reverse a string.",
+            Marks = 20,
+            OrderIndex = 1
+        };
+        await db.Questions.AddAsync(qEnded);
+
+        var sessionEnded = new ExamSession
+        {
+            Exam = examEnded,
+            Student = student1,
+            StartedAt = DateTime.UtcNow.AddHours(-3),
+            SubmittedAt = DateTime.UtcNow.AddHours(-2),
+            Status = SessionStatus.Submitted
+        };
+        await db.ExamSessions.AddAsync(sessionEnded);
+
+        var answerEnded = new Answer
+        {
+            ExamSession = sessionEnded,
+            Question = qEnded,
+            AnswerText = "void reverse(string &s) { reverse(s.begin(), s.end()); }",
+            SubmittedAt = DateTime.UtcNow.AddHours(-2),
+            LastSavedAt = DateTime.UtcNow.AddHours(-2.5)
+        };
+        await db.Answers.AddAsync(answerEnded);
 
         await db.SaveChangesAsync();
         Console.WriteLine("✅ Database seeded successfully.");

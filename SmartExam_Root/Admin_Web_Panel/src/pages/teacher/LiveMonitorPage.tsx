@@ -286,7 +286,7 @@ export default function LiveMonitorPage() {
         </nav>
         <div className="mt-auto flex flex-col gap-4">
           <div className="w-10 h-10 rounded-full bg-blue-50 text-primary-600 font-bold flex items-center justify-center text-xs" title={user?.name}>
-            {user?.name ? user.name.split(' ').map(n => n[0]).join('') : 'TE'}
+            {user?.name ? user.name.split(' ').map((n: string) => n[0]).join('') : 'TE'}
           </div>
           <button 
             onClick={logout} 
@@ -479,7 +479,7 @@ export default function LiveMonitorPage() {
             <div className="flex justify-between items-start mb-4">
               {/* Profile Initials Placeholder */}
               <div className="w-12 h-12 rounded-2xl bg-blue-100 text-primary-600 font-bold flex items-center justify-center text-lg">
-                {selectedStudent.studentName.split(' ').map(n => n[0]).join('')}
+                {selectedStudent.studentName.split(' ').map((n: string) => n[0]).join('')}
               </div>
               <button 
                 onClick={() => setSelectedStudentId(null)}

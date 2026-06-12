@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SmartExam Analytics - Admin System Analytics</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#d0e4ff",
+                        "tertiary-container": "#7d4ce7",
+                        "tertiary-fixed": "#e9ddff",
+                        "error-container": "#ffdad6",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "surface-container-high": "#e6e8ea",
+                        "primary-fixed": "#dbe1ff",
+                        "surface-bright": "#f7f9fb",
+                        "surface": "#f7f9fb",
+                        "surface-container-highest": "#e0e3e5",
+                        "primary-container": "#2563eb",
+                        "surface-dim": "#d8dadc",
+                        "error": "#ba1a1a",
+                        "tertiary": "#632ecd",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#03497a",
+                        "background": "#f7f9fb",
+                        "surface-variant": "#e0e3e5",
+                        "surface-container-low": "#f2f4f6",
+                        "primary": "#004ac6",
+                        "on-primary-fixed": "#00174b",
+                        "outline": "#737686",
+                        "secondary": "#2b6193",
+                        "inverse-primary": "#b4c5ff",
+                        "on-primary-container": "#eeefff",
+                        "inverse-on-surface": "#eff1f3",
+                        "secondary-container": "#93c5fd",
+                        "inverse-surface": "#2d3133",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "on-surface": "#191c1e",
+                        "on-background": "#191c1e",
+                        "on-surface-variant": "#434655",
+                        "on-tertiary-fixed": "#23005c",
+                        "tertiary-fixed-dim": "#d0bcff",
+                        "on-tertiary-container": "#f6edff",
+                        "secondary-fixed-dim": "#9ccaff",
+                        "surface-container": "#eceef0",
+                        "on-secondary-fixed": "#001d35",
+                        "surface-tint": "#0053db",
+                        "outline-variant": "#c3c6d7",
+                        "on-error-container": "#93000a",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "on-tertiary-fixed-variant": "#5516be",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "on-secondary-container": "#145283"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "card-padding": "20px",
+                        "base": "8px",
+                        "gutter": "16px",
+                        "table-cell-padding": "12px 16px",
+                        "container-margin": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "data-mono": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg": ["30px", {"lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "data-mono": ["14px", {"lineHeight": "20px", "fontWeight": "500"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .sidebar-active {
+            background-color: #93c5fd; /* secondary-container */
+            color: #145283; /* on-secondary-container */
+            border-left: 4px solid #004ac6; /* primary */
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+        body {
+            background-color: #f7f9fb;
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-background selection:bg-primary-fixed">
+<!-- SideNavBar (Authority: JSON & Style Guidance) -->
+<aside class="fixed left-0 top-0 h-full w-[260px] flex flex-col py-6 z-40 bg-surface-container-lowest border-r border-outline-variant">
+<div class="px-6 mb-8">
+<h1 class="font-headline-md text-headline-md font-black text-primary">SmartExam</h1>
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Analytics Suite</p>
+</div>
+<nav class="flex-1 space-y-1 px-3 custom-scrollbar overflow-y-auto">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-label-md text-label-md">Exams</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined">devices</span>
+<span class="font-label-md text-label-md">Device Bindings</span>
+</a>
+<!-- Active Navigation Choice: Analytics -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg sidebar-active scale-[0.98] transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">bar_chart</span>
+<span class="font-label-md text-label-md">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined">history_edu</span>
+<span class="font-label-md text-label-md">Audit Logs</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-label-md text-label-md">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<div class="px-6 mt-6 pt-6 border-t border-outline-variant space-y-4">
+<button class="w-full bg-primary text-on-primary py-2.5 rounded-lg font-label-md text-label-md flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">ios_share</span>
+                Export Data
+            </button>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-md text-label-md">Help Center</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[260px] min-h-screen">
+<!-- TopAppBar -->
+<header class="sticky top-0 z-50 flex justify-between items-center px-container-margin h-16 w-full bg-surface-container-lowest border-b border-outline-variant">
+<div class="flex items-center gap-4">
+<h2 class="font-headline-sm text-headline-sm font-bold text-primary">System Analytics</h2>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group">
+<button class="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-lg bg-surface-container-lowest hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-primary">calendar_today</span>
+<span class="font-body-md text-body-md text-on-surface">Last 30 Days</span>
+<span class="material-symbols-outlined text-outline">expand_more</span>
+</button>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="ml-2 w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden border border-outline-variant">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A professional headshot of a middle-aged academic administrator in a clean white studio setting. He is wearing a dark blue suit and has a subtle, confident expression. The lighting is bright and high-key, reflecting a corporate academic environment with high clarity and neutral tones, aligning with a professional blue and white theme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOFPqT-FUC1o_2Gwu6wPeMl_QzsqTXwZVYZnjHFKi7Pc-Rf09FWad3Em4lANpdx-8u1lfZhiocgrsEPz5vxg7QANruW0cnKluSGO-a387zvnA29FkO_nCfhDYD_PwNw2mNw5GLNsz213cFgFK8wrbpp7eDGbqOC6QQN6BF3BBvXaEOpvAjHDZ3zxh9uEecbvpAIQuWGTEZl9gX-7e6ki_rsCpqPOEY5s2b4MK_yB7biEABj2Pbn5FH-hx8iXsq98uRUtas2VajWV4"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Canvas Container -->
+<div class="p-container-margin max-w-[1280px] mx-auto space-y-gutter">
+<!-- Stats Row -->
+<div class="grid grid-cols-5 gap-gutter">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-card-padding rounded-lg">
+<p class="font-label-md text-label-md text-on-surface-variant mb-2">Total Students</p>
+<p class="font-headline-md text-[32px] font-black text-on-surface font-data-mono">142</p>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-card-padding rounded-lg">
+<p class="font-label-md text-label-md text-on-surface-variant mb-2">Total Teachers</p>
+<p class="font-headline-md text-[32px] font-black text-on-surface font-data-mono">18</p>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-card-padding rounded-lg">
+<p class="font-label-md text-label-md text-on-surface-variant mb-2">Total Exams</p>
+<p class="font-headline-md text-[32px] font-black text-on-surface font-data-mono">34</p>
+</div>
+<!-- Card 4 (Success State) -->
+<div class="bg-surface-container-lowest border border-outline-variant p-card-padding rounded-lg">
+<div class="flex justify-between items-start mb-2">
+<p class="font-label-md text-label-md text-on-surface-variant">Exams This Month</p>
+<span class="text-green-600 flex items-center">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+</span>
+</div>
+<p class="font-headline-md text-[32px] font-black text-on-surface font-data-mono">8</p>
+</div>
+<!-- Card 5 (Warning State) -->
+<div class="bg-surface-container-lowest border border-outline-variant p-card-padding rounded-lg">
+<div class="flex justify-between items-start mb-2">
+<p class="font-label-md text-label-md text-on-surface-variant">Violations This Month</p>
+<span class="text-error flex items-center">
+<span class="material-symbols-outlined text-[16px]">warning</span>
+</span>
+</div>
+<p class="font-headline-md text-[32px] font-black text-on-surface font-data-mono">23</p>
+</div>
+</div>
+<!-- Main Analytics Grid -->
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Exams Per Month (Left Column) -->
+<section class="col-span-7 bg-surface-container-lowest border border-outline-variant p-card-padding rounded-lg">
+<div class="flex justify-between items-center mb-8">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Exams Per Month</h3>
+<button class="p-1 hover:bg-surface-container-low rounded transition-colors">
+<span class="material-symbols-outlined text-outline">more_horiz</span>
+</button>
+</div>
+<div class="h-[280px] w-full flex items-end justify-between px-4 pb-8 relative">
+<!-- Chart Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between py-8 px-4 pointer-events-none opacity-20">
+<div class="border-b border-outline w-full"></div>
+<div class="border-b border-outline w-full"></div>
+<div class="border-b border-outline w-full"></div>
+<div class="border-b border-outline w-full"></div>
+</div>
+<!-- Bars -->
+<div class="flex flex-col items-center gap-2 group w-12 z-10">
+<span class="font-label-md text-label-md text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">12</span>
+<div class="w-full bg-primary-container rounded-t h-20 transition-all duration-300 group-hover:scale-y-105"></div>
+<span class="font-label-md text-label-md text-on-surface-variant mt-2">Jan</span>
+</div>
+<div class="flex flex-col items-center gap-2 group w-12 z-10">
+<span class="font-label-md text-label-md text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">18</span>
+<div class="w-full bg-primary-container rounded-t h-32 transition-all duration-300 group-hover:scale-y-105"></div>
+<span class="font-label-md text-label-md text-on-surface-variant mt-2">Feb</span>
+</div>
+<div class="flex flex-col items-center gap-2 group w-12 z-10">
+<span class="font-label-md text-label-md text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">25</span>
+<div class="w-full bg-primary-container rounded-t h-44 transition-all duration-300 group-hover:scale-y-105"></div>
+<span class="font-label-md text-label-md text-on-surface-variant mt-2">Mar</span>
+</div>
+<div class="flex flex-col items-center gap-2 group w-12 z-10">
+<span class="font-label-md text-label-md text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">15</span>
+<div class="w-full bg-primary-container rounded-t h-28 transition-all duration-300 group-hover:scale-y-105"></div>
+<span class="font-label-md text-label-md text-on-surface-variant mt-2">Apr</span>
+</div>
+<div class="flex flex-col items-center gap-2 group w-12 z-10">
+<span class="font-label-md text-label-md text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">30</span>
+<div class="w-full bg-primary-container rounded-t h-52 transition-all duration-300 group-hover:scale-y-105"></div>
+<span class="font-label-md text-label-md text-on-surface-variant mt-2">May</span>
+</div>
+<div class="flex flex-col items-center gap-2 group w-12 z-10">
+<span class="font-label-md text-label-md text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">22</span>
+<div class="w-full bg-primary-container rounded-t h-40 transition-all duration-300 group-hover:scale-y-105"></div>
+<span class="font-label-md text-label-md text-on-surface-variant mt-2">Jun</span>
+</div>
+</div>
+</section>
+<!-- Top Courses (Right Column) -->
+<section class="col-span-5 bg-surface-container-lowest border border-outline-variant p-card-padding rounded-lg">
+<div class="flex justify-between items-center mb-8">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Top Courses</h3>
+<button class="font-label-md text-label-md text-primary hover:underline">View All</button>
+</div>
+<div class="space-y-6">
+<!-- Horizontal Bar 1 -->
+<div class="space-y-2">
+<div class="flex justify-between font-label-md text-label-md text-on-surface-variant">
+<span>CS301 - Intro to Algos</span>
+<span>85% Activity</span>
+</div>
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 85%;"></div>
+</div>
+</div>
+<!-- Horizontal Bar 2 -->
+<div class="space-y-2">
+<div class="flex justify-between font-label-md text-label-md text-on-surface-variant">
+<span>CS201 - Data Structures</span>
+<span>72% Activity</span>
+</div>
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary opacity-80 rounded-full" style="width: 72%;"></div>
+</div>
+</div>
+<!-- Horizontal Bar 3 -->
+<div class="space-y-2">
+<div class="flex justify-between font-label-md text-label-md text-on-surface-variant">
+<span>SE401 - Software Eng.</span>
+<span>65% Activity</span>
+</div>
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary opacity-60 rounded-full" style="width: 65%;"></div>
+</div>
+</div>
+<!-- Horizontal Bar 4 -->
+<div class="space-y-2">
+<div class="flex justify-between font-label-md text-label-md text-on-surface-variant">
+<span>DS301 - Data Science</span>
+<span>58% Activity</span>
+</div>
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary opacity-40 rounded-full" style="width: 58%;"></div>
+</div>
+</div>
+<!-- Horizontal Bar 5 -->
+<div class="space-y-2">
+<div class="flex justify-between font-label-md text-label-md text-on-surface-variant">
+<span>AI201 - Neural Networks</span>
+<span>45% Activity</span>
+</div>
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary opacity-20 rounded-full" style="width: 45%;"></div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Violation Trend (Full Width) -->
+<section class="bg-surface-container-lowest border border-outline-variant p-card-padding rounded-lg">
+<div class="flex justify-between items-center mb-8">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Violation Trend</h3>
+<p class="font-label-md text-label-md text-on-surface-variant">System-wide monitoring — Last 30 Days</p>
+</div>
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-2 font-label-md text-label-md text-on-surface-variant">
+<span class="w-3 h-3 rounded-full bg-error"></span> Detected Violations
+                        </span>
+<button class="flex items-center gap-1 font-label-md text-label-md text-primary">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                            Download PDF Report
+                        </button>
+</div>
+</div>
+<!-- Custom Line Chart Representation -->
+<div class="h-[200px] w-full relative pt-4">
+<svg class="w-full h-full preserve-3d" preserveaspectratio="none" viewbox="0 0 1000 200">
+<!-- Area Fill -->
+<path d="M0,180 L50,160 L100,170 L150,140 L200,150 L250,110 L300,120 L350,90 L400,105 L450,70 L500,85 L550,60 L600,65 L650,40 L700,55 L750,30 L800,45 L850,20 L900,35 L950,10 L1000,15 L1000,200 L0,200 Z" fill="#ba1a1a" fill-opacity="0.05"></path>
+<!-- Line -->
+<path d="M0,180 L50,160 L100,170 L150,140 L200,150 L250,110 L300,120 L350,90 L400,105 L450,70 L500,85 L550,60 L600,65 L650,40 L700,55 L750,30 L800,45 L850,20 L900,35 L950,10 L1000,15" fill="none" stroke="#ba1a1a" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+<!-- Dots -->
+<circle cx="50" cy="160" fill="#ba1a1a" r="4"></circle>
+<circle cx="150" cy="140" fill="#ba1a1a" r="4"></circle>
+<circle cx="250" cy="110" fill="#ba1a1a" r="4"></circle>
+<circle cx="350" cy="90" fill="#ba1a1a" r="4"></circle>
+<circle cx="450" cy="70" fill="#ba1a1a" r="4"></circle>
+<circle cx="550" cy="60" fill="#ba1a1a" r="4"></circle>
+<circle cx="650" cy="40" fill="#ba1a1a" r="4"></circle>
+<circle cx="750" cy="30" fill="#ba1a1a" r="4"></circle>
+<circle cx="850" cy="20" fill="#ba1a1a" r="4"></circle>
+<circle cx="950" cy="10" fill="#ba1a1a" r="4"></circle>
+</svg>
+<!-- X-Axis Labels -->
+<div class="flex justify-between mt-4 px-1 font-label-md text-label-md text-on-surface-variant">
+<span>Day 1</span>
+<span>Day 5</span>
+<span>Day 10</span>
+<span>Day 15</span>
+<span>Day 20</span>
+<span>Day 25</span>
+<span>Today</span>
+</div>
+</div>
+</section>
+</div>
+</main>
+<script>
+        // Micro-interactions and atmosphere
+        document.querySelectorAll('a, button').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                // Subtle lift on hover logic could go here if needed
+            });
+        });
+
+        // Initialize any tooltips or dynamic data here
+        console.log("SmartExam Analytics Dashboard Initialized");
+    </script>
+</body></html>
+

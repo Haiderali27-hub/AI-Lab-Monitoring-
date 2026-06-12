@@ -176,3 +176,102 @@ Verify the exam completion and review grades.
 3. **Override Score:**
    * Change the score to `19` in the **Override Mark** input, add a note: `Good optimized loop`, and click **Apply Grade**.
    * **Expected Result:** The score is saved, and the dashboard statistics reload, re-averaging the class scores.
+
+---
+
+## 📊 Scenario 6: Reporting & Analytics (Teacher & Admin)
+Teachers and Admins can view aggregate statistics for individual exams and the entire system, as well as generate exportable PDF reports.
+
+### 1. Retrieve Exam Summary Analytics (Teacher/Admin)
+1. Open Swagger at `http://localhost:5050/swagger` and authorize using the **Teacher** token.
+2. Expand **GET** `/api/analytics/exams/{examId}/summary`. Click **Try it out**.
+3. Paste the `"examId"` from your exam and click **Execute**.
+4. **Expected Result:** Returns a `200 OK` response containing:
+   - Aggregated exam details (Total Students, Pass Rate, Average Score, High/Low Scores).
+   - Score distribution buckets (0-20, 21-40, 41-60, 61-80, 81-100).
+   - Per-question statistics (average marks earned, difficulty percentage).
+   - Total monitoring violations and count of students with violations.
+
+### 2. Generate and Download PDF Exam Report (Teacher/Admin)
+1. Expand **POST** `/api/analytics/exams/{examId}/report`. Click **Try it out**.
+2. Paste the `"examId"` and click **Execute**.
+3. **Expected Result:** Returns a `200 OK` with a download URL (e.g. `"/api/analytics/reports/Exam_Report_....pdf"`).
+4. Copy the filename from the response (e.g. `Exam_Report_....pdf`).
+5. Expand **GET** `/api/analytics/reports/{fileName}`. Click **Try it out**.
+6. Paste the filename in the parameter field and click **Execute**.
+7. **Expected Result:** Returns a `200 OK` with `Content-Type: application/pdf` containing the rendered document.
+
+### 3. Retrieve System-Wide Analytics (Admin Only)
+1. Authorize in Swagger using the **Admin** token.
+2. Expand **GET** `/api/analytics/system`. Click **Try it out** and click **Execute**.
+3. **Expected Result:** Returns a `200 OK` response containing:
+   - System user totals (students, teachers).
+   - Exam count metrics (total exams, last 30 days).
+   - Last 30 days violation trend counts by day.
+   - Month-by-month historical exam counts.
+   - Top courses list by exam volume.
+4. *Security Check:* Try hitting this endpoint with a **Student** or **Teacher** token. **Expected Result:** `403 Forbidden`.
+
+### 4. Verify in React Web UI
+1. **Teacher - Exam Analytics:**
+   - Log in to the React Web App as the Teacher (`teacher@smartexam.com` / `Teacher@123`).
+   - Click **Analytics** in the left sidebar.
+   - Choose your exam (`Final Programming Assessment`) from the dropdown.
+   - **Expected Result:** The page loads the aggregate stats (Average Score, Pass Rate, Highest Score, Total Violations), renders score distribution buckets dynamically, displays question difficulty percentages as progress indicators, and populates the student leaderboard.
+   - Click **Generate PDF Report**.
+   - **Expected Result:** A success toast triggers, compiling proctor analytics to PDF, and automatically opens it in a new browser tab for download.
+2. **Admin - System Analytics:**
+   - Log in to the React Web App as the Admin (`admin@smartexam.com` / `Admin@123`).
+   - Click **Analytics** in the left sidebar.
+   - **Expected Result:** Renders system-wide counts (Total Students, Total Teachers, Total Exams), month-by-month historical counts as an SVG bar chart, and violation trend lines.
+   - Click **Reports** in the left sidebar.
+   - **Expected Result:** Displays the history table of compiled proctor PDFs with details, download buttons, and action controls.
+
+---
+
+## 🧑‍🎓 Scenario 7: Student Portal & Notifications (Student)
+Students can log in to a dedicated portal on their own device to view performance trends, review graded exams (after completion), check violation logs, and receive in-app and email notifications.
+
+### 1. Student Dashboard & Trends
+1. Authorize in Swagger using the **Student** (Ali) token.
+2. Expand **GET** `/api/student/dashboard`. Click **Try it out** and **Execute**.
+3. **Expected Result:** Returns a `200 OK` containing Ali's total exams taken, average score, exams passed, total violations, recent exams list, and chronological performance trend array.
+4. Expand **GET** `/api/student/performance-trend`. Click **Try it out** and **Execute**.
+5. **Expected Result:** Returns a `200 OK` array of exam titles, dates, and score percentages (used to plot the student's performance line chart).
+
+### 2. Detailed Graded Exam Review (With AI Feedback)
+1. Expand **GET** `/api/student/exams/{examId}/result`. Click **Try it out**.
+2. Paste the `"examId"` (ensure the exam status is set to `Ended` in the database, otherwise it returns a `400 Bad Request` saying results are not available yet).
+3. Click **Execute**.
+4. **Expected Result:** Returns a `200 OK` showing:
+   - Total marks, earned marks, score percent, and pass status.
+   - List of student answers containing the question text, student's answer text, earned marks, and the **AI grading result** (suggested marks, justification, and confidence level).
+
+### 3. Notification Hub & Announcements
+1. In Swagger (with the **Student** token authorized), expand **GET** `/api/student/notifications` and click **Execute**.
+2. **Expected Result:** Returns a list of notifications and `unreadCount` (including scheduling, reminders, grades released, or eligibility updates).
+3. Copy a `"notificationId"` from the list.
+4. Expand **PATCH** `/api/student/notifications/{notificationId}/read`. Click **Try it out**, paste the ID, and click **Execute**.
+5. **Expected Result:** Returns `200 OK` marking the notification as read. Re-run `GET /api/student/notifications` to verify `unreadCount` decremented.
+
+### 4. Verify in Student Portal React UI
+1. **Student Login Redirect:**
+   - Open `http://localhost:5173` and log in as the student `teststudent@smartexam.com` (Password: `Student@123`) or Ali.
+   - **Expected Result:** The application detects the student role and redirects the session to the dedicated student route `/student/dashboard`.
+   - **Expected UI:** A horizontal top navbar displays links for *Dashboard*, *My Exams*, *Performance Trend*, *Integrity Check*, and a *Bell icon* on the right. Sidebars are hidden to maximize test review real-estate.
+2. **Dashboard & Performance Graph:**
+   - Check the dashboard summary cards showing total exams taken, pass counts, average score, and total violations.
+   - **Expected Result:** An SVG line graph plots Ali's score trend over recent examinations.
+3. **Review Results with AI Justification:**
+   - Click **My Exams** in the top navbar.
+   - Click **View Result** on a completed exam.
+   - **Expected Result:** Detailed grades are loaded. Under each answer, the AI's justification panel and confidence indicator are rendered.
+4. **Integrity log:**
+   - Click **Integrity Check** in the top navbar.
+   - **Expected Result:** The student sees a list of all flagged window violation logs and event telemetry collected during exams.
+5. **Notification feed:**
+   - Click the **Bell Icon** on the right side of the navbar.
+   - **Expected Result:** A dropdown opens showing the 8 most recent alerts.
+   - Click **Mark all read** or click an alert row to mark it read.
+   - Click **View all notifications** (or **Notifications** in the navbar) to view the full paginated notification list.
+
