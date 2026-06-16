@@ -17,9 +17,10 @@ In the context of the proposed system, Agile supports a practical balance betwee
 
 \subsection{Justification of Proposing the Process Model}
 
-Agile is chosen over a rigid sequential model because the proposed system is not a single-purpose utility; it is a multi-role academic platform whose usefulness depends heavily on workflow suitability. A strictly linear process would assume that scheduling logic, monitoring interface needs, alert behavior, evidence presentation, and reporting expectations can all be finalized with certainty before implementation begins. In reality, these design decisions benefit from iterative refinement. A dashboard that appears clear on paper may prove cluttered in a simulated invigilation scenario. A submission flow that seems simple in design may become confusing when aligned with real timing rules. Agile offers a way to respond to such issues before they become deeply embedded in the system.
+The choice of the Agile process model is directly justified by the highly modular, sequential, and feedback-dependent structure of the AI-Driven Lab Exam Monitoring and Management System. Rather than attempting a monolithic development approach, the system's twelve core functional modules are distributed across eight distinct, iterative sprints. This iterative mapping ensures that complex, interdependent features are developed, tested, and integrated incrementally. For instance, establishing user roles and HWID-based device binding in Sprint 2 provides the necessary authentication foundation before configuring exam session templates in Sprint 3. Similarly, the secure WPF lockdown client designed in Sprint 4 serves as the operational host for the live telemetry services built in Sprint 5, which in turn feeds data into the submission, evaluation, and QuestPDF reporting modules developed in Sprints 6 and 7. This sprint-based progression allows each module to be validated against its functional dependencies before subsequent components are implemented, ensuring a stable, well-integrated prototype by Sprint 8.
 
-Agile is also appropriate because the FYP itself develops under academic review conditions. Supervisor input, testing observations, and prototype demonstrations all contribute to the maturity of the final result. Instead of viewing change as a disruption, Agile treats controlled change as a normal and productive part of development. This aligns well with a student project in which requirements become sharper through research, modeling, and demonstration. Furthermore, the modular nature of the proposed system means that high-priority features such as login, scheduling, monitoring, and evidence logging can be developed first, while secondary enhancements can be refined later without destabilizing the project.
+Furthermore, this sprint-driven iterative approach is critical for accommodating the evolving requirements of an academic Final Year Project (FYP). Technical assessments in computer science computer labs involve a wide range of variables, from network latency and operating system constraints to user experience preferences of invigilators and students. A rigid, single-phase development model would assume all UI layouts, proctoring rules, and grading heuristics could be defined flawlessly at the outset. In contrast, dividing the project into 4-week sprints allows the development team to demonstrate operational increments to project supervisors and system administrators at regular intervals. Usability feedback on the live proctoring dashboard (Sprint 5) or the AI evaluation test case parser (Sprint 6) can be immediately integrated, preventing design flaws from propagating. Ultimately, this iterative methodology ensures that the final system is not only technically sound but also operationally practical and aligned with real-world institutional constraints.
+
 
 \subsection{Steps of Process Model}
 
@@ -29,14 +30,21 @@ The Agile process model for this project is organized into eight sprints. Each s
 
 \textbf{Sprint 2 (Weeks 5--8):} Core Access Control and Authentication. This sprint focuses on secure access to the platform. The modules delivered are Authentication and Device Binding (Module 1) and User and Role Management (Module 7). Activities include designing JWT login endpoints, HWID extraction libraries, user registration interfaces, role permissions, and dashboard routing for administrators, teachers, and students.
 
+\vspace{10pt}
 \textbf{Sprint 3 (Weeks 9--12):} Exam Configuration and Administration. This sprint addresses academic setup before the live exam. The modules delivered are Exam Creation and Configuration (Module 8) and Eligibility and Access Control (Module 9). Activities include setting up exam templates, configuring allowed applications lists, coding test case definitions, exam seat assignment logic, and manual teacher overrides.
 
+\vspace{10pt}
 \textbf{Sprint 4 (Weeks 13--16):} Student Desktop Client Environment. This sprint develops the secure workspace for test-taking. The modules delivered are Pre-Exam System Verification and Mock Test (Module 2), Exam Dashboard (Module 3), and Secure Exam Environment Module (Module 4). Activities include student WPF lockdown client dashboard, fullscreen locked mode (disabling Alt+Tab, Task Manager), and client readiness verification checks.
 
+\vspace{10pt}
 \textbf{Sprint 5 (Weeks 17--20):} Live Telemetry and Proctoring. This sprint strengthens live session invigilation. The modules delivered are Live Monitoring Client Service (Module 5) and Live Proctoring Dashboard (Module 10). Activities include background focus tracking and process list logging, heartbeat synchronization, and real-time focus timeline grid view on the React teacher dashboard.
 
+\vspace{10pt}
 \textbf{Sprint 6 (Weeks 21--24):} Submission and AI Evaluation. This sprint handles post-exam grading. The modules delivered are Exam Submission and Backup (Module 6) and AI-Assisted Evaluation Module (Module 11). Activities include answer auto-save, local encrypted backups, automated execution against test cases, AI theory evaluation, and intra-class plagiarism comparison matrix.
 
+\vspace{10pt}
 \textbf{Sprint 7 (Weeks 25--28):} Reporting, Analytics, and Auditing. This sprint handles the system auditing and reports. The modules delivered are Logs, Analytics and Audit Trail System (Module 12). Activities include log management, database audit logs, system performance stats, and QuestPDF generation for downloadable analytical exam reports.
 
+\vspace{10pt}
 \textbf{Sprint 8 (Weeks 29--32):} Integration, Testing, and Final Refinement. This sprint consolidates all previously completed work into one stable prototype. Activities include module integration, usability improvement, bug fixing, end-to-end testing, sprint review closure, documentation completion, and preparation of final academic deliverables for demonstration and report submission.
+
