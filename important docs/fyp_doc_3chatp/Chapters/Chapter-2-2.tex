@@ -69,33 +69,45 @@ The system shall backup and recover all exam progress data to prevent loss in th
 
 The requirements for the proposed system were gathered through a multi-perspective process because lab examination problems are operational, academic, and technical at the same time \cite{elicit1}. No single elicitation technique could capture the full picture. The project therefore used interviews, prototyping, and brainstorming sessions to define realistic requirements.
 
-\subsubsection{Interviews}
-Interviews are a direct requirement elicitation technique in which stakeholders are asked structured questions to explain their current workflow, difficulties, and expectations. In this project, interviews were used to understand how teachers and academic staff currently schedule practical exams, supervise students, collect files, and review incidents.
+\subsection{Interviews}
 
-Two key questions guided this technique. The first question asked what difficulties arise during practical lab exams when many students must be supervised at the same time. The second question asked what information teachers and administrators need after the exam for attendance verification, result handling, and academic review.
+Interviews are a direct requirement elicitation technique in which stakeholders are asked structured questions to explain their current workflow, difficulties, and expectations. In this project, semi-structured interviews were conducted with a total of 8 academic stakeholders, including 5 lab instructors, 2 course coordinators, and 1 system administrator, to understand how practical examinations are scheduled, managed, and audited in standard university lab facilities.
 
-The outcomes of the interviews were clear and actionable. First, they highlighted the need for role-based access and controlled scheduling. Second, they showed that live monitoring and incident logging are essential for exam oversight. Third, they confirmed that teachers need structured reporting after the session rather than scattered manual records.
+To elicit precise operational requirements, the following key interview questions were presented:
+\begin{enumerate}
+    \item \textit{What are the most common methods students use to circumvent surveillance or collaborate during a programming assessment?}
+    \item \textit{How do you verify that a student sitting at a computer terminal is actually the candidate registered for that seat?}
+    \item \textit{What is the manual overhead involved in collecting, compiling, and grading source code files across multiple lab sections?}
+    \item \textit{What specific live telemetry (e.g., screen captures, focus logs, process lists) do you need on your console to coordinate proctoring effectively?}
+\end{enumerate}
 
-\subsubsection{Prototyping}
-Prototyping is a requirement elicitation technique in which early interface sketches or mock workflows are shown to stakeholders so that hidden usability issues can be discovered before full implementation. In this project, simple interface ideas for login, scheduling, monitoring, and submission were considered to refine the system flow.
+The outcomes of these interviews were clear and actionable. First, the feedback highlighted the necessity of a physical workstation lock via hardware binding (HWID) to prevent students from sharing credentials or using unauthorized laptops. Second, it confirmed that live, real-time telemetry (focus tracking, webcam state, process logs) streamed over WebSockets is essential for immediate invigilator alerting rather than only post-exam logging. Third, stakeholders emphasized that final grades, attendance, and violation event logs must be consolidated into a single, downloadable PDF report to provide a complete, legally auditable academic record of the session.
 
-Two key questions guided this technique. The first question asked whether the proposed dashboards and screens were understandable enough for use during time-sensitive exam conditions. The second question asked whether the sequence from login to submission matched the actual working pattern of a lab exam.
+\subsection{Prototyping}
 
-The outcomes prototyping improved the requirement quality in three ways. First, it clarified the need for a simpler teacher dashboard with visible student status. Second, it confirmed that students need a guided exam flow with clear timing and submission prompts. Third, it exposed the importance of integrating attendance, monitoring, and reporting instead of treating them as unrelated screens.
+Prototyping is a requirement elicitation technique in which early interface sketches or mock workflows are shown to stakeholders so that hidden usability issues can be discovered before full implementation. In this project, interactive wireframes and mock screens were developed for both the student-facing desktop client and the teacher-facing web panel, mapping directly to our core functional modules.
+\begin{itemize}
+    \item \textbf{Student Client Prototypes:} Mock designs for the login window (featuring HWID binding states), the pre-exam system verification checks (webcam, microphone, and background process scanning checklists), and the locked fullscreen exam workspace.
+    \item \textbf{Teacher Web Panel Prototypes:} Mock layouts for the live proctoring grid (visual status cards representing individual students), the allowed applications whitelist configurator, and the Docker compile-sandbox execution details.
+\end{itemize}
 
-\subsubsection{Brainstorming Session 1: Academic Workflow Discussion}
-Brainstorming is a collaborative elicitation technique in which team members discuss ideas, problems, and possible solutions in multiple sessions to identify realistic and prioritized system requirements. In the first session, the discussion focused on the complete academic workflow, starting from exam creation and ending with final result review.
+A key prototype evaluation session was held with 3 lab instructors to refine the layout flows. The feedback from this session led directly to two major usability refinements. First, the complex diagnostics dropdown menu was simplified into a single-click automated check to minimize student confusion before launching the locked exam environment. Second, the live proctoring dashboard was updated to include color-coded student cards (green for active, yellow for minor warnings, red for critical violations) with visual timeline charts, preventing cognitive overload when invigilators supervise large classes of up to 40 concurrent terminals.
 
-Two key questions guided this session. The first question asked which steps of the current practical exam workflow consume the most manual effort. The second question asked which modules are essential if the system is to provide value from the very first prototype.
+\subsection{Brainstorming Sessions}
 
-The outcomes of the first brainstorming session established three priorities. First, exam scheduling and role management were identified as foundation modules. Second, lab allocation and attendance were recognized as necessary controls for a real computer-lab environment. Third, the team agreed that result management must remain connected to the earlier monitoring and submission steps.
+Brainstorming is a collaborative elicitation technique in which team members discuss ideas, problems, and possible solutions in multiple sessions to identify realistic and prioritized system requirements. The project team conducted three dedicated brainstorming sessions, each focusing on resolving critical architectural dependencies and choosing suitable software wrappers for the final implementation:
 
-\subsubsection{Brainstorming Session 2: Monitoring and Reporting Discussion}
-The second brainstorming session focused specifically on monitoring, identity verification, incident handling, and reporting. This session explored how AI-based alerts, face recognition, and evidence logging could be made useful within the practical limitations of an FYP project.
+\subsubsection{Session 1: Workstation Authentication and Seating Allocation}
+This session focused on securing physical laboratory boundaries. The team discussed methods for mapping student registrations to specific workstations without collecting sensitive personal details, opting to generate motherboard/CPU Hardware ID (HWID) hashes dynamically at login to enforce seat-bound security.
 
-Two key questions guided this session. The first question asked which monitoring events should be recorded as meaningful evidence during a live exam. The second question asked what type of final reports would help teachers and administrators review the session efficiently.
+\subsubsection{Session 2: Real-Time Telemetry Streaming and Network Load}
+This session addressed the data transmission frequency during active exam monitoring. The team debated the choice between periodic HTTP polling and WebSocket channels, deciding on Kestrel-hosted SignalR WebSockets to stream compressed screenshot buffers and focus loss events, ensuring low latency without overloading the university lab's network.
 
-The outcomes of the second brainstorming session refined the advanced modules of the project. First, the team prioritized face recognition before exam access rather than after the session. Second, it defined incident logs and alerts as central monitoring outputs. Third, it confirmed that attendance, incidents, and results should appear in one reporting layer so that post-exam review remains coherent.
+\subsubsection{Session 3: Docker Sandboxing and AI Semantic Evaluation}
+This session focused on automated post-exam evaluations. The team brainstormed security requirements for executing untrusted student code, resolving to instantiate isolated, temporary Docker containers for compile-runs. For subjective theoretical questions, the team chose to implement sentence-transformers models to calculate cosine similarity scores against reference answer keys.
+
+\subsubsection{Overall Brainstorming Outcomes}
+The overall outcome of these brainstorming sessions was the final prioritization of the development schedule into eight distinct sprints and the establishment of a robust security policy. It defined how telemetry and grading data flow across the system layers, ensuring that the WPF student client, Kestrel API server, Docker host, and React dashboard remain perfectly synchronized throughout the exam lifecycle.
 
 \section{Time Frame}
 
