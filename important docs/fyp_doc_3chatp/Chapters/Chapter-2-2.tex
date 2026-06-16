@@ -9,28 +9,24 @@ Another important characteristic of these requirements is that they reflect acad
 \caption{Functional Requirements}
 \label{tab:functionalrequirements}
 \renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lp{10.6cm}}
+\begin{tabular}{lp{5.0cm}p{7.0cm}}
 \hline\hline
-\textbf{Requirement ID} & \textbf{Description} \\
+\textbf{Req ID} & \textbf{Functional Requirement Name} & \textbf{Description} \\
 \hline\hline
-FR1 & Admin can manage user roles and system accounts. \\
-FR2 & User can log in to the system. \\
-FR3 & System shall bind the user workstation via Hardware ID (HWID). \\
-FR4 & Teacher can create and configure exam templates and questions. \\
-FR5 & Teacher can define the allowed application list for the exam. \\
-FR6 & Teacher can allocate seats and manage student eligibility. \\
-FR7 & Student can run system diagnostics and mock tests before the exam. \\
-FR8 & Student can view scheduled exams and instructions on the dashboard. \\
-FR9 & System shall lock down the student workstation to restrict external applications. \\
-FR10 & Student can start and conduct the exam inside the secure environment. \\
-FR11 & System shall stream real-time screen captures and focus telemetry. \\
-FR12 & Teacher can monitor student activities and focus timelines live. \\
-FR13 & Student can submit exam answers, and system shall perform auto-save backups. \\
-FR14 & System shall compile and grade code submissions using test cases. \\
-FR15 & System shall grade theory answers using AI semantic evaluation. \\
-FR16 & System shall check code submissions for plagiarism and similarity. \\
-FR17 & Admin and Teacher can view transaction audit logs. \\
-FR18 & Teacher can generate and download analytical PDF exam reports. \\
+FR1 & ManageUserAccounts & Admin can manage user roles, system accounts, and configurations. \\
+FR2 & AuthenticateUserSession & User can log in using credentials to establish an active session. \\
+FR3 & VerifyWorkstationHardware & System validates and binds the workstation using Hardware ID (HWID). \\
+FR4 & CreateExamTemplate & Teacher can configure exams, questions, and automated test cases. \\
+FR5 & ConfigureApplicationWhitelist & Teacher can define whitelisted applications permitted during the exam. \\
+FR6 & MapSeatingEligibility & Teacher can allocate seats and restrict access based on laboratory IP ranges. \\
+FR7 & ExecutePreExamDiagnostics & Student can run automated webcam, mic, and process scans before the exam. \\
+FR8 & DisplayStudentDashboard & Student can view active exam schedules, instructions, and workspace. \\
+FR9 & LockdownStudentWorkstation & System blocks task-switching, hotkeys, and unauthorized background processes. \\
+FR10 & ConductExamSession & Student can view questions, input code/theory, and run mock compilations. \\
+FR11 & StreamActivityTelemetry & System streams real-time screen captures and focus metrics over WebSockets. \\
+FR12 & MonitorLiveClassroom & Teacher can observe student focus timelines, processes, and telemetry. \\
+FR13 & SubmitExamAnswers & Student submits completed work, and system performs automated backups. \\
+FR14 & EvaluateExamSubmissions & System executes code in Docker, semantic-grades theory, and prints reports. \\
 \hline\hline
 \end{tabular}
 \end{table}
