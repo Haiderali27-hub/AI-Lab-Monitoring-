@@ -12,14 +12,14 @@ To prevent update, insertion, and deletion anomalies, the database schema is nor
 
 The Entity Relationship Diagram (ERD) for the AI-Driven Lab Exam Monitoring and Management System is shown in Figure~\ref{fig:erd_diagram}. It comprises 14 normalized tables that capture the complete operational state of the system:
 
+The database schema illustrated in Figure~\ref{fig:erd_diagram} is structured around the following entity groups, relationship rules, and data structures:
+
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.97\linewidth]{Figures/erd_diagram.png}
 \caption{Entity Relationship Diagram (ERD) of the SmartExam Database Schema}
 \label{fig:erd_diagram}
 \end{figure}
-
-The database schema illustrated in Figure~\ref{fig:erd_diagram} is structured around the following entity groups, relationship rules, and data structures:
 
 \subsubsection{Database Dictionary and Table Definitions}
 \begin{enumerate}
@@ -57,13 +57,6 @@ The system's data flows are modeled at three levels of abstraction: Level 0 (Con
 
 The DFD Level 0, or Context Diagram, defines the external boundaries of the system, modeling the entire platform as a single central process and identifying the primary external entities that interact with it. The Context Diagram is shown in Figure~\ref{fig:dfd_level_0}.
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.97\linewidth]{Figures/dfd_level_0.png}
-\caption{Data Flow Diagram (DFD) Level 0 --- Context Diagram}
-\label{fig:dfd_level_0}
-\end{figure}
-
 The Context Diagram defines the boundary flows between the central system process and the four external entities:
 \begin{itemize}
     \item \textbf{Student User:} Sends credentials, device HWID hash, diagnostics status, real-time focus log packets, running process lists, and answer file uploads. The system returns JWT authentication tokens, hardware checks validation status, exam questions, remaining time alerts, and submission confirmations.
@@ -72,16 +65,16 @@ The Context Diagram defines the boundary flows between the central system proces
     \item \textbf{AI Grading Service:} Receives subjective answer inputs and reference answers from the system. It returns computed semantic similarity scores and key concepts match summaries.
 \end{itemize}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/dfd_level_0.png}
+\caption{Data Flow Diagram (DFD) Level 0 --- Context Diagram}
+\label{fig:dfd_level_0}
+\end{figure}
+
 \subsubsection{DFD Level 1}
 
 The DFD Level 1 breaks down the single context process into the main functional subsystems of the platform. It maps how information moves between these subsystems, where data is read from or written to database stores, and how external entities interact with specific modules. The DFD Level 1 diagram is illustrated in Figure~\ref{fig:dfd_level_1}.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.97\linewidth]{Figures/dfd_level_1.png}
-\caption{Data Flow Diagram (DFD) Level 1 --- Subsystem Overview}
-\label{fig:dfd_level_1}
-\end{figure}
 
 The Level 1 DFD decomposes the central system process into five core functional processes:
 \begin{enumerate}
@@ -92,9 +85,18 @@ The Level 1 DFD decomposes the central system process into five core functional 
     \item \textbf{Evaluation, Plagiarism, and Reporting (Process 5.0):} Pulls completed student submissions from the \texttt{Answers} table, runs compile-time testing, submits theory texts to the AI grading engine, compares submissions for plagiarism, saves grades to the \texttt{AiGradingResults} table, and exports PDF reports.
 \end{enumerate}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/dfd_level_1.png}
+\caption{Data Flow Diagram (DFD) Level 1 --- Subsystem Overview}
+\label{fig:dfd_level_1}
+\end{figure}
+
 \subsubsection{DFD Level 2}
 
 The DFD Level 2 zooms in on Process 3.0 (Lockdown and Telemetry Streaming) and Process 5.0 (Evaluation, Plagiarism, and Reporting) to trace the exact logical steps and transformations performed on telemetry streams and programming submissions. The DFD Level 2 diagram is shown in Figure~\ref{fig:dfd_level_2}.
+
+The detailed flow mapped in Figure~\ref{fig:dfd_level_2} is split into two primary pipelines:
 
 \begin{figure}[H]
 \centering
@@ -102,8 +104,6 @@ The DFD Level 2 zooms in on Process 3.0 (Lockdown and Telemetry Streaming) and P
 \caption{Data Flow Diagram (DFD) Level 2 --- Telemetry and Evaluation Processing}
 \label{fig:dfd_level_2}
 \end{figure}
-
-The detailed flow mapped in Figure~\ref{fig:dfd_level_2} is split into two primary pipelines:
 
 \begin{enumerate}
     \item \textbf{Telemetry Streaming and Analysis (Processes 3.1 to 3.4):}

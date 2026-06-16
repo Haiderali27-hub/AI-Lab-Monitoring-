@@ -40,39 +40,30 @@ FR18 & Teacher can generate and download analytical PDF exam reports. \\
 
 Non-functional requirements define the quality conditions under which the functional services must operate \cite{iso25010}. In a project concerned with secure and fair academic assessment, non-functional properties are not secondary. If the system is difficult to use, invigilators may ignore it during the exam. If it performs poorly, the dashboard may become operationally irrelevant. If it is insecure, confidence in the entire assessment process may decline. For these reasons, the proposed system must satisfy multiple quality dimensions simultaneously.
 
-\subsection{Software Quality Attributes}
+\subsection{Security}
+The system shall secure all user accounts, active exam sessions, and sensitive data transmission. Authentication must be verified via JWT tokens, and physical access is restricted through workstation hardware binding (HWID) checks. All data in transit must be encrypted using standard TLS protocols to prevent unauthorized access or intercept attempts in the lab.
 
-The main software quality attributes for the proposed system are security, reliability, usability, performance, maintainability, and data integrity. Security is essential because the platform manages identities, exam schedules, student records, and potentially sensitive monitoring evidence. Reliability is equally important because a lab exam cannot pause simply because the system behaves inconsistently. Usability matters because administrators and teachers must interact with the platform under time pressure, while students need a clear and low-confusion exam interface.
+\subsection{Reliability}
+The system shall ensure operational reliability and high availability during active examinations. Telemetry streams and workstation lockdown modules must operate consistently without memory leaks or application failures. The system should maintain a connection uptime of at least 99.9\% during scheduled exams to ensure uninterrupted student activity tracking.
 
-Performance is also important because the system must respond quickly during login, attendance verification, exam launch, live monitoring, and file submission. Maintainability is relevant because the project may later be refined, extended, or integrated with broader institutional workflows. Data integrity remains critical throughout because schedules, attendance status, incident logs, results, and reports must remain consistent and auditable.
+\subsection{Usability}
+The system shall provide an intuitive and user-friendly interface for students, teachers, and administrators. The student client interface must be straightforward to reduce student anxiety, while the React admin dashboard should offer clear, color-coded visual cards for monitoring focus timelines. System error messages and notifications must be descriptive and easy to interpret under time pressure.
 
-\subsection{Other Non-Functional Requirements}
+\subsection{Performance}
+The system shall respond quickly to all user actions, maintaining low latency for real-time telemetry updates. User logins, diagnostics, and exam launches must complete within 2 seconds. The WebSocket proctoring stream should transmit screenshot and focus event packets to the teacher's dashboard with less than 1 second of delay.
 
-Other relevant non-functional requirements include portability, privacy sensitivity, compatibility with university lab settings, and support for structured backup practices. The proposed system should operate within the technological realities of academic computer labs, where hardware and operating environments may vary. It should also preserve logs and exam records in a consistent manner so that important information is not lost due to technical disruption or later review needs.
+\subsection{Maintainability}
+The system shall be easy to update, extend, and maintain by using a modular service architecture. The ASP.NET Core REST API, React web panel, and WPF desktop client must follow clean separation of concerns. All code repositories should be well-documented, allowing subsequent development teams to integrate new features or adjust rules easily.
 
-Privacy considerations are particularly important when user activity, event logs, or submission-related evidence are retained. The system should therefore support responsible access control and discourage unnecessary exposure of sensitive student-related information. In addition, the platform should remain easy to document and explain within an academic environment, because FYP success depends not only on implementation but also on clarity of presentation and justification.
+\subsection{Privacy}
+The system shall protect the privacy of all candidates by restricting access to captured telemetry. Webcam baseline references, screenshots, and focus logs must only be accessible to authorized instructors and system administrators. The system must comply with data protection principles, automatically deleting or archiving monitoring media after the grade appeal period expires.
 
-The non-functional requirements show that the platform must be technically sound and institutionally dependable at the same time. Quality in this project cannot be judged only by whether a screen works. It must also be judged by whether the platform remains trustworthy when used under real examination pressure.
+\subsection{Compatibility}
+The system shall work reliably within standard university computer lab settings and operating systems. The student client must be compatible with Windows 10 and Windows 11 environments, which are typical for academic workstations. The React web dashboard should run seamlessly across modern browsers, including Google Chrome, Mozilla Firefox, and Microsoft Edge.
 
-\begin{table}[H]
-\centering
-\caption{Non-Functional Requirements}
-\label{tab:nonfunctionalrequirements}
-\begin{tabular}{lp{10cm}}
-\hline\hline
-\textbf{Category} & \textbf{Requirement} \\
-\hline\hline
-Security & The system shall secure all accounts and data. \\
-Reliability & The system shall ensure data reliability. \\
-Usability & The system shall be easy to use for everyone. \\
-Performance & The system shall respond quickly to all actions. \\
-Maintainability & The system shall be easy to update and maintain. \\
-Privacy & The system shall protect all sensitive information. \\
-Compatibility & The system shall work in university lab settings. \\
-Backup and Recovery & The system shall backup and recover all data. \\
-\hline\hline
-\end{tabular}
-\end{table}
+\subsection{Backup and Recovery}
+The system shall backup and recover all exam progress data to prevent loss in the event of hardware or network failures. Student answers must be auto-saved locally in an encrypted cache and synchronized to the database every 10 seconds. In case of workstation power loss, the student should be able to resume the exam from the last saved state upon logging back in.
+
 
 \section{Requirement Gathering Techniques Used}
 
