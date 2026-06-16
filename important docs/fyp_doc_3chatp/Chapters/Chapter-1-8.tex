@@ -26,25 +26,29 @@ Furthermore, this sprint-driven iterative approach is critical for accommodating
 
 The Agile process model for this project is organized into eight sprints. Each sprint spans four weeks, which is treated as an approximately thirty-day working cycle for planning, implementation, review, and refinement. The twelve project modules are distributed across these eight sprints so that each increment produces a meaningful and reviewable outcome.
 
-\textbf{Sprint 1 (Weeks 1--4):} Requirement Analysis and System Planning. This sprint establishes the project backlog and defines the architecture baseline. Activities include stakeholder discussion, use-case identification, product backlog preparation, initial workflow sketches, and approval of the project scope.
+\subsubsection{Sprint 1: Requirement Analysis, Backlog Preparation, and System Planning}
+This sprint is dedicated to requirement analysis, backlog preparation, and system planning for all twelve system modules. All initial activities in this cycle are mapped to outlining the scopes, boundaries, and dependencies of these modules prior to core development. Activities include stakeholder discussions, use-case mapping, product backlog preparation, initial architecture sketches, and project scope approval.
 
-\textbf{Sprint 2 (Weeks 5--8):} Core Access Control and Authentication. This sprint focuses on secure access to the platform. The modules delivered are Authentication and Device Binding (Module 1) and User and Role Management (Module 7). Activities include designing JWT login endpoints, HWID extraction libraries, user registration interfaces, role permissions, and dashboard routing for administrators, teachers, and students.
+\subsubsection{Sprint 2: Authentication and Device Binding (Module 1) and User and Role Management (Module 7)}
+This sprint is completely mapped to the development and integration of Authentication and Device Binding (Module 1) and User and Role Management (Module 7). All tasks within this four-week cycle are designed to build and secure these two core modules, establishing the system's foundational identity and authorization layer. Activities include designing login endpoints, HWID extraction libraries, user registration interfaces, role permission maps, and secure dashboard routing for administrators, teachers, and students.
 
-\vspace{10pt}
-\textbf{Sprint 3 (Weeks 9--12):} Exam Configuration and Administration. This sprint addresses academic setup before the live exam. The modules delivered are Exam Creation and Configuration (Module 8) and Eligibility and Access Control (Module 9). Activities include setting up exam templates, configuring allowed applications lists, coding test case definitions, exam seat assignment logic, and manual teacher overrides.
+\subsubsection{Sprint 3: Exam Creation and Configuration (Module 8) and Eligibility and Access Control (Module 9)}
+This sprint is dedicated entirely to the implementation of Exam Creation and Configuration (Module 8) and Eligibility and Access Control (Module 9). The entire four-week schedule is mapped onto designing, building, and verifying these administrative modules to enable teachers to manage and restrict exam access. Activities include coding exam template interfaces, configuring allowed applications lists, setting test case definitions, exam seat assignment logic, and manual teacher eligibility overrides.
 
-\vspace{10pt}
-\textbf{Sprint 4 (Weeks 13--16):} Student Desktop Client Environment. This sprint develops the secure workspace for test-taking. The modules delivered are Pre-Exam System Verification and Mock Test (Module 2), Exam Dashboard (Module 3), and Secure Exam Environment Module (Module 4). Activities include student WPF lockdown client dashboard, fullscreen locked mode (disabling Alt+Tab, Task Manager), and client readiness verification checks.
+\subsubsection{Sprint 4: Pre-Exam System Verification and Mock Test (Module 2), Exam Dashboard (Module 3), and Secure Exam Environment Module (Module 4)}
+This sprint is mapped to the simultaneous construction of the Pre-Exam System Verification and Mock Test (Module 2), Exam Dashboard (Module 3), and Secure Exam Environment Module (Module 4). All development tasks in this cycle focus on implementing and securing these client-side modules to form a robust student lockdown environment. Activities include designing the student WPF client, fullscreen locked mode (disabling Alt+Tab, Task Manager, Win keys), and automated client readiness verification checks.
 
-\vspace{10pt}
-\textbf{Sprint 5 (Weeks 17--20):} Live Telemetry and Proctoring. This sprint strengthens live session invigilation. The modules delivered are Live Monitoring Client Service (Module 5) and Live Proctoring Dashboard (Module 10). Activities include background focus tracking and process list logging, heartbeat synchronization, and real-time focus timeline grid view on the React teacher dashboard.
+\subsubsection{Sprint 5: Live Monitoring Client Service (Module 5) and Live Proctoring Dashboard (Module 10)}
+This sprint centers on the creation and testing of the Live Monitoring Client Service (Module 5) and the Live Proctoring Dashboard (Module 10). The activities of this sprint are fully mapped to implementing these two modules, establishing real-time telemetry streaming and live classroom monitoring. Activities include developing client background focus tracking and process list logging, heartbeat synchronization protocols, and the live React grid timeline dashboard for instructors.
 
-\vspace{10pt}
-\textbf{Sprint 6 (Weeks 21--24):} Submission and AI Evaluation. This sprint handles post-exam grading. The modules delivered are Exam Submission and Backup (Module 6) and AI-Assisted Evaluation Module (Module 11). Activities include answer auto-save, local encrypted backups, automated execution against test cases, AI theory evaluation, and intra-class plagiarism comparison matrix.
+\subsubsection{Sprint 6: Exam Submission and Backup (Module 6) and AI-Assisted Evaluation Module (Module 11)}
+This sprint is mapped to the deployment of the Exam Submission and Backup (Module 6) and the AI-Assisted Evaluation Module (Module 11). Every task in this sprint supports these two modules by implementing secure auto-save and submission channels alongside automated and semantic grading mechanisms. Activities include coding student answer auto-save systems, local encrypted backups, automated compilation and execution against test cases, AI theory evaluation, and plagiarism matrix comparison.
 
-\vspace{10pt}
-\textbf{Sprint 7 (Weeks 25--28):} Reporting, Analytics, and Auditing. This sprint handles the system auditing and reports. The modules delivered are Logs, Analytics and Audit Trail System (Module 12). Activities include log management, database audit logs, system performance stats, and QuestPDF generation for downloadable analytical exam reports.
+\subsubsection{Sprint 7: Logs, Analytics and Audit Trail System (Module 12)}
+This sprint is dedicated to implementing the Logs, Analytics and Audit Trail System (Module 12). All activities within this period are mapped to this module, creating the database schemas, logging systems, and QuestPDF report engines required for secure auditing. Activities include setting up database transaction audit logs, logging focus-loss anomalies, computing exam statistics, and implementing QuestPDF layout engines for downloadable analytical exam reports.
 
-\vspace{10pt}
-\textbf{Sprint 8 (Weeks 29--32):} Integration, Testing, and Final Refinement. This sprint consolidates all previously completed work into one stable prototype. Activities include module integration, usability improvement, bug fixing, end-to-end testing, sprint review closure, documentation completion, and preparation of final academic deliverables for demonstration and report submission.
+\subsubsection{Sprint 8: System Integration, End-to-End Testing, Bug Fixing, and Final Document Polishing}
+This sprint is mapped to the system integration, end-to-end testing, and final polishing of all twelve previously developed modules. The activities in this final cycle are focused on uniting these modules into a single cohesive platform, performing final bug fixes, and refining documentation. Activities include module integration, end-to-end user flow testing, UI polishing, sprint review closure, final documentation, and preparation of deliverables for demonstration.
+
+
 
