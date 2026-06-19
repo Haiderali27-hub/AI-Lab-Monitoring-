@@ -1,21 +1,15 @@
 \section{Managerial Process Plan}
 
-Three people building twelve interconnected modules still need explicit rules for coordination, review, and change management \cite{spp1}. Without them, effort duplicates, documentation drifts, and scope expands invisibly.
+Even with only three people involved, establishing guidelines for coordinated, supervised, and managed change for SmartExam's twelve interrelated modules is critical \cite{spp1}. These processes serve to minimize overlap, prevent documentation drift, and manage unexpected project scope expansion.
 
 \subsection{Communication and Coordination}
 
-The team meets at the start and end of each sprint. The start-of-sprint meeting sets goals for that four-week block. The end-of-sprint review confirms what shipped, what did not, and why. Between these two fixed points, daily check-ins happen asynchronously. Any blocker that is not resolved in 24 hours escalates to a team discussion \cite{scrum1}.
-
-Documentation is not separated from implementation. Every module that ships generates a documentation update in the same sprint. This prevents the common FYP problem where the report describes the plan while the prototype has moved somewhere entirely different.
+The project team will convene at the beginning and conclusion of each sprint. A meeting scheduled at the start of each sprint establishes primary objectives for each four-week phase, while a review meeting at the end of the sprint assesses what was deployed, what was not, and the reasons for either outcome. Regular daily communication is conducted using asynchronous check-ins \cite{scrum1}. Any blockages not addressed within 24 hours trigger a team discussion for proactive resolution. Documentation efforts run in parallel with module development, preventing the FYP report from diverging from the developed prototype by incorporating updates into the same sprint \cite{spp1}.
 
 \subsection{Review and Feedback Integration}
 
-Supervisor feedback is the highest-priority input in the project. When the supervisor identifies a gap in the SRS, a design inconsistency, or a scope misalignment, the team addresses it in the next sprint. No feedback is deferred to the final two weeks \cite{agile1}.
-
-Internal review happens at the module level. Before a module moves to integration, the team runs it through a checklist: Does it match its SRS requirement? Does it compile and run cleanly? Does it have at least one passing test case? If any of these answers is no, the module does not move forward.
+Supervisor feedback is treated as the highest priority input. All identified SRS gaps, design inconsistencies, or scope drifts will be addressed in the following sprint without deferment to the end of the project \cite{agile1}. Modules are subject to individual testing before integration, checking functionality against specifications \cite{agile1}, ensuring clean execution and compilation with no bugs \cite{spp1}, and requiring at least one unit test to execute successfully \cite{agile1}.
 
 \subsection{Change Management}
 
-Agile expects change. Not every change is worth accepting \cite{agile1}. The team evaluates proposed adjustments against three criteria: Does it improve the academic value of the project? Does it fit within the remaining sprint budget? Does it risk destabilising a module that is already working?
-
-If a change passes all three checks, it enters the next sprint's backlog. If it fails any criterion, it is logged in a future-work register rather than accepted immediately. This keeps the core deliverables stable while remaining genuinely open to improvement.
+While expecting change is characteristic of Agile, not all proposed adjustments can be incorporated. Evaluation of any proposed change is based on three factors: its improvement to the overall academic content, its inclusion fitting within the sprint budget, and its potential to destabilize existing modules \cite{agile1}. Approved changes enter the next sprint's backlog, while those failing these criteria are added to the future-work record for subsequent consideration \cite{spp1}.

@@ -1,31 +1,24 @@
 \section{Deliverables of the Project}
 
-A deliverable is a concrete output that can be reviewed, assessed, and checked off \cite{del1}. Vague outputs like ``work in progress'' or ``mostly done'' do not count. Every deliverable listed here has a clear definition of done. The five deliverable categories below cover the full spectrum of FYP outputs.
+Deliverables are the tangible, measurable outputs created and delivered during the project lifecycle \cite{del1}. In our Final Year Project (FYP), these are structured into five main categories:
 
 \subsection{Requirements and Analysis Deliverables}
-
-The early deliverables from this project include the problem analysis, the SRS document, stakeholder interview notes, use-case descriptions, and the literature review of existing systems. These outputs establish the academic justification for the project. They explain why the current state of lab exam management is inadequate and what the proposed system will do differently. Without these, later design choices have no documented rationale.
+Deliverables in this phase include the problem statement, Statement of Scope (SOP), literature review, and stakeholder interview results. Additionally, functional and non-functional requirements are documented. These materials establish the baseline for subsequent design and development stages by defining the system's goals and boundaries \cite{srs1}.
 
 \subsection{Design Deliverables}
-
-Design deliverables translate requirements into buildable plans. For SmartExam, this means system architecture diagrams, ER diagrams, class diagrams, use-case diagrams, data-flow diagrams, and the scheduling artifacts (Gantt chart, WBS, CPM network). These outputs reduce the gap between ``what we need'' and ``how we build it''.
+During the design phase, we document system architecture, technology stacks, module breakdowns, and process flows. These are visualized through Data Flow Diagrams (DFDs), Entity-Relationship Diagrams (ERDs), use case diagrams, and scheduling artifacts like Gantt charts \cite{biometric1}. These designs decompose the system into distinct modules to guide development tasks and responsibilities.
 
 \subsection{Prototype and Module Deliverables}
-
-The primary software deliverable is a working prototype of all twelve modules. Specifically:
-
-\begin{itemize}[noitemsep]
-\item A WPF desktop client for students (HWID binding, fullscreen lockdown, process telemetry, auto-save)
-\item A React single-page application for teachers and administrators (exam management, live monitoring grid, reporting)
-\item An ASP.NET Core REST API server connected to a Neon PostgreSQL database (authentication, scheduling, submission handling, audit logging)
-\end{itemize}
-
-Each module must run end-to-end before it is counted as delivered. A UI screen without a working backend endpoint does not qualify.
+We will deliver a working prototype consisting of twelve integrated modules:
+\begin{enumerate}
+    \item \textbf{Student WPF Client:} Enforces hardware ID (HWID) binding, full-screen lockdown, system process monitoring (telemetry), and auto-saving.
+    \item \textbf{Teacher/Admin Web App:} Built with React, providing exam scheduling, live student monitoring, and post-exam reporting.
+    \item \textbf{REST API Backend:} Built with ASP.NET Core and Neon PostgreSQL, handling authentication, scheduling, submission processing, and audit logging.
+\end{enumerate}
+For any module to be counted as completed, it must pass end-to-end tests validating both front-end UI and back-end endpoints \cite{srs1}. A UI interface lacking a functional backend endpoint is not considered delivered.
 
 \subsection{Testing and Validation Deliverables}
-
-Testing deliverables include module-level test results, integration test reports, and user flow validation notes. These outputs show that the prototype has been examined critically, not just assembled. They also document which features were fully tested, which were partially tested, and which remain open to future refinement.
+Testing deliverables focus on verifying system correctness. These include unit test reports for individual modules, integration test reports to verify inter-module cooperation, and user flow validation notes. These reports confirm the prototype has been rigorously checked and outline the tested scope alongside any remaining constraints.
 
 \subsection{Documentation and Presentation Deliverables}
-
-The final FYP report, the academic presentation deck, and the supervisor review responses are all deliverables. These are not afterthoughts. A strong system that is poorly explained will score below its potential. Documentation must be completed incrementally --- one chapter per sprint cycle --- so that writing never falls more than one sprint behind implementation.
+These academic artifacts disseminate our project findings and include the final FYP report, presentation slides, and responses to supervisor feedback. Documentation is developed incrementally alongside each sprint, ensuring our writing stays within one sprint of the implementation progress.

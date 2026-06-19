@@ -1,24 +1,22 @@
 \section{Project Risk Management}
 
-Every software project carries risk. SmartExam carries specific ones: WebSocket reliability under concurrent load, WPF client lockdown effectiveness, HWID spoofing attempts, and module integration timing \cite{risk1}. Naming these risks early does not prevent them --- but it means the team already has a response ready when one materialises.
+Every software development project is susceptible to risk. For the SmartExam project, specific risks of high importance include the robustness of WebSockets, stability of WPF client lockdowns, protection against HWID spoofing, and the timing of module integrations \cite{risk1}. Naming these risks in advance does not prevent them but ensures preparedness when they occur.
 
 \subsection{Risk Identification}
 
-Risk identification covers four categories for this project.
+Risk management in SmartExam consists of four broad categories: technical, schedule, academic, and resource risks.
 
-\textbf{Technical risks} include HWID spoofing via virtual machines (VirtualBox, VMware), WebSocket connection pool exhaustion during peak lab load, WPF fullscreen lockdown bypass via Task Manager shortcuts, and AI grading module returning inconsistent scores across Python versions \cite{pmc_cbt}.
+\textbf{Technical risks} include BIOS/motherboard HWID spoofing using virtual machines (VMware, VirtualBox) \cite{pmc_cbt}, overloading the WebSocket connection pool during peak lab sessions \cite{risk1}, bypassing the WPF client lockdown using system keyboard shortcuts \cite{risk1}, and inconsistent results returned by the AI grading module across environment versions \cite{pmc_cbt}.
 
-\textbf{Schedule risks} include module integration taking longer than estimated in Sprint 8, documentation falling behind implementation by more than one sprint, and supervisor feedback arriving too late to revise a submitted chapter.
+\textbf{Schedule risks} include delayed integration during Sprint 8, module development lagging behind the plan \cite{spp1}, documentation falling behind code delivery, and delayed supervisor feedback postponing chapter submission.
 
-\textbf{Academic risks} include misalignment between what the SRS specifies and what the prototype actually delivers at the demonstration, and insufficient justification of design choices in the written report.
+\textbf{Academic risks} include the implemented prototype scope differing from the SRS design and a lack of justification for our design choices \cite{pmc_cbt}.
 
-\textbf{Resource risks} include unavailability of physical lab workstations for testing, dependency on Neon PostgreSQL's free-tier connection limits, and team member unavailability during a critical sprint.
+\textbf{Resource risks} include limited physical access to lab workstations, free-tier connection limits on the Neon PostgreSQL database server, and personnel unavailability during critical sprints \cite{risk1}.
 
 \subsection{Risk Analysis}
 
-Not all risks deserve equal attention. A small chapter wording error is likely but low impact. A WebSocket failure during a live exam demonstration is moderately likely and high impact \cite{risk1}. The team evaluates each risk using a probability-impact scale and categorises the result.
-
-Table~\ref{tab:risk_matrix} documents each risk with its assessed likelihood, impact level, and resulting priority.
+Not all identified risks demand the same level of attention \cite{spp1}. An error in document wording is low impact and moderately likely, whereas a WebSocket connection failure during a live exam demonstration is high impact and moderately likely \cite{risk1}. The team evaluates each risk using a probability-impact scale to determine its priority \cite{spp1, risk1}. Table~\ref{tab:risk_matrix} documents each risk with its assessed likelihood, impact level, and resulting priority.
 
 \begin{table}[H]
 \centering
@@ -40,20 +38,14 @@ Team member unavailability during critical sprint     & Low    & Medium & Low \\
 
 \subsection{Risk Mitigation Plan}
 
-Each risk in Table~\ref{tab:risk_matrix} has a prepared mitigation action.
+A response strategy has been documented for every risk identified in Table~\ref{tab:risk_matrix}.
 
-\textbf{HWID spoofing:} The client queries three hardware identifiers simultaneously via WMI --- the BIOS serial number, motherboard manufacturer string, and physical disk ID. Virtualized environments cannot fake all three consistently. The server compares all three stored values, not just one, before authorising an exam session.
+\textbf{HWID Spoofing:} The student client makes a triple call to WMI for hardware IDs: the BIOS serial number, physical disk ID, and motherboard manufacturer string. Spoofing all three simultaneously in a virtualized environment is highly impractical. The server validates all three values; if the client mismatch or sends incomplete/invalid IDs, the connection is refused.
 
-\textbf{Module integration delays:} Each module exposes a versioned REST API. Modules are developed and tested in isolation against a mock API contract. Integration only requires connecting live endpoints, not redesigning interfaces. This reduces Sprint 8 integration risk significantly.
+\textbf{Delay on Module Integration:} Each module exposes a versioned REST API developed in isolation against server mocks. Integration simply requires the client to consume the live endpoints. This minimizes design changes and significantly reduces Sprint 8 integration risk since modules are developed in parallel with live API server endpoints.
 
-\textbf{WebSocket overload:} The student WPF client buffers telemetry locally at 5-second intervals and uploads batched JSON packets rather than streaming continuous individual events. The API server uses a connection pool limited to 30 concurrent connections per lab session. This keeps database pressure predictable.
+\textbf{WebSocket Overload:} The WPF client buffers telemetry locally in memory for 5 seconds and transmits it in batch JSON packets instead of sending individual real-time events. The API server enforces connection limits, maintaining a pool of up to 30 concurrent connections per lab session to ensure database load remains stable.
 
-\textbf{Neon PostgreSQL limits:} The team monitors connection usage weekly during development. If the free-tier limit is approached, the application pool configuration is adjusted to enforce connection reuse before upgrading the plan.
+\textbf{Neon PostgreSQL Limitation:} We monitor database usage weekly. If usage approaches free-tier limits, application pool configurations are adjusted to reduce connection lifespans and optimize reuse before upgrading.
 
-\textbf{WebSocket reconnection failure:} If a student client loses its WebSocket connection mid-exam, it continues writing a local binary log file. When the connection restores, the client transmits the buffered delta immediately. No session data is lost during transient network interruptions.
-
-\subsection{Risk Monitoring and Control}
-
-Risk status is reviewed at every sprint boundary \cite{scrum1}. The team maintains a shared risk register tracking each item's current likelihood (updated as more is known), whether a trigger condition has fired, and whether the mitigation action was effective. If a risk escalates --- for example, if integration testing reveals that two modules share an incompatible data schema --- the team elevates it to a sprint blocker and adjusts the timeline before continuing.
-
-This is not passive calendar watching. It is active risk state management. A risk that changes from Low to Medium between sprints gets a mitigation plan before it reaches High.
+\textbf{WebSocket Connection Failure:} If a student's WebSocket connection fails during the exam, the client continues logging telemetry locally in binary format, transmitting the buffered data once the connection is re-established.
