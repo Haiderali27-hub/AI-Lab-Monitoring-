@@ -1,15 +1,15 @@
 \chapter{SYSTEM INTERFACE AND PHYSICAL DESIGN}
 \label{chap:system_interface_physical_design}
 
-In the software development lifecycle, the system interface and physical design phase translates the static logical structures and dynamic workflows into physical components that are directly usable by human actors and compile-ready for database servers \cite{system_design_roadmap}. While use cases and sequence diagrams detail functional boundaries and message routing paths, this chapter focuses on the design of the user interfaces (UI) and the physical database layout. The user interface design establishes the visual viewport, navigational controls, input fields, and feedback mechanisms that shape the user experience (UX) for students and teachers. Simultaneously, the physical database design defines the concrete SQL schemas, column types, lengths, constraints, and relational indexes required to store and query telemetry data, exam configurations, and grading results securely and efficiently. By mapping both the interactive front-end layouts and the persistent back-end storage schemas, the physical design guarantees that the software prototype remains secure, performant, and resilient under real-world lab conditions.
+In this chapter, we translate our logical designs into physical components. We describe the user interfaces (UI) designed for students and teachers, and define the SQL schema for our persistent database tables. The UIs establish the interactive views that make SmartExam usable and accessible. The database schema defines how we store logs, scores, and templates inside Neon PostgreSQL. Together, these pieces ensure that our prototype is both secure and performant under class-wide testing.
 
 \section{System User Interfaces}
-A system user interface (UI) represents the graphical and interactive gateway through which human users interact with software systems. The UI establishes how buttons, text forms, selection toggles, tables, and charts are arranged, ensuring that users can execute tasks efficiently without cognitive overload \cite{user_interface_guide}. In the SmartExam platform, the UI design is divided into two distinct clients: a native Windows WPF desktop client for student exam execution and a responsive React web dashboard for instructor supervision and evaluation. The design prioritizes visual clarity, clean layouts, and responsive components, adhering to modern UI/UX guidelines such as accessibility, clear warnings, and real-time state updates. By maintaining consistency in color palettes, typography, and controls, the platform minimizes usability errors during exams and supports seamless coordination between invigilators and candidates.
+The user interface is the gateway through which users interact with SmartExam \cite{user_interface_guide}. We split our UI design into two separate front-ends: a native Windows WPF desktop client for student exam-taking and a responsive React web dashboard for teacher invigilation. We kept the layouts clean and consistent to reduce cognitive load during high-stress exams.
 
-The interfaces detailed below cover the user views of the completed platform modules, displaying the operational layouts for candidate authentication, device binding, diagnostics checks, secure workspace lockdown, proctoring dashboards, live telemetry monitors, and compiler results.
+Below, we walk through the core screens of both applications.
 
 \subsection{Student Login and Device Binding Interface}
-The student login and device binding interface is the initial entry screen of the WPF desktop client. It provides input fields for the student's institutional email and password, retrieves the workstation's HWID hash via Windows APIs, and binds the hardware identity to the student's profile for subsequent verification. The interface layout is illustrated in Figure~\ref{fig:ui_student_login}.
+The WPF client starts with the login screen (Figure~\ref{fig:ui_student_login}). Students enter their institutional credentials. The client queries local Windows hardware APIs to compute a unique HWID hash, binding their profile to that specific machine.
 
 \begin{figure}[H]
 \centering
@@ -19,7 +19,7 @@ The student login and device binding interface is the initial entry screen of th
 \end{figure}
 
 \subsection{Pre-Exam Workstation Diagnostics Interface}
-The pre-exam diagnostics interface provides a visual readiness check of the workstation before the exam begins. It runs automated tests for webcam connectivity, microphone status, network latency, and background processes, displaying green or red indicators for each test result. The interface layout is shown in Figure~\ref{fig:ui_student_diagnostics}.
+Before opening the exam questions, students must run a hardware and environment scan (Figure~\ref{fig:ui_student_diagnostics}). Green and red indicators tell the user if their webcam, mic, and running processes meet lockdown requirements.
 
 \begin{figure}[H]
 \centering
@@ -29,7 +29,7 @@ The pre-exam diagnostics interface provides a visual readiness check of the work
 \end{figure}
 
 \subsection{Student Exam Lockdown Workspace}
-The student exam lockdown workspace enters fullscreen mode, blocking Alt+Tab, Windows key, and Task Manager access. The layout includes a question navigation pane, a central answer panel that adapts to theory or code inputs, and a top bar showing the remaining time and autosave status. The exam workspace interface is shown in Figure~\ref{fig:ui_student_workspace}.
+The exam workspace (Figure~\ref{fig:ui_student_workspace}) locks the desktop to full-screen mode, blocking Alt+Tab and Task Manager. It displays a question list on the left, an input editor in the center, and a countdown timer with an auto-save indicator at the top.
 
 \begin{figure}[H]
 \centering
@@ -39,7 +39,7 @@ The student exam lockdown workspace enters fullscreen mode, blocking Alt+Tab, Wi
 \end{figure}
 
 \subsection{Teacher Proctoring Dashboard Overview}
-The teacher proctoring dashboard is the main React web console for instructors, displaying active exam statistics, logged-in student counts, and pending requests through a cards-based grid layout. It provides quick access to exam management, whitelist configuration, seating plans, and report downloads. The interface dashboard overview is shown in Figure~\ref{fig:ui_teacher_dashboard}.
+The React web panel opens to a dashboard overview (Figure~\ref{fig:ui_teacher_dashboard}). Instructors view quick stats, such as active sessions, pending unbind requests, and whitelist configuration tabs.
 
 \begin{figure}[H]
 \centering
@@ -49,7 +49,7 @@ The teacher proctoring dashboard is the main React web console for instructors, 
 \end{figure}
 
 \subsection{Live Telemetry Ingestion and Monitoring Interface}
-The live telemetry monitoring interface streams real-time student activity via WebSockets, displaying color-coded status cards for each candidate. Clicking a card opens a detailed panel with focus timelines, screenshots, running applications, and manual override controls. This layout is shown in Figure~\ref{fig:ui_teacher_live_monitoring}.
+The active monitoring view (Figure~\ref{fig:ui_teacher_live_monitoring}) streams live telemetry from student clients using WebSockets. Color-coded cards flag students who lose window focus, run blocked apps, or cover their webcams.
 
 \begin{figure}[H]
 \centering
@@ -59,7 +59,7 @@ The live telemetry monitoring interface streams real-time student activity via W
 \end{figure}
 
 \subsection{Code Compilation and AI Evaluation Panel}
-The code compilation and AI evaluation panel presents automated grading results from Docker test case execution, NLP semantic scoring for theory answers, and a plagiarism comparison grid for flagged submissions. This panel is illustrated in Figure~\ref{fig:ui_teacher_ai_grading}.
+Once exams finish, teachers review auto-grading outcomes (Figure~\ref{fig:ui_teacher_ai_grading}). The panel displays Docker test case compilation results, semantic feedback for text answers, and pairwise plagiarism flags.
 
 \begin{figure}[H]
 \centering
@@ -69,7 +69,7 @@ The code compilation and AI evaluation panel presents automated grading results 
 \end{figure}
 
 \subsection{Labs and Workstations Seating Map Interface}
-The labs and workstations seating map interface allows instructors to map physical seating arrangements to workstation IDs and configure permitted IP ranges per lab room. It enforces physical exam policies by binding students to specific seats and networks, as shown in Figure~\ref{fig:ui_labs_workstations}.
+Instructors use the seating map panel (Figure~\ref{fig:ui_labs_workstations}) to map lab layouts. They configure machine IP boundaries to restrict exam launches to authorized workstations.
 
 \begin{figure}[H]
 \centering
@@ -79,7 +79,7 @@ The labs and workstations seating map interface allows instructors to map physic
 \end{figure}
 
 \subsection{Device Bindings and Hardware Identifier Interface}
-The device bindings interface lists all user accounts with their bound HWID hashes and workstation details. Instructors can approve unbinding requests to release a student's hardware lock when workstation changes are needed, as illustrated in Figure~\ref{fig:ui_device_bindings}.
+The bindings panel (Figure~\ref{fig:ui_device_bindings}) lists student accounts alongside registered HWID hashes. Instructors can reset bindings when a student needs to switch machines due to technical failure.
 
 \begin{figure}[H]
 \centering
@@ -89,7 +89,7 @@ The device bindings interface lists all user accounts with their bound HWID hash
 \end{figure}
 
 \subsection{Student Performance and Analytics Dashboard}
-The student performance dashboard displays finalized grades, auto-compiled scores, NLP semantic feedback, and an interactive chart comparing the student's results against the class average. It also lists any monitoring flags triggered during the exam. The performance dashboard is shown in Figure~\ref{fig:ui_student_performance}.
+The student portal (Figure~\ref{fig:ui_student_performance}) provides candidates with feedback. It displays compiler outputs, AI similarity scores, and class averages.
 
 \begin{figure}[H]
 \centering
@@ -99,7 +99,7 @@ The student performance dashboard displays finalized grades, auto-compiled score
 \end{figure}
 
 \subsection{Security Audit Logs Interface}
-The security audit logs interface is a read-only ledger displaying all administrative actions with timestamps, user details, and origin IP addresses. It ensures accountability and provides a clear history for resolving system administration discrepancies, as illustrated in Figure~\ref{fig:ui_audit_logs}.
+The admin portal includes a read-only audit log (Figure~\ref{fig:ui_audit_logs}). It registers every unbind request, override action, and credential change with timestamps and IP addresses for full accountability.
 
 \begin{figure}[H]
 \centering
@@ -109,12 +109,12 @@ The security audit logs interface is a read-only ledger displaying all administr
 \end{figure}
 
 \section{Physical Database Tables}
-Physical database design translates the logical Entity Relationship Diagram (ERD) into actual relational SQL tables implemented on the Neon PostgreSQL platform. This stage involves defining table columns, data types (e.g., \texttt{SERIAL}, \texttt{VARCHAR}, \texttt{TIMESTAMP}), lengths, nullable/non-nullable constraints, primary key bounds, and foreign key relations. Proper physical design ensures data integrity, prevents redundant records, and supports quick data retrieval. In the SmartExam database, columns that are frequently filtered or joined are indexed, and foreign keys are configured with explicit cascading actions to maintain consistency across tables \cite{users_table_budibase}. 
+We translate our logical ERD design into physical SQL tables on Neon PostgreSQL. Here, we define the concrete data types, lengths, default values, primary/foreign keys, and null constraints \cite{users_table_budibase}. To speed up lookups during exams, we add database indexes to columns that are frequently filtered, like user email and session IDs.
 
-Below are the physical schema table specifications for the five core entities of the SmartExam system, structured using the required double-hline format.
+Below, we detail the schemas for our five core tables, formatted in SZABIST standard double-hline layout.
 
 \subsection{Users Table (Users)}
-The \texttt{Users} table is the central store for candidate, instructor, and administrator credentials within the relational database. It manages account profiles, storing encrypted password hashes and role associations. The table uses a unique index on the email column to accelerate authentication queries, and enforces referential integrity through a foreign key link to the Roles table. This structure prevents unauthorized access and forms the basis for session authorization. The physical database schema for the users table is defined in Table~\ref{tab:users_table}.
+The \texttt{Users} table is the main credential store in our database. It stores basic profiles and links users to access levels via \texttt{RoleId}. The email column is indexed to accelerate login lookups. Table~\ref{tab:users_table} defines the users schema.
 
 \begin{table}[H]
 \centering
@@ -135,7 +135,7 @@ CreatedAt & Timestamp when account was created & Timestamp & - & NOW() & Yes \\
 \end{table}
 
 \subsection{Device Bindings Table (DeviceBindings)}
-The \texttt{DeviceBindings} table binds student user accounts to their physical workstations. By mapping a student's database ID to a unique motherboard and CPU hardware hash (HWID), this table prevents proxy exam attempts. It enforces a strict one-to-one relationship via a unique constraint on the user identifier, ensuring a student cannot register multiple devices. The physical database schema for the device bindings table is detailed in Table~\ref{tab:device_bindings_table}.
+The \texttt{DeviceBindings} table maps a student's \texttt{UserId} to their workstation's CPU and motherboard hash (\texttt{HWID}). The unique constraint on \texttt{UserId} enforces a strict one-to-one relationship, preventing proxy testing. Table~\ref{tab:device_bindings_table} lists the schema details.
 
 \begin{table}[H]
 \centering
@@ -155,7 +155,7 @@ BoundAt & Timestamp when binding was established & Timestamp & - & NOW() & Yes \
 \end{table}
 
 \subsection{Exams Table (Exams)}
-The \texttt{Exams} table acts as the template store for assessments, tracking title metadata, instructions, scheduling times, and active constraints. It forms one-to-many relationships with questions, seating maps, and allowed whitelists. The table records the creator's ID to ensure that only authorized instructors can modify configuration details. The physical database schema for the exams table is specified in Table~\ref{tab:exams_table}.
+The \texttt{Exams} table acts as our assessment configuration template. It holds titles, durations, active schedules, and links to whitelists and questions. Table~\ref{tab:exams_table} outlines this schema.
 
 \begin{table}[H]
 \centering
@@ -178,7 +178,7 @@ CreatedBy & Foreign key referencing Users table & Integer & - & - & Yes \\
 \end{table}
 
 \subsection{Monitoring Events Table (MonitoringEvents)}
-The \texttt{MonitoringEvents} table acts as a log for telemetry data streamed from student clients. It captures focus-loss events, application launches, and references to compressed screenshots. The table is linked to active exam sessions, providing a chronological record of candidate activity for proctoring and auditing. The physical database schema for the monitoring events table is detailed in Table~\ref{tab:monitoring_events_table}.
+The \texttt{MonitoringEvents} table logs WebSocket telemetry data streamed from workstations during exams. It records events like window focus loss, blocked application launches, and screenshot file references. Table~\ref{tab:monitoring_events_table} lists the schema details.
 
 \begin{table}[H]
 \centering
@@ -199,7 +199,7 @@ Timestamp & Timestamp when event occurred & Timestamp & - & NOW() & Yes \\
 \end{table}
 
 \subsection{AI Grading Results Table (AiGradingResults)}
-The \texttt{AiGradingResults} table stores compilation summaries, test-run logs, and semantic evaluations. Each record holds scoring data, execution times, and automated feedback generated by sentence-transformers NLP models. This structure separates grading logs from answers, maintaining referential integrity. The physical database schema for the AI grading results table is defined in Table~\ref{tab:ai_grading_table}.
+The \texttt{AiGradingResults} table stores compilation summaries, sandbox execution runtimes, and semantic evaluation feedback generated by our NLP similarity microservice. Table~\ref{tab:ai_grading_table} defines the columns.
 
 \begin{table}[H]
 \centering

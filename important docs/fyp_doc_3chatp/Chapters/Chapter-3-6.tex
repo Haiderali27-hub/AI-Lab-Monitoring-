@@ -1,18 +1,24 @@
 \section{Project Risk Management}
 
-Risk management is the process through which potential problems are identified, assessed, and prepared for before they seriously affect project success \cite{risk1}. In the proposed AI-Driven Lab Exam Monitoring and Management System, risk management is especially important because the project involves technical integration, real-time workflow assumptions, multiple stakeholder expectations, and strict academic deadlines. Risks do not need to become actual failures if they are recognized early and managed in a disciplined way.
+Every software project carries risk. SmartExam carries specific ones: WebSocket reliability under concurrent load, WPF client lockdown effectiveness, HWID spoofing attempts, and module integration timing \cite{risk1}. Naming these risks early does not prevent them --- but it means the team already has a response ready when one materialises.
 
 \subsection{Risk Identification}
-Several categories of risk may affect the project. Technical risks include virtualization evasion attempts, instability in lock-down restrictions, or real-time focus log processing complexity \cite{pmc_cbt}. A primary technical concern is the potential for candidates to bypass the WPF lockdown environment by running the exam client inside virtual machines (e.g., VirtualBox, VMware) or utilizing custom software to spoof hardware IDs (HWID). Additionally, real-time telemetry streaming introduces concurrent load risks, where a high volume of simultaneous WebSocket connections from a single lab room could exhaust the API server's database connection pool.
 
-Schedule risks include delays in design completion, incomplete sprint outcomes, or documentation falling behind implementation. Academic risks focus on misunderstandings of stakeholder requirements, insufficient justification of the design decisions in the report, or weak alignment between the written chapters and the evolving prototype. Resource risks may include limited access to realistic testing environments in physical institutional labs, local workstation hardware constraints, and API limitations in third-party grading modules.
+Risk identification covers four categories for this project.
+
+\textbf{Technical risks} include HWID spoofing via virtual machines (VirtualBox, VMware), WebSocket connection pool exhaustion during peak lab load, WPF fullscreen lockdown bypass via Task Manager shortcuts, and AI grading module returning inconsistent scores across Python versions \cite{pmc_cbt}.
+
+\textbf{Schedule risks} include module integration taking longer than estimated in Sprint 8, documentation falling behind implementation by more than one sprint, and supervisor feedback arriving too late to revise a submitted chapter.
+
+\textbf{Academic risks} include misalignment between what the SRS specifies and what the prototype actually delivers at the demonstration, and insufficient justification of design choices in the written report.
+
+\textbf{Resource risks} include unavailability of physical lab workstations for testing, dependency on Neon PostgreSQL's free-tier connection limits, and team member unavailability during a critical sprint.
 
 \subsection{Risk Analysis}
-Risk analysis helps the team determine which risks deserve the most attention \cite{risk1}. A risk is not important only because it is possible; it becomes important when its likelihood combines with meaningful impact. For example, a small wording correction in a chapter may be likely but low impact, whereas instability in a monitoring feature during late-stage integration may be both moderately likely and highly disruptive. The team therefore evaluates risks in terms of both probability and seriousness.
 
-To categorize these risks systematically, a qualitative assessment is performed using a probability-impact matrix. Probability is rated from Very Low to High, representing the chance of occurrence, while impact is rated from Low to High, representing the severity of consequences to the project's timeline and core features. High-probability and high-impact risks are placed in the critical category, requiring immediate action plans, while low-probability, low-impact risks are documented but handled reactively.
+Not all risks deserve equal attention. A small chapter wording error is likely but low impact. A WebSocket failure during a live exam demonstration is moderately likely and high impact \cite{risk1}. The team evaluates each risk using a probability-impact scale and categorises the result.
 
-The priority of each risk in Table~\ref{tab:risk_matrix} is calculated by combining its likelihood with its potential impact. A risk with High likelihood and High impact is rated as Critical. Medium likelihood combined with High impact produces a High priority. Low likelihood with High impact, or Very Low likelihood with High impact, results in Medium priority. Medium likelihood with Medium impact also results in Medium priority. Low likelihood with Medium impact, or Very Low likelihood with Medium or lower impact, is rated as Low priority.
+Table~\ref{tab:risk_matrix} documents each risk with its assessed likelihood, impact level, and resulting priority.
 
 \begin{table}[H]
 \centering
@@ -33,11 +39,21 @@ Team member unavailability during critical sprint     & Low    & Medium & Low \\
 \end{table}
 
 \subsection{Risk Mitigation Plan}
-Risk mitigation involves planning responses before problems grow. To counter the technical threat of hardware spoofing and virtualization evasion, mitigation strategies incorporate querying deep system BIOS parameters and motherboard manufacturer fields via Windows Management Instrumentation (WMI) to differentiate physical devices from virtualized hypervisors. Additionally, server overload during live exams is mitigated by implementing local buffering of telemetry packets on the client client, uploading logs in batches rather than transmitting continuous individual events.
 
-For schedule and coordination risks, the team utilizes a modular development approach using structured API endpoints and isolated grading sandboxes, permitting developers to construct and test features independently. Integration testing is scheduled early in the project timeline to expose interface mismatches. To prevent documentation delays, chapters are compiled incrementally at the end of each sprint cycle, ensuring the written thesis remains aligned with the prototype. Time pressure is managed using weekly burn-down charts to monitor progress along critical-path tasks.
+Each risk in Table~\ref{tab:risk_matrix} has a prepared mitigation action.
+
+\textbf{HWID spoofing:} The client queries three hardware identifiers simultaneously via WMI --- the BIOS serial number, motherboard manufacturer string, and physical disk ID. Virtualized environments cannot fake all three consistently. The server compares all three stored values, not just one, before authorising an exam session.
+
+\textbf{Module integration delays:} Each module exposes a versioned REST API. Modules are developed and tested in isolation against a mock API contract. Integration only requires connecting live endpoints, not redesigning interfaces. This reduces Sprint 8 integration risk significantly.
+
+\textbf{WebSocket overload:} The student WPF client buffers telemetry locally at 5-second intervals and uploads batched JSON packets rather than streaming continuous individual events. The API server uses a connection pool limited to 30 concurrent connections per lab session. This keeps database pressure predictable.
+
+\textbf{Neon PostgreSQL limits:} The team monitors connection usage weekly during development. If the free-tier limit is approached, the application pool configuration is adjusted to enforce connection reuse before upgrading the plan.
+
+\textbf{WebSocket reconnection failure:} If a student client loses its WebSocket connection mid-exam, it continues writing a local binary log file. When the connection restores, the client transmits the buffered delta immediately. No session data is lost during transient network interruptions.
 
 \subsection{Risk Monitoring and Control}
-Risk management is not a one-time exercise performed only at the proposal stage. Risks must be monitored throughout the semester as the project evolves. New risks may appear when modules become more detailed or when feedback changes priorities. Therefore, the team should review risk status regularly, especially after each sprint or milestone. Continuous risk monitoring supports more stable project execution and reduces the likelihood that late-stage surprises will undermine the final deliverable.
 
-During sprint reviews, the team updates a centralized risk register tracking parameters such as active warning triggers, probability changes, and mitigation effectiveness. If a risk trigger is activated—such as a critical library deprecation or server connection failure during testing—the team initiates a pre-defined contingency plan. For instance, if the WebSocket connection drops during an exam session, the student client initiates local logging fallback to prevent data loss, automatically re-syncing with the Neon database once connection is restored. This proactive loop ensures system security and stability are maintained.
+Risk status is reviewed at every sprint boundary \cite{scrum1}. The team maintains a shared risk register tracking each item's current likelihood (updated as more is known), whether a trigger condition has fired, and whether the mitigation action was effective. If a risk escalates --- for example, if integration testing reveals that two modules share an incompatible data schema --- the team elevates it to a sprint blocker and adjusts the timeline before continuing.
+
+This is not passive calendar watching. It is active risk state management. A risk that changes from Low to Medium between sprints gets a mitigation plan before it reaches High.

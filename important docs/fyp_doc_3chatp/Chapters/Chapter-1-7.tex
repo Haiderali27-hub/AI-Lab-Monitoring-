@@ -1,15 +1,15 @@
 \section{Intended Users of the Product}
 
-The proposed system is intended for academic stakeholders who participate in practical laboratory examinations before, during, and after the scheduled session. Each user group interacts with the platform differently according to its responsibilities, but all of them contribute to a controlled and accountable exam workflow .
+SmartExam serves four user groups. Each group interacts with a different subset of the platform and carries different responsibilities during the exam lifecycle.
 
 \subsection{Administrator}
-The administrator uses the system to manage user accounts, assign roles and permissions, register laboratories, map available machines, configure institutional settings, and review overall exam records . This role is responsible for maintaining operational readiness, ensuring that approved users can access the appropriate modules, and generating administrative reports for audit and policy review.
+Administrators own the operational configuration of the system. They create and deactivate user accounts, assign roles, register lab rooms, map physical machines to room seats, and control institutional-level settings. After exam sessions conclude, administrators pull system-wide audit reports for quality review and accreditation documentation. They do not create or grade exams --- that belongs to teachers.
 
 \subsection{Teacher}
-Teachers use the system to create exams, upload instructions, schedule lab sessions, review submissions, manage results, and study generated reports after the exam . Teachers are responsible for defining the academic content and operational parameters of each practical examination session.
+Teachers build and own their exams. They define titles, time limits, coding questions, theory questions, test cases, and allowed application lists. They assign students to their section, link the exam to a lab room, and release instructions before the session begins. After the exam, teachers review auto-graded results, inspect the plagiarism matrix, and sign off on final grades. They also serve as primary contacts if students raise disputes about their submissions.
 
 \subsection{Invigilator}
-Invigilators use the live monitoring dashboard during the exam to observe active student sessions, track timing and progress status, respond to alerts, log suspicious incidents, and take corrective action when necessary . This role is central to the real-time invigilation support that the system is designed to provide. The invigilator may be the same person as the teacher or may be a separately assigned academic staff member.
+Invigilators operate the live monitoring dashboard during an active session. Their screen shows a grid of student cards --- each with a real-time focus status indicator, a recent screenshot, and a process list. When a student's focus drops for more than a configurable threshold, the card turns red and an alert fires. The invigilator investigates and logs the incident directly in the system. The invigilator role may overlap with the teacher role or may be assigned separately by the administrator.
 
 \subsection{Student}
-Students use the system to log in to their assigned exam session, complete identity verification, access instructions, perform the practical task in a controlled environment, and submit the required files within the scheduled time \cite{biometric1}. Students interact with a focused and time-bound interface that restricts access to only the authorized session.
+Students access only their own scheduled exam session \cite{biometric1}. Before the exam begins, they complete face recognition verification on the WPF client. The client checks their registered HWID. If both checks pass, the exam environment launches in fullscreen lockdown. Students see their questions, write code or theory answers, and submit before the timer expires. They cannot access any other applications, switch windows, or alter their submission after it is locked.
