@@ -6,13 +6,11 @@ This section provides a rigorous definition of the system's database schema and 
 
 \subsection{Entity Relationship Diagram}
 
-In designing the data architecture for the SmartExam platform, a relational database model was selected. Relational databases enforce strict schemas, transactional integrity, and referential constraints which are essential for academic grading systems where candidate, identity, and score records must remain completely accurate and consistent \cite{er_diagram_lucidchart}. The database layer is implemented on Neon PostgreSQL, a serverless relational database that provides full ACID (Atomicity, Consistency, Isolation, Durability) compliance while allowing auto-scaling resources to accommodate sudden spikes in connections when hundreds of workstation clients stream telemetry concurrently.
+In designing the data architecture for the SmartExam platform, a relational database model was selected over NoSQL alternatives. Relational databases enforce strict schemas, transactional integrity, and referential constraints which are essential for academic grading systems where financial, identity, and score records must remain completely accurate and consistent \cite{er_diagram_lucidchart}. The database layer is implemented on Neon PostgreSQL, a serverless relational database that provides full ACID (Atomicity, Consistency, Isolation, Durability) compliance while allowing auto-scaling resources to accommodate sudden spikes in connections when hundreds of workstation clients stream telemetry concurrently.
 
 To prevent update, insertion, and deletion anomalies, the database schema is normalized to the Third Normal Form (3NF). This means that every non-key column is fully dependent on the primary key, the whole primary key, and nothing but the primary key. For example, student details, exam schedules, seating mappings, and grading metrics are separated into distinct tables. These tables are linked via foreign key references rather than storing duplicated records. Relational integrity is enforced using foreign key constraints with explicit cascading behaviors, unique constraints on hardware identifiers, and index constraints on frequently queried columns.
 
 The Entity Relationship Diagram (ERD) for the AI-Driven Lab Exam Monitoring and Management System is shown in Figure~\ref{fig:erd_diagram}. It comprises 14 normalized tables that capture the complete operational state of the system:
-
-The database schema illustrated in Figure~\ref{fig:erd_diagram} is structured around the following entity groups, relationship rules, and data structures:
 
 \begin{figure}[H]
 \centering
@@ -20,6 +18,26 @@ The database schema illustrated in Figure~\ref{fig:erd_diagram} is structured ar
 \caption{Entity Relationship Diagram (ERD) of the SmartExam Database Schema}
 \label{fig:erd_diagram}
 \end{figure}
+
+The database schema illustrated in Figure~\ref{fig:erd_diagram} is structured around the following entity groups, relationship rules, and data structures:
+
+\subsubsection{Database Dictionary and Table Definitions}
+\begin{enumerate}
+    \item \textbf{Roles Table (\texttt{Roles}):} Stores the authorization levels within the system (e.g., Student, Teacher, Administrator). It contains a primary key \texttt{Id} (integer) and the role name \texttt{RoleName} (varchar). This table forms a one-to-many relationship with the \texttt{Users} table, ensuring that every user account is bound to a single set of privileges.
+    \item \textbf{Users Table (\texttt{Users}):} Manages student, teacher, and administrator accounts. Columns include \texttt{Id} (Primary Key), \texttt{Email} (Varchar, unique index), \texttt{PasswordHash} (Varchar), \texttt{FullName} (Varchar), \texttt{RoleId} (Foreign Key referencing \texttt{Roles}), and \texttt{CreatedAt} (Timestamp). 
+    \item \textbf{Device Bindings Table (\texttt{DeviceBindings}):} Enforces the workstation hardware locks. Columns include \texttt{Id} (Primary Key), \texttt{UserId} (Foreign Key referencing \texttt{Users}, unique constraint), \texttt{HWID} (Varchar, unique hardware identifier hash), \texttt{DeviceDetails} (Text), and \texttt{BoundAt} (Timestamp). This table forms a strict one-to-one relationship with the \texttt{Users} table, ensuring a student cannot log in from multiple devices.
+    \item \textbf{Exams Table (\texttt{Exams}):} Main metadata store for assessments. Columns include \texttt{Id} (Primary Key), \texttt{Title} (Varchar), \texttt{Description} (Text), \texttt{Duration} (Integer, in minutes), \texttt{StartTime} (Timestamp), \texttt{EndTime} (Timestamp), \texttt{IsActive} (Boolean), and \texttt{CreatedBy} (Foreign Key referencing \texttt{Users}). It has a one-to-many relationship with questions, allowed applications, and seating mappings.
+    \item \textbf{Questions Table (\texttt{Questions}):} Stores individual questions. Columns include \texttt{Id} (Primary Key), \texttt{ExamId} (Foreign Key referencing \texttt{Exams}), \texttt{QuestionText} (Text), \texttt{QuestionType} (Varchar, e.g., 'Coding' or 'Theory'), and \texttt{MaxMarks} (Integer).
+    \item \textbf{Test Cases Table (\texttt{TestCases}):} Stores test variables for coding questions. Columns include \texttt{Id} (Primary Key), \texttt{QuestionId} (Foreign Key referencing \texttt{Questions}), \texttt{Input} (Text), \texttt{ExpectedOutput} (Text), and \texttt{IsHidden} (Boolean). This forms a one-to-many relationship with \texttt{Questions}, allowing the compiler to test student submissions against multiple scenarios.
+    \item \textbf{Allowed Applications Table (\texttt{AllowedApps}):} Defines lockdown rules. Columns include \texttt{Id} (Primary Key), \texttt{ExamId} (Foreign Key referencing \texttt{Exams}), and \texttt{AppName} (Varchar, e.g., 'code.exe'). This forms a one-to-many relationship with \texttt{Exams}.
+    \item \textbf{Seating Maps Table (\texttt{SeatingMaps}):} Maps candidates to physical locations. Columns include \texttt{Id} (Primary Key), \texttt{ExamId} (Foreign Key referencing \texttt{Exams}), \texttt{UserId} (Foreign Key referencing \texttt{Users}), \texttt{LabName} (Varchar), \texttt{IPRange} (Varchar), and \texttt{SeatNumber} (Varchar). This coordinates seating policies and lab access controls.
+    \item \textbf{Exam Sessions Table (\texttt{ExamSessions}):} Tracks student exam attempts. Columns include \texttt{Id} (Primary Key), \texttt{ExamId} (Foreign Key referencing \texttt{Exams}), \texttt{UserId} (Foreign Key referencing \texttt{Users}), \texttt{StartTime} (Timestamp), \texttt{EndTime} (Timestamp, nullable), \texttt{RemainingTime} (Integer), and \texttt{Status} (Varchar, e.g., 'Ongoing', 'Submitted').
+    \item \textbf{Answers Table (\texttt{Answers}):} Stores student responses. Columns include \texttt{Id} (Primary Key), \texttt{SessionId} (Foreign Key referencing \texttt{ExamSessions}), \texttt{QuestionId} (Foreign Key referencing \texttt{Questions}), \texttt{AnswerText} (Text), and \texttt{LastSavedAt} (Timestamp). It receives auto-save telemetry payloads.
+    \item \textbf{Monitoring Events Table (\texttt{MonitoringEvents}):} Capture log for proctoring alerts. Columns include \texttt{Id} (Primary Key), \texttt{SessionId} (Foreign Key referencing \texttt{ExamSessions}), \texttt{EventType} (Varchar, e.g., 'WindowFocusLoss', 'BlockedAppLaunch'), \texttt{EventDetails} (Text), \texttt{ScreenshotUrl} (Varchar, nullable), and \texttt{Timestamp} (Timestamp).
+    \item \textbf{AI Grading Results Table (\texttt{AiGradingResults}):} Holds scoring logs. Columns include \texttt{Id} (Primary Key), \texttt{AnswerId} (Foreign Key referencing \texttt{Answers}), \texttt{AutoGrade} (Integer), \texttt{ExecutionTime} (Float), \texttt{SemanticSimilarityScore} (Float), and \texttt{AiFeedback} (Text).
+    \item \textbf{Plagiarism Results Table (\texttt{PlagiarismResults}):} Holds plagiarism comparisons. Columns include \texttt{Id} (Primary Key), \texttt{ExamId} (Foreign Key referencing \texttt{Exams}), \texttt{AnswerId1} (Foreign Key referencing \texttt{Answers}), \texttt{AnswerId2} (Foreign Key referencing \texttt{Answers}), \texttt{SimilarityScore} (Float), and \texttt{FlaggedStatus} (Varchar).
+    \item \textbf{Audit Logs Table (\texttt{AuditLogs}):} Immutable ledger. Columns include \texttt{Id} (Primary Key), \texttt{UserId} (Foreign Key referencing \texttt{Users}), \texttt{Action} (Varchar), \texttt{ActionDetails} (Text), and \texttt{Timestamp} (Timestamp).
+\end{enumerate}
 
 \subsubsection{Key Entity Relationships}
 The database diagram defines three main structural relationship types:
@@ -39,6 +57,13 @@ The system's data flows are modeled at three levels of abstraction: Level 0 (Con
 
 The DFD Level 0, or Context Diagram, defines the external boundaries of the system, modeling the entire platform as a single central process and identifying the primary external entities that interact with it. The Context Diagram is shown in Figure~\ref{fig:dfd_level_0}.
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/dfd_level_0.png}
+\caption{Data Flow Diagram (DFD) Level 0 --- Context Diagram}
+\label{fig:dfd_level_0}
+\end{figure}
+
 The Context Diagram defines the boundary flows between the central system process and the four external entities:
 \begin{itemize}
     \item \textbf{Student User:} Sends credentials, device HWID hash, diagnostics status, real-time focus log packets, running process lists, and answer file uploads. The system returns JWT authentication tokens, hardware checks validation status, exam questions, remaining time alerts, and submission confirmations.
@@ -47,16 +72,16 @@ The Context Diagram defines the boundary flows between the central system proces
     \item \textbf{AI Grading Service:} Receives subjective answer inputs and reference answers from the system. It returns computed semantic similarity scores and key concepts match summaries.
 \end{itemize}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.97\linewidth]{Figures/dfd_level_0.png}
-\caption{Data Flow Diagram (DFD) Level 0 --- Context Diagram}
-\label{fig:dfd_level_0}
-\end{figure}
-
 \subsubsection{DFD Level 1}
 
 The DFD Level 1 breaks down the single context process into the main functional subsystems of the platform. It maps how information moves between these subsystems, where data is read from or written to database stores, and how external entities interact with specific modules. The DFD Level 1 diagram is illustrated in Figure~\ref{fig:dfd_level_1}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/dfd_level_1.png}
+\caption{Data Flow Diagram (DFD) Level 1 --- Subsystem Overview}
+\label{fig:dfd_level_1}
+\end{figure}
 
 The Level 1 DFD decomposes the central system process into five core functional processes:
 \begin{enumerate}
@@ -67,18 +92,9 @@ The Level 1 DFD decomposes the central system process into five core functional 
     \item \textbf{Evaluation, Plagiarism, and Reporting (Process 5.0):} Pulls completed student submissions from the \texttt{Answers} table, runs compile-time testing, submits theory texts to the AI grading engine, compares submissions for plagiarism, saves grades to the \texttt{AiGradingResults} table, and exports PDF reports.
 \end{enumerate}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.97\linewidth]{Figures/dfd_level_1.png}
-\caption{Data Flow Diagram (DFD) Level 1 --- Subsystem Overview}
-\label{fig:dfd_level_1}
-\end{figure}
-
 \subsubsection{DFD Level 2}
 
 The DFD Level 2 zooms in on Process 3.0 (Lockdown and Telemetry Streaming) and Process 5.0 (Evaluation, Plagiarism, and Reporting) to trace the exact logical steps and transformations performed on telemetry streams and programming submissions. The DFD Level 2 diagram is shown in Figure~\ref{fig:dfd_level_2}.
-
-The detailed flow mapped in Figure~\ref{fig:dfd_level_2} is split into two primary pipelines:
 
 \begin{figure}[H]
 \centering
@@ -86,6 +102,8 @@ The detailed flow mapped in Figure~\ref{fig:dfd_level_2} is split into two prima
 \caption{Data Flow Diagram (DFD) Level 2 --- Telemetry and Evaluation Processing}
 \label{fig:dfd_level_2}
 \end{figure}
+
+The detailed flow mapped in Figure~\ref{fig:dfd_level_2} is split into two primary pipelines:
 
 \begin{enumerate}
     \item \textbf{Telemetry Streaming and Analysis (Processes 3.1 to 3.4):}

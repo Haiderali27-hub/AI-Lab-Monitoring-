@@ -9,130 +9,112 @@ A system user interface (UI) represents the graphical and interactive gateway th
 The interfaces detailed below cover the user views of the completed platform modules, displaying the operational layouts for candidate authentication, device binding, diagnostics checks, secure workspace lockdown, proctoring dashboards, live telemetry monitors, and compiler results.
 
 \subsection{Student Login and Device Binding Interface}
-The student login interface verifies student credentials and queries native Windows APIs to generate and compare Hardware ID (HWID) hashes, preventing unauthorized workstation proxy attempts. The login page layout is illustrated in Figure~\ref{fig:ui_student_login}.
+The student login and device binding interface is the initial entry screen of the WPF desktop client. It provides input fields for the student's institutional email and password, retrieves the workstation's HWID hash via Windows APIs, and binds the hardware identity to the student's profile for subsequent verification. The interface layout is illustrated in Figure~\ref{fig:ui_student_login}.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_student_login.png}
+\includegraphics[width=0.6\linewidth]{Figures/ui_student_login.png}
 \caption{WPF Student Client Login and Device Verification Interface}
 \label{fig:ui_student_login}
 \end{figure}
 
 \subsection{Pre-Exam Workstation Diagnostics Interface}
-The pre-exam diagnostics interface runs automated webcam, microphone, network connectivity, and running background process compliance scans before granting candidate access to the exam. The diagnostics verification checklist layout is shown in Figure~\ref{fig:ui_student_diagnostics}.
+The pre-exam diagnostics interface provides a visual readiness check of the workstation before the exam begins. It runs automated tests for webcam connectivity, microphone status, network latency, and background processes, displaying green or red indicators for each test result. The interface layout is shown in Figure~\ref{fig:ui_student_diagnostics}.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_student_diagnostics.png}
+\includegraphics[width=0.6\linewidth]{Figures/ui_student_diagnostics.png}
 \caption{WPF Student Client Pre-Exam System Diagnostics Interface}
 \label{fig:ui_student_diagnostics}
 \end{figure}
 
 \subsection{Student Exam Lockdown Workspace}
-The student exam lockdown workspace enforces fullscreen restrictions, disables secondary monitor outputs, blocks keyboard task-switching shortcuts, and provides rich-text editors for candidate responses. The locked exam client workspace layout is shown in Figure~\ref{fig:ui_student_workspace}.
+The student exam lockdown workspace enters fullscreen mode, blocking Alt+Tab, Windows key, and Task Manager access. The layout includes a question navigation pane, a central answer panel that adapts to theory or code inputs, and a top bar showing the remaining time and autosave status. The exam workspace interface is shown in Figure~\ref{fig:ui_student_workspace}.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_student_workspace.png}
+\includegraphics[width=0.6\linewidth]{Figures/ui_student_workspace.png}
 \caption{WPF Student Client Active Exam Lockdown Workspace}
 \label{fig:ui_student_workspace}
 \end{figure}
 
 \subsection{Teacher Proctoring Dashboard Overview}
-The teacher dashboard overview console displays room statistics, active exam listings, pending hardware unbinding requests, and quick navigation controls for instructors. The web panel overview layout is illustrated in Figure~\ref{fig:ui_teacher_dashboard}.
+The teacher proctoring dashboard is the main React web console for instructors, displaying active exam statistics, logged-in student counts, and pending requests through a cards-based grid layout. It provides quick access to exam management, whitelist configuration, seating plans, and report downloads. The interface dashboard overview is shown in Figure~\ref{fig:ui_teacher_dashboard}.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_teacher_dashboard.png}
+\includegraphics[width=0.6\linewidth]{Figures/ui_teacher_dashboard.png}
 \caption{React Web Panel Teacher Dashboard Overview Interface}
 \label{fig:ui_teacher_dashboard}
 \end{figure}
 
 \subsection{Live Telemetry Ingestion and Monitoring Interface}
-The live telemetry proctoring interface displays color-coded student status cards, webcam snapshots, process lists, and focus timelines streamed over persistent WebSocket connections. The proctoring grid and override panel are shown in Figure~\ref{fig:ui_teacher_live_monitoring}.
+The live telemetry monitoring interface streams real-time student activity via WebSockets, displaying color-coded status cards for each candidate. Clicking a card opens a detailed panel with focus timelines, screenshots, running applications, and manual override controls. This layout is shown in Figure~\ref{fig:ui_teacher_live_monitoring}.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_teacher_live_monitoring.png}
+\includegraphics[width=0.6\linewidth]{Figures/ui_teacher_live_monitoring.png}
 \caption{React Web Panel Live Telemetry Proctoring and Alerts Dashboard}
 \label{fig:ui_teacher_live_monitoring}
 \end{figure}
 
 \subsection{Code Compilation and AI Evaluation Panel}
-The code compilation panel details Docker compilation outcomes, test case pass percentages, sentence-transformers semantic similarity scores, and class-wide plagiarism analysis. The automated grading dashboard layout is illustrated in Figure~\ref{fig:ui_teacher_ai_grading}.
+The code compilation and AI evaluation panel presents automated grading results from Docker test case execution, NLP semantic scoring for theory answers, and a plagiarism comparison grid for flagged submissions. This panel is illustrated in Figure~\ref{fig:ui_teacher_ai_grading}.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_teacher_ai_grading.png}
+\includegraphics[width=0.6\linewidth]{Figures/ui_teacher_ai_grading.png}
 \caption{React Web Panel Automated Code Evaluation and Plagiarism Panel}
 \label{fig:ui_teacher_ai_grading}
 \end{figure}
 
 \subsection{Labs and Workstations Seating Map Interface}
-The seating map interface maps candidate logins to laboratory seat coordinates and configures network IP filters to restrict access to physical exam rooms. The lab terminal configuration grid is shown in Figure~\ref{fig:ui_labs_workstations}.
+The labs and workstations seating map interface allows instructors to map physical seating arrangements to workstation IDs and configure permitted IP ranges per lab room. It enforces physical exam policies by binding students to specific seats and networks, as shown in Figure~\ref{fig:ui_labs_workstations}.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_labs_workstations.png}
+\includegraphics[width=0.6\linewidth]{Figures/ui_labs_workstations.png}
 \caption{React Web Panel Labs and Workstations Seating Configuration Interface}
 \label{fig:ui_labs_workstations}
 \end{figure}
 
 \subsection{Device Bindings and Hardware Identifier Interface}
-The device bindings interface logs CPU and motherboard HWID bindings, allowing administrators to audit machine allocations and approve workstation override requests. The HWID management panel is illustrated in Figure~\ref{fig:ui_device_bindings}.
+The device bindings interface lists all user accounts with their bound HWID hashes and workstation details. Instructors can approve unbinding requests to release a student's hardware lock when workstation changes are needed, as illustrated in Figure~\ref{fig:ui_device_bindings}.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_device_bindings.png}
+\includegraphics[width=0.6\linewidth]{Figures/ui_device_bindings.png}
 \caption{React Web Panel Device Bindings and HWID Management Interface}
 \label{fig:ui_device_bindings}
 \end{figure}
 
 \subsection{Student Performance and Analytics Dashboard}
-The student portal dashboard renders candidate grading reports, automated feedback, performance average comparison charts, and flagged telemetry alert summaries. The candidate results panel is shown in Figure~\ref{fig:ui_student_performance}.
+The student performance dashboard displays finalized grades, auto-compiled scores, NLP semantic feedback, and an interactive chart comparing the student's results against the class average. It also lists any monitoring flags triggered during the exam. The performance dashboard is shown in Figure~\ref{fig:ui_student_performance}.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_student_performance.png}
+\includegraphics[width=0.6\linewidth]{Figures/ui_student_performance.png}
 \caption{React Web Student Portal Performance and Analytics Dashboard}
 \label{fig:ui_student_performance}
 \end{figure}
 
 \subsection{Security Audit Logs Interface}
-The security audit logs interface records administrator override actions, role changes, and system settings updates in an immutable, read-only ledger for verification. The admin transaction log interface is illustrated in Figure~\ref{fig:ui_audit_logs}.
+The security audit logs interface is a read-only ledger displaying all administrative actions with timestamps, user details, and origin IP addresses. It ensures accountability and provides a clear history for resolving system administration discrepancies, as illustrated in Figure~\ref{fig:ui_audit_logs}.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_audit_logs.png}
+\includegraphics[width=0.6\linewidth]{Figures/ui_audit_logs.png}
 \caption{React Web Panel System Security Audit Logs Interface}
 \label{fig:ui_audit_logs}
 \end{figure}
 
-
 \section{Physical Database Tables}
 Physical database design translates the logical Entity Relationship Diagram (ERD) into actual relational SQL tables implemented on the Neon PostgreSQL platform. This stage involves defining table columns, data types (e.g., \texttt{SERIAL}, \texttt{VARCHAR}, \texttt{TIMESTAMP}), lengths, nullable/non-nullable constraints, primary key bounds, and foreign key relations. Proper physical design ensures data integrity, prevents redundant records, and supports quick data retrieval. In the SmartExam database, columns that are frequently filtered or joined are indexed, and foreign keys are configured with explicit cascading actions to maintain consistency across tables \cite{users_table_budibase}. 
 
-Below are the physical schema table specifications for the fourteen database tables of the SmartExam system, structured using the required double-hline format.
-
-\subsection{Roles Table (Roles)}
-The \texttt{Roles} table defines the user access levels within the application, such as Administrator, Teacher, or Student, mapping capabilities to explicit roles. The physical database schema for the roles table is defined in Table~\ref{tab:roles_table}.
-
-\begin{table}[H]
-\centering
-\caption{Physical Database Schema for User Roles (Roles)}
-\label{tab:roles_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
-\hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-RoleName & Name of the user permission role & Varchar & 50 & - & Yes \\
-\hline\hline
-\end{tabular}
-\end{table}
+Below are the physical schema table specifications for the five core entities of the SmartExam system, structured using the required double-hline format.
 
 \subsection{Users Table (Users)}
-The \texttt{Users} table manages the main profile accounts for students, instructors, and administrators. It links email credentials, encrypted BCrypt password hashes, names, and role identifiers together. The physical database schema for the users table is defined in Table~\ref{tab:users_table}.
+The \texttt{Users} table is the central store for candidate, instructor, and administrator credentials within the relational database. It manages account profiles, storing encrypted password hashes and role associations. The table uses a unique index on the email column to accelerate authentication queries, and enforces referential integrity through a foreign key link to the Roles table. This structure prevents unauthorized access and forms the basis for session authorization. The physical database schema for the users table is defined in Table~\ref{tab:users_table}.
 
 \begin{table}[H]
 \centering
@@ -153,7 +135,7 @@ CreatedAt & Timestamp when account was created & Timestamp & - & NOW() & Yes \\
 \end{table}
 
 \subsection{Device Bindings Table (DeviceBindings)}
-The \texttt{DeviceBindings} table binds student accounts to specific hardware configs using CPU and motherboard HWID hashes, establishing a one-to-one link. The physical database schema for the device bindings table is detailed in Table~\ref{tab:device_bindings_table}.
+The \texttt{DeviceBindings} table binds student user accounts to their physical workstations. By mapping a student's database ID to a unique motherboard and CPU hardware hash (HWID), this table prevents proxy exam attempts. It enforces a strict one-to-one relationship via a unique constraint on the user identifier, ensuring a student cannot register multiple devices. The physical database schema for the device bindings table is detailed in Table~\ref{tab:device_bindings_table}.
 
 \begin{table}[H]
 \centering
@@ -173,7 +155,7 @@ BoundAt & Timestamp when binding was established & Timestamp & - & NOW() & Yes \
 \end{table}
 
 \subsection{Exams Table (Exams)}
-The \texttt{Exams} table acts as the configuration store for assessments, tracking titles, question sets, whitelist processes, duration limits, and timestamps. The physical database schema for the exams table is specified in Table~\ref{tab:exams_table}.
+The \texttt{Exams} table acts as the template store for assessments, tracking title metadata, instructions, scheduling times, and active constraints. It forms one-to-many relationships with questions, seating maps, and allowed whitelists. The table records the creator's ID to ensure that only authorized instructors can modify configuration details. The physical database schema for the exams table is specified in Table~\ref{tab:exams_table}.
 
 \begin{table}[H]
 \centering
@@ -195,129 +177,8 @@ CreatedBy & Foreign key referencing Users table & Integer & - & - & Yes \\
 \end{tabular}
 \end{table}
 
-\subsection{Questions Table (Questions)}
-The \texttt{Questions} table stores the test items bound to each exam, separating theoretical prompts from practical programming coding tasks. The physical database schema for the questions table is defined in Table~\ref{tab:questions_table}.
-
-\begin{table}[H]
-\centering
-\caption{Physical Database Schema for Questions (Questions)}
-\label{tab:questions_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
-\hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-ExamId & Foreign key referencing Exams table & Integer & - & - & Yes \\
-QuestionText & The explicit question prompt text & Text & - & - & Yes \\
-QuestionType & Question type (e.g. 'Coding', 'Theory') & Varchar & 50 & - & Yes \\
-MaxMarks & Maximum grade score points allocated & Integer & - & - & Yes \\
-\hline\hline
-\end{tabular}
-\end{table}
-
-\subsection{Test Cases Table (TestCases)}
-The \texttt{TestCases} table holds inputs and expected outputs for compiling and evaluating student code submissions, identifying hidden test markers. The physical database schema for the test cases table is defined in Table~\ref{tab:test_cases_table}.
-
-\begin{table}[H]
-\centering
-\caption{Physical Database Schema for Question Test Cases (TestCases)}
-\label{tab:test_cases_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
-\hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-QuestionId & Foreign key referencing Questions table & Integer & - & - & Yes \\
-Input & Standard input data for test run & Text & - & - & Yes \\
-ExpectedOutput & Expected output string for test match & Text & - & - & Yes \\
-IsHidden & Flags if case is hidden from student view & Boolean & - & True & Yes \\
-\hline\hline
-\end{tabular}
-\end{table}
-
-\subsection{Allowed Applications Table (AllowedApps)}
-The \texttt{AllowedApps} table contains whitelisted system processes (e.g. compilers, text tools) permitted to run on the workstation during active lockdowns. The physical database schema for the allowed applications table is defined in Table~\ref{tab:allowed_apps_table}.
-
-\begin{table}[H]
-\centering
-\caption{Physical Database Schema for Whitelisted Applications (AllowedApps)}
-\label{tab:allowed_apps_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
-\hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-ExamId & Foreign key referencing Exams table & Integer & - & - & Yes \\
-AppName & Executable process name string (e.g., code.exe) & Varchar & 100 & - & Yes \\
-\hline\hline
-\end{tabular}
-\end{table}
-
-\subsection{Seating Maps Table (SeatingMaps)}
-The \texttt{SeatingMaps} table links students to designated lab terminals, restricting login access to approved IP address boundaries. The physical database schema for the seating maps table is defined in Table~\ref{tab:seating_maps_table}.
-
-\begin{table}[H]
-\centering
-\caption{Physical Database Schema for Laboratory Seating Maps (SeatingMaps)}
-\label{tab:seating_maps_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
-\hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-ExamId & Foreign key referencing Exams table & Integer & - & - & Yes \\
-UserId & Foreign key referencing Users table & Integer & - & - & Yes \\
-LabName & Laboratory location designation code & Varchar & 50 & - & Yes \\
-IPRange & Workstation IP range limit filter & Varchar & 50 & - & Yes \\
-SeatNumber & Lab terminal physical seat identifier number & Varchar & 20 & - & Yes \\
-\hline\hline
-\end{tabular}
-\end{table}
-
-\subsection{Exam Sessions Table (ExamSessions)}
-The \texttt{ExamSessions} table tracks candidate participation status, start/end timestamps, remaining durations, and submission states. The physical database schema for the exam sessions table is defined in Table~\ref{tab:exam_sessions_table}.
-
-\begin{table}[H]
-\centering
-\caption{Physical Database Schema for Student Exam Sessions (ExamSessions)}
-\label{tab:exam_sessions_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
-\hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-ExamId & Foreign key referencing Exams table & Integer & - & - & Yes \\
-UserId & Foreign key referencing Users table & Integer & - & - & Yes \\
-StartTime & Session initialization timestamp & Timestamp & - & NOW() & Yes \\
-EndTime & Session submission timestamp & Timestamp & - & - & No \\
-RemainingTime & Remaining duration in seconds & Integer & - & - & Yes \\
-Status & Current state (e.g. 'Ongoing', 'Submitted') & Varchar & 50 & 'Ongoing' & Yes \\
-\hline\hline
-\end{tabular}
-\end{table}
-
-\subsection{Answers Table (Answers)}
-The \texttt{Answers} table archives candidate response entries, which receive auto-saved code and rich-text segments every ten seconds. The physical database schema for the answers table is defined in Table~\ref{tab:answers_table}.
-
-\begin{table}[H]
-\centering
-\caption{Physical Database Schema for Student Answers (Answers)}
-\label{tab:answers_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
-\hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-SessionId & Foreign key referencing ExamSessions table & Integer & - & - & Yes \\
-QuestionId & Foreign key referencing Questions table & Integer & - & - & Yes \\
-AnswerText & Typed answer text or source code & Text & - & - & No \\
-LastSavedAt & Timestamp of last backend auto-save synchronization & Timestamp & - & NOW() & Yes \\
-\hline\hline
-\end{tabular}
-\end{table}
-
 \subsection{Monitoring Events Table (MonitoringEvents)}
-The \texttt{MonitoringEvents} table logs telemetry warnings generated by student clients, storing focus shifts, application launches, and screenshot URLs. The physical database schema for the monitoring events table is detailed in Table~\ref{tab:monitoring_events_table}.
+The \texttt{MonitoringEvents} table acts as a log for telemetry data streamed from student clients. It captures focus-loss events, application launches, and references to compressed screenshots. The table is linked to active exam sessions, providing a chronological record of candidate activity for proctoring and auditing. The physical database schema for the monitoring events table is detailed in Table~\ref{tab:monitoring_events_table}.
 
 \begin{table}[H]
 \centering
@@ -328,17 +189,17 @@ The \texttt{MonitoringEvents} table logs telemetry warnings generated by student
 \hline\hline
 \textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
 Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-SessionId & Foreign key referencing ExamSessions table & Integer & - & - & Yes \\
-EventType & Warning type (e.g., FocusLoss, BlockedApp) & Varchar & 50 & - & Yes \\
-EventDetails & Contextual description of warning metrics & Text & - & - & No \\
-ScreenshotUrl & Image reference path to screenshot asset & Varchar & 255 & - & No \\
+SessionId & Foreign key referencing ExamSessions & Integer & - & - & Yes \\
+EventType & Warning type (e.g., FocusLoss) & Varchar & 50 & - & Yes \\
+EventDetails & Additional description of the alert & Text & - & - & No \\
+ScreenshotUrl & File reference path to screenshot asset & Varchar & 255 & - & No \\
 Timestamp & Timestamp when event occurred & Timestamp & - & NOW() & Yes \\
 \hline\hline
 \end{tabular}
 \end{table}
 
 \subsection{AI Grading Results Table (AiGradingResults)}
-The \texttt{AiGradingResults} table stores compilation evaluations, pass rates, semantic NLP similarity scores, and automated feedback. The physical database schema for the AI grading results table is defined in Table~\ref{tab:ai_grading_table}.
+The \texttt{AiGradingResults} table stores compilation summaries, test-run logs, and semantic evaluations. Each record holds scoring data, execution times, and automated feedback generated by sentence-transformers NLP models. This structure separates grading logs from answers, maintaining referential integrity. The physical database schema for the AI grading results table is defined in Table~\ref{tab:ai_grading_table}.
 
 \begin{table}[H]
 \centering
@@ -354,47 +215,6 @@ AutoGrade & Computed code execution pass grade & Integer & - & 0 & Yes \\
 ExecutionTime & Microservice sandbox compilation runtime & Float & - & 0.0 & Yes \\
 SemanticSimilarityScore & Cosine similarity grading score & Float & - & 0.0 & Yes \\
 AiFeedback & Semantic and error logs text & Text & - & - & No \\
-\hline\hline
-\end{tabular}
-\end{table}
-
-\subsection{Plagiarism Results Table (PlagiarismResults)}
-The \texttt{PlagiarismResults} table documents pairwise similarity comparisons across all submissions in an exam to identify copied content. The physical database schema for the plagiarism results table is defined in Table~\ref{tab:plagiarism_results_table}.
-
-\begin{table}[H]
-\centering
-\caption{Physical Database Schema for Plagiarism Analysis (PlagiarismResults)}
-\label{tab:plagiarism_results_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
-\hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-ExamId & Foreign key referencing Exams table & Integer & - & - & Yes \\
-AnswerId1 & Foreign key referencing primary Answers table & Integer & - & - & Yes \\
-AnswerId2 & Foreign key referencing target Answers table & Integer & - & - & Yes \\
-SimilarityScore & AST structural similarity ratio (0.0 to 1.0) & Float & - & - & Yes \\
-FlaggedStatus & Alert status (e.g. 'Pending', 'Flagged') & Varchar & 50 & 'Pending' & Yes \\
-\hline\hline
-\end{tabular}
-\end{table}
-
-\subsection{Audit Logs Table (AuditLogs)}
-The \texttt{AuditLogs} table records critical configuration overrides, role adjustments, and account binding updates in an immutable, read-only system log. The physical database schema for the audit logs table is defined in Table~\ref{tab:audit_logs_table}.
-
-\begin{table}[H]
-\centering
-\caption{Physical Database Schema for System Security Audit (AuditLogs)}
-\label{tab:audit_logs_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
-\hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-UserId & Foreign key referencing Users table & Integer & - & - & Yes \\
-Action & Specific administration event log string & Varchar & 100 & - & Yes \\
-ActionDetails & Contextual parameters description & Text & - & - & No \\
-Timestamp & Timestamp when audit log was recorded & Timestamp & - & NOW() & Yes \\
 \hline\hline
 \end{tabular}
 \end{table}

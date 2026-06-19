@@ -3,44 +3,16 @@
 Risk management is the process through which potential problems are identified, assessed, and prepared for before they seriously affect project success \cite{risk1}. In the proposed AI-Driven Lab Exam Monitoring and Management System, risk management is especially important because the project involves technical integration, real-time workflow assumptions, multiple stakeholder expectations, and strict academic deadlines. Risks do not need to become actual failures if they are recognized early and managed in a disciplined way.
 
 \subsection{Risk Identification}
+Several categories of risk may affect the project. Technical risks include virtualization evasion attempts, instability in lock-down restrictions, or real-time focus log processing complexity \cite{pmc_cbt}. A primary technical concern is the potential for candidates to bypass the WPF lockdown environment by running the exam client inside virtual machines (e.g., VirtualBox, VMware) or utilizing custom software to spoof hardware IDs (HWID). Additionally, real-time telemetry streaming introduces concurrent load risks, where a high volume of simultaneous WebSocket connections from a single lab room could exhaust the API server's database connection pool.
 
-Risk identification involves systematically documenting potential threats to the project’s technical stability, schedule viability, and operational success. By categorizing these risks, the development team can define clear boundaries and establish individual focus areas for mitigation. The identified risks for this project are divided into four primary categories:
-
-\subsubsection{Technical and Security Risks}
-Technical risks represent threats arising from software limitations, hardware failures, or security vulnerabilities during exam execution. A primary concern is workstation Hardware ID (HWID) spoofing or virtual machine (VM) evasion, where a student attempts to bypass the lock-down client by running it inside a guest operating system, leaving the host operating system free for unauthorized external search or communication. Other technical risks include WebSocket connection latency under high concurrency (e.g., when 40+ terminals stream screenshot packets simultaneously), low-level Windows API hook failures on different OS updates, and potential memory leaks in the WPF client background threads.
-
-\subsubsection{Schedule and Integration Risks}
-Schedule risks include the possibility of missing critical development milestones due to complexity or dependency conflicts. For this system, the integration of different component layers—such as connecting the Kestrel REST API with the Docker grading host and the React proctoring dashboard—represents a significant integration risk. Delays in completing foundational modules, such as user authentication or exam configuration pipelines, would directly delay subsequent modules like live proctoring or QuestPDF reporting. Additionally, the academic report documentation falling behind implementation is a persistent schedule risk.
-
-\subsubsection{Resource and Environmental Risks}
-Resource risks arise from constraints on physical facilities, equipment, or team availability. The primary resource risk is the temporary unavailability of the physical university computer labs for live testing and scenario-based validation. Hardware malfunctions or local network latency spikes in the university lab could also disrupt testing. Furthermore, individual team member illness, academic workload overload, or unexpected unavailability during a critical sprint represents a significant resource threat to project continuity.
-
-\subsubsection{Data Privacy and Accreditation Risks}
-Data privacy risks involve the accidental exposure of sensitive student records, active exam questions, or monitoring telemetry (such as webcam snapshots and desktop focus logs). If unauthorized users gain access to the database or storage servers, it could lead to institutional policy violations and compromise the integrity of the examination. Furthermore, failing to align the system’s modules with standard academic policies and department requirements could result in a lack of accreditation or approval by evaluators.
+Schedule risks include delays in design completion, incomplete sprint outcomes, or documentation falling behind implementation. Academic risks focus on misunderstandings of stakeholder requirements, insufficient justification of the design decisions in the report, or weak alignment between the written chapters and the evolving prototype. Resource risks may include limited access to realistic testing environments in physical institutional labs, local workstation hardware constraints, and API limitations in third-party grading modules.
 
 \subsection{Risk Analysis}
+Risk analysis helps the team determine which risks deserve the most attention \cite{risk1}. A risk is not important only because it is possible; it becomes important when its likelihood combines with meaningful impact. For example, a small wording correction in a chapter may be likely but low impact, whereas instability in a monitoring feature during late-stage integration may be both moderately likely and highly disruptive. The team therefore evaluates risks in terms of both probability and seriousness.
 
-Risk analysis helps the team determine which risks deserve the most attention. A risk is not important only because it is possible; it becomes important when its likelihood combines with meaningful impact. For example, a small wording correction in a chapter may be likely but low impact, whereas instability in a monitoring feature during late-stage integration may be both moderately likely and highly disruptive. The team therefore evaluates risks in terms of both probability and seriousness.
+To categorize these risks systematically, a qualitative assessment is performed using a probability-impact matrix. Probability is rated from Very Low to High, representing the chance of occurrence, while impact is rated from Low to High, representing the severity of consequences to the project's timeline and core features. High-probability and high-impact risks are placed in the critical category, requiring immediate action plans, while low-probability, low-impact risks are documented but handled reactively.
 
-To make this evaluation systematic, the system uses a semi-quantitative risk rating model. Each risk is evaluated on two parameters: Likelihood (L) and Impact (I). Both parameters are assigned a numerical score on a scale of 1 to 3:
-\begin{itemize}
-    \item \textbf{Likelihood (L):} Low = 1, Medium = 2, High = 3 (Very Low is treated as 1 for scoring purposes).
-    \item \textbf{Impact (I):} Low = 1, Medium = 2, High = 3.
-\end{itemize}
-
-Using these scores, the Risk Priority Score (RPS) is calculated using the following formula:
-\begin{equation}
-    \text{RPS} = \text{Likelihood (L)} \times \text{Impact (I)}
-\end{equation}
-
-Based on the calculated Risk Priority Score, the overall Priority is determined according to these thresholds:
-\begin{itemize}
-    \item \textbf{Low Priority (RPS 1--2):} Minor risks that do not disrupt development or execution. Mitigated with standard checks.
-    \item \textbf{Medium Priority (RPS 3--4):} Moderate risks that require active monitoring and secondary planning.
-    \item \textbf{High Priority (RPS 6--9):} Critical risks that can cause project failure or security breaches. Requiring active, primary mitigation strategies.
-\end{itemize}
-
-The Project Risk Rating Matrix presented in Table~\ref{tab:risk_matrix} categorizes the identified threats according to their estimated likelihood and potential operational impact, assigning a priority rating to guide the team's mitigation efforts:
+The priority of each risk in Table~\ref{tab:risk_matrix} is calculated by combining its likelihood with its potential impact. A risk with High likelihood and High impact is rated as Critical. Medium likelihood combined with High impact produces a High priority. Low likelihood with High impact, or Very Low likelihood with High impact, results in Medium priority. Medium likelihood with Medium impact also results in Medium priority. Low likelihood with Medium impact, or Very Low likelihood with Medium or lower impact, is rated as Low priority.
 
 \begin{table}[H]
 \centering
@@ -61,20 +33,11 @@ Team member unavailability during critical sprint     & Low    & Medium & Low \\
 \end{table}
 
 \subsection{Risk Mitigation Plan}
+Risk mitigation involves planning responses before problems grow. To counter the technical threat of hardware spoofing and virtualization evasion, mitigation strategies incorporate querying deep system BIOS parameters and motherboard manufacturer fields via Windows Management Instrumentation (WMI) to differentiate physical devices from virtualized hypervisors. Additionally, server overload during live exams is mitigated by implementing local buffering of telemetry packets on the client client, uploading logs in batches rather than transmitting continuous individual events.
 
-Risk mitigation involves planning responses before problems grow. For each of the priority areas defined in the risk rating matrix, the project team has established concrete mitigation protocols to minimize their likelihood and impact:
-
-\subsubsection{Mitigation for Technical and Security Threats}
-To mitigate workstation HWID spoofing and virtual machine evasion, the WPF student client integrates hypervisor detection checks. These checks query local WMI classes for virtual disk names, BIOS serial indicators, and hypervisor registry keys, blocking exam access if a guest OS environment is detected. To handle WebSocket latency and system overload, SignalR hubs utilize asynchronous database calls, local client-side buffering of logs during temporary dropouts, and optimized screenshot compression to reduce network bandwidth. Data privacy is maintained by storing all monitoring media in private bucket storage, encrypting passwords with BCrypt, and using JWT tokens to enforce role-based access.
-
-\subsubsection{Mitigation for Schedule and Integration Threats}
-To prevent late-stage integration failures, the development team uses modular interfaces with strict API contracts. This separation of concerns allows components (such as the Docker sandbox compiler and React web panel) to be developed and tested independently before full integration. Weekly sprint reviews and progress tracking against the WBS ensure that delay anomalies are identified early, allowing resources to be reallocated. Documentation is kept synchronized by writing and updating chapter drafts alongside each corresponding module's completion.
-
-\subsubsection{Mitigation for Resource and Environmental Threats}
-To mitigate laboratory unavailability, the team implements local workstation simulators and test harnesses. This allows end-to-end testing of lockdown features, WebSocket transmission, and auto-grading compilation on local laptops before deploying them to the physical lab environment. To handle team member unavailability, all source code is synchronized on shared repository branches, and task definitions are documented in detail, ensuring that another team member can cover critical assignments if needed.
+For schedule and coordination risks, the team utilizes a modular development approach using structured API endpoints and isolated grading sandboxes, permitting developers to construct and test features independently. Integration testing is scheduled early in the project timeline to expose interface mismatches. To prevent documentation delays, chapters are compiled incrementally at the end of each sprint cycle, ensuring the written thesis remains aligned with the prototype. Time pressure is managed using weekly burn-down charts to monitor progress along critical-path tasks.
 
 \subsection{Risk Monitoring and Control}
+Risk management is not a one-time exercise performed only at the proposal stage. Risks must be monitored throughout the semester as the project evolves. New risks may appear when modules become more detailed or when feedback changes priorities. Therefore, the team should review risk status regularly, especially after each sprint or milestone. Continuous risk monitoring supports more stable project execution and reduces the likelihood that late-stage surprises will undermine the final deliverable.
 
-Risk management is not a one-time exercise performed only at the proposal stage. Risks must be monitored throughout the semester as the project evolves. New risks may appear when modules become more detailed or when feedback changes priorities. Therefore, the team should review risk status regularly, especially after each sprint or milestone.
-
-Continuous risk monitoring is integrated into the Agile cycle. During weekly team meetings, the status of active threats is evaluated against critical development dependencies, and the risk rating matrix is adjusted as progress is made. For instance, once the Docker compiling sandbox is successfully integrated and tested, its risk rating is downgraded. This active tracking ensures stable execution, maintains project schedule control, and reduces the likelihood that late-stage integration issues will disrupt final prototype delivery.
+During sprint reviews, the team updates a centralized risk register tracking parameters such as active warning triggers, probability changes, and mitigation effectiveness. If a risk trigger is activated—such as a critical library deprecation or server connection failure during testing—the team initiates a pre-defined contingency plan. For instance, if the WebSocket connection drops during an exam session, the student client initiates local logging fallback to prevent data loss, automatically re-syncing with the Neon database once connection is restored. This proactive loop ensures system security and stability are maintained.

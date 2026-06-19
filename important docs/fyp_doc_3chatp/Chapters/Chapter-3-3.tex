@@ -1,8 +1,6 @@
 \subsection{Gantt Chart}
 
-The Gantt chart visually represents the timing and overlap of major activities such as requirement analysis, sprint planning, interface design, module development, testing, and final review \cite{gantt1}. In this revised plan, the chart is aligned with the eight sprint structure defined in the Agile process model so that the implementation schedule and the written process model remain consistent.
-
-The chart should be read together with the sprint descriptions because each four-week sprint represents a focused development increment with specific modules and review outcomes. When viewed in that way, the Gantt chart becomes a practical coordination tool rather than only a visual schedule.
+The Gantt chart visually represents the timing and overlap of major activities such as requirement analysis, sprint planning, interface design, module development, testing, and final review \cite{gantt1}. In this revised plan, the chart is aligned with the eight sprint structure defined in the Agile process model so that the implementation schedule and the written process model remain consistent. The visual timeline of these sprint activities is mapped in the Gantt chart shown in Figure~\ref{fig:ganttchart}. The visual timeline of these sprint activities is mapped in the Gantt chart shown in Figure~\ref{fig:ganttchart}.
 
 \begin{figure}[H]
 \centering
@@ -11,12 +9,11 @@ The chart should be read together with the sprint descriptions because each four
 \label{fig:ganttchart}
 \end{figure}
 
+The Gantt chart in Figure~\ref{fig:ganttchart} should be read together with the sprint descriptions because each four-week sprint represents a focused development increment with specific modules and review outcomes. When viewed in that way, the Gantt chart becomes a practical coordination tool rather than only a visual schedule \cite{spp1}.
 
 \subsection{Work Breakdown Structure}
 
-The work breakdown structure decomposes the project into manageable work packages \cite{wbs1}. It helps the team see how the final system emerges from smaller responsibilities such as requirement analysis, dashboard planning, scheduling logic, monitoring logic, submission handling, reporting, testing, and documentation.
-
-The WBS is especially helpful in team coordination because it reduces ambiguity around what must be completed and how tasks relate to one another.
+The work breakdown structure decomposes the project into manageable work packages \cite{wbs1}. It helps the team see how the final system emerges from smaller responsibilities such as requirement analysis, dashboard planning, scheduling logic, monitoring logic, submission handling, reporting, testing, and documentation. The hierarchical decomposition of these activities is represented in the Work Breakdown Structure in Figure~\ref{fig:wbs}. The hierarchical decomposition of these activities is represented in the Work Breakdown Structure in Figure~\ref{fig:wbs}.
 
 \begin{figure}[H]
 \centering
@@ -25,10 +22,13 @@ The WBS is especially helpful in team coordination because it reduces ambiguity 
 \label{fig:wbs}
 \end{figure}
 
+The WBS shown in Figure~\ref{fig:wbs} is especially helpful in team coordination because it reduces ambiguity around what must be completed and how tasks relate to one another \cite{spp1}.
 
 \subsection{Critical Path Method}
 
-The critical path method identifies the chain of activities that most directly determines whether the project can finish on time. In this FYP, activities such as requirement stability, design completion, core-module development, integration, testing, and final documentation are part of that path. The critical path perspective is valuable because it helps the team recognize that some delays are more dangerous than others.
+The critical path method identifies the longest sequence of dependent activities that determines the minimum project duration \cite{spp1}. Any delay in a critical path activity directly delays the entire project completion date, whereas activities not on the critical path have some flexibility known as slack or float. In this FYP, the critical path method was applied to nine key project activities to determine which tasks require the strictest schedule adherence.
+
+The project begins with Activity A (Gather Requirements, 1 week), after which the work splits into three parallel development tracks. The first track covers Activity B (Lockdown Browser Integration, 3 weeks) followed by Activity E (AI Monitoring Module Development, 3 weeks). The second track covers Activity C (Admin Dashboard Development, 2 weeks) followed by Activity D (Question Bank Module Development, 2 weeks) and then Activity G (Unit Testing, 1 week). The third track covers Activity F (Student Exam Interface Development, 2 weeks). All three tracks converge at Activity H (Integration Testing, 1 week), which is followed by Activity I (System Deployment, 1 week). The critical path network is illustrated in Figure~\ref{fig:criticalpath}.
 
 \begin{figure}[H]
 \centering
@@ -36,6 +36,8 @@ The critical path method identifies the chain of activities that most directly d
 \caption{Critical Path of the Proposed Project Activities}
 \label{fig:criticalpath}
 \end{figure}
+
+The critical path of the project follows the sequence Start, A, B, E, H, I, End, with a total duration of 9 weeks (1 + 3 + 3 + 1 + 1). This is the longest path through the network and therefore determines the minimum time required to complete the project. Activities on this path have zero float, meaning any delay in requirements gathering, lockdown browser integration, AI monitoring module development, integration testing, or system deployment will directly push back the project deadline. The second track (A, C, D, G, H, I) has a total duration of 8 weeks and therefore carries 1 week of positive slack. The third track (A, F, H, I) has a total duration of 5 weeks and carries 4 weeks of slack, making it the most flexible path in the schedule.
 
 \subsubsection{Schedule Control and Review}
 
