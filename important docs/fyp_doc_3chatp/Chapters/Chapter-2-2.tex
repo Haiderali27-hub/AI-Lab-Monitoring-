@@ -1,8 +1,5 @@
 \section{Functional Requirements}
-
-Functional requirements map out the specific features SmartExam must perform. In our system, these features run in a sequence. We start with pre-exam templates, move to live proctoring, and finish with submissions and grading. If any step fails, the entire proctoring chain breaks.
-
-These requirements reflect real academic rules. We designed them to enforce exam policies in a clear and verifiable way. Table~\ref{tab:functionalrequirements} lists each requirement with its ID and a short description.
+Functional requirements map out the specific features SmartExam must perform. In our system, these features run in a sequence. We start with pre-exam templates, move to live proctoring, and finish with submissions and grading. If any step fails, the entire proctoring chain breaks. These requirements reflect real academic rules. We designed them to enforce exam policies in a clear and verifiable way. Table~\ref{tab:functionalrequirements} lists each requirement with its ID and a short description.
 
 \begin{table}[H]
 \centering
@@ -31,48 +28,34 @@ FR14 & The system shall maintain audit logs and generate analytical PDF exam rep
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:functionalrequirements} presents the compact list. Each requirement makes more sense when placed in its actual exam-day context. The subsections below expand the major functional areas.
+Table~\ref{tab:functionalrequirements} includes the abbreviated list below. The following sections provide details on each requirement, mapping them to their intended exam-day use cases.
 
 \subsection{User and Access Management Requirements}
-SmartExam manages four user roles: Administrator, Teacher, Invigilator, and Student. We need strict role separation so that users only see the features they need to access \cite{rbac1}. Admins handle accounts. Teachers create exams and upload test cases. Invigilators watch live sessions. Students only sit for their active exams.
-
-This role engine must remain easy to use for lab coordinators who are not technical. It must be simple to add accounts, reassign students, or verify permissions, especially when classes change mid-semester.
+SmartExam maintains four user roles: Administrator, Teacher, Invigilator, and Student. We enforce strict separation so users only access their required features \cite{rbac1}. Administrators manage accounts. Teachers configure exams, enroll students, and upload expected test cases. Invigilators watch live sessions, while students only participate in active exams. This role engine must be simple for non-technical lab coordinators to use, allowing them to quickly assign accounts, reallocate seats, or verify permissions when class enrollments change mid-semester.
 
 \subsection{Examination Planning and Scheduling Requirements}
-Setting up a lab exam requires more than just picking a date \cite{eassess1}. Teachers must define durations, whitelisted apps, coding tasks, and expected test cases. Different courses need custom setups; a python programming exam is very different from a networking lab test. 
-
-We also need to map seating. Multiple student sections often share the same computer lab. Seat mapping assigns each student to a specific computer IP address. This prevents students from starting the exam from personal devices or logging into duplicate sessions.
+Scheduling a lab exam involves more than just selecting a date \cite{eassess1}. Teachers configure duration, whitelisted applications, coding tasks, and evaluation test cases. Each exam is fully customizable; for instance, a Python programming exam requires different environment rules than a computer networking test. Additionally, the system maps workstation IP addresses to specific student accounts. This seat mapping ensures students can only launch the exam from their assigned computer, preventing duplicate logins or unauthorized access from personal devices.
 
 \subsection{Monitoring and Supervision Requirements}
-Live monitoring is where SmartExam differs from standard online learning tools \cite{mit_cbt}. While standard platforms only host quizzes, SmartExam actively monitors the student's workstation. The teacher dashboard shows a real-time grid of student status cards, complete with active processes and screenshots.
-
-We track events like focus loss, whitelisted app violations, and screen capture status. The system never locks or penalizes a student automatically. It flags potential cheating, leaving the final decision to the human invigilator.
+SmartExam differentiates itself from standard testing platforms by monitoring workstations in real time rather than just hosting a quiz \cite{mit_cbt}. The invigilator dashboard displays a live grid of student cards showing active processes and periodic screenshots. The system automatically flags events like focus loss, unapproved application launches, and screenshot capture attempts. Crucially, the platform does not penalize or lock students automatically; it logs these incidents for manual review and final decision by the invigilator.
 
 \subsection{Submission and Evidence Requirements}
-Practical programming exams produce files that must be secured \cite{integ1}. The client auto-saves the student's work every 10 seconds. When the timer runs out, the client forces a submission and uploads the files to the database. Students cannot change their code after this point.
-
-We also keep a secure evidence log. Every submission links back to the student's HWID, their user account, and their focus history. If a student disputes a grade later, we can check exactly what occurred at that workstation during their exam.
+Programming exams generate student files that must be secured \cite{integ1}. The client auto-saves the student's work every 10 seconds. When the exam timer expires, the client forces an automatic upload of all submission files, preventing any post-exam modifications. The system also maintains an immutable evidence log containing usernames, hardware IDs, focus history, and running processes. This log provides a detailed audit trail to resolve grading disputes and verify workstation activity during the exam.
 
 \subsection{Reporting and Post-Exam Review Requirements}
-Standard testing tools often neglect post-exam analysis. After a session ends, teachers have to look through scattered files, attendance lists, and plagiarism matrices manually \cite{elicit1}. 
-
-SmartExam resolves this by using the QuestPDF engine to generate structured PDF reports. These reports contain attendance data, incident histories, and grading summaries. This helps teachers review grades and provides admins with clear audits for accreditation.
+Standard testing platforms often overlook post-exam analysis, requiring teachers to manually compile files, attendance lists, and plagiarism reports \cite{elicit1}. SmartExam automates this process using the QuestPDF engine to generate structured PDF reports. These documents compile attendance sheets, flagged incident summaries, and overall results, assisting teachers in grade review and providing administrators with clear audits for compliance and accreditation.
 
 \section{Non-Functional Requirements}
 
-Non-functional requirements set the quality rules and constraints for our system \cite{iso25010}. For lab exams, these details are vital. A laggy login screen wastes exam time, an insecure server leaks student data, and a confusing dashboard makes invigilators miss cheating.
+While functional requirements describe what the system does, non-functional requirements set quality constraints and operational rules \cite{iso25010}. In lab environments, these qualities determine success; a slow login wastes exam time, an insecure server risks data leaks, and a laggy dashboard prevents effective invigilation.
 
 \subsection{Software Quality Attributes}
 
-SmartExam focuses on six main qualities: security, reliability, usability, performance, maintainability, and data integrity \cite{iso25010}.
-
-Security is critical because we store student identities and monitoring logs. Reliability is equally important; we cannot have the server crash mid-exam. The system must also be easy to use under time pressure, and the modules must be maintainable so developers can update components without breaking others. Lastly, data integrity ensures that our timestamps and grade logs remain untampered.
+We design SmartExam around six core quality attributes: security, reliability, usability, performance, maintainability, and data integrity \cite{iso25010}. Security protects user identities and monitoring logs. Reliability ensures system availability during exams. Usability guarantees that students and invigilators can operate interfaces under time pressure. Performance keeps login and telemetry response times fast. Maintainability allows independent updates to modules, and data integrity ensures timestamps and logs remain untampered.
 
 \subsection{Other Non-Functional Requirements}
 
-We also designed the platform for university lab constraints. Most workstations run Windows and connect via a local area network (LAN). Since internet access can be slow, the system must work in both LAN-only and cloud environments.
-
-Privacy is a priority when handling student screenshots. We restrict data access by role. For example, an invigilator can only view screenshots for their current session, and students can only access their own results. To prevent data loss, Neon PostgreSQL provides point-in-time recovery, and local servers can run daily database exports.
+The platform is optimized for university lab constraints, where workstations run Windows and connect via a Local Area Network (LAN). To handle slow or unreliable internet access, the system supports both cloud and LAN-only modes. To protect privacy, data access is strictly scoped; invigilators can only view screenshots for their assigned sessions, not all exams. For backup and recovery, Neon PostgreSQL provides point-in-time recovery, supplemented by hourly or daily database exports on local servers.
 
 \begin{table}[H]
 \centering
@@ -96,31 +79,23 @@ Backup and Recovery & Submission records and audit logs shall be backed up using
 
 \section{Requirement Gathering Techniques Used}
 
-To design a system that works for teachers, invigilators, and IT staff, we used structured interviews, paper prototypes, and two brainstorming sessions \cite{elicit1, sommerville}.
+To build a system tailored for educators and IT staff, we gathered requirements using structured interviews, paper prototypes, and two brainstorming sessions \cite{elicit1, sommerville}.
 
 \subsubsection{Interviews}
-We interviewed teachers and lab coordinators to understand how they run practical exams today \cite{elicit1}. We focused on what causes the most disruptions and what reports they need after the exam.
-
-The feedback was consistent. Everyone highlighted the lack of live screen visibility and organized post-exam evidence as major gaps. These interviews directly shaped our live dashboard and PDF reporting requirements.
+We interviewed university teachers and lab coordinators to identify pain points in current practical exam administration \cite{elicit1}. The interviews focused on identifying major disruptions and reporting needs. Feedback consistently highlighted two recurring themes that shaped our requirements: the critical need for live workstation monitoring and structured post-exam evidence logs.
 
 \subsubsection{Prototyping}
-We walked through simple interface sketches with users before writing formal requirements \cite{sommerville}. We showed them the login, dashboard, student client, and submission screens.
-
-Based on user feedback, we made three changes. We added a larger submission countdown timer, placed live alerts at the top of the teacher's dashboard, and simplified the student view to show only one question at a time to reduce distractions.
+Before drafting formal requirements, we presented simple interface prototypes (login, dashboard, student screen, active exam screen, and submission view) to users \cite{sommerville}. Feedback prompted three changes: adding a visual countdown timer to the student's submission screen, placing live alerts at the top of the teacher's dashboard, and displaying one question at a time to reduce distractions.
 
 \subsubsection{Brainstorming Session 1: Academic Workflow}
-Our first brainstorming session mapped out the exam lifecycle from start to finish \cite{elicit1}. We debated which manual steps take the most time and what features to prioritize in our prototype.
-
-We prioritized exam configuration, role management, and seating mapping. Mapping seating to workstation IPs was added because it ensures students can only launch the exam from their assigned computer.
+Our first brainstorming session documented the lifecycle of high-stakes lab exams \cite{elicit1}. We analyzed manual, time-consuming tasks and determined which prototype components to focus on. Consequently, we targeted exam configuration, role management, and workstation assignment. The workstation assignment feature prevents students from launching exams from unassigned computers.
 
 \subsubsection{Brainstorming Session 2: Monitoring and Reporting}
-The second session focused on proctoring, face recognition, and reporting. We discussed what events are worth logging and what report layouts teachers need.
-
-We decided that face recognition must run before the exam begins, and all proctoring alerts must be saved in the database for later review. We also designed the final PDF report to consolidate attendance, violations, and grades in a single document.
+Our second brainstorming session focused on monitoring, proctoring (including face recognition), and reporting \cite{agile1}. We discussed event logging and report designs preferred by teachers. We concluded that face recognition should run during the pre-exam stage, proctor reports must be archived in the database, and the final PDF report should consolidate attendance, violations, and scores into one document.
 
 \section{Time Frame}
 
-Our project schedule spans eight four-week sprints (Week 1 to Week 32). Each sprint delivers a testable software increment. Table~\ref{tab:timeframe} maps out the schedule.
+We structured our project timeline into eight four-week sprints (Weeks 1--32). Each sprint delivers an inspectable software increment. Table~\ref{tab:timeframe} represents our schedule and planned deliveries.
 
 \begin{table}[H]
 \centering

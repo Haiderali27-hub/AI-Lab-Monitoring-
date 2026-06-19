@@ -1,30 +1,25 @@
 \chapter{SOFTWARE REQUIREMENTS SPECIFICATION}
 \label{chap:srs}
 
-This chapter is the Software Requirements Specification (SRS) for the AI-Driven Lab Exam Monitoring and Management System \cite{srs1}. It documents what the system must do, the quality standards it must meet, and the constraints it must operate within. Nothing in this chapter describes implementation details --- those belong to the design and implementation chapters.
+This chapter is the Software Requirements Specification (SRS) for the AI-Driven Lab Exam Monitoring and Management System \cite{srs1}. It documents what the system must do, the quality standards it must meet, and the constraints it must operate within. Nothing in this chapter describes implementation details---those belong to the design and implementation chapters.
 
-The SRS matters because requirements set before any code is written tend to produce very different software than requirements discovered halfway through. We drafted this chapter after conducting structured interviews with lab supervisors, walking through prototype screens with potential users, and running two focused brainstorming sessions with the project team. That process is described in the Requirement Gathering section.
-
-The specification addresses a real operational gap. Lab exams at SZABIST and comparable institutions are managed manually. There is no platform that links scheduling, machine allocation, live monitoring, submission handling, and reporting into one verifiable workflow. This SRS defines what such a platform must provide.
+The SRS matters because requirements set before any code is written tend to produce very different software than requirements discovered halfway through. We drafted this chapter after conducting structured interviews with lab supervisors, walking through prototype screens with potential users, and running two focused brainstorming sessions with the project team. That process is described in the Requirement Gathering section. The specification addresses a real operational gap. Lab exams at SZABIST and comparable institutions are managed manually. There is no platform that links scheduling, machine allocation, live monitoring, submission handling, and reporting into one verifiable workflow. This SRS defines what such a platform must provide.
 
 \section{Introduction}
-
 The proposed system handles a complex process involving multiple roles, sequential phases, and strict fairness constraints. Without a formal specification, it is too easy for design choices to drift away from what supervisors and students actually need.
 
 This introduction explains what the SRS covers, who should read it, and how the document is structured. The remaining sections cover functional requirements, non-functional requirements, requirement gathering techniques, and the project time frame.
 
 \subsection{Document Scope}
-
-The SRS covers authentication and device binding, role management, exam scheduling and configuration, student desktop client behaviour, live monitoring telemetry, submission management, AI-assisted grading, plagiarism analysis, audit logging, and PDF reporting. It also describes the quality properties --- security, reliability, usability, performance, maintainability, and privacy --- that govern how these features operate.
+The SRS covers authentication and device binding, role management, exam scheduling and configuration, student desktop client behavior, live monitoring telemetry, submission management, AI-assisted grading, plagiarism analysis, audit logging, and PDF reporting. It also describes the quality properties---security, reliability, usability, performance, maintainability, and privacy---that govern how these features operate.
 
 What this document does not cover: specific database schemas, API endpoint definitions, UI wireframes, or deployment configurations. Those details emerge during design sprints and are documented separately in the design chapter.
 
 \subsection{Audience}
-
 Three groups use this document for different purposes.
 
 The \textbf{project team} uses it as a technical contract. Every functional requirement in this document maps to at least one design element, UI screen, or test case. If a feature appears here, it must appear in the prototype. If something is not listed here, the team does not build it unless the requirements change through a documented update.
 
 The \textbf{supervisor and academic evaluators} use it to judge scope, coherence, and academic value. They need to see that the requirements are specific enough to guide engineering decisions, and that the overall scope is realistic for a two-semester FYP.
 
-\textbf{Future stakeholders} --- lab administrators, institutional IT staff, or subsequent FYP cohorts --- use it to understand what the current prototype delivers and where extensions are possible.
+\textbf{Future stakeholders}---lab administrators, institutional IT staff, or subsequent FYP cohorts---use it to understand what the current prototype delivers and where extensions are possible.
