@@ -1,15 +1,15 @@
 \chapter{SYSTEM DESIGN}
 \label{chap:system_design}
 
-In this chapter, we detail the technical architecture of SmartExam. We translate our conceptual requirements into concrete component structures, database designs, and runtime diagrams. This acts as our development blueprint, ensuring that our WPF client, API controllers, WebSocket hubs, and grading services coordinate smoothly under load.
+This chapter breaks down SmartExam's technical architecture, converting our requirements into a functional design by defining database schema, component structure diagrams, and runtime diagrams. This diagram set serves as our blueprint to guide WPF client, API controllers, WebSocket hub, and grading service communication when under stress.
 
 \section{Structure Diagrams}
-Structure diagrams map out the static layout of our system, showing how the database models, server applications, and client executables connect \cite{structure_diagram_techopedia}. They define the compile-time boundaries, helping our team build individual components in parallel without integration surprises.
+Structure diagrams display a system's compile-time structure, which we apply to diagramming our database model, server processes and client applications \cite{structure_diagram_techopedia}. These help to determine compile-time bounds and enable parallel development among team members by revealing how components will fit together.
 
-In the design of the SmartExam system, structure diagrams serve as essential tools for visualizing the static backbone of the application. They offer a high-level overview of how major database entities, service layers, controllers, client terminals, and remote database servers interact to deliver core functionalities like authentication, lockdown boundaries, and grading pipelines. By defining relationships and dependencies between compile-time components, structure diagrams streamline system design and ensure cohesive, concurrent development.
+When designing SmartExam's overall architecture, structure diagrams assist by visually identifying how the database models, controllers, servers and clients relate and connect. This visual diagram helps to clarify our application's static foundation, including how to manage authentication, how to establish lockdown limits and what order in which we would like to perform gradings.
 
 \subsection{Class Diagram}
-We use class diagrams to model our database entities and repository layers in an object-oriented way \cite{class_diagram_uml, class_diagram_sparx}. Figure~\ref{fig:class_diagram} shows the domains model for SmartExam.
+In our system design, we use class diagrams to depict the database entity-relationship diagram (ERD) that define our application's data structure as object classes \cite{class_diagram_uml, class_diagram_sparx}. We've represented some core models here in Figure~\ref{fig:class_diagram}.
 
 \begin{figure}[H]
 \centering
@@ -18,10 +18,10 @@ We use class diagrams to model our database entities and repository layers in an
 \label{fig:class_diagram}
 \end{figure}
 
-The diagram in Figure~\ref{fig:class_diagram} defines the fields and relationships for our 14 core database entities. We map roles, user profiles, hardware bindings, exam parameters, seating lists, telemetry events, and grading logs. Notice the one-to-one relationship between users and bindings, which ensures students cannot log in on personal laptops.
+The fourteen classes represented in Figure~\ref{fig:class_diagram} illustrate the attributes of our 14 essential database entities. Here we model our 14 database entities, which are roles, user profiles, HW (hardware ID) bindings, settings, exam settings, seating plans, telematics events and exam log files. Note how the two entities with a 1:1 relationship between them represent binding an exam setting with user. This would give our security team more control over which machines and OSes exams are allowed on, blocking students taking exams on their personal devices or a non-proctored machine.
 
 \subsection{Deployment Diagrams}
-Deployment diagrams show how our software components sit on physical hardware and network nodes during runtime. Figure~\ref{fig:deployment_diagram} details our distributed layout.
+A Deployment Diagram illustrates the hardware architecture of the deployment target, and displays the software mapping onto hardware and network topology \cite{sequence_diagram_medium}. In this Diagram, we can clearly observe our system architecture, which is set up in the cloud.
 
 \begin{figure}[H]
 \centering
@@ -45,13 +45,13 @@ Component diagrams detail the modular interfaces and dependencies of our compile
 In Figure~\ref{fig:component_diagram}, we separate the system into Client, Application, and Data tiers. The WPF and React components make up the client tier. The REST API, SignalR WebSockets hub, Docker grading runner, and AI semantic parser run in the application tier. The Neon PostgreSQL database holds our persistent storage.
 
 \section{Behavioral Diagrams}
-Behavioral diagrams model how our components interact at runtime, tracing data flows, state updates, and WebSocket events as they happen \cite{behavioral_uml_diagrams}. This helps us spot potential network lag and verify that lock overrides and diagnostics occur in the correct order.
+Behavioral diagrams represent how the components of our systems interact during the execution time. These types of diagrams illustrate how data flows through the system and provide a step by step walk through as certain actions occur such as the change in state or other system events occur \cite{behavioral_uml_diagrams}.
 
 \subsection{Activity Diagrams}
-Activity diagrams are flowcharts that map out the execution pathways of our modules, complete with loops, decision points, and swimlanes to separate roles \cite{activity_diagram_vp}. Below, we trace the workflows for our key student and teacher modules.
+In computer science, an activity diagram is a flow chart like diagram which will be the diagram used to show each step that leads up to a part of a workflow, which will in turn, be one step in another, higher level workflow \cite{activity_diagram_vp}. The student exam section, and the lockdown workflow are two of our most common workflows depicted below.
 
 \subsubsection{Student Exam Session and Lockdown Workflow}
-Figure~\ref{fig:activity_diagram} details the student's exam workflow from initial login to submission.
+The Diagram below in Figure~\ref{fig:activity_diagram} summarizes the typical exam workflow taken by our student application, all the way from logging in to submitting his answers. From authentication and the submission to the HWID Check the student will log into their workstation and get the signal to proceed to lockdown where local diagnostics take place. Before they even click on the ``start exam'' button the system has already initiated screenshot and focus polling, ready for anything out of the normal.
 
 \begin{figure}[H]
 \centering
@@ -59,8 +59,6 @@ Figure~\ref{fig:activity_diagram} details the student's exam workflow from initi
 \caption{UML Activity Diagram of Student Exam Session and Lockdown Workflow}
 \label{fig:activity_diagram}
 \end{figure}
-
-The flow starts with user authentication and HWID checking. Once cleared, the client runs local diagnostics on the webcam and process lists. If successful, the client enters full-screen lockdown mode, blocking key combinations like Alt+Tab. Throughout the exam, a background thread streams screenshot and focus events. On submission or timeout, the WPF client unlocks the screen, uploads the final answer package, and triggers the grading engine.
 
 \subsubsection{Authentication and HWID Binding}
 Figure~\ref{fig:activity_auth} maps the workstation binding checks.
@@ -72,7 +70,7 @@ Figure~\ref{fig:activity_auth} maps the workstation binding checks.
 \label{fig:activity_auth}
 \end{figure}
 
-When a student logs in, the client fetches local CPU and motherboard hashes. If this is their first login, the database records the binding. If a binding already exists, the server rejects the login if the local machine's hash does not match.
+Our diagram of the authentication and HWID Check is included here below for clarity and for demonstrating the role of security in the exam workflow. Once the system has performed initial client/server authentications the system may retrieve and store the initial CPU and motherboard serial hashes for that workstation. The first time a student logs into a workstation, that binding will be recorded in our server-side database. The following attempts to log in to that workstation by that student will require that the server-side binding hashes must match the client-side.
 
 \subsubsection{Pre-Exam Diagnostics Check}
 Figure~\ref{fig:activity_diagnostics} shows the pre-exam verification flow.
@@ -84,7 +82,7 @@ Figure~\ref{fig:activity_diagnostics} shows the pre-exam verification flow.
 \label{fig:activity_diagnostics}
 \end{figure}
 
-The WPF client tests the webcam feed, verifies internet latency, and scans active processes for forbidden applications. If all checks clear, the client enables the "Start Exam" button.
+This section diagram (Figure~\ref{fig:activity_diagnostics} below) provides details on what will happen before the student is allowed to actually ``start the exam''. Local diagnostic tests for web-cam presence, internet connectivity, and lists of prohibited applications will be performed, and the user will be alerted to any failures.
 
 \subsubsection{Readiness Verification and Mock Test}
 Figure~\ref{fig:activity_readiness} outlines the mock test environment.
@@ -96,7 +94,7 @@ Figure~\ref{fig:activity_readiness} outlines the mock test environment.
 \label{fig:activity_readiness}
 \end{figure}
 
-Before sitting the exam, students run a quick mock test. The client downloads sample files, verifies code compilation, and checks database uploads.
+The following Diagram (Figure~\ref{fig:activity_readiness}) indicates what is necessary in order to be ``ready'' and what happens before a ``practice'' test would take place. For a practice test, it's expected that the student would have all necessary items in place, and have a clean network connection.
 
 \subsubsection{Active Exam Dashboard}
 Figure~\ref{fig:activity_dashboard} shows the active exam dashboard flow.
@@ -132,7 +130,7 @@ Figure~\ref{fig:activity_submission} shows the submission pipeline.
 \label{fig:activity_submission}
 \end{figure}
 
-When submitting, the client packages files, uploads them over HTTPS, registers the completion event in the database, removes all key hooks, and exits.
+When submitting, the client packages files, uploads them over HTTPS, registers the completion event in the database, removes all key hooks, and exits. 
 
 \subsubsection{Exam Template Configuration}
 Figure~\ref{fig:activity_config} maps how teachers configure exams.
@@ -219,7 +217,7 @@ Figure~\ref{fig:activity_audit} details database auditing.
 Critical actions, such as seating overrides or password changes, are recorded in the database with timestamps and actor details.
 
 \subsection{Communication Diagrams}
-Communication diagrams visualize object collaborations, focusing on the structural paths through which messages travel \cite{communication_diagram_boardmix}. Figure~\ref{fig:communication_diagram} traces our override pathway.
+When focus-loss is identified at the client, there is a sequence of checks and processes that is completed to both alert and disable the client until a teacher overrides the lockdown \cite{communication_diagram_boardmix}. Figure~\ref{fig:communication_diagram} demonstrates the student override sequence in the system.
 
 \begin{figure}[H]
 \centering
@@ -231,10 +229,10 @@ Communication diagrams visualize object collaborations, focusing on the structur
 Figure~\ref{fig:communication_diagram} maps the override sequence. The student client pushes a focus-loss event over WebSockets (1). The SignalR hub writes it to the database (2) and alerts the teacher panel (3). The teacher pauses the exam (4), sending an API call to the controller (5). The controller updates the database session (6) and instructs the hub to pause the student client (7).
 
 \subsection{Sequence Diagrams}
-Sequence diagrams map out interactions chronologically, tracing lifelines and message passing over time \cite{sequence_diagram_medium}. Below, we trace the message chains for our key API flows.
+A sequence diagram depicts when an object sends an information message, to whom it sends the information, the medium through which the information is sent, and how the objects interacting as part of the message send and receive in the form of time sequencing \cite{sequence_diagram_medium}. Figure~\ref{fig:seq_login} maps message sequences from student to login server.
 
 \subsubsection{Login}
-Figure~\ref{fig:seq_login} maps authentication.
+Figure~\ref{fig:seq_login} provides more details of the Login flow as explained above. Figure~\ref{fig:seq_login} maps message sequences from student to login server.
 
 \begin{figure}[H]
 \centering
