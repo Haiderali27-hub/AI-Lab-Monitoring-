@@ -1,15 +1,15 @@
 \section{Problem Statement / Limitations}
 
-Running a computer-lab exam for forty students with one or two invigilators is harder than it looks. Supervisors cannot watch every screen at once. Students know this. Without a technical enforcement layer, policy compliance depends entirely on physical presence and trust \cite{mit_cbt}.
+As much as convenient a computer lab can be, administering a live computer lab exam to around 40 students using one or two supervisors is more challenging than it appears, not least because supervisors have limitations in physically overseeing the entire lab. Students are aware of such limitation. Thus, without technological enforcement, policy violation is at best a matters of opportunity \cite{mit_cbt}.
 
-The problems in current lab-exam practice fall into three categories.
+We found the current practice of running computer lab exams problematic due to the following three categories of issues.
 
-\textbf{No unified scheduling tool.} Exam dates, lab assignments, and seat maps live in spreadsheets, printed lists, or WhatsApp messages. Invigilators sometimes arrive to find a student sitting at the wrong machine, or no instructions posted in the room. Coordination breaks down because there is no single system of record.
+\textbf{Disparate schedule management.} Numerous records exist regarding schedule and location of exams, including examination date, lab assigned, student's seating plan, to spreadsheets, printed documents or even group chats. As a result, supervisors may face challenges such as a student occupying the wrong machine, or lack of scheduled instruction in the exam room, hindering the coordination and creating confusion. Without a unified system of record, proper coordination remains elusive.
 
-\textbf{Weak live visibility.} Even experienced invigilators cannot simultaneously track what thirty students have open on their screens. Focus switches, unauthorized applications, and unusual inactivity go undetected. Without structured telemetry, these events are never logged and cannot be reviewed later.
+\textbf{Weak live visibility.} Supervisors may lack adequate tools to monitor the activity of multiple students at once, especially if 30+ students are present in a room. Unauthorized software, shifts in focus, and inactivity may go unnoticed by supervisors without real-time telemetry for later analysis \cite{elicit1}.
 
-\textbf{Poor evidence and traceability.} When a suspicious incident occurs during an exam, supervisors must reconstruct it from memory after the session ends. There is no automatic log of which applications were running, when a student went inactive, or what their screen showed at a given moment. This makes academic disputes very hard to resolve fairly.
+\textbf{Inadequate evidential traceability.} When an incident occurs, supervisors may find themselves in a difficult position when trying to recall event details from their memory, with the challenge of gathering detailed evidence, including application launches, student's session time, and their screen activities \cite{rbac1, elicit1}. Such a situation further complicates any academic dispute resolution process.
 
-These three problems compound each other. Fragmented scheduling causes confusion at the start. Weak monitoring misses incidents during the exam. Poor evidence makes resolution impossible afterward.
+The three issues discussed are interwoven. Problems with schedule planning create confusion and problems on examination morning. Lack of real-time system monitoring miss such issues when they happen. And a poorly maintained trace makes it impossible to resolve disputes afterward.
 
-\textbf{Project-level limitations.} SmartExam is an FYP prototype, not a production enterprise system. The AI evaluation and face recognition modules represent solid proof-of-concept implementations. They are not production-trained classifiers. Large-scale institutional deployment --- spanning multiple campuses, mixed operating systems, and enterprise SSO --- falls outside the FYP boundary. These boundaries are deliberate and acknowledged, not oversights.
+\textbf{System boundaries.} The scope of the FYP is for the development of a prototype; therefore, features like advanced AI evaluations, student face recognition, or full-blown enterprise solutions for multiple campus institutions with mixed operating systems and enterprise single sign-on (SSO) integration fall outside the scope of this project and are considered as future enhancements, beyond the capabilities of a two-semester project.

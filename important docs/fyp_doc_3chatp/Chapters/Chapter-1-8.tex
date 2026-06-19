@@ -1,14 +1,12 @@
 \section{Software Process Model}
 
-SmartExam is a twelve-module platform with interdependent components, evolving design decisions, and iterative supervisor feedback. Waterfall does not work here. A model that locks requirements on day one and delivers working software on the last day would leave too many design assumptions untested for too long.
-
-We chose Agile because it fits the nature of this project: complex enough to need structured sprints, but uncertain enough to benefit from continuous review and correction.
+The SmartExam platform being a set of interconnected modules that are highly dependent on each other. Due to ongoing evolution and changes based on design review by supervisors and other stakeholders, a rigid development methodology like Waterfall is not an ideal option for this project. A model that can facilitate a flexible scope is preferred.
 
 \subsection{Process Model Introduction}
 
-Agile divides development into short, focused cycles called sprints. Each sprint produces working, demonstrable software. If a design decision turns out to be wrong --- say, the invigilator dashboard is too cluttered --- it is caught and fixed in the next sprint rather than discovered at the final demonstration.
+The selected process model is Agile, more specifically we'll be utilizing a structure divided into multiple development cycles, or Sprints. During each Sprint, a potentially usable and demo-able chunk of the application is developed. This model proves efficient in projects where the overall project's scope is fluid and requirement changes are expected along with continuous stakeholders' feedback. The core strength lies in the incremental delivery which reduces risks and ensure the timely integration and validation of various project features. Unlike Waterfall, problems and mis-judgements are caught early within the cycle rather than at the end where it is costly to fix.
 
-This matters particularly for SmartExam. Role-based dashboards, HWID binding logic, and live telemetry streaming all interact. Getting the interaction right requires building early, testing with real users, and refining based on what breaks. Agile creates the structure to do this systematically. Figure~\ref{fig:agileworkflowdetailed} shows the sprint cycle, feedback loops, and supervisor review milestones.
+This type of development is especially fitting for SmartExam as features such as role-based access, HWID locking, live telemetry streaming, and automatic grade calculation need to be tightly coupled for the entire system to function effectively. By delivering increments and performing early user and system integration, we can identify issues and refine the design of these complex interactions at an early stage. Figure~\ref{fig:agileworkflowdetailed} indicates a summarized overview of the iterative design cycle within a sprint and its relationship to stakeholders.
 
 \begin{figure}[H]
 \centering
@@ -19,26 +17,24 @@ This matters particularly for SmartExam. Role-based dashboards, HWID binding log
 
 \subsection{Justification of Proposing the Process Model}
 
-The twelve modules of SmartExam do not all have equal certainty at the start. Authentication and role management are well-understood. Face recognition integration, live WebSocket telemetry synchronisation, and AI theory grading carry more design risk. A sequential model forces the team to specify these uncertain components fully before writing a line of code. That is unrealistic.
-
-Agile splits the risk. High-certainty modules ship first. Uncertain modules get prototyped early and refined across multiple sprints before integration. Supervisor feedback from prototype reviews shapes later sprints without destabilising earlier work. This approach also matches the FYP timeline. Academic review happens at mid-semester and end-of-semester milestones --- exactly the rhythm Agile sprint reviews follow.
+The twelve modules of the SmartExam are not equally certain from day one. The security and user access components are quite standard and well-understood, while areas like face recognition, real-time websocket communication, or AI model for auto-grading feature more significant design risks and thus carry a higher potential for unforeseen challenges. A purely sequential development process would require freezing all these uncertainties upfront without concrete prototypes to validate them -- an impractical proposition for a year-long FYP project. The Agile model helps to mitigate this by allowing us to de-scope uncertainties, prototyping them at the earliest, integrating their results progressively and adjusting plans accordingly through ongoing review process. This also seamlessly aligns with our academic review milestones scheduled for mid-semester and end-of-semester; as we will be demonstrating functional increments each sprint, demonstrating progress to satisfy the review criteria will be an organic part of the development cycle.
 
 \subsection{Steps of Process Model}
 
-Eight sprints cover the full project, each running for four weeks. The twelve modules are distributed so that every sprint delivers a meaningful, reviewable increment.
+The project will be structured into eight Sprints, each spanning 4 weeks. All twelve modules will be incorporated within the sprint plan such that each Sprint yields a demonstrable, integrated set of functionalities for review.
 
-\textbf{Sprint 1 (Weeks 1--4):} Requirement Analysis and System Planning. Activities include stakeholder interviews, use-case mapping, product backlog creation, initial architecture design, and scope approval from the supervisor.
+\textbf{Sprint 1 (Weeks 1--4):} Requirement Analysis \& Planning phase. Includes collecting requirements from university IT and CS department stakeholders, detailed use-case modeling, formulating the product backlog, high-level architecture design, and getting supervisor's approval on the project scope.
 
-\textbf{Sprint 2 (Weeks 5--8):} Core Access Control and Authentication. Delivers Module 1 (Authentication and Device Binding) and Module 7 (User and Role Management). The team builds JWT login endpoints, HWID extraction via WMI API calls, user registration screens, and role-based dashboard routing.
+\textbf{Sprint 2 (Weeks 5--8):} Authentication and Core Security components. Focus on delivering Module 1 (Device Binding and authentication) and Module 7 (User role and rights management). Functionalities include HWID capture (via WMI API calls), student login with HWID binding check, teacher and admin login mechanisms, and role-based access control for system views.
 
-\textbf{Sprint 3 (Weeks 9--12):} Exam Configuration and Administration. Delivers Module 8 (Exam Creation and Configuration) and Module 9 (Eligibility and Access Control). The team builds exam templates, application blocklists, test-case definitions, and seat assignment logic.
+\textbf{Sprint 3 (Weeks 9--12):} Exam Creation \& Configuration modules. This sprint focuses on Module 8 (Exam creation and configuration) and Module 9 (Exam eligibility management and assignment control). It involves building the UI for defining exam parameters (title, description, time, etc.), question templates (coding and theory), test cases, app block/allow lists, and student eligibility logic.
 
-\textbf{Sprint 4 (Weeks 13--16):} Student Desktop Client Environment. Delivers Module 2 (Pre-Exam Verification), Module 3 (Exam Dashboard), and Module 4 (Secure Exam Environment). The WPF client launches in fullscreen, disabling Alt+Tab and Task Manager. Hardware readiness checks run before the session begins.
+\textbf{Sprint 4 (Weeks 13--16):} Delivers Module 2 (Pre-Exam Verification), Module 3 (Exam Dashboard), and Module 4 (Secure Exam Environment). The WPF client launched in fullscreen, blocking the Alt+Tab keys and Task Manager. Prior to session startup, hardware ready checks are conducted.
 
-\textbf{Sprint 5 (Weeks 17--20):} Live Telemetry and Proctoring. Delivers Module 5 (Live Monitoring Client Service) and Module 10 (Live Proctoring Dashboard). Background services log focus switches and process lists every few seconds. A SignalR WebSocket connection streams this data to the React-based teacher dashboard.
+\textbf{Sprint 5 (Weeks 17--20):} Live Telemetry and Proctoring. Will deliver Module 5 (Live Monitoring Client Service) and Module 10 (Live Proctoring Dashboard). Background services are placed that log focus switches and process listings every couple of seconds. The data is streamed to a teacher dashboard (developed with React) via a SignalR WebSocket.
 
-\textbf{Sprint 6 (Weeks 21--24):} Submission and AI Evaluation. Delivers Module 6 (Submission and Backup) and Module 11 (AI-Assisted Evaluation). The team implements auto-save with local encrypted backups, isolated code compilation against test cases, and AI semantic scoring for theory answers. A class-wide plagiarism comparison matrix is generated at submission close.
+\textbf{Sprint 6 (Weeks 21--24):} Submission and AI Evaluation. Will deliver Module 6 (Submission and Backup) and Module 11 (AI-Assisted Evaluation). Teams will use autotoggle for submitting to locally encrypt and backup code on local devices, perform safe compilation of isolated code against test suites, and leverage an AI based on semantic similarity scoring for theory questions, providing a classwide plagiarism comparison matrix when submissions close.
 
-\textbf{Sprint 7 (Weeks 25--28):} Reporting, Analytics, and Auditing. Delivers Module 12 (Logs, Analytics and Audit Trail). The team builds immutable audit log tables, system performance dashboards, and QuestPDF-based downloadable exam reports.
+\textbf{Sprint 7 (Weeks 25--28):} Reporting, Analytics and Auditing. Will deliver Module 12 (Logs, Analytics and Audit Trail). Team will develop immutable database tables for logging, the system performance Dashboard, and downloadable exam Reports using QuestPDF.
 
-\textbf{Sprint 8 (Weeks 29--32):} Integration, Testing, and Final Refinement. No new modules. This sprint merges all twelve modules into one stable prototype, runs end-to-end tests, fixes integration bugs, and prepares the final academic submission and demonstration.
+\textbf{Sprint 8 (Weeks 29--32):} Integration, Testing, and Final Refinement. Will deliver Module 1--12 (final code). Will deliver no new Modules. Will integrate and test all 12 modules into a single coherent application prototype. Will implement integration tests, bug fixes and write up and final academic Submission and Demonstration.

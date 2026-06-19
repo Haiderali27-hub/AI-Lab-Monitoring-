@@ -1,14 +1,18 @@
 \chapter{Introduction}
 \label{chap:introduction}
 
-Even though universities rely heavily on digital systems, most computer labs still run practical exams manually \cite{pmc_cbt}. Coordinators share schedules on WhatsApp. Students sign paper sheets for attendance and email their code files at the end. During the exam, a couple of invigilators have to watch dozens of screens at once. It is clear that this setup does not scale.
+Despite their reliance on digital systems, most universities still hand out and grade exams in physical computer labs \cite{pmc_cbt}. We coordinators send out schedules through WhatsApp, take attendance via the honor system and paper sign-ups, and ask students to email their code files through as soon as the timer runs out. During the exam itself, a few instructors hover over the computers of several dozen students. 
 
-Practical exams are crucial for computer science and software engineering students. We cannot test coding skills, debugging, or system design with simple multiple-choice questions. Students need a real machine, an IDE, and a working compiler. At the same time, the invigilator needs a way to see what is happening on every computer without constantly pacing the room.
+It goes without saying that this does not scale. 
 
-We designed SmartExam to bridge this gap. The platform combines scheduling, student identity checks, desktop lockdown, live telemetry, auto-saves, and automated grading into a single system \cite{pmc_cbt}.
+Practical exams matter When our students take computer science and software engineering majors, it matters that they learn to code, to debug, and to design systems in ways you can't possibly assess through multiple-choice exams. They need a real machine, a working compiler, and an IDE to put these skills to work. This, of course, makes invigilation and supervision much harder for educators who need to track many screens at once. We developed SmartExam to be the single solution that delivers exactly that. 
 
-The issue is not a lack of effort from invigilators. The real problem is that the tools they use do not talk to each other. Schedules are on one sheet, attendance is on another, and student files are scattered across different folders. When a student disputes their grade or someone is suspected of cheating, the teacher has no solid evidence to review.
+The platform provides Scheduling, ID checks, Screen lock-downs, Live Telemetry, Auto-Save, and automated grading into a single framework \cite{pmc_cbt}. 
 
-SmartExam brings all these pieces together. Admins set up access roles from a central panel. Before the exam, teachers create questions, upload test cases, and whitelist permitted software. When students log in, the desktop client locks down their machine to the exam workspace. Invigilators watch a live dashboard grid showing window focus and active processes. Once the exam concludes, the system compiles grades and logs into a PDF report \cite{integ1}, creating a complete evidence trail.
+The fact is that the tools we use are disparate; there is not necessarily a lack of effort involved by invigilators. Most universities still send out schedules via WhatsApp; they still rely on paper lists for sign ups and for checking attendance; and they often have students e-mail there code into separate folders for compilation. If a student has the same code as another student or their answer is just slightly off; then it is difficult to look at the code in question. 
 
-SmartExam is that unified system.
+SmartExam integrates these distinct elements in an integrated way. Admins assign different access levels and manage the system by use of a central panel. Teachers create question questions and will provide test cases and a list of authorized applications prior to a test. 
+
+Students simply enter their name before starting the test, at which point a simple piece of client-side software will lock their machine to solely allow the test. 
+
+The invigilator(s) can see live status updates, what is running on each machine via a live dashboard grid with details on window usage. The system can automatically calculate the grading; results appear as a PDF document containing grades and all relevant details about the exam \cite{integ1}. SmartExam is that solution.

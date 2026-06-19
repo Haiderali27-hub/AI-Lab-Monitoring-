@@ -1,15 +1,21 @@
 \section{Intended Users of the Product}
 
-SmartExam serves four user groups. Each group interacts with a different subset of the platform and carries different responsibilities during the exam lifecycle.
+There will be a set of at least four user types interacting with the system and each having different set of functions and responsibilities to execute their role within the life-cycle of an exam session.
 
 \subsection{Administrator}
-Administrators own the operational configuration of the system. They create and deactivate user accounts, assign roles, register lab rooms, map physical machines to room seats, and control institutional-level settings. After exam sessions conclude, administrators pull system-wide audit reports for quality review and accreditation documentation. They do not create or grade exams --- that belongs to teachers.
+Admins are responsible of creating, editing, and deleting system users (teachers, invigilators, students), managing lab locations, seating arrangement mapping, institutional level configurations. Admins are also responsible of generating and submitting system-level audit and compliance reports. They don't have rights to Create, edit or manage any exam structure or individual questions, those activities belong solely to Teachers.
 
 \subsection{Teacher}
-Teachers build and own their exams. They define titles, time limits, coding questions, theory questions, test cases, and allowed application lists. They assign students to their section, link the exam to a lab room, and release instructions before the session begins. After the exam, teachers review auto-graded results, inspect the plagiarism matrix, and sign off on final grades. They also serve as primary contacts if students raise disputes about their submissions.
+Teachers own the exam contents and logistics. They are responsible of:
+\begin{itemize}[noitemsep]
+\item \textbf{Create, Edit, and manage Exams:} This includes setting up test title, questions (coding and theory), marking criteria, time limit, list of authorized processes, list of forbidden actions, test schedule.
+\item \textbf{Student enrolment:} Assigning students to specific exams, adding and removing students to or from specific sections or exam sittings.
+\item \textbf{Assign Exams to Labs:} Schedule an exam for a specific time slot in one or more computer labs.
+\item \textbf{Post-Exam activities:} Grade exams (including auto-grading outputs, peer-reviewing similarity matrix), generate report per student. Teachers usually serve as main contact persons if any issue arises regarding submitted answer from students.
+\end{itemize}
 
 \subsection{Invigilator}
-Invigilators operate the live monitoring dashboard during an active session. Their screen shows a grid of student cards --- each with a real-time focus status indicator, a recent screenshot, and a process list. When a student's focus drops for more than a configurable threshold, the card turns red and an alert fires. The invigilator investigates and logs the incident directly in the system. The invigilator role may overlap with the teacher role or may be assigned separately by the administrator.
+Invigilators oversee the examination environment from their dedicated dashboard while a session is in progress. They see the real time dashboard of all active students in that particular session, they monitor the focus state, and list of active processes on each student desktop. When the status becomes problematic (e.g. Focus dropped from question content to a web browser), the monitoring cell for the students turns yellow then red and automatically triggers alerts for direct attention of invigilators. An invigilator can mark, document, and escalate any incident directly through their dashboard in the system. This user role is often the same person who teach the course (teacher) or someone dedicated by admins to monitor sessions.
 
 \subsection{Student}
-Students access only their own scheduled exam session \cite{biometric1}. Before the exam begins, they complete face recognition verification on the WPF client. The client checks their registered HWID. If both checks pass, the exam environment launches in fullscreen lockdown. Students see their questions, write code or theory answers, and submit before the timer expires. They cannot access any other applications, switch windows, or alter their submission after it is locked.
+Students are the ultimate users who will perform the actual test. Students can only access the specific scheduled exam which has been assigned to them by the teacher. Pre-check for Student includes, authenticating using system HWID, performing face recognition through the student's camera and finally triggering and launching the exam client in fullscreen ``lockdown'' environment. Once in lockdown mode, students can only see the exam question(s), write answers(s), compile and submit before time runs out. Students' answers are locked once the exam is finished, to prevent subsequent edits or cheating activities \cite{biometric1}.
