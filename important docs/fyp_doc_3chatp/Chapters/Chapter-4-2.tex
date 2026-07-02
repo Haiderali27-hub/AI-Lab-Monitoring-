@@ -1,16 +1,16 @@
 \section{Functional Modeling}
 
-FUNCTIONAL MODELING SHIFTS OUR FOCUS FROM THE USER'S ACTIONS TO HOW THE SYSTEM STORES, STRUCTURES, AND MOVES DATA. WHILE OUR USE CASES SHOW WHAT ACTORS DO, FUNCTIONAL MODELS SHOW HOW OUR BACKEND COORDINATES EVERYTHING. FOR SMARTEXAM, WE MUST MANAGE CONSTANT WEBSOCKET TELEMETRY, COMPRESSED WEBCAM SCREENSHOTS, AND DOCKER COMPILATIONS WITHOUT SLOWING DOWN THE SERVER. WE ALSO NEED TO GUARANTEE THAT DATABASE RECORDS, SUCH AS GRADES AND AUDIT TRAILS, REMAIN CONSISTENT AND SECURE.
+Functional modeling shifts our focus from the user's actions to how the system stores, structures, and moves data. While our use cases show what actors do, functional models show how our backend coordinates everything. For SmartExam, we must manage constant WebSocket telemetry, compressed webcam screenshots, and Docker compilations without slowing down the server. We also need to guarantee that database records, such as grades and audit trails, remain consistent and secure.
 
-HERE, WE LAY OUT OUR RELATIONAL DATABASE SCHEMA AND OUR DATA FLOW PIPELINES. WE PRESENT OUR ENTITY RELATIONSHIP DIAGRAM (ERD) IMPLEMENTED ON NEON POSTGRESQL. WE ALSO USE DATA FLOW DIAGRAMS (DFDS) AT THREE LEVELS OF DETAIL TO MAP HOW TELEMETRY AND GRADES TRAVEL THROUGH THE SYSTEM.
+Here, we lay out our relational database schema and our data flow pipelines. We present our Entity Relationship Diagram (ERD) implemented on Neon PostgreSQL. We also use Data Flow Diagrams (DFDs) at three levels of detail to map how telemetry and grades travel through the system.
 
 \subsection{Entity Relationship Diagram}
 
-WE CHOSE A RELATIONAL DATABASE MODEL (NEON POSTGRESQL) OVER NOSQL FOR SMARTEXAM. WE NEED STRICT SCHEMAS AND REFERENTIAL CONSTRAINTS TO MAKE SURE STUDENT GRADES AND LOGS ARE NEVER LOST OR CORRUPTED \cite{er_diagram_lucidchart}. NEON POSTGRESQL'S SERVERLESS AUTO-SCALING HELPS US HANDLE THE MASSIVE CONNECTION SPIKES WHEN A WHOLE CLASS STARTS AN EXAM.
+We chose a relational database model (Neon PostgreSQL) over NoSQL for SmartExam. We need strict schemas and referential constraints to make sure student grades and logs are never lost or corrupted \cite{er_diagram_lucidchart}. Neon PostgreSQL's serverless auto-scaling helps us handle the massive connection spikes when a whole class starts an exam.
 
-TO AVOID ANOMALIES, WE NORMALIZED THE DATABASE TO THIRD NORMAL FORM (3NF). STUDENT ACCOUNTS, SEATING LAYOUTS, AND GRADING METRICS SIT IN SEPARATE TABLES. FOREIGN KEY RELATIONSHIPS LINK THEM TOGETHER, PREVENTING DUPLICATED RECORDS. WE USE INDEXES ON FREQUENTLY SEARCHED COLUMNS TO SPEED UP DASHBOARD QUERIES DURING EXAMS.
+To avoid anomalies, we normalized the database to Third Normal Form (3NF). Student accounts, seating layouts, and grading metrics sit in separate tables. Foreign key relationships link them together, preventing duplicated records. We use indexes on frequently searched columns to speed up dashboard queries during exams.
 
-FIGURE~\ref{fig:erd_diagram} SHOWS OUR ERD LAYOUT. IT FEATURES 14 TABLES THAT TRACK THE SYSTEM'S COMPLETE STATE.
+Figure~\ref{fig:erd_diagram} shows our ERD layout. It features 14 tables that track the system's complete state.
 
 \begin{figure}[H]
 \centering
@@ -19,22 +19,22 @@ FIGURE~\ref{fig:erd_diagram} SHOWS OUR ERD LAYOUT. IT FEATURES 14 TABLES THAT TR
 \label{fig:erd_diagram}
 \end{figure}
 
-OUR DATABASE SCHEMA IS STRUCTURED AROUND THESE KEY TABLES:
+Our database schema is structured around these key tables:
 \begin{enumerate}
-    \item \textbf{Roles Table (\texttt{Roles}):} STORES ACCESS LEVELS (STUDENT, TEACHER, ADMIN). IT CONTAINS A PRIMARY KEY \texttt{Id} AND \texttt{RoleName}.
-    \item \textbf{Users Table (\texttt{Users}):} MANAGES STUDENT, TEACHER, AND ADMINISTRATOR PROFILES. IT STORES NAMES, HASHED PASSWORDS, AND LINKS BACK TO THE \texttt{Roles} TABLE.
-    \item \textbf{Device Bindings Table (\texttt{DeviceBindings}):} PAIRS A STUDENT'S \texttt{UserId} WITH THEIR UNIQUE WORKSTATION \texttt{HWID} HASH. THIS ONE-TO-ONE MAPPING BLOCKS STUDENTS FROM LOGGING IN FROM UNAUTHORIZED MACHINES.
-    \item \textbf{Exams Table (\texttt{Exams}):} STORES EXAM METADATA LIKE TITLES, DURATIONS, START/END WINDOWS, AND ALLOWED APPLICATION LISTS.
-    \item \textbf{Questions Table (\texttt{Questions}):} STORES CODING AND THEORY QUESTIONS FOR EACH EXAM.
-    \item \textbf{Test Cases Table (\texttt{TestCases}):} HOLDS THE INPUT AND EXPECTED OUTPUT PAIRS USED BY THE COMPILATION ENGINE TO EVALUATE STUDENT CODE.
-    \item \textbf{Allowed Applications Table (\texttt{AllowedApps}):} WHITELISTS PERMITTED DESKTOP EXECUTABLES (E.G., \texttt{code.exe}).
-    \item \textbf{Seating Maps Table (\texttt{SeatingMaps}):} BINDS REGISTERED CANDIDATES TO SPECIFIC LABORATORY SEATING ARRANGEMENTS AND IP ADDRESSES.
-    \item \textbf{Exam Sessions Table (\texttt{ExamSessions}):} TRACKS THE STATE OF ACTIVE EXAMS, RECORDING REMAINING DURATIONS AND SESSION STATUSES.
-    \item \textbf{Answers Table (\texttt{Answers}):} STORES STUDENT RESPONSES. THE CLIENT AUTO-SAVES CODE DRAFTS HERE EVERY 10 SECONDS.
-    \item \textbf{Monitoring Events Table (\texttt{MonitoringEvents}):} STORES FLAGGED VIOLATIONS, PROCESS LOGS, AND SCREENSHOTS CAPTURED DURING LOCKDOWN.
-    \item \textbf{AI Grading Results Table (\texttt{AiGradingResults}):} HOLDS AUTOMATED SCORES, COMPILE TIMES, AND SIMILARITY EVALUATIONS.
-    \item \textbf{Plagiarism Results Table (\texttt{PlagiarismResults}):} STORES SIMILARITY SCORES GENERATED BY OUR PAIRWISE PLAGIARISM CHECKER.
-    \item \textbf{Audit Logs Table (\texttt{AuditLogs}):} AN IMMUTABLE, READ-ONLY LOG OF TEACHER OVERRIDES AND ADMIN CONFIGURATIONS.
+    \item \textbf{Roles Table (\texttt{Roles}):} Stores access levels (Student, Teacher, Admin). It contains a primary key \texttt{Id} and \texttt{RoleName}.
+    \item \textbf{Users Table (\texttt{Users}):} Manages student, teacher, and administrator profiles. It stores names, hashed passwords, and links back to the \texttt{Roles} table.
+    \item \textbf{Device Bindings Table (\texttt{DeviceBindings}):} Pairs a student's \texttt{UserId} with their unique workstation \texttt{HWID} hash. This one-to-one mapping blocks students from logging in from unauthorized machines.
+    \item \textbf{Exams Table (\texttt{Exams}):} Stores exam metadata like titles, durations, start/end windows, and allowed application lists.
+    \item \textbf{Questions Table (\texttt{Questions}):} Stores coding and theory questions for each exam.
+    \item \textbf{Test Cases Table (\texttt{TestCases}):} Holds the input and expected output pairs used by the compilation engine to evaluate student code.
+    \item \textbf{Allowed Applications Table (\texttt{AllowedApps}):} Whitelists permitted desktop executables (e.g., \texttt{code.exe}).
+    \item \textbf{Seating Maps Table (\texttt{SeatingMaps}):} Binds registered candidates to specific laboratory seating arrangements and IP addresses.
+    \item \textbf{Exam Sessions Table (\texttt{ExamSessions}):} Tracks the state of active exams, recording remaining durations and session statuses.
+    \item \textbf{Answers Table (\texttt{Answers}):} Stores student responses. The client auto-saves code drafts here every 10 seconds.
+    \item \textbf{Monitoring Events Table (\texttt{MonitoringEvents}):} Stores flagged violations, process logs, and screenshots captured during lockdown.
+    \item \textbf{AI Grading Results Table (\texttt{AiGradingResults}):} Holds automated scores, compile times, and similarity evaluations.
+    \item \textbf{Plagiarism Results Table (\texttt{PlagiarismResults}):} Stores similarity scores generated by our pairwise plagiarism checker.
+    \item \textbf{Audit Logs Table (\texttt{AuditLogs}):} An immutable, read-only log of teacher overrides and admin configurations.
 \end{enumerate}
 
 \subsubsection{Key Entity Relationships}
@@ -101,7 +101,7 @@ We zoom in on telemetry streaming and exam evaluation to show the exact process 
 The details in Figure~\ref{fig:dfd_level_2} trace:
 \begin{enumerate}
     \item \textbf{Telemetry Streaming and Analysis (Process 3.1 to 3.4):} Process 3.1 ingests client JSON packets over WebSocket. Process 3.2 matches running apps against whitelisted settings. Process 3.3 runs anomaly tests (e.g. face presence, tab switching). Process 3.4 writes events to \texttt{MonitoringEvents} and pushes live alerts to the teacher's stream.
-    \item \textbf{Evaluation and Plagiarism Checking (Process 5.1 to 5.5):} Process 5.1 runs submitted files inside sandboxed Docker containers to test code against inputs. Process 5.2 calculates similarity vectors for theory text. Process 5.3 performs pairwise comparisons across the class database to catch copy-paste plagiarism. Process 5.4 aggregates these scores into the database, and Process 5.5 compiles the QuestPDF template.
+    \item \textbf{Evaluation and Plagiarism Checking (Process 5.1 to 5.5):} Process 5.1 runs submitted files inside isolated Docker containers to test code against inputs. Process 5.2 calculates similarity vectors for theory text. Process 5.3 performs pairwise comparisons across the class database to identify copy-paste plagiarism. Process 5.4 aggregates these scores into the database, and Process 5.5 compiles the QuestPDF template.
 \end{enumerate}
 
-These Level 2 pipelines form the engine of SmartExam. By documenting data transforms at this level, we ensure the backend can process active streams without lag during exam sessions.
+These Level 2 pipelines serve as the engine of SmartExam. By recording data transforms at this level, we ensure the backend can process active streams without lag during exam sessions.

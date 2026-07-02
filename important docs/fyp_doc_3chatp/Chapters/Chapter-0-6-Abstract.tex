@@ -3,10 +3,10 @@
 \chapter*{\centering Project Overview}
 \addcontentsline{toc}{chapter}{Project Overview}
 
-Managing a practical lab exam is surprisingly chaotic. You have dozens of students coding, a couple of invigilators trying to watch every screen, and no real way to track who is doing what. Instructors end up relying on WhatsApp to coordinate schedules and USB drives to collect code files. 
+Running a practical lab exam is surprisingly chaotic. There are dozens of students coding, a couple of invigilators trying to watch all the screens and no real way of tracking what everyone is up to. Teachers end up having to use WhatsApp to coordinate schedules and USB drives to collect code files.
 
-We built SmartExam to solve this problem. It is a unified platform that handles the entire exam lifecycle in one place. Teachers can configure exams, whitelists, and seating maps. When students log in, our WPF desktop client locks down their workstation and streams real-time focus logs. After the exam, the system compiles the code drafts, runs automated grading against test cases, checks for plagiarism, and generates a detailed PDF report.
+We developed SmartExam to solve this problem. It's a single platform that manages the entire exam lifecycle in one place. Teachers can create exams, whitelists and seating plans. When students log in, our WPF desktop client locks down their workstation and streams real-time focus logs Post-exam, the system gathers the code drafts, does an automatic grading against the test cases, performs a plagiarism check, and produces a detailed PDF report. 
 
-Existing tools like Respondus LockDown Browser or MOSS only solve small pieces of the puzzle. None of them connect scheduling, device binding, live dashboards, and grading into a single workflow. 
+Existing tools like Respondus LockDown Browser or MOSS only cover small pieces of the puzzle. None of them have scheduling, device binding, live dashboards, and grading in one workflow.
 
-SmartExam connects three components: a WPF client for student workstations, a React web panel for teachers, and an ASP.NET Core API server running on a Neon PostgreSQL database. We built this prototype using an Agile model over eight four-week sprints, prioritizing core login security first, followed by telemetry and compilation. Our final prototype provides a secure, fully auditable environment for lab assessments.
+SmartExam is composed of three parts: a WPF client for student machines, a React web panel for teachers and an ASP.NET Core API server that runs on a Neon PostgreSQL database. We built this prototype in an Agile model in eight four-week sprints, starting with core login security, then telemetry, and compilation. Our final prototype provides a secure and fully auditable environment for lab assessments.

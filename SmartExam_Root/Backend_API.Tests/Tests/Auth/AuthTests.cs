@@ -59,27 +59,30 @@ public class AuthTests : IClassFixture<TestWebAppFactory>
     [Fact]
     public async Task Login_Student_WithCorrectHwid_Returns200AndDeviceBoundTrue()
     {
-        var response = await _client.PostAsJsonAsync("/api/auth/login", new
+        var response = await _client.PostAsJsonAsync("/api/auth/student-login", new
         {
-            email = SeededData.StudentEmail,
+            usernameOrEmail = SeededData.StudentEmail,
             password = SeededData.StudentPassword,
-            hwidHash = SeededData.TestHwid
+            hardwareFingerprint = SeededData.TestHwid
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        bool deviceBound = body.GetProperty("deviceBound").GetBoolean();
+        var envelope = await response.Content.ReadFromJsonAsync<JsonElement>();
+        envelope.GetProperty("success").GetBoolean().Should().BeTrue();
+        
+        var data = envelope.GetProperty("data");
+        bool deviceBound = data.GetProperty("deviceBound").GetBoolean();
         deviceBound.Should().BeTrue();
     }
 
     [Fact]
     public async Task Login_Student_WithWrongHwid_Returns401()
     {
-        var response = await _client.PostAsJsonAsync("/api/auth/login", new
+        var response = await _client.PostAsJsonAsync("/api/auth/student-login", new
         {
-            email = SeededData.StudentEmail,
+            usernameOrEmail = SeededData.StudentEmail,
             password = SeededData.StudentPassword,
-            hwidHash = SeededData.WrongHwid
+            hardwareFingerprint = SeededData.WrongHwid
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -88,11 +91,11 @@ public class AuthTests : IClassFixture<TestWebAppFactory>
     [Fact]
     public async Task Login_Student_WithoutHwid_Returns400()
     {
-        var response = await _client.PostAsJsonAsync("/api/auth/login", new
+        var response = await _client.PostAsJsonAsync("/api/auth/student-login", new
         {
-            email = SeededData.StudentEmail,
+            usernameOrEmail = SeededData.StudentEmail,
             password = SeededData.StudentPassword
-            // no hwidHash
+            // no hardwareFingerprint
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);

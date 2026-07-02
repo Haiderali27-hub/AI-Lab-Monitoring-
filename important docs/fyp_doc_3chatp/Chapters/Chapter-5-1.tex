@@ -1,12 +1,12 @@
 \chapter{SYSTEM DESIGN}
 \label{chap:system_design}
 
-This chapter breaks down SmartExam's technical architecture, converting our requirements into a functional design by defining database schema, component structure diagrams, and runtime diagrams. This diagram set serves as our blueprint to guide WPF client, API controllers, WebSocket hub, and grading service communication when under stress.
+In this chapter we analyze the technical architecture of SmartExam and translate our requirements into an operational design by defining database schema, component structure diagrams and runtime diagrams. This set of diagrams is our blueprint for guiding WPF client, API controllers, WebSocket hub and grading service communication under stress.
 
 \section{Structure Diagrams}
-Structure diagrams display a system's compile-time structure, which we apply to diagramming our database model, server processes and client applications \cite{structure_diagram_techopedia}. These help to determine compile-time bounds and enable parallel development among team members by revealing how components will fit together.
+We use structure diagrams to diagram our database model, server processes and client applications \cite{structure_diagram_techopedia} which show the compile time structure of a system. These contribute to the determination of compile time bounds, and enable parallel development between team members by showing how components will fit together.
 
-When designing SmartExam's overall architecture, structure diagrams assist by visually identifying how the database models, controllers, servers and clients relate and connect. This visual diagram helps to clarify our application's static foundation, including how to manage authentication, how to establish lockdown limits and what order in which we would like to perform gradings.
+The database models, controllers, server, and clients are identified in relation to each other and connected using structure diagrams in the designing of the overall architecture of SmartExam. This visual diagram allows us to clarify our static foundation of our application including how to handle authentication, how to set up lockdown limits and what order in which we would like to do gradings.
 
 \subsection{Class Diagram}
 In our system design, we use class diagrams to depict the database entity-relationship diagram (ERD) that define our application's data structure as object classes \cite{class_diagram_uml, class_diagram_sparx}. We've represented some core models here in Figure~\ref{fig:class_diagram}.
@@ -118,10 +118,10 @@ Figure~\ref{fig:activity_recovery} details the auto-save loop.
 \label{fig:activity_recovery}
 \end{figure}
 
-A background timer triggers every 60 seconds. If the client is online, it uploads active drafts to the database. If the network drops, it caches the encrypted drafts locally and syncs them once the connection recovers.
+A background timer triggers every 60 seconds. If the client is online, it uploads active drafts to the database. If the network drops, it caches the encrypted drafts locally and syncs them when the connection is restored.
 
-\subsubsection{Controlled Exam Submission}
-Figure~\ref{fig:activity_submission} shows the submission pipeline.
+\subsubsection{Submission of Controlled Exam}
+The submission pipeline is shown in Figure~\ref{fig:activity_submission}.
 
 \begin{figure}[H]
 \centering
@@ -130,10 +130,10 @@ Figure~\ref{fig:activity_submission} shows the submission pipeline.
 \label{fig:activity_submission}
 \end{figure}
 
-When submitting, the client packages files, uploads them over HTTPS, registers the completion event in the database, removes all key hooks, and exits. 
+When finished, the client packages the files, uploads it over HTTPS, registers the completion event in the database, removes all key hooks and exits. 
 
-\subsubsection{Exam Template Configuration}
-Figure~\ref{fig:activity_config} maps how teachers configure exams.
+\subsubsection{Exam template configuration}
+The mapping of the exam configuration by teachers is shown in Figure~\ref{fig:activity_config}.
 
 \begin{figure}[H]
 \centering
@@ -142,10 +142,10 @@ Figure~\ref{fig:activity_config} maps how teachers configure exams.
 \label{fig:activity_config}
 \end{figure}
 
-Teachers configure questions, assign weights, define test cases, and save settings to the database.
+Teachers set up questions, assign weights, define test cases and save settings to the db.
 
 \subsubsection{Allowed Applications Configuration}
-Figure~\ref{fig:activity_applications} shows whitelisting.
+Whitelisting is shown in Figure~\ref{fig:activity_applications}.
 
 \begin{figure}[H]
 \centering
@@ -154,10 +154,10 @@ Figure~\ref{fig:activity_applications} shows whitelisting.
 \label{fig:activity_applications}
 \end{figure}
 
-Teachers select allowed executables (e.g., \texttt{code.exe}) and save the list to define lockdown boundaries.
+Teachers select allowed executables (e.g. \texttt{code.exe}) and the list is saved to set lockdown boundaries.
 
 \subsubsection{Access Control and Seating Mapping}
-Figure~\ref{fig:activity_seating} details seating maps.
+Seating maps are provided in Figure~\ref{fig:activity_seating}.
 
 \begin{figure}[H]
 \centering
@@ -166,10 +166,10 @@ Figure~\ref{fig:activity_seating} details seating maps.
 \label{fig:activity_seating}
 \end{figure}
 
-Teachers bind candidates to specific labs, IP addresses, and seat numbers to prevent remote logins.
+Remote logins are blocked by tying the candidates to specific labs, IP addresses and seat numbers.
 
-\subsubsection{Live Dashboard Monitoring}
-Figure~\ref{fig:activity_monitoring} outlines the real-time proctoring flow.
+\subsubsection{Live Dashboard Observability}
+The real time proctoring flow is shown in Figure~\ref{fig:activity_monitoring}.
 
 \begin{figure}[H]
 \centering
@@ -178,22 +178,22 @@ Figure~\ref{fig:activity_monitoring} outlines the real-time proctoring flow.
 \label{fig:activity_monitoring}
 \end{figure}
 
-The React panel opens a WebSockets channel. It processes telemetry events, updating status cards and showing alerts if lock violations occur.
+The React panel opens a WebSockets channel. It processes telemetry events, updates status cards and raises alerts if the lock is violated.
 
 \subsubsection{AI-Assisted Grading and Similarity Check}
-Figure~\ref{fig:activity_grading} maps post-exam grading.
+Figure~\ref{fig:activity_grading} shows a grading after an exam.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.97\linewidth]{Figures/activity_grading.png}
-\caption{UML Activity Diagram of AI-Assisted Grading and Plagiarism Checking}
+\caption{UML Activity Diagram for AI-Assisted Grading and Plagiarism Check}
 \label{fig:activity_grading}
 \end{figure}
 
-The engine executes student code inside isolated Docker environments to check against test cases, grades theory answers using NLP similarity, and runs AST comparisons to flag plagiarism.
+The engine executes student code in isolated Docker environments for testing against test cases, grades theory answers by NLP similarity, and performs AST comparisons to flag plagiarism.
 
-\subsubsection{QuestPDF Report Generation}
-Figure~\ref{fig:activity_report} shows the PDF rendering workflow.
+\subsubsection{QuestPDF report generation}
+The PDF creation workflow is illustrated in Figure~\ref{fig:activity_report}.
 
 \begin{figure}[H]
 \centering
@@ -244,7 +244,7 @@ Figure~\ref{fig:seq_login} provides more details of the Login flow as explained 
 The student logs in on the WPF client. The client queries CPU and motherboard properties using native calls and transmits the hashed HWID to the server. The server compares this HWID with existing bindings. If matched, it returns a JWT; if mismatched, it blocks access.
 
 \subsubsection{Logout}
-Figure~\ref{fig:seq_logout} details logout.
+Logout is shown in Figure~\ref{fig:seq_logout}.
 
 \begin{figure}[H]
 \centering
@@ -253,10 +253,10 @@ Figure~\ref{fig:seq_logout} details logout.
 \label{fig:seq_logout}
 \end{figure}
 
-The student requests logout. The server invalidates the active JWT session. On success, the client releases Windows hooks, stops telemetry threads, and returns the workstation to its default state.
+Student asks to log out. The active JWT session is invalidated by the server. If it succeeds, the client removes Windows hooks, kills telemetry threads and resets the workstation to default.
 
-\subsubsection{Change Password}
-Figure~\ref{fig:seq_change_password} shows password modification.
+\subsubsection{Change de mot de passe}
+Figure~\ref{fig:seq_change_password}: Modification de mot de passe.
 
 \begin{figure}[H]
 \centering
@@ -265,31 +265,31 @@ Figure~\ref{fig:seq_change_password} shows password modification.
 \label{fig:seq_change_password}
 \end{figure}
 
-The user submits credentials. The controller verifies their existing password using BCrypt, hashes the new password, and saves the update to PostgreSQL.
+User provides credentials. The controller checks their current password with BCrypt, hashes the new password, and saves the update in PostgreSQL.
 
 \subsubsection{View Database}
-Figure~\ref{fig:seq_view_database} shows query flows.
+Figure~\ref{fig:seq_view_database} shows the query flows.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.97\linewidth]{Figures/seq_view_database.png}
-\caption{Sequence Diagram of Teacher Querying Telemetry Events and Exam Records}
+\caption{Sequence diagram for teacher queries telemetry events and exam records}
 \label{fig:seq_view_database}
 \end{figure}
 
-Teachers request logs. The REST API validates teacher authorization, fetches telemetry records, formats them as a JSON list, and returns them to the React grid.
+Teachers want logs. The REST API checks the teacher’s authorization, retrieves the telemetry records, transforms them into a JSON list, and passes it back to the React grid.
 
-\subsubsection{Start Exam and Telemetry Ingestion}
-Figure~\ref{fig:seq_telemetry} tracks telemetry loops.
+\subsubsection{Begin Exam and Telemetry Ingest}
+Figure~\ref{fig:seq_telemetry} Telemetry Loop Monitors.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.97\linewidth]{Figures/seq_telemetry.png}
-\caption{Sequence Diagram of Exam Launch and Background Telemetry Ingestion}
+\caption{Exam Launch and Background Sequence Diagram Ingestion of Telemetry}
 \label{fig:seq_telemetry}
 \end{figure}
 
-Launching the exam triggers native OS locks. The WPF client opens a WebSocket channel to the SignalR hub. Every 30 seconds, it queries OS handles and screenshot buffers, streaming them to the hub. The hub writes logs to Neon PostgreSQL and pushes warnings to the teacher if anomalies occur.
+When you begin the exam, the native OS locks are activated. The WPF client opens a WebSocket connection to the SignalR hub: It polls OS handles and screenshot buffers every 30 seconds and streams them to the hub. The hub writes logs to Neon PostgreSQL and pushes warnings to the teacher if any anomalies happen.
 
 \subsubsection{Docker Code Compilation}
 Figure~\ref{fig:seq_compilation} tracks sandboxed grading.
@@ -301,10 +301,10 @@ Figure~\ref{fig:seq_compilation} tracks sandboxed grading.
 \label{fig:seq_compilation}
 \end{figure}
 
-When grading begins, the server fetches student code and test cases. It spins up a sandboxed Docker container, executes the compiler wrapper script inside, measures test execution metrics, stops the container, and logs scores in database.
+The server pulls student code and test cases when grading starts. It starts a sandboxed Docker container, executes the compiler wrapper script in it, collects the metrics for the test execution, stops the container and records scores to a database.
 
 \subsubsection{AI Semantic Grading and Plagiarism Check}
-Figure~\ref{fig:seq_ai_plagiarism} shows AI and similarity checks.
+Figure~\ref{fig:seq_ai_plagiarism}. AI and Similarity Checks.
 
 \begin{figure}[H]
 \centering
@@ -313,10 +313,10 @@ Figure~\ref{fig:seq_ai_plagiarism} shows AI and similarity checks.
 \label{fig:seq_ai_plagiarism}
 \end{figure}
 
-The server queries theory answers and reference keys, requesting evaluations from the AI Semantic Service over HTTP. Following this, the Plagiarism Engine parses code files into ASTs to run pairwise checks across all student code files.
+The server queries for theory answers and reference keys and requests the AI Semantic Service to perform evaluations over HTTP. The Plagiarism Engine then parses code files into Abstract Syntax Trees (ASTs) and performs pairwise checks across all student code files.
 
 \subsubsection{Pre-Exam Diagnostics Check}
-Figure~\ref{fig:seq_diagnostics} outlines pre-exam hardware diagnostics.
+The pre-exam hardware diagnostics are depicted in Figure~\ref{fig:seq_diagnostics}.
 
 \begin{figure}[H]
 \centering
@@ -325,10 +325,10 @@ Figure~\ref{fig:seq_diagnostics} outlines pre-exam hardware diagnostics.
 \label{fig:seq_diagnostics}
 \end{figure}
 
-The client queries local hardware loops for webcam/mic states and tests internet latency. Success enables the proceed button, while failures trigger diagnostic warnings.
+The client queries local hardware loops for webcam/mic state and tests Internet latency. Success triggers the proceed button, failures generate diagnostic warnings.
 
-\subsubsection{Readiness Verification and Mock Test}
-Figure~\ref{fig:seq_readiness} maps mock tests.
+\subsubsection{Readiness Check and Mock Test}
+Mock tests are shown in Figure~\ref{fig:seq_readiness}.
 
 \begin{figure}[H]
 \centering
@@ -337,10 +337,10 @@ Figure~\ref{fig:seq_readiness} maps mock tests.
 \label{fig:seq_readiness}
 \end{figure}
 
-Students run a mock test. The client pulls questions, allows editing, compiles the mock submissions, and returns scores.
+Mock Test for Students The client pulls questions, allows editing, compiles the mock submissions and returns scores.
 
 \subsubsection{Lockdown Mode Enforcement}
-Figure~\ref{fig:seq_lockdown} details desktop lockdown.
+Desktop lockdown is depicted in Figure~\ref{fig:seq_lockdown}.
 
 \begin{figure}[H]
 \centering
@@ -349,10 +349,10 @@ Figure~\ref{fig:seq_lockdown} details desktop lockdown.
 \label{fig:seq_lockdown}
 \end{figure}
 
-Starting the exam triggers hooks that disable key combinations (Alt+Tab, Win Key). The client writes lock success logs to Neon PostgreSQL and displays the fullscreen exam workspace.
+When you start the exam hooks are fired that disable key combinations (Alt+Tab, Win Key). The client writes lock success logs to Neon PostgreSQL and shows the fullscreen exam workspace.
 
 \subsubsection{Auto-Save and Session Recovery}
-Figure~\ref{fig:seq_recovery} tracks local recovery backups.
+Figure~\ref{fig:seq_recovery}: Backups for local recovery.
 
 \begin{figure}[H]
 \centering
@@ -361,10 +361,10 @@ Figure~\ref{fig:seq_recovery} tracks local recovery backups.
 \label{fig:seq_recovery}
 \end{figure}
 
-A 60-second loop collects editor changes. If offline, the client writes the backup to a local encrypted cache, which recovers and syncs when a network connection is re-established.
+Collects editor changes in 60 sec loop. Offline, the client writes the backup to a local encrypted cache that recovers and syncs when a network connection is reestablished.
 
 \subsubsection{Exam Submission (Controlled)}
-Figure~\ref{fig:seq_submission} shows final submissions.
+Final submissions are shown in Figure~\ref{fig:seq_submission}.
 
 \begin{figure}[H]
 \centering
@@ -373,10 +373,10 @@ Figure~\ref{fig:seq_submission} shows final submissions.
 \label{fig:seq_submission}
 \end{figure}
 
-The student submits their exam. The client locks inputs, bundles answers, uploads the payload over HTTPS, updates database session rows, and releases all keystroke hooks.
+The student hands in his exam. The client disables inputs, bundles responses, sends the payload via HTTPS, updates the database session rows, and uninstalls all the keystroke hooks.
 
-\subsubsection{Exam Template Configuration}
-Figure~\ref{fig:seq_config} maps template creation.
+\subsubsection{Configuring Exam Templates}
+Figure~\ref{fig:seq_config} shows the mapping of templates.
 
 \begin{figure}[H]
 \centering
@@ -385,10 +385,10 @@ Figure~\ref{fig:seq_config} maps template creation.
 \label{fig:seq_config}
 \end{figure}
 
-The React panel sends config metadata (durations, whitelisted apps, test cases) to the API. The API verifies the details, updates the database, and returns confirmation.
+The React panel sends config metadata (durations, whitelisted apps, test cases) to the API. The API validates the details, updates the database and returns confirmation.
 
 \subsubsection{Audit Logging and Report Export}
-Figure~\ref{fig:seq_audit} shows reporting sequence.
+Reporting sequence is shown in Figure~\ref{fig:seq_audit}.
 
 \begin{figure}[H]
 \centering
@@ -397,4 +397,4 @@ Figure~\ref{fig:seq_audit} shows reporting sequence.
 \label{fig:seq_audit}
 \end{figure}
 
-Teachers request reports. The REST API logs the request in audit tables, pulls grading summaries, calls QuestPDF to build the layout, and streams the PDF document to the browser.
+Teachers ask for reports. The REST API logs the request to audit tables, obtains grading summaries, invokes QuestPDF to create the layout, and streams the PDF document to the browser.

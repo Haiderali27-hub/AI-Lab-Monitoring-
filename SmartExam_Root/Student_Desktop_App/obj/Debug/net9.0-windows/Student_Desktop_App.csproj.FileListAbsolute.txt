@@ -27,3 +27,4 @@ c:\Users\DELL\Desktop\AI_Labmonitoring\SmartExam_Root\Student_Desktop_App\obj\De
 c:\Users\DELL\Desktop\AI_Labmonitoring\SmartExam_Root\Student_Desktop_App\obj\Debug\net9.0-windows\Student_Desktop_App.pdb
 c:\Users\DELL\Desktop\AI_Labmonitoring\SmartExam_Root\Student_Desktop_App\obj\Debug\net9.0-windows\Student_Desktop_App.genruntimeconfig.cache
 c:\Users\DELL\Desktop\AI_Labmonitoring\SmartExam_Root\Student_Desktop_App\obj\Debug\net9.0-windows\ref\Student_Desktop_App.dll
+C:\Users\DELL\Desktop\AI_Labmonitoring\SmartExam_Root\Student_Desktop_App\obj\Debug\net9.0-windows\Student_Desktop_App.sourcelink.json

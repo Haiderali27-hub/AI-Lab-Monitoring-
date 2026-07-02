@@ -1,5 +1,6 @@
 using Backend_API.Data;
 using Backend_API.DTOs.Auth;
+using Backend_API.DTOs;
 using Backend_API.Helpers;
 using Backend_API.Models;
 using Backend_API.Models.Enums;
@@ -36,33 +37,7 @@ public class AuthController : ControllerBase
         if (!PasswordHelper.VerifyPassword(req.Password, user.Salt, user.PasswordHash))
             return Unauthorized(new { message = "Invalid email or password." });
 
-        // Device binding check — only for students
-        bool deviceBound = false;
-        if (user.Role == UserRole.Student)
-        {
-            if (string.IsNullOrEmpty(req.HwidHash))
-                return BadRequest(new { message = "HWID is required for student login." });
-
-            if (user.DeviceBinding is null)
-            {
-                // First login — register this device
-                _db.DeviceBindings.Add(new DeviceBinding
-                {
-                    UserId = user.UserId,
-                    HwidHash = req.HwidHash
-                });
-                deviceBound = true;
-            }
-            else
-            {
-                // Subsequent logins — verify device
-                if (user.DeviceBinding.HwidHash != req.HwidHash)
-                    return Unauthorized(new { message = "This account is bound to a different device. Contact your admin." });
-
-                user.DeviceBinding.LastSeenAt = DateTime.UtcNow;
-                deviceBound = true;
-            }
-        }
+        bool deviceBound = user.DeviceBinding != null;
 
         // Issue JWT
         var (token, jti, expiry) = _jwt.GenerateToken(user);
@@ -107,5 +82,83 @@ public class AuthController : ControllerBase
         if (user is null) return NotFound();
 
         return Ok(new { user.UserId, user.Name, user.Email, user.Role });
+    }
+
+    // GET /api/health
+    [HttpGet("/api/health")]
+    [AllowAnonymous]
+    public IActionResult Health()
+    {
+        return Ok(new { status = "Healthy" });
+    }
+
+    // POST /api/auth/student-login
+    [HttpPost("student-login")]
+    [AllowAnonymous]
+    public async Task<IActionResult> StudentLogin([FromBody] StudentLoginRequest req)
+    {
+        var user = await _db.Users
+            .Include(u => u.DeviceBinding)
+            .FirstOrDefaultAsync(u => (u.Email == req.UsernameOrEmail || u.Name == req.UsernameOrEmail) && u.IsActive);
+
+        if (user is null)
+            return Unauthorized(new ApiEnvelope<object>(false, "UNAUTHORIZED", "Invalid username/email or password.", null));
+
+        if (!PasswordHelper.VerifyPassword(req.Password, user.Salt, user.PasswordHash))
+            return Unauthorized(new ApiEnvelope<object>(false, "UNAUTHORIZED", "Invalid username/email or password.", null));
+
+        if (user.Role != UserRole.Student)
+            return Unauthorized(new ApiEnvelope<object>(false, "FORBIDDEN", "Only students can log in via this client.", null));
+
+        bool deviceBound = false;
+        if (string.IsNullOrEmpty(req.HardwareFingerprint))
+            return BadRequest(new ApiEnvelope<object>(false, "BAD_REQUEST", "HWID is required for student login.", null));
+
+        if (user.DeviceBinding is null)
+        {
+            _db.DeviceBindings.Add(new DeviceBinding
+            {
+                UserId = user.UserId,
+                HwidHash = req.HardwareFingerprint
+            });
+            deviceBound = true;
+        }
+        else
+        {
+            if (user.DeviceBinding.HwidHash != req.HardwareFingerprint)
+                return Unauthorized(new ApiEnvelope<object>(false, "DEVICE_MISMATCH", "This account is bound to a different device. Contact your admin.", null));
+
+            user.DeviceBinding.LastSeenAt = DateTime.UtcNow;
+            deviceBound = true;
+        }
+
+        var (token, jti, expiry) = _jwt.GenerateToken(user);
+
+        _db.UserSessions.Add(new UserSession
+        {
+            UserId = user.UserId,
+            Jti = jti,
+            ExpiresAt = expiry
+        });
+
+        await _db.SaveChangesAsync();
+
+        var response = new TokenResponse(
+            token,
+            "dummy-refresh-token",
+            expiry,
+            new UserSummary(user.UserId, Guid.Empty, user.Name, user.Email, "Student"),
+            deviceBound
+        );
+
+        return Ok(new ApiEnvelope<TokenResponse>(true, "SUCCESS", "Success", response));
+    }
+
+    // POST /api/auth/refresh
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    public IActionResult Refresh([FromBody] RefreshRequest req)
+    {
+        return Ok(new ApiEnvelope<object>(true, "SUCCESS", "Success", null));
     }
 }

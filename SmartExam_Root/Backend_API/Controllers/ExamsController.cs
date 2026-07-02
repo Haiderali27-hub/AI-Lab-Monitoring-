@@ -1,6 +1,7 @@
 using Backend_API.Data;
 using Backend_API.Models;
 using Backend_API.Models.Enums;
+using Backend_API.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -589,6 +590,120 @@ public class ExamsController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(new { message = "Event recorded." });
+    }
+
+    // GET /api/exams/student/current
+    [HttpGet("student/current")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetStudentCurrentExam()
+    {
+        var studentId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        var now = DateTime.UtcNow;
+
+        var assignment = await _db.ExamAssignments
+            .Include(a => a.Exam)
+            .Include(a => a.Exam.Section)
+            .Include(a => a.Workstation)
+            .FirstOrDefaultAsync(a => a.UserId == studentId && (a.Exam.Status == ExamStatus.Active || a.Exam.Status == ExamStatus.Scheduled));
+
+        if (assignment is null)
+        {
+            var unscheduled = new StudentExamStatus(
+                null,
+                "No Exam Assigned",
+                "NotStarted",
+                null,
+                null,
+                0,
+                false,
+                "Student is not assigned to any active or scheduled exam.",
+                null,
+                null,
+                null);
+
+            return Ok(new ApiEnvelope<StudentExamStatus>(true, "SUCCESS", "Success", unscheduled));
+        }
+
+        var session = await _db.ExamSessions
+            .Where(s => s.ExamId == assignment.ExamId && s.UserId == studentId)
+            .OrderByDescending(s => s.StartedAt)
+            .FirstOrDefaultAsync();
+
+        var examEnd = assignment.Exam.StartTime.AddMinutes(assignment.Exam.DurationMinutes);
+        var remainingSeconds = Math.Max(0, (int)(examEnd - now).TotalSeconds);
+        var status = session?.Status.ToString() ?? "NotStarted";
+
+        var message = !assignment.IsEligible
+            ? (assignment.EligibilityNote ?? "Student is not eligible for this exam.")
+            : assignment.Exam.StartTime > now
+                ? "Exam has not started yet."
+                : examEnd < now
+                    ? "Exam window has ended."
+                    : "Student can proceed.";
+
+        var response = new StudentExamStatus(
+            assignment.ExamId,
+            assignment.Exam.Title,
+            status,
+            assignment.Exam.StartTime,
+            examEnd,
+            remainingSeconds,
+            assignment.IsEligible,
+            message,
+            "Allowed Applications: " + assignment.Exam.AllowedApps,
+            assignment.Workstation?.MachineNumber ?? "Unassigned",
+            "Dr. Ahmed"
+        );
+
+        return Ok(new ApiEnvelope<StudentExamStatus>(true, "SUCCESS", "Success", response));
+    }
+
+    // POST /api/exams/student/start
+    [HttpPost("student/start")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> StartStudentExam()
+    {
+        var studentId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        var now = DateTime.UtcNow;
+
+        var assignment = await _db.ExamAssignments
+            .Include(a => a.Exam)
+            .FirstOrDefaultAsync(a => a.UserId == studentId && a.IsEligible && (a.Exam.Status == ExamStatus.Active || a.Exam.Status == ExamStatus.Scheduled));
+
+        if (assignment is null)
+        {
+            return BadRequest(new ApiEnvelope<object>(false, "NOT_ELIGIBLE", "No eligible exam assignment found.", null));
+        }
+
+        var examEnd = assignment.Exam.StartTime.AddMinutes(assignment.Exam.DurationMinutes);
+        if (assignment.Exam.StartTime > now || examEnd < now)
+        {
+            return BadRequest(new ApiEnvelope<object>(false, "OUTSIDE_EXAM_WINDOW", "Exam cannot be started outside its scheduled time window.", null));
+        }
+
+        var existing = await _db.ExamSessions
+            .FirstOrDefaultAsync(s => s.ExamId == assignment.ExamId && s.UserId == studentId && s.Status == SessionStatus.InProgress);
+
+        if (existing is not null)
+        {
+            var res = new StartExamResult(existing.SessionId, "InProgress", existing.StartedAt);
+            return Ok(new ApiEnvelope<StartExamResult>(true, "SUCCESS", "Success", res));
+        }
+
+        var session = new ExamSession
+        {
+            SessionId = Guid.NewGuid(),
+            ExamId = assignment.ExamId,
+            UserId = studentId,
+            StartedAt = now,
+            Status = SessionStatus.InProgress
+        };
+
+        _db.ExamSessions.Add(session);
+        await _db.SaveChangesAsync();
+
+        var result = new StartExamResult(session.SessionId, "InProgress", session.StartedAt);
+        return Ok(new ApiEnvelope<StartExamResult>(true, "SUCCESS", "Success", result));
     }
 }
 

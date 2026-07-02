@@ -1,22 +1,22 @@
 \section{Project Risk Management}
 
-Every software development project is susceptible to risk. For the SmartExam project, specific risks of high importance include the robustness of WebSockets, stability of WPF client lockdowns, protection against HWID spoofing, and the timing of module integrations \cite{risk1}. Naming these risks in advance does not prevent them but ensures preparedness when they occur.
+Every software development project is susceptible to risk. For the SmartExam project, specific risks of high importance include the robustness of WebSockets, stability of WPF client lockdowns, protection against HWID spoofing, and the timing of module integrations \cite{risk1}. Knowing these risks before they happen will not stop them but will prepare us for them.
 
 \subsection{Risk Identification}
 
-Risk management in SmartExam consists of four broad categories: technical, schedule, academic, and resource risks.
+SmartExam classifies risk management into four types: technical risks, schedule risks, academic risks, and resource risks.
 
 \textbf{Technical risks} include BIOS/motherboard HWID spoofing using virtual machines (VMware, VirtualBox) \cite{pmc_cbt}, overloading the WebSocket connection pool during peak lab sessions \cite{risk1}, bypassing the WPF client lockdown using system keyboard shortcuts \cite{risk1}, and inconsistent results returned by the AI grading module across environment versions \cite{pmc_cbt}.
 
-\textbf{Schedule risks} include delayed integration during Sprint 8, module development lagging behind the plan \cite{spp1}, documentation falling behind code delivery, and delayed supervisor feedback postponing chapter submission.
+\textbf{Schedule risks} include the late integration in Sprint 8, module development behind schedule \cite{spp1}, documentation behind code delivery, and late feedback from supervisor delaying chapter submission.
 
-\textbf{Academic risks} include the implemented prototype scope differing from the SRS design and a lack of justification for our design choices \cite{pmc_cbt}.
+\textbf{Academic risks:} The scope of the implemented prototype is not the same as the SRS design, and there is no justification for our design choices \cite{pmc_cbt}.
 
 \textbf{Resource risks} include limited physical access to lab workstations, free-tier connection limits on the Neon PostgreSQL database server, and personnel unavailability during critical sprints \cite{risk1}.
 
 \subsection{Risk Analysis}
 
-Not all identified risks demand the same level of attention \cite{spp1}. An error in document wording is low impact and moderately likely, whereas a WebSocket connection failure during a live exam demonstration is high impact and moderately likely \cite{risk1}. The team evaluates each risk using a probability-impact scale to determine its priority \cite{spp1, risk1}. Table~\ref{tab:risk_matrix} documents each risk with its assessed likelihood, impact level, and resulting priority.
+Not all identified risks need the same level of attention \cite{spp1}. An error in document wording is low impact and moderately likely, whereas a WebSocket connection failure during a live exam demonstration is high impact and moderately likely \cite{risk1}. The team evaluates each risk using a probability-impact scale to determine its priority \cite{spp1, risk1}. Table~\ref{tab:risk_matrix} documents each risk with its assessed likelihood, impact level, and resulting priority.
 
 \begin{table}[H]
 \centering
