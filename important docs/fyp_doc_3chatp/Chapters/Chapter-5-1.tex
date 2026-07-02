@@ -1,17 +1,15 @@
 \chapter{SYSTEM DESIGN}
 \label{chap:system_design}
 
-In the context of the AI-Driven Lab Exam Monitoring and Management System, system design marks a critical phase where the conceptual vision and requirements detailed in system analysis begin to take a structured, concrete, and implementable form. This stage focuses on thoughtfully outlining the software architecture of the entire platform, including its key components, modules, database wrappers, runtime execution blocks, and how they communicate with one another. It defines the technical blueprints of the platform and ensures that each part of the system aligns with student verification needs, invigilator supervision goals, academic grading standards, and strict system security constraints. By translating abstract user requirements and system boundaries into a tangible, organized framework, the system design phase serves as the technical foundation for a scalable, secure, concurrent, and maintainable software solution. Ultimately, system design bridges the gap between planning and development, guiding the project from logical definitions to physical prototypes.
+In this chapter we analyze the technical architecture of SmartExam and translate our requirements into an operational design by defining database schema, component structure diagrams and runtime diagrams. This set of diagrams is our blueprint for guiding WPF client, API controllers, WebSocket hub and grading service communication under stress.
 
 \section{Structure Diagrams}
-A structure diagram acts as a static blueprint that reveals how different components within a software system are organized, compiled, and connected. It provides a visual layout of the system’s architecture, making it straightforward to understand how each separate part contributes to the overall compilation and execution. In modern software engineering, structure diagrams illustrate the hierarchy, packaging, arrangement, and connections among database classes and physical servers, ensuring that they work together in a unified manner \cite{structure_diagram_techopedia}.
+We use structure diagrams to diagram our database model, server processes and client applications \cite{structure_diagram_techopedia} which show the compile time structure of a system. These contribute to the determination of compile time bounds, and enable parallel development between team members by showing how components will fit together.
 
-In the design of the SmartExam system, structure diagrams serve as essential tools for visualizing the static backbone of the application. They offer a high-level overview of how major database entities, service layers, controllers, client terminals, and remote database servers interact to deliver core functionalities like authentication, lockdown boundaries, and grading pipelines. By defining relationships and dependencies between compile-time components, structure diagrams streamline system design and ensure cohesive, concurrent development. Furthermore, by offering a clear and comprehensive depiction of the system's static framework, these models support effective communication among developers, administrators, and academic stakeholders, guiding the implementation of a stable, well-integrated prototype.
+The database models, controllers, server, and clients are identified in relation to each other and connected using structure diagrams in the designing of the overall architecture of SmartExam. This visual diagram allows us to clarify our static foundation of our application including how to handle authentication, how to set up lockdown limits and what order in which we would like to do gradings.
 
 \subsection{Class Diagram}
-A class diagram is a static UML structure diagram that outlines the structure of a system by showing its classes, their attributes, methods, and the relationships among objects \cite{class_diagram_uml, class_diagram_sparx}. It uses standardized block symbols to depict functional data entities, service logic controllers, and database access objects along with their fields and operations. These diagrams simplify complex object-oriented software by breaking it down into manageable components. Each class serves as a blueprint for instantiating runtime objects, ensuring code reuse, type safety, and encapsulation. Relationships between classes, including inheritance, associations, aggregations, dependencies, and cardinalities, are explicitly defined. This allows developers to anticipate structural bottlenecks, enforce object-oriented design patterns, and maintain referential integrity throughout the development lifecycle.
-
-The class diagram for the SmartExam system is illustrated in Figure~\ref{fig:class_diagram}. It comprises the data models and repository layers that manage student accounts, physical workstation bindings, exam configurations, Whitelisted applications, seating structures, active telemetry events, and AI grading logs:
+In our system design, we use class diagrams to depict the database entity-relationship diagram (ERD) that define our application's data structure as object classes \cite{class_diagram_uml, class_diagram_sparx}. We've represented some core models here in Figure~\ref{fig:class_diagram}.
 
 \begin{figure}[H]
 \centering
@@ -20,12 +18,10 @@ The class diagram for the SmartExam system is illustrated in Figure~\ref{fig:cla
 \label{fig:class_diagram}
 \end{figure}
 
-The class diagram shown in Figure~\ref{fig:class_diagram} details the properties and operations of the 14 core entity classes representing our domain model. The class model includes account entities (\texttt{User} and \texttt{Role}), hardware binding controllers (\texttt{DeviceBinding}), configuration descriptors (\texttt{Exam}, \texttt{Question}, \texttt{TestCase}, \texttt{AllowedApp}, and \texttt{SeatingMap}), active runtime state entities (\texttt{ExamSession} and \texttt{Answer}), background logs (\texttt{MonitoringEvent} and \texttt{AuditLog}), and post-exam evaluators (\texttt{AiGradingResult} and \texttt{PlagiarismResult}). Associations define relationships, such as the strict one-to-one relationship between a \texttt{User} and a \texttt{DeviceBinding} using motherboard/CPU HWID hashes. Additionally, the model outlines one-to-many associations linking an \texttt{Exam} to its whitelisted apps, questions, seating maps, and active sessions, structuring the flow of data within our relational database wrapper.
+The fourteen classes represented in Figure~\ref{fig:class_diagram} illustrate the attributes of our 14 essential database entities. Here we model our 14 database entities, which are roles, user profiles, HW (hardware ID) bindings, settings, exam settings, seating plans, telematics events and exam log files. Note how the two entities with a 1:1 relationship between them represent binding an exam setting with user. This would give our security team more control over which machines and OSes exams are allowed on, blocking students taking exams on their personal devices or a non-proctored machine.
 
 \subsection{Deployment Diagrams}
-A UML deployment diagram visually represents the physical architecture of a system, mapping out how software components are distributed across hardware devices, operating system nodes, and network segments during runtime. It shows where each executable component lives—whether it runs on a local workstation, a web browser, or a cloud server—and illustrates the communication protocols used to connect these nodes. This diagram is valuable for understanding how the physical infrastructure supports the system's operational requirements, highlighting the relationships between client devices, application servers, Docker hosts, and remote databases, which helps with resource allocation, security planning, scalability, and network maintenance.
-
-The deployment configuration of the SmartExam system is shown in Figure~\ref{fig:deployment_diagram}, mapping out the runtime environments of the WPF student client, the React web dashboard, and the C\# ASP.NET Core backend:
+A Deployment Diagram illustrates the hardware architecture of the deployment target, and displays the software mapping onto hardware and network topology \cite{sequence_diagram_medium}. In this Diagram, we can clearly observe our system architecture, which is set up in the cloud.
 
 \begin{figure}[H]
 \centering
@@ -34,17 +30,28 @@ The deployment configuration of the SmartExam system is shown in Figure~\ref{fig
 \label{fig:deployment_diagram}
 \end{figure}
 
-The deployment topology mapped in Figure~\ref{fig:deployment_diagram} divides the platform into three main physical tiers. The Client tier includes the student workstation running the WPF desktop app, communicating with local Windows APIs for HWID retrieval and lockdown hooks. The Web tier includes the teacher's web browser rendering the React web panel. The Server tier includes the ASP.NET Core API server running on IIS or Kestrel, connected to a Neon PostgreSQL instance. Furthermore, the Server tier interfaces with a Docker Host that compiles and executes code submissions inside isolated sandboxes, and an AI Semantic Service that runs sentence-transformers models. Network links use HTTPS for REST API calls and WebSockets for streaming telemetry and live alerts, ensuring fast response times and robust security.
+As shown in Figure~\ref{fig:deployment_diagram}, we divide our platform into three physical tiers. The Client tier contains the WPF student client running locally. The Web tier serves the React admin panel to teachers. The Server tier hosts the ASP.NET Core API server, which communicates with Neon PostgreSQL, a sandboxed Docker execution host, and our AI semantic grading microservice. Communication uses HTTPS for REST endpoints and WebSockets for real-time telemetry.
+
+\subsection{Component Diagram}
+Component diagrams detail the modular interfaces and dependencies of our compile-time blocks. Figure~\ref{fig:component_diagram} shows how they connect.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/component_diagram.png}
+\caption{UML Component Diagram of the SmartExam System Architecture}
+\label{fig:component_diagram}
+\end{figure}
+
+In Figure~\ref{fig:component_diagram}, we separate the system into Client, Application, and Data tiers. The WPF and React components make up the client tier. The REST API, SignalR WebSockets hub, Docker grading runner, and AI semantic parser run in the application tier. The Neon PostgreSQL database holds our persistent storage.
 
 \section{Behavioral Diagrams}
-Behavioral diagrams serve as dynamic blueprints that illustrate how a software system operates during its execution, showing how data moves, how states change, and how objects interact. These diagrams capture the interactions between system components, human actors, and external APIs, showing how information pipelines are executed \cite{behavioral_uml_diagrams}. They are essential for understanding the runtime functionality of software. For example, activity diagrams trace the control flow within a process, sequence diagrams map chronological message passing, and communication diagrams highlight collaborating objects.
-
-Behavioral diagrams are valuable for analyzing the dynamic properties of the SmartExam platform. By illustrating how real-time data moves and how different components coordinate over time, they help identify potential latency issues, optimize data streaming, and verify that the system behaves correctly under concurrent conditions.
+Behavioral diagrams represent how the components of our systems interact during the execution time. These types of diagrams illustrate how data flows through the system and provide a step by step walk through as certain actions occur such as the change in state or other system events occur \cite{behavioral_uml_diagrams}.
 
 \subsection{Activity Diagrams}
-An activity diagram in UML is a specialized flowchart that models the dynamic flow of control and activities within a system. Unlike simple flowcharts, activity diagrams capture granular processes, decision points, concurrent operations, and loops. They show how actions depend on one another, using swimlanes to separate responsibilities. By clearly showing how tasks are triggered, how conditions affect execution paths, and how final states are reached, activity diagrams help developers visualize business logic and user workflows \cite{activity_diagram_vp}.
+In computer science, an activity diagram is a flow chart like diagram which will be the diagram used to show each step that leads up to a part of a workflow, which will in turn, be one step in another, higher level workflow \cite{activity_diagram_vp}. The student exam section, and the lockdown workflow are two of our most common workflows depicted below.
 
-The activity workflow for a student taking an exam on the SmartExam client is shown in Figure~\ref{fig:activity_diagram}:
+\subsubsection{Student Exam Session and Lockdown Workflow}
+The Diagram below in Figure~\ref{fig:activity_diagram} summarizes the typical exam workflow taken by our student application, all the way from logging in to submitting his answers. From authentication and the submission to the HWID Check the student will log into their workstation and get the signal to proceed to lockdown where local diagnostics take place. Before they even click on the ``start exam'' button the system has already initiated screenshot and focus polling, ready for anything out of the normal.
 
 \begin{figure}[H]
 \centering
@@ -53,12 +60,164 @@ The activity workflow for a student taking an exam on the SmartExam client is sh
 \label{fig:activity_diagram}
 \end{figure}
 
-The activity flow illustrated in Figure~\ref{fig:activity_diagram} maps the sequence of actions from when a student launches the client to the final submission. It starts with user login and HWID validation. If verification succeeds, the client starts system diagnostics, testing the webcam and checking running processes for blacklisted items. If diagnostics pass, the client locks the workstation (blocking Task Manager and keystrokes like Alt+Tab) and loads the exam questions. During the exam, a background thread streams screenshots and focus logs. When the student submits or the timer expires, the client unlocks the desktop, uploads final answers, and triggers the AI evaluation pipeline, saving the session data.
+\subsubsection{Authentication and HWID Binding}
+Figure~\ref{fig:activity_auth} maps the workstation binding checks.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_auth.png}
+\caption{UML Activity Diagram of Student Authentication and HWID Binding}
+\label{fig:activity_auth}
+\end{figure}
+
+Our diagram of the authentication and HWID Check is included here below for clarity and for demonstrating the role of security in the exam workflow. Once the system has performed initial client/server authentications the system may retrieve and store the initial CPU and motherboard serial hashes for that workstation. The first time a student logs into a workstation, that binding will be recorded in our server-side database. The following attempts to log in to that workstation by that student will require that the server-side binding hashes must match the client-side.
+
+\subsubsection{Pre-Exam Diagnostics Check}
+Figure~\ref{fig:activity_diagnostics} shows the pre-exam verification flow.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_diagnostics.png}
+\caption{UML Activity Diagram of Pre-Exam Diagnostics Check}
+\label{fig:activity_diagnostics}
+\end{figure}
+
+This section diagram (Figure~\ref{fig:activity_diagnostics} below) provides details on what will happen before the student is allowed to actually ``start the exam''. Local diagnostic tests for web-cam presence, internet connectivity, and lists of prohibited applications will be performed, and the user will be alerted to any failures.
+
+\subsubsection{Readiness Verification and Mock Test}
+Figure~\ref{fig:activity_readiness} outlines the mock test environment.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_readiness.png}
+\caption{UML Activity Diagram of Readiness Verification and Mock Test}
+\label{fig:activity_readiness}
+\end{figure}
+
+The following Diagram (Figure~\ref{fig:activity_readiness}) indicates what is necessary in order to be ``ready'' and what happens before a ``practice'' test would take place. For a practice test, it's expected that the student would have all necessary items in place, and have a clean network connection.
+
+\subsubsection{Active Exam Dashboard}
+Figure~\ref{fig:activity_dashboard} shows the active exam dashboard flow.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_dashboard.png}
+\caption{UML Activity Diagram of Student Active Exam Dashboard}
+\label{fig:activity_dashboard}
+\end{figure}
+
+The dashboard enforces full-screen mode, disables desktop hotkeys, and tracks user actions. Students write code or text and submit before the session timer runs out.
+
+\subsubsection{Auto-Save and Session Recovery}
+Figure~\ref{fig:activity_recovery} details the auto-save loop.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_recovery.png}
+\caption{UML Activity Diagram of Auto-Save and Session Recovery}
+\label{fig:activity_recovery}
+\end{figure}
+
+A background timer triggers every 60 seconds. If the client is online, it uploads active drafts to the database. If the network drops, it caches the encrypted drafts locally and syncs them when the connection is restored.
+
+\subsubsection{Submission of Controlled Exam}
+The submission pipeline is shown in Figure~\ref{fig:activity_submission}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_submission.png}
+\caption{UML Activity Diagram of Controlled Exam Submission}
+\label{fig:activity_submission}
+\end{figure}
+
+When finished, the client packages the files, uploads it over HTTPS, registers the completion event in the database, removes all key hooks and exits. 
+
+\subsubsection{Exam template configuration}
+The mapping of the exam configuration by teachers is shown in Figure~\ref{fig:activity_config}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_config.png}
+\caption{UML Activity Diagram of Exam Template Configuration}
+\label{fig:activity_config}
+\end{figure}
+
+Teachers set up questions, assign weights, define test cases and save settings to the db.
+
+\subsubsection{Allowed Applications Configuration}
+Whitelisting is shown in Figure~\ref{fig:activity_applications}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_applications.png}
+\caption{UML Activity Diagram of Whitelisted Applications Configuration}
+\label{fig:activity_applications}
+\end{figure}
+
+Teachers select allowed executables (e.g. \texttt{code.exe}) and the list is saved to set lockdown boundaries.
+
+\subsubsection{Access Control and Seating Mapping}
+Seating maps are provided in Figure~\ref{fig:activity_seating}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_seating.png}
+\caption{UML Activity Diagram of Access Control and Seating Mapping}
+\label{fig:activity_seating}
+\end{figure}
+
+Remote logins are blocked by tying the candidates to specific labs, IP addresses and seat numbers.
+
+\subsubsection{Live Dashboard Observability}
+The real time proctoring flow is shown in Figure~\ref{fig:activity_monitoring}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_monitoring.png}
+\caption{UML Activity Diagram of Live Dashboard Monitoring}
+\label{fig:activity_monitoring}
+\end{figure}
+
+The React panel opens a WebSockets channel. It processes telemetry events, updates status cards and raises alerts if the lock is violated.
+
+\subsubsection{AI-Assisted Grading and Similarity Check}
+Figure~\ref{fig:activity_grading} shows a grading after an exam.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_grading.png}
+\caption{UML Activity Diagram for AI-Assisted Grading and Plagiarism Check}
+\label{fig:activity_grading}
+\end{figure}
+
+The engine executes student code in isolated Docker environments for testing against test cases, grades theory answers by NLP similarity, and performs AST comparisons to flag plagiarism.
+
+\subsubsection{QuestPDF report generation}
+The PDF creation workflow is illustrated in Figure~\ref{fig:activity_report}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_report.png}
+\caption{UML Activity Diagram of QuestPDF Report Generation}
+\label{fig:activity_report}
+\end{figure}
+
+The system compiles session metrics, formats the pages using QuestPDF, and downloads the PDF report.
+
+\subsubsection{Audit Logging}
+Figure~\ref{fig:activity_audit} details database auditing.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/activity_audit.png}
+\caption{UML Activity Diagram of System Audit Logging}
+\label{fig:activity_audit}
+\end{figure}
+
+Critical actions, such as seating overrides or password changes, are recorded in the database with timestamps and actor details.
 
 \subsection{Communication Diagrams}
-UML communication diagrams provide a structured way to visualize object interactions within a system by focusing on the links and messages exchanged between objects. While similar to sequence diagrams, communication diagrams emphasize the structural relationships and routing paths among objects rather than their timeline sequence. Objects are connected by association links, and numbered arrows indicate the sequence and direction of message passing. These diagrams show how multiple components collaborate to fulfill a specific use case, helping developers verify object responsibilities and ensure that collaboration pathways are logically structured \cite{communication_diagram_boardmix}.
-
-The collaboration of objects during a live proctoring override event is illustrated in Figure~\ref{fig:communication_diagram}:
+When focus-loss is identified at the client, there is a sequence of checks and processes that is completed to both alert and disable the client until a teacher overrides the lockdown \cite{communication_diagram_boardmix}. Figure~\ref{fig:communication_diagram} demonstrates the student override sequence in the system.
 
 \begin{figure}[H]
 \centering
@@ -67,15 +226,13 @@ The collaboration of objects during a live proctoring override event is illustra
 \label{fig:communication_diagram}
 \end{figure}
 
-The communication model in Figure~\ref{fig:communication_diagram} shows how messages are passed between the WPF student client, the WebSocket hub, the database, and the teacher's proctoring dashboard during an override action. Message 1 represents the student client streaming a focus-loss alert to the WebSocket hub. Message 2 represents the hub writing this event to the database. Message 3 represents the hub pushing a real-time WebSocket warning to the teacher's proctoring controller, which displays an alert. Message 4 represents the teacher initiating an override command (e.g., pausing the exam timer). Message 5 represents the dashboard sending an API request to the override controller, which updates the session state in the database (Message 6) and sends a remote pause signal to the student client (Message 7).
+Figure~\ref{fig:communication_diagram} maps the override sequence. The student client pushes a focus-loss event over WebSockets (1). The SignalR hub writes it to the database (2) and alerts the teacher panel (3). The teacher pauses the exam (4), sending an API call to the controller (5). The controller updates the database session (6) and instructs the hub to pause the student client (7).
 
 \subsection{Sequence Diagrams}
-UML sequence diagrams are used to visualize the chronological flow of events and messages within a system, illustrating how components interact over time. They provide a timeline-based view, with lifelines representing participating objects and horizontal arrows representing messages or method calls. This structure helps developers track execution flows, trace API requests, identify latency bottlenecks, and design secure authentication patterns \cite{sequence_diagram_medium}.
-
-In the SmartExam platform, sequence diagrams map the chronological communication between client interfaces, API controllers, authorization services, and databases, detailing core operational scenarios.
+A sequence diagram depicts when an object sends an information message, to whom it sends the information, the medium through which the information is sent, and how the objects interacting as part of the message send and receive in the form of time sequencing \cite{sequence_diagram_medium}. Figure~\ref{fig:seq_login} maps message sequences from student to login server.
 
 \subsubsection{Login}
-The sequence diagram for student authentication and workstation hardware ID binding is illustrated in Figure~\ref{fig:seq_login}:
+Figure~\ref{fig:seq_login} provides more details of the Login flow as explained above. Figure~\ref{fig:seq_login} maps message sequences from student to login server.
 
 \begin{figure}[H]
 \centering
@@ -84,10 +241,10 @@ The sequence diagram for student authentication and workstation hardware ID bind
 \label{fig:seq_login}
 \end{figure}
 
-As shown in Figure~\ref{fig:seq_login}, the login sequence begins when a student enters their credentials on the WPF client dashboard. The client queries the workstation's motherboard and CPU IDs using native Windows APIs to generate a unique HWID hash. The client then sends a POST request with the email, password, and HWID to the auth controller. The controller validates the credentials and checks the device bindings table in the database. If no binding exists, the server binds the current HWID to the user account. If a binding exists, it verifies that the incoming HWID matches the registered hash. If they match, a JWT token is generated and returned to the client, allowing the student to access the exam workspace. If they do not match, the request is rejected with a validation error.
+The student logs in on the WPF client. The client queries CPU and motherboard properties using native calls and transmits the hashed HWID to the server. The server compares this HWID with existing bindings. If matched, it returns a JWT; if mismatched, it blocks access.
 
 \subsubsection{Logout}
-The sequence diagram for logging out and releasing client restrictions is shown in Figure~\ref{fig:seq_logout}:
+Logout is shown in Figure~\ref{fig:seq_logout}.
 
 \begin{figure}[H]
 \centering
@@ -96,10 +253,10 @@ The sequence diagram for logging out and releasing client restrictions is shown 
 \label{fig:seq_logout}
 \end{figure}
 
-The logout sequence in Figure~\ref{fig:seq_logout} outlines the steps for terminating an active session and releasing workstation controls. When the user clicks the logout button, the client sends a POST request to the logout endpoint on the API server. The server invalidates the JWT session in the database, logging the logout event. On receiving a success response, the WPF client releases its keyboard/mouse hooks, terminates the background telemetry threads, and closes the locked browser window. The client then redirects the user to the login screen, returning the workstation to its normal state.
+Student asks to log out. The active JWT session is invalidated by the server. If it succeeds, the client removes Windows hooks, kills telemetry threads and resets the workstation to default.
 
-\subsubsection{Change Password}
-The sequence diagram for profile password updates is shown in Figure~\ref{fig:seq_change_password}:
+\subsubsection{Change de mot de passe}
+Figure~\ref{fig:seq_change_password}: Modification de mot de passe.
 
 \begin{figure}[H]
 \centering
@@ -108,34 +265,34 @@ The sequence diagram for profile password updates is shown in Figure~\ref{fig:se
 \label{fig:seq_change_password}
 \end{figure}
 
-As shown in Figure~\ref{fig:seq_change_password}, the change password sequence secures user accounts by updating credentials. The user inputs their current and new password on the settings page. The client sends a secure POST request to the password controller with the current and new passwords. The controller extracts the user's ID from the JWT token and fetches the stored password hash from the database. The system verifies the current password using BCrypt. If verified, the server hashes the new password and updates the database, returning a success confirmation to the client.
+User provides credentials. The controller checks their current password with BCrypt, hashes the new password, and saves the update in PostgreSQL.
 
 \subsubsection{View Database}
-The sequence diagram for querying telemetry records and exam reports by instructors is shown in Figure~\ref{fig:seq_view_database}:
+Figure~\ref{fig:seq_view_database} shows the query flows.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.97\linewidth]{Figures/seq_view_database.png}
-\caption{Sequence Diagram of Teacher Querying Telemetry Events and Exam Records}
+\caption{Sequence diagram for teacher queries telemetry events and exam records}
 \label{fig:seq_view_database}
 \end{figure}
 
-The sequence diagram in Figure~\ref{fig:seq_view_database} shows how teachers query student logs and monitoring events. The teacher accesses the live monitoring panel or the student results dashboard. The React application sends a GET request to the monitoring API with the exam session ID and the JWT token. The server validates the teacher's authorization and queries the database for logs, screenshots, and compiler flags. The database returns the requested records, and the server format-maps this data into a JSON array, which is returned to the dashboard. The React panel then renders this data in timelines, graphs, and screenshot grids, allowing instructors to inspect violations and review grades.
+Teachers want logs. The REST API checks the teacher’s authorization, retrieves the telemetry records, transforms them into a JSON list, and passes it back to the React grid.
 
-\subsubsection{Start Exam and Telemetry Ingestion}
-The sequence diagram for starting an exam session and streaming background telemetry is illustrated in Figure~\ref{fig:seq_telemetry}:
+\subsubsection{Begin Exam and Telemetry Ingest}
+Figure~\ref{fig:seq_telemetry} Telemetry Loop Monitors.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.97\linewidth]{Figures/seq_telemetry.png}
-\caption{Sequence Diagram of Exam Launch and Background Telemetry Ingestion}
+\caption{Exam Launch and Background Sequence Diagram Ingestion of Telemetry}
 \label{fig:seq_telemetry}
 \end{figure}
 
-The sequence diagram in Figure~\ref{fig:seq_telemetry} maps the chronological execution flow when a candidate launches an active exam workspace and initiates background telemetry streams. When the student clicks the start exam button, the WPF client activates native Windows API hooks to disable Task Manager and lock keyboard hooks (blocking shortcuts like Alt+Tab). The client then establishes a persistent WebSocket connection to the SignalR Hub. Once connected, a background logging thread starts running on the client, querying the operating system every 30 seconds for active process names, window focus handles, and compressed screenshot buffers. This payload is transmitted via WebSockets to the SignalR Hub. The server processes this telemetry stream and writes the logs to the \texttt{MonitoringEvents} database table. If the server identifies focus loss anomalies or unwhitelisted running applications, it immediately pushes a real-time WebSocket violation warning to the teacher's proctoring console, enabling live invigilator oversight.
+When you begin the exam, the native OS locks are activated. The WPF client opens a WebSocket connection to the SignalR hub: It polls OS handles and screenshot buffers every 30 seconds and streams them to the hub. The hub writes logs to Neon PostgreSQL and pushes warnings to the teacher if any anomalies happen.
 
 \subsubsection{Docker Code Compilation}
-The sequence diagram for executing and grading programming submissions inside isolated sandboxes is shown in Figure~\ref{fig:seq_compilation}:
+Figure~\ref{fig:seq_compilation} tracks sandboxed grading.
 
 \begin{figure}[H]
 \centering
@@ -144,10 +301,10 @@ The sequence diagram for executing and grading programming submissions inside is
 \label{fig:seq_compilation}
 \end{figure}
 
-As illustrated in Figure~\ref{fig:seq_compilation}, the code compilation sequence manages the secure execution of untrusted programming files submitted by candidates. When the instructor clicks the run evaluation button on the React dashboard, the web app transmits a POST request to the API server's grading controller. The server queries the database for student code answers and the corresponding exam's public/hidden test cases. Upon retrieving these records, the server calls the Docker Host Remote API to instantiate a sandboxed execution container. The server then copies the student's code and test case vectors into the isolated container and executes the compiler wrapper script. The container compiles the code, executes it against the test cases, and returns execution metrics (including test pass rates and execution duration) to the server. The server then issues a Docker command to stop and remove the container. Finally, the grading controller writes the scores to the \texttt{AiGradingResults} table in the database and returns a success confirmation to the teacher's web dashboard.
+The server pulls student code and test cases when grading starts. It starts a sandboxed Docker container, executes the compiler wrapper script in it, collects the metrics for the test execution, stops the container and records scores to a database.
 
 \subsubsection{AI Semantic Grading and Plagiarism Check}
-The sequence diagram for executing semantic scoring and pairwise plagiarism checks is illustrated in Figure~\ref{fig:seq_ai_plagiarism}:
+Figure~\ref{fig:seq_ai_plagiarism}. AI and Similarity Checks.
 
 \begin{figure}[H]
 \centering
@@ -156,4 +313,88 @@ The sequence diagram for executing semantic scoring and pairwise plagiarism chec
 \label{fig:seq_ai_plagiarism}
 \end{figure}
 
-The sequence diagram in Figure~\ref{fig:seq_ai_plagiarism} outlines the post-exam grading pipeline which evaluates subjective responses and checks for code copying across the class. When the grading pipeline is triggered, the server queries the database for student theory answers and the teacher's reference answer keys. For each theory answer, the server sends a POST request to the AI Semantic Service. The microservice runs a sentence-transformers vector model to calculate cosine similarity scores between the student's text and the reference key, returning the similarity grade and semantic feedback to the server. Following semantic grading, the server queries all code submissions for the exam and invokes the Plagiarism Engine. The engine parses the code files into Abstract Syntax Trees (ASTs) and executes pairwise comparison algorithms to detect similarity metrics. The similarity indexes are returned to the server, which writes the aggregated scores and plagiarism flags to the \texttt{AiGradingResults} and \texttt{PlagiarismResults} tables.
+The server queries for theory answers and reference keys and requests the AI Semantic Service to perform evaluations over HTTP. The Plagiarism Engine then parses code files into Abstract Syntax Trees (ASTs) and performs pairwise checks across all student code files.
+
+\subsubsection{Pre-Exam Diagnostics Check}
+The pre-exam hardware diagnostics are depicted in Figure~\ref{fig:seq_diagnostics}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/seq_diagnostics.png}
+\caption{Sequence Diagram of Pre-Exam Workstation Diagnostics Check}
+\label{fig:seq_diagnostics}
+\end{figure}
+
+The client queries local hardware loops for webcam/mic state and tests Internet latency. Success triggers the proceed button, failures generate diagnostic warnings.
+
+\subsubsection{Readiness Check and Mock Test}
+Mock tests are shown in Figure~\ref{fig:seq_readiness}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/seq_readiness.png}
+\caption{Sequence Diagram of Readiness Verification and Mock Test}
+\label{fig:seq_readiness}
+\end{figure}
+
+Mock Test for Students The client pulls questions, allows editing, compiles the mock submissions and returns scores.
+
+\subsubsection{Lockdown Mode Enforcement}
+Desktop lockdown is depicted in Figure~\ref{fig:seq_lockdown}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/seq_lockdown.png}
+\caption{Sequence Diagram of Student Client Lockdown Mode Enforcement}
+\label{fig:seq_lockdown}
+\end{figure}
+
+When you start the exam hooks are fired that disable key combinations (Alt+Tab, Win Key). The client writes lock success logs to Neon PostgreSQL and shows the fullscreen exam workspace.
+
+\subsubsection{Auto-Save and Session Recovery}
+Figure~\ref{fig:seq_recovery}: Backups for local recovery.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/seq_recovery.png}
+\caption{Sequence Diagram of Auto-Save and Session Recovery}
+\label{fig:seq_recovery}
+\end{figure}
+
+Collects editor changes in 60 sec loop. Offline, the client writes the backup to a local encrypted cache that recovers and syncs when a network connection is reestablished.
+
+\subsubsection{Exam Submission (Controlled)}
+Final submissions are shown in Figure~\ref{fig:seq_submission}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/seq_submission.png}
+\caption{Sequence Diagram of Controlled Exam Submission}
+\label{fig:seq_submission}
+\end{figure}
+
+The student hands in his exam. The client disables inputs, bundles responses, sends the payload via HTTPS, updates the database session rows, and uninstalls all the keystroke hooks.
+
+\subsubsection{Configuring Exam Templates}
+Figure~\ref{fig:seq_config} shows the mapping of templates.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/seq_config.png}
+\caption{Sequence Diagram of Exam Template Configuration}
+\label{fig:seq_config}
+\end{figure}
+
+The React panel sends config metadata (durations, whitelisted apps, test cases) to the API. The API validates the details, updates the database and returns confirmation.
+
+\subsubsection{Audit Logging and Report Export}
+Reporting sequence is shown in Figure~\ref{fig:seq_audit}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{Figures/seq_audit.png}
+\caption{Sequence Diagram of Audit Logging and Report Export}
+\label{fig:seq_audit}
+\end{figure}
+
+Teachers ask for reports. The REST API logs the request to audit tables, obtains grading summaries, invokes QuestPDF to create the layout, and streams the PDF document to the browser.

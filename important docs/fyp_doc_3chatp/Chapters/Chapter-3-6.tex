@@ -1,14 +1,22 @@
 \section{Project Risk Management}
 
-Risk management is the process through which potential problems are identified, assessed, and prepared for before they seriously affect project success \cite{risk1}. In the proposed AI-Driven Lab Exam Monitoring and Management System, risk management is especially important because the project involves technical integration, real-time workflow assumptions, multiple stakeholder expectations, and strict academic deadlines. Risks do not need to become actual failures if they are recognized early and managed in a disciplined way.
+Every software development project is susceptible to risk. For the SmartExam project, specific risks of high importance include the robustness of WebSockets, stability of WPF client lockdowns, protection against HWID spoofing, and the timing of module integrations \cite{risk1}. Knowing these risks before they happen will not stop them but will prepare us for them.
 
 \subsection{Risk Identification}
-Several categories of risk may affect the project. Technical risks include virtualization evasion attempts, instability in lock-down restrictions, or real-time focus log processing complexity \cite{pmc_cbt}. Schedule risks include delays in design completion, incomplete sprint outcomes, or documentation falling behind implementation. Academic risks include misunderstanding stakeholder needs, insufficient justification in the report, or weak alignment between written chapters and the evolving prototype. Resource risks may include limited access to realistic testing conditions, hardware constraints, or tool-related limitations.
+
+SmartExam classifies risk management into four types: technical risks, schedule risks, academic risks, and resource risks.
+
+\textbf{Technical risks} include BIOS/motherboard HWID spoofing using virtual machines (VMware, VirtualBox) \cite{pmc_cbt}, overloading the WebSocket connection pool during peak lab sessions \cite{risk1}, bypassing the WPF client lockdown using system keyboard shortcuts \cite{risk1}, and inconsistent results returned by the AI grading module across environment versions \cite{pmc_cbt}.
+
+\textbf{Schedule risks} include the late integration in Sprint 8, module development behind schedule \cite{spp1}, documentation behind code delivery, and late feedback from supervisor delaying chapter submission.
+
+\textbf{Academic risks:} The scope of the implemented prototype is not the same as the SRS design, and there is no justification for our design choices \cite{pmc_cbt}.
+
+\textbf{Resource risks} include limited physical access to lab workstations, free-tier connection limits on the Neon PostgreSQL database server, and personnel unavailability during critical sprints \cite{risk1}.
 
 \subsection{Risk Analysis}
 
-Risk analysis helps the team determine which risks deserve the most attention \cite{risk1}. A risk is not important only because it is possible; it becomes important when its likelihood combines with meaningful impact. For example, a small wording correction in a chapter may be likely but low impact, whereas instability in a monitoring feature during late-stage integration may be both moderately likely and highly disruptive. The team therefore evaluates risks in terms of both probability and seriousness.
-
+Not all identified risks need the same level of attention \cite{spp1}. An error in document wording is low impact and moderately likely, whereas a WebSocket connection failure during a live exam demonstration is high impact and moderately likely \cite{risk1}. The team evaluates each risk using a probability-impact scale to determine its priority \cite{spp1, risk1}. Table~\ref{tab:risk_matrix} documents each risk with its assessed likelihood, impact level, and resulting priority.
 
 \begin{table}[H]
 \centering
@@ -30,8 +38,14 @@ Team member unavailability during critical sprint     & Low    & Medium & Low \\
 
 \subsection{Risk Mitigation Plan}
 
-Risk mitigation involves planning responses before problems grow. Requirement instability can be reduced through early scope clarification and regular supervisor review. Integration risk can be reduced through modular development and early testing of interfaces between key components. Documentation delay can be reduced by writing chapters incrementally throughout the project rather than postponing them. Testing constraints can be reduced through scenario-based validation even when full real-world deployment is not possible. Time pressure can be reduced through milestone tracking and careful attention to critical-path activities.
+A response strategy has been documented for every risk identified in Table~\ref{tab:risk_matrix}.
 
-\subsection{Risk Monitoring and Control}
+\textbf{HWID Spoofing:} The student client makes a triple call to WMI for hardware IDs: the BIOS serial number, physical disk ID, and motherboard manufacturer string. Spoofing all three simultaneously in a virtualized environment is highly impractical. The server validates all three values; if the client mismatch or sends incomplete/invalid IDs, the connection is refused.
 
-Risk management is not a one-time exercise performed only at the proposal stage. Risks must be monitored throughout the semester as the project evolves. New risks may appear when modules become more detailed or when feedback changes priorities. Therefore, the team should review risk status regularly, especially after each sprint or milestone. Continuous risk monitoring supports more stable project execution and reduces the likelihood that late-stage surprises will undermine the final deliverable.
+\textbf{Delay on Module Integration:} Each module exposes a versioned REST API developed in isolation against server mocks. Integration simply requires the client to consume the live endpoints. This minimizes design changes and significantly reduces Sprint 8 integration risk since modules are developed in parallel with live API server endpoints.
+
+\textbf{WebSocket Overload:} The WPF client buffers telemetry locally in memory for 5 seconds and transmits it in batch JSON packets instead of sending individual real-time events. The API server enforces connection limits, maintaining a pool of up to 30 concurrent connections per lab session to ensure database load remains stable.
+
+\textbf{Neon PostgreSQL Limitation:} We monitor database usage weekly. If usage approaches free-tier limits, application pool configurations are adjusted to reduce connection lifespans and optimize reuse before upgrading.
+
+\textbf{WebSocket Connection Failure:} If a student's WebSocket connection fails during the exam, the client continues logging telemetry locally in binary format, transmitting the buffered data once the connection is re-established.

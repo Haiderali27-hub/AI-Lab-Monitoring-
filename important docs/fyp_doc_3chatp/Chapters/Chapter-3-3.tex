@@ -1,6 +1,6 @@
 \subsection{Gantt Chart}
 
-The Gantt chart visually represents the timing and overlap of major activities such as requirement analysis, sprint planning, interface design, module development, testing, and final review \cite{gantt1}. In this revised plan, the chart is aligned with the eight sprint structure defined in the Agile process model so that the implementation schedule and the written process model remain consistent.
+This Gantt chart depicts the time frame of activities for the 8 sprints during the FYP. It includes the start and end weeks of each module development with overlapping activities \cite{gantt1}. Each sprint is a period of four weeks. This chart offers a quick understanding of the timeline and guarantees that the requirements definition phase is complete before the implementation phase begins and that the testing phase begins early enough to find and resolve any integration issues before the final sprint. Figure~\ref{fig:ganttchart} shows the entire timeline.
 
 \begin{figure}[H]
 \centering
@@ -9,11 +9,9 @@ The Gantt chart visually represents the timing and overlap of major activities s
 \label{fig:ganttchart}
 \end{figure}
 
-The chart should be read together with the sprint descriptions because each four-week sprint represents a focused development increment with specific modules and review outcomes. When viewed in that way, the Gantt chart becomes a practical coordination tool rather than only a visual schedule \cite{spp1}.
-
 \subsection{Work Breakdown Structure}
 
-The work breakdown structure decomposes the project into manageable work packages \cite{wbs1}. It helps the team see how the final system emerges from smaller responsibilities such as requirement analysis, dashboard planning, scheduling logic, monitoring logic, submission handling, reporting, testing, and documentation.
+The Work Breakdown Structure (WBS) is a systematic decomposition of the project into manageable work packages \cite{wbs1}. Initially, the project is divided into five core areas: Requirements, Design, Implementation, Testing, Documentation. The implementation phase is then further divided into the twelve module clusters as defined in the product scope. The complete hierarchy is shown in Figure~\ref{fig:wbs}.
 
 \begin{figure}[H]
 \centering
@@ -22,11 +20,13 @@ The work breakdown structure decomposes the project into manageable work package
 \label{fig:wbs}
 \end{figure}
 
-The WBS is especially helpful in team coordination because it reduces ambiguity around what must be completed and how tasks relate to one another \cite{spp1}.
+The WBS clearly assigns scope responsibility to team members. If a module appears in a sprint backlog, all team members know what WBS node that module is associated with avoiding double-handling and making scope creep visible right away \cite{spp1}.
 
 \subsection{Critical Path Method}
 
-The critical path method identifies the chain of activities that most directly determines whether the project can finish on time \cite{spp1}. In this FYP, activities such as requirement stability, design completion, core-module development, integration, testing, and final documentation are part of that path. The critical path perspective is valuable because it helps the team recognize that some delays are more dangerous than others.
+The Critical Path Method (CPM) identifies the sequence of activities that determine the shortest project duration \cite{spp1}. If any task on this critical path is delayed, the whole project will be delayed. Non-critical path activities are slack activities, which are buffers that allow schedule slippage without affecting the project completion date. This project is modeled as a CPM network beginning with Activity A (Gathering Requirements, 1 week) which has three dependent paths. Path 1 includes Task B (Lockdown Client Development, 3 weeks) followed by Task E (AI Monitoring, 3 weeks). Path 2 includes Task C (Admin Dashboard, 2 weeks) and Task D (Question Bank, 2 weeks) that both feed into Task G (Unit Testing, 1 week). Path 3: Task F (Student Exam Client, 2 weeks). Tasks E, G and F all feed into Task H (System Integration Testing, 1 week) and conclude with Task I (System Deployment, 1 week) as depicted in Figure~\ref{fig:criticalpath}.
+
+The critical path is A $\rightarrow$ B $\rightarrow$ E $\rightarrow$ H $\rightarrow$ I with total length of 9 weeks (1+3+3+1+1). There is no slack on these critical tasks, so any delay will directly delay the deployment date. Path 2 tasks (C, D, G) have 1 week slack and Path 3 (Task F) has 4 weeks slack making them resource-sourcing pools if critical tasks fall behind.
 
 \begin{figure}[H]
 \centering
@@ -37,4 +37,4 @@ The critical path method identifies the chain of activities that most directly d
 
 \subsubsection{Schedule Control and Review}
 
-Schedule control in this project depends on regular sprint review, comparison of completed tasks against planned outcomes, and early adjustment when a task begins to slip \cite{scrum1}. This approach is more useful than passive calendar tracking because it links time management with actual deliverables such as working modules, diagrams, documentation updates, and testing evidence.
+SmartExam uses sprint burn-down charts \cite{scrum1} instead of passive calendar checks. Progress is measured at the end of each sprint against initial plans. If the percentage of completed story points drops below 80\% then there is a recovery session up to one day before the next sprint starts to identify delays early and not only see them during the last integration sprint.
