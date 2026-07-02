@@ -1,0 +1,12 @@
+\newpage
+\thispagestyle{empty}
+\chapter*{\centering Project Overview}
+\addcontentsline{toc}{chapter}{Project Overview}
+
+Running a practical lab exam is surprisingly chaotic. There are dozens of students coding, a couple of invigilators trying to watch all the screens and no real way of tracking what everyone is up to. Teachers end up having to use WhatsApp to coordinate schedules and USB drives to collect code files.
+
+We developed SmartExam to solve this problem. It's a single platform that manages the entire exam lifecycle in one place. Teachers can create exams, whitelists and seating plans. When students log in, our WPF desktop client locks down their workstation and streams real-time focus logs Post-exam, the system gathers the code drafts, does an automatic grading against the test cases, performs a plagiarism check, and produces a detailed PDF report. 
+
+Existing tools like Respondus LockDown Browser or MOSS only cover small pieces of the puzzle. None of them have scheduling, device binding, live dashboards, and grading in one workflow.
+
+SmartExam is composed of three parts: a WPF client for student machines, a React web panel for teachers and an ASP.NET Core API server that runs on a Neon PostgreSQL database. We built this prototype in an Agile model in eight four-week sprints, starting with core login security, then telemetry, and compilation. Our final prototype provides a secure and fully auditable environment for lab assessments.

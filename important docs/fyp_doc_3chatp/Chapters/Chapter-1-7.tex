@@ -1,0 +1,21 @@
+\section{Intended Users of the Product}
+
+There will be a set of at least four user types interacting with the system and each having different set of functions and responsibilities to execute their role within the life-cycle of an exam session.
+
+\subsection{Administrator}
+Admins are responsible of creating, editing, and deleting system users (teachers, invigilators, students), managing lab locations, seating arrangement mapping, institutional level configurations. Admins are also responsible of generating and submitting system-level audit and compliance reports. They don't have rights to Create, edit or manage any exam structure or individual questions, those activities belong solely to Teachers.
+
+\subsection{Teacher}
+Teachers own the exam contents and logistics. They are responsible of:
+\begin{itemize}[noitemsep]
+\item \textbf{Create, Edit, and manage Exams:} This includes setting up test title, questions (coding and theory), marking criteria, time limit, list of authorized processes, list of forbidden actions, test schedule.
+\item \textbf{Student enrolment:} Assigning students to specific exams, adding and removing students to or from specific sections or exam sittings.
+\item \textbf{Assign Exams to Labs:} Schedule an exam for a specific time slot in one or more computer labs.
+\item \textbf{Post-Exam activities:} Grade exams (including auto-grading outputs, peer-reviewing similarity matrix), generate report per student. Teachers usually serve as main contact persons if any issue arises regarding submitted answer from students.
+\end{itemize}
+
+\subsection{Invigilator}
+Invigilators oversee the examination environment from their dedicated dashboard while a session is in progress. They see the real time dashboard of all active students in that particular session, they monitor the focus state, and list of active processes on each student desktop. When the status becomes problematic (e.g. Focus dropped from question content to a web browser), the monitoring cell for the students turns yellow then red and automatically triggers alerts for direct attention of invigilators. An invigilator can mark, document, and escalate any incident directly through their dashboard in the system. This user role is often the same person who teach the course (teacher) or someone dedicated by admins to monitor sessions.
+
+\subsection{Student}
+Students are the ultimate users who will perform the actual test. Students can only access the specific scheduled exam which has been assigned to them by the teacher. Pre-check for Student includes, authenticating using system HWID, performing face recognition through the student's camera and finally triggering and launching the exam client in fullscreen ``lockdown'' environment. Once in lockdown mode, students can only see the exam question(s), write answers(s), compile and submit before time runs out. Students' answers are locked once the exam is finished, to prevent subsequent edits or cheating activities \cite{biometric1}.

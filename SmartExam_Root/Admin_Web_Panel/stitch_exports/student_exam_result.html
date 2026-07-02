@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exam Result Detail - SmartExam</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .code-block {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            background-color: #1E1E1E;
+            color: #D4D4D4;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed-dim": "#ffb77d",
+                    "surface-container-high": "#e6e8ea",
+                    "surface-container-lowest": "#ffffff",
+                    "on-background": "#191c1e",
+                    "on-tertiary": "#ffffff",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed": "#00174b",
+                    "surface-tint": "#0053db",
+                    "secondary-fixed-dim": "#62df7d",
+                    "secondary-container": "#7cf994",
+                    "surface-container": "#eceef0",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "outline-variant": "#c3c6d7",
+                    "on-secondary-fixed": "#002109",
+                    "on-surface-variant": "#434655",
+                    "surface-bright": "#f7f9fb",
+                    "on-primary": "#ffffff",
+                    "tertiary": "#824500",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "on-tertiary-container": "#ffede1",
+                    "surface-container-low": "#f2f4f6",
+                    "surface-container-highest": "#e0e3e5",
+                    "surface-variant": "#e0e3e5",
+                    "inverse-on-surface": "#eff1f3",
+                    "secondary": "#006e2d",
+                    "primary-fixed": "#dbe1ff",
+                    "primary": "#004ac6",
+                    "tertiary-container": "#a65900",
+                    "on-error-container": "#93000a",
+                    "on-tertiary-fixed-variant": "#6e3900",
+                    "on-surface": "#191c1e",
+                    "on-error": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "surface-dim": "#d8dadc",
+                    "error-container": "#ffdad6",
+                    "tertiary-fixed": "#ffdcc3",
+                    "secondary-fixed": "#7ffc97",
+                    "background": "#f7f9fb",
+                    "primary-container": "#2563eb",
+                    "on-secondary-fixed-variant": "#005320",
+                    "on-primary-container": "#eeefff",
+                    "on-tertiary-fixed": "#2f1500",
+                    "on-secondary-container": "#007230",
+                    "surface": "#f7f9fb",
+                    "inverse-surface": "#2d3133",
+                    "inverse-primary": "#b4c5ff",
+                    "outline": "#737686"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "md": "16px",
+                    "2xl": "48px",
+                    "margin-mobile": "16px",
+                    "margin-desktop": "40px",
+                    "lg": "24px",
+                    "xl": "32px",
+                    "base": "4px",
+                    "xs": "4px",
+                    "sm": "8px",
+                    "gutter": "24px"
+            },
+            "fontFamily": {
+                    "body-sm": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "label-md": ["Inter"],
+                    "stats-numeric": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "title-md": ["Inter"]
+            },
+            "fontSize": {
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "stats-numeric": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-surface font-body-lg text-on-surface antialiased">
+<!-- TopNavBar -->
+<header class="fixed top-0 z-50 w-full h-[64px] bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-outline shadow-sm">
+<div class="flex justify-between items-center h-full max-w-[1100px] mx-auto px-lg">
+<div class="flex items-center gap-xl">
+<span class="text-title-md font-title-md font-bold text-primary dark:text-inverse-primary">SmartExam</span>
+<nav class="hidden md:flex gap-md h-full">
+<a class="flex items-center h-full px-sm text-on-surface-variant dark:text-surface-variant font-body-lg text-body-lg hover:text-primary dark:hover:text-inverse-primary transition-colors hover:bg-surface-container-low dark:hover:bg-surface-container-high rounded-lg" href="#">Dashboard</a>
+<a class="flex items-center h-full px-sm text-primary dark:text-inverse-primary font-bold border-b-2 border-primary dark:border-inverse-primary pb-1" href="#">My Exams</a>
+<a class="flex items-center h-full px-sm text-on-surface-variant dark:text-surface-variant font-body-lg text-body-lg hover:text-primary dark:hover:text-inverse-primary transition-colors hover:bg-surface-container-low dark:hover:bg-surface-container-high rounded-lg" href="#">Performance</a>
+<a class="flex items-center h-full px-sm text-on-surface-variant dark:text-surface-variant font-body-lg text-body-lg hover:text-primary dark:hover:text-inverse-primary transition-colors hover:bg-surface-container-low dark:hover:bg-surface-container-high rounded-lg" href="#">Violations</a>
+<a class="flex items-center h-full px-sm text-on-surface-variant dark:text-surface-variant font-body-lg text-body-lg hover:text-primary dark:hover:text-inverse-primary transition-colors hover:bg-surface-container-low dark:hover:bg-surface-container-high rounded-lg" href="#">Notifications</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<button class="p-sm rounded-full hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+</button>
+<div class="flex items-center gap-sm pl-sm">
+<span class="font-label-md text-label-md text-on-surface">Ali Hassan</span>
+<img alt="Ali Hassan Profile Picture" class="w-8 h-8 rounded-full bg-primary-fixed" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpBzLAYJKtnLQKAZ4YVaNrWYjShGPd86eCWJQs8v_P9c1SYf5lNqR1-4ekMO-kQiQmYajrgwtkXoTS8MYKRtFZr1e2UAKcofTpMm6vNv3zQCYNOJsn-3UhsNRlrR6PZx1vWs0aNyRrR5jEsUGcwUJw1ZOwWuMsc1BvqSmV68D36A_QaaUMl2rk3sGgoBToIsFon0H5lTLNVkximHaC948SWvtyEkTEUVGY8i2NmzWez9FGtc-HWUtKw-Wc5XpRQFAAha7DNwPGWC8"/>
+</div>
+<button class="p-sm rounded-full hover:bg-error-container hover:text-error transition-all">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+</button>
+</div>
+</div>
+</header>
+<main class="pt-[64px] pb-2xl min-h-screen">
+<div class="max-w-[1100px] mx-auto px-lg mt-xl">
+<!-- Breadcrumb / Back Link -->
+<a class="group flex items-center gap-xs mb-lg text-primary hover:text-on-primary-fixed-variant transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="arrow_back">arrow_back</span>
+<span class="font-label-md text-label-md">Back to My Exams</span>
+</a>
+<!-- Result Header Card -->
+<section class="bg-surface-container-lowest border border-outline-variant border-l-[6px] border-l-primary rounded-xl p-xl shadow-sm mb-2xl">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-lg">
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-xs">CS302 — Data Structures &amp; Algorithms</p>
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-sm">Final Term Examination</h1>
+<div class="flex items-center gap-md text-on-surface-variant">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="calendar_today">calendar_today</span>
+<span class="font-body-sm text-body-sm">Dec 14, 2023</span>
+</div>
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="timer">timer</span>
+<span class="font-body-sm text-body-sm">120 Minutes</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-xl bg-surface-container-low p-md rounded-xl border border-outline-variant/30">
+<div class="text-center">
+<span class="font-display-lg text-display-lg text-secondary block">72%</span>
+<span class="font-label-md text-label-md text-on-surface-variant">36 / 50 marks</span>
+</div>
+<div class="h-16 w-[1px] bg-outline-variant"></div>
+<div class="flex flex-col items-center gap-sm">
+<span class="px-md py-xs bg-secondary-container text-on-secondary-container rounded-full font-label-md text-label-md uppercase tracking-wider">Passed</span>
+<span class="material-symbols-outlined text-secondary text-[32px]" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Tabs Navigation -->
+<div class="flex gap-xl border-b border-outline-variant mb-xl px-sm">
+<button class="pb-md px-xs font-title-md text-title-md text-primary border-b-2 border-primary transition-all" id="tab-my-answers" onclick="switchTab('my-answers')">My Answers</button>
+<button class="pb-md px-xs font-title-md text-title-md text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all" id="tab-ai-feedback" onclick="switchTab('ai-feedback')">AI Feedback Summary</button>
+<button class="pb-md px-xs font-title-md text-title-md text-on-surface-variant hover:text-primary border-b-2 border-transparent transition-all" id="tab-violations" onclick="switchTab('violations')">Violations</button>
+</div>
+<!-- Content Area -->
+<div class="space-y-lg transition-opacity duration-300" id="content-my-answers">
+<!-- Question 1: Coding -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg shadow-sm">
+<div class="flex justify-between items-start mb-md">
+<div class="flex items-center gap-md">
+<span class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold">1</span>
+<span class="px-md py-xs bg-primary-fixed text-on-primary-fixed-variant rounded-full font-label-md text-label-md">Coding</span>
+</div>
+<div class="text-right">
+<span class="block font-stats-numeric text-stats-numeric text-on-surface">16/20</span>
+<span class="px-md py-xs bg-secondary-container/30 text-on-secondary-container rounded-full font-label-md text-label-md inline-flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]" data-icon="auto_awesome">auto_awesome</span>
+                                AI: High Confidence
+                            </span>
+</div>
+</div>
+<p class="font-body-lg text-body-lg text-on-surface italic mb-lg">Implement a Singly Linked List 'reverse' function in Python that handles an empty list or a list with a single node.</p>
+<div class="rounded-lg overflow-hidden code-block p-lg custom-scrollbar overflow-x-auto text-sm leading-relaxed">
+<pre><code><span class="text-[#569CD6]">def</span> <span class="text-[#DCDCAA]">reverse_list</span>(head):
+    prev = <span class="text-[#569CD6]">None</span>
+    current = head
+    <span class="text-[#C586C0]">while</span> current:
+        next_node = current.next
+        current.next = prev
+        prev = current
+        current = next_node
+    <span class="text-[#C586C0]">return</span> prev <span class="text-[#6A9955]"># Correct implementation</span></code></pre>
+</div>
+</div>
+<!-- Question 2: Theory -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg shadow-sm">
+<div class="flex justify-between items-start mb-md">
+<div class="flex items-center gap-md">
+<span class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold">2</span>
+<span class="px-md py-xs bg-surface-container-high text-on-surface-variant rounded-full font-label-md text-label-md">Theory</span>
+</div>
+<div class="text-right">
+<span class="block font-stats-numeric text-stats-numeric text-on-surface">8/10</span>
+</div>
+</div>
+<p class="font-body-lg text-body-lg text-on-surface italic mb-lg">Explain the time complexity of searching for an element in a balanced Binary Search Tree (BST).</p>
+<div class="w-full p-md bg-surface-container-low border border-outline-variant rounded-lg font-body-lg text-body-lg text-on-surface min-h-[100px]">
+                        The time complexity for searching in a balanced Binary Search Tree is O(log n). This is because with each comparison, the search space is effectively halved, similar to binary search in an array. If the tree becomes unbalanced, the complexity can degrade to O(n).
+                    </div>
+</div>
+</div>
+<div class="hidden space-y-lg transition-opacity duration-300" id="content-ai-feedback">
+<!-- AI Banner -->
+<div class="bg-primary-fixed text-on-primary-fixed-variant p-xl rounded-xl border border-outline-variant flex items-center gap-xl">
+<div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-[40px] text-primary" data-icon="neurology">neurology</span>
+</div>
+<div>
+<h2 class="font-title-md text-title-md mb-xs">AI Evaluation Summary</h2>
+<p class="font-body-sm text-body-sm opacity-90 max-w-2xl">Our SmartEval engine analyzed your logic, code efficiency, and theoretical accuracy. Below are the key justifications for your marks and areas for improvement.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-lg">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined text-secondary" data-icon="thumb_up">thumb_up</span>
+<h3 class="font-title-md text-title-md text-on-surface">Strengths</h3>
+</div>
+<blockquote class="border-l-[3px] border-secondary pl-md py-sm font-body-lg text-body-lg text-on-surface-variant italic bg-surface-container-low rounded-r-lg">
+                            "Excellent use of pointer manipulation in Question 1. The student clearly understands the edge cases of linked list traversal, particularly the Null termination."
+                        </blockquote>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined text-tertiary" data-icon="lightbulb">lightbulb</span>
+<h3 class="font-title-md text-title-md text-on-surface">Opportunities</h3>
+</div>
+<blockquote class="border-l-[3px] border-tertiary pl-md py-sm font-body-lg text-body-lg text-on-surface-variant italic bg-surface-container-low rounded-r-lg">
+                            "In Question 2, while the complexity O(log n) was correct, mentioning the Space Complexity (recursion depth) would have secured the final 2 marks."
+                        </blockquote>
+</div>
+</div>
+</div>
+<div class="hidden transition-opacity duration-300" id="content-violations">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-2xl text-center">
+<span class="material-symbols-outlined text-[64px] text-secondary mb-md" data-icon="verified_user">verified_user</span>
+<h2 class="font-headline-lg text-headline-lg mb-sm">Integrity Verified</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-md mx-auto">No exam violations or suspicious behavior (tab switching, screen sharing, unauthorized audio) were detected during your session.</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-low dark:bg-surface-container-highest border-t border-outline-variant mt-2xl">
+<div class="flex flex-col md:flex-row justify-between items-center py-xl px-lg max-w-[1100px] mx-auto w-full">
+<div class="mb-md md:mb-0">
+<span class="text-label-md font-label-md font-bold text-primary">SmartExam</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">© 2024 SmartExam. All rights reserved.</p>
+</div>
+<div class="flex gap-xl">
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors hover:underline" href="#">Privacy Policy</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors hover:underline" href="#">Terms of Service</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors hover:underline" href="#">Support</a>
+</div>
+</div>
+</footer>
+<script>
+        function switchTab(tabName) {
+            // Hide all contents
+            const contents = ['my-answers', 'ai-feedback', 'violations'];
+            contents.forEach(id => {
+                document.getElementById(`content-${id}`).classList.add('hidden');
+                
+                // Reset styles
+                const btn = document.getElementById(`tab-${id}`);
+                btn.classList.remove('text-primary', 'border-primary');
+                btn.classList.add('text-on-surface-variant', 'border-transparent');
+            });
+
+            // Show selected content
+            const activeContent = document.getElementById(`content-${tabName}`);
+            activeContent.classList.remove('hidden');
+            activeContent.classList.add('animate-in', 'fade-in', 'duration-300');
+
+            // Set active button style
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            activeBtn.classList.remove('text-on-surface-variant', 'border-transparent');
+            activeBtn.classList.add('text-primary', 'border-primary');
+        }
+    </script>
+</body></html>
+

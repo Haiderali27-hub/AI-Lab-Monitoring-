@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SmartExam Analytics - PDF Report Preview</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed": "#d0e4ff",
+                    "tertiary-container": "#7d4ce7",
+                    "tertiary-fixed": "#e9ddff",
+                    "error-container": "#ffdad6",
+                    "on-tertiary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "surface-container-high": "#e6e8ea",
+                    "primary-fixed": "#dbe1ff",
+                    "surface-bright": "#f7f9fb",
+                    "surface": "#f7f9fb",
+                    "surface-container-highest": "#e0e3e5",
+                    "primary-container": "#2563eb",
+                    "surface-dim": "#d8dadc",
+                    "error": "#ba1a1a",
+                    "tertiary": "#632ecd",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed-variant": "#03497a",
+                    "background": "#f7f9fb",
+                    "surface-variant": "#e0e3e5",
+                    "surface-container-low": "#f2f4f6",
+                    "primary": "#004ac6",
+                    "on-primary-fixed": "#00174b",
+                    "outline": "#737686",
+                    "secondary": "#2b6193",
+                    "inverse-primary": "#b4c5ff",
+                    "on-primary-container": "#eeefff",
+                    "inverse-on-surface": "#eff1f3",
+                    "inverse-surface": "#2d3133",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "on-surface": "#191c1e",
+                    "on-background": "#191c1e",
+                    "on-surface-variant": "#434655",
+                    "on-tertiary-fixed": "#23005c",
+                    "tertiary-fixed-dim": "#d0bcff",
+                    "on-tertiary-container": "#f6edff",
+                    "secondary-fixed-dim": "#9ccaff",
+                    "surface-container": "#eceef0",
+                    "on-secondary-fixed": "#001d35",
+                    "surface-tint": "#0053db",
+                    "outline-variant": "#c3c6d7",
+                    "on-error-container": "#93000a",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "on-tertiary-fixed-variant": "#5516be",
+                    "on-secondary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "on-secondary-container": "#145283"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "card-padding": "20px",
+                    "base": "8px",
+                    "gutter": "16px",
+                    "table-cell-padding": "12px 16px",
+                    "container-margin": "24px"
+            },
+            "fontFamily": {
+                    "body-md": ["Inter"],
+                    "label-md": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "data-mono": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-md": ["Inter"]
+            },
+            "fontSize": {
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "headline-lg": ["30px", {"lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "data-mono": ["14px", {"lineHeight": "20px", "fontWeight": "500"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .a4-preview {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            margin: auto;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        @media (max-width: 1024px) {
+            .a4-preview {
+                width: 100%;
+                min-height: auto;
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md">
+<!-- SideNavBar (Shared Component) -->
+<aside class="fixed left-0 top-0 h-full w-[260px] flex flex-col py-6 z-40 bg-surface-container-lowest border-r border-outline-variant">
+<div class="px-6 mb-8">
+<h1 class="font-headline-md text-headline-md font-black text-primary">SmartExam</h1>
+<p class="font-label-md text-label-md text-on-surface-variant">Analytics Suite</p>
+</div>
+<nav class="flex-1 flex flex-col gap-1 px-3">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-label-md text-label-md">Exams</span>
+</a>
+<!-- Active State Logic: 'Analytics' is active -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container border-l-4 border-primary scale-[0.98] transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-label-md text-label-md">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-label-md text-label-md">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<div class="px-3 pt-6 border-t border-outline-variant">
+<button class="w-full flex items-center justify-center gap-2 bg-primary text-white py-2 rounded-lg font-label-md mb-4 hover:opacity-90 transition-opacity">
+<span>Export Data</span>
+</button>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-md text-label-md">Help Center</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[260px] min-h-screen">
+<!-- TopAppBar (Shared Component) -->
+<header class="sticky top-0 z-50 flex justify-between items-center px-container-margin h-16 w-full bg-surface-container-lowest border-b border-outline-variant">
+<div class="flex items-center gap-4">
+<h2 class="font-headline-sm text-headline-sm font-bold text-primary">Generated Reports</h2>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<button class="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined">add</span>
+<span class="font-label-md">Generate New Report</span>
+</button>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:bg-surface-container-low p-2 rounded-full transition-colors">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:bg-surface-container-low p-2 rounded-full transition-colors">settings</span>
+<div class="w-8 h-8 rounded-full overflow-hidden ml-2 border border-outline-variant">
+<img alt="User profile" data-alt="A professional headshot of a corporate academic administrator in a modern, brightly lit office environment. The lighting is soft and flattering, emphasizing a clean and authoritative aesthetic. The background features blurred architectural elements of a minimalist educational facility, maintaining a high-key color palette of whites and soft blues." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3uUPuVHxHollbYBlfvfMtSyX3WO8QZRxMZGe7xwRjT-i42kUsYtfCZMqjU6htpXYFJ1Tgu4g8Vy0uIEhOqzOzkPwJJWNIdaoIEICmeSScXW2UiEJeQBO69Yux_ERfWxaOfkre4BdAXNCx2_5pNs2KWny4XXYljdCIoiuQ1P6YkFNPS-HHDD1zw_MyUioxLlSpIRoEre4-gsAd8oROOXumizfz7Ys1nTT6501OORBXufHFJL4dmB4OaTEnS-gTYW2yLI-jOi9qYf4"/>
+</div>
+</div>
+</div>
+</header>
+<div class="p-container-margin space-y-gutter">
+<!-- Report History Table Section -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+<div class="px-card-padding py-4 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-sm">Report History</h3>
+<div class="flex gap-2">
+<button class="text-on-surface-variant hover:bg-surface-container-high p-2 rounded transition-colors"><span class="material-symbols-outlined">filter_list</span></button>
+<button class="text-on-surface-variant hover:bg-surface-container-high p-2 rounded transition-colors"><span class="material-symbols-outlined">search</span></button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low sticky top-0">
+<tr>
+<th class="px-4 py-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Report Name</th>
+<th class="px-4 py-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Exam</th>
+<th class="px-4 py-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Type</th>
+<th class="px-4 py-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Generated By</th>
+<th class="px-4 py-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Date</th>
+<th class="px-4 py-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-4 py-4 font-body-md">Finals_Q3_Summary.pdf</td>
+<td class="px-4 py-4 font-body-md text-on-surface-variant">Mathematics 101</td>
+<td class="px-4 py-4">
+<span class="px-3 py-1 rounded-full bg-primary-container/10 text-primary font-label-md text-[10px] uppercase">Exam Summary</span>
+</td>
+<td class="px-4 py-4 font-body-md">Admin Sarah</td>
+<td class="px-4 py-4 font-body-md text-on-surface-variant">Oct 24, 2023</td>
+<td class="px-4 py-4">
+<div class="flex gap-2">
+<button class="text-primary hover:bg-primary/5 p-1 rounded transition-colors"><span class="material-symbols-outlined">download</span></button>
+<button class="text-error hover:bg-error/5 p-1 rounded transition-colors"><span class="material-symbols-outlined">delete</span></button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-4 py-4 font-body-md">Cheating_Scan_Bio2.pdf</td>
+<td class="px-4 py-4 font-body-md text-on-surface-variant">Biology 202</td>
+<td class="px-4 py-4">
+<span class="px-3 py-1 rounded-full bg-error-container/10 text-error font-label-md text-[10px] uppercase">Plagiarism</span>
+</td>
+<td class="px-4 py-4 font-body-md">System Bot</td>
+<td class="px-4 py-4 font-body-md text-on-surface-variant">Oct 23, 2023</td>
+<td class="px-4 py-4">
+<div class="flex gap-2">
+<button class="text-primary hover:bg-primary/5 p-1 rounded transition-colors"><span class="material-symbols-outlined">download</span></button>
+<button class="text-error hover:bg-error/5 p-1 rounded transition-colors"><span class="material-symbols-outlined">delete</span></button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors bg-secondary-container/5">
+<td class="px-4 py-4 font-body-md font-bold text-primary">Student_7721_DeepDive.pdf</td>
+<td class="px-4 py-4 font-body-md text-on-surface-variant">Computer Science</td>
+<td class="px-4 py-4">
+<span class="px-3 py-1 rounded-full bg-tertiary-container/10 text-tertiary font-label-md text-[10px] uppercase">Student Detail</span>
+</td>
+<td class="px-4 py-4 font-body-md">Prof. Jenkins</td>
+<td class="px-4 py-4 font-body-md text-on-surface-variant">Oct 22, 2023</td>
+<td class="px-4 py-4">
+<div class="flex gap-2">
+<button class="text-primary hover:bg-primary/5 p-1 rounded transition-colors"><span class="material-symbols-outlined">download</span></button>
+<button class="text-error hover:bg-error/5 p-1 rounded transition-colors"><span class="material-symbols-outlined">delete</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Report Preview Section -->
+<section class="space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm">Report Preview</h3>
+<div class="flex items-center gap-4 text-on-surface-variant">
+<button class="flex items-center gap-2 hover:text-primary transition-colors"><span class="material-symbols-outlined">zoom_in</span></button>
+<button class="flex items-center gap-2 hover:text-primary transition-colors"><span class="material-symbols-outlined">zoom_out</span></button>
+<span class="text-body-md">1 of 1</span>
+</div>
+</div>
+<div class="bg-[#F1F5F9] rounded-xl p-8 border border-outline-variant overflow-y-auto max-h-[1000px]">
+<!-- A4 Document Page -->
+<div class="a4-preview font-body-md text-on-surface shadow-xl">
+<header class="flex justify-between items-start mb-10">
+<div>
+<h1 class="text-headline-md font-black text-primary mb-1">SmartExam</h1>
+<p class="text-label-md text-on-surface-variant tracking-widest uppercase">Institutional Analytics Report</p>
+</div>
+<div class="text-right">
+<p class="font-bold text-body-lg">Exam Summary Report</p>
+<p class="text-label-md text-on-surface-variant">Ref ID: SE-2023-4492</p>
+</div>
+</header>
+<div class="w-full h-1 bg-primary mb-10"></div>
+<div class="grid grid-cols-2 gap-y-10 gap-x-12 mb-12">
+<div class="space-y-4">
+<h4 class="font-label-md text-on-surface-variant uppercase border-b border-outline-variant pb-2">Exam Information</h4>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase">Course Name</p>
+<p class="font-bold">Advanced Statistics</p>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase">Exam Date</p>
+<p class="font-bold">Oct 15, 2023</p>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase">Students</p>
+<p class="font-bold">142 Enrolled</p>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase">Duration</p>
+<p class="font-bold">120 Minutes</p>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<h4 class="font-label-md text-on-surface-variant uppercase border-b border-outline-variant pb-2">Global Performance</h4>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase">Avg. Score</p>
+<p class="font-bold text-primary text-headline-sm">78.4%</p>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase">Pass Rate</p>
+<p class="font-bold text-[#10B981] text-headline-sm">92%</p>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase">Std. Deviation</p>
+<p class="font-bold">8.2</p>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase">Median</p>
+<p class="font-bold">81.0%</p>
+</div>
+</div>
+</div>
+</div>
+<div class="space-y-6 mb-12">
+<h4 class="font-label-md text-on-surface-variant uppercase border-b border-outline-variant pb-2">Score Distribution</h4>
+<div class="h-48 flex items-end justify-between gap-2 px-4">
+<div class="w-full bg-surface-container-highest rounded-t hover:bg-primary transition-colors relative group" style="height: 15%">
+<span class="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">0-20</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-t hover:bg-primary transition-colors relative group" style="height: 25%">
+<span class="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">21-40</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-t hover:bg-primary transition-colors relative group" style="height: 45%">
+<span class="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">41-60</span>
+</div>
+<div class="w-full bg-primary rounded-t relative group" style="height: 85%">
+<span class="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold opacity-100">61-80</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-t hover:bg-primary transition-colors relative group" style="height: 60%">
+<span class="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">81-100</span>
+</div>
+</div>
+<div class="flex justify-between text-[10px] text-on-surface-variant font-bold px-2">
+<span>POOR</span>
+<span>SATISFACTORY</span>
+<span>GOOD</span>
+<span>EXCELLENT</span>
+<span>SUPERIOR</span>
+</div>
+</div>
+<div class="mt-auto pt-10 border-t border-outline-variant flex justify-between items-end">
+<div class="text-[10px] text-on-surface-variant">
+<p>This report is confidential and intended solely for the institution.</p>
+<p>© 2023 SmartExam Analytics Suite. All Rights Reserved.</p>
+</div>
+<div class="w-24 h-24 border border-outline-variant p-1">
+<img alt="QR Code" data-alt="A clean, high-resolution QR code placed on a white background, styled as a modern digital security element. The aesthetic is strictly minimalist and corporate, utilizing a sharp black and white contrast that aligns with educational technology and analytical reporting standards." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDj_J5hMJDaz3sl7UULE8Xo_Mg7m7ExhwIa_hl1c-jhfzaN6YtpFSsGeMMWxhJARs4NccvO6gTGymU9UVM0Z6YfLsvFm2_yqNn84z7X7OKY-CLtMiqDPhat1UjtoDjNPsKeCFRYp1i0-Ta8CvFp2y7ILxHWUto8aI8-FHZCj0ryXhQmp3IIdLg397Esi7FbRF3RmEMzJriJVsaRtwm377eG4bfvTzyba40C8wo8ExxadPJQLsEP2I_QM4iVd696roXGTKhwfZV8Fe4"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Actions for Preview -->
+<div class="flex justify-end gap-4 pb-12">
+<button class="flex items-center gap-2 border border-primary text-primary px-6 py-2.5 rounded-lg font-label-md hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined">share</span>
+<span>Share</span>
+</button>
+<button class="flex items-center gap-2 bg-primary text-white px-8 py-2.5 rounded-lg font-label-md hover:opacity-90 transition-all shadow-md active:scale-95">
+<span class="material-symbols-outlined">download</span>
+<span>Download PDF</span>
+</button>
+</div>
+</section>
+</div>
+</main>
+<script>
+        // Simple Micro-interactions
+        document.querySelectorAll('tr').forEach(row => {
+            row.addEventListener('click', function() {
+                // Remove highlight from all
+                document.querySelectorAll('tr').forEach(r => r.classList.remove('bg-secondary-container/10'));
+                // Add highlight to current
+                this.classList.add('bg-secondary-container/10');
+            });
+        });
+
+        // Simulating Download Loading
+        const downloadBtn = document.querySelector('button.bg-primary.text-white.px-8');
+        downloadBtn.addEventListener('click', function() {
+            const originalContent = this.innerHTML;
+            this.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span><span>Preparing...</span>';
+            this.disabled = true;
+            setTimeout(() => {
+                this.innerHTML = originalContent;
+                this.disabled = false;
+                alert('Your PDF report is ready for download.');
+            }, 1500);
+        });
+    </script>
+</body></html>
+

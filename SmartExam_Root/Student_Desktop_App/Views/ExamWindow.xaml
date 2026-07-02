@@ -1,0 +1,270 @@
+<Window x:Class="Student_Desktop_App.Views.ExamWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SmartExam — Exam in Progress"
+        Height="820" Width="1240"
+        MinHeight="700" MinWidth="1100"
+        FontFamily="Segoe UI"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing">
+    <Window.Resources>
+        <!-- Fade+rise animation used by question cards -->
+        <Storyboard x:Key="RiseIn">
+            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                             From="18" To="0" Duration="0:0:0.32">
+                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+    </Window.Resources>
+
+    <Border CornerRadius="18" Margin="12" BorderBrush="#DCE3EE" BorderThickness="1" Background="#F4F7FC">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="40" Opacity="0.22" ShadowDepth="0" Color="#1B2A4A" />
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- ===== Top bar ===== -->
+            <Border Grid.Row="0" x:Name="TitleBar" CornerRadius="18,18,0,0" Background="{StaticResource PrimaryGrad}"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid Height="66" Margin="22,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="36" Height="36" CornerRadius="10" Background="#33FFFFFF">
+                            <TextBlock Text="&#xE7BE;" FontFamily="Segoe MDL2 Assets" FontSize="17" Foreground="White"
+                                       VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center" Margin="12,0,0,0">
+                            <TextBlock Text="{Binding ExamTitle}" FontSize="15" FontWeight="Bold" Foreground="White" />
+                            <TextBlock Text="{Binding ProgressLabel}" FontSize="11" Foreground="#C7DBFF" Margin="0,1,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Countdown -->
+                    <Border Grid.Column="2" Background="#26FFFFFF" CornerRadius="12" Padding="18,7" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="White" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding LowTime}" Value="True">
+                                                <Setter Property="Foreground" Value="#FECACA" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding RemainingTime}" FontSize="19" FontWeight="Bold" VerticalAlignment="Center" Margin="9,0,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="White" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding LowTime}" Value="True">
+                                                <Setter Property="Foreground" Value="#FECACA" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ===== Body: navigator + question ===== -->
+            <Grid Grid.Row="1" Margin="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="230" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Question navigator -->
+                <Border Grid.Column="0" Background="White" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+                    <StackPanel Margin="18,20">
+                        <TextBlock Text="QUESTIONS" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Muted}" Margin="4,0,0,12" />
+                        <ItemsControl x:Name="NavList" ItemsSource="{Binding Questions}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Click="NavButton_Click" Tag="{Binding}" Cursor="Hand" Margin="0,0,0,7"
+                                            HorizontalContentAlignment="Stretch">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="nb" CornerRadius="10" Background="{StaticResource Field}"
+                                                        BorderBrush="{StaticResource Line}" BorderThickness="1.4" Padding="12,10">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding Number}" FontWeight="Bold" FontSize="13" Foreground="{StaticResource Ink}" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding TypeLabel}" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource Faint}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                                        <Ellipse Grid.Column="2" Width="9" Height="9" VerticalAlignment="Center">
+                                                            <Ellipse.Style>
+                                                                <Style TargetType="Ellipse">
+                                                                    <Setter Property="Fill" Value="#CBD5E1" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsAnswered}" Value="True">
+                                                                            <Setter Property="Fill" Value="#22C55E" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Ellipse.Style>
+                                                        </Ellipse>
+                                                    </Grid>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="nb" Property="BorderBrush" Value="{StaticResource Primary}" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Current question -->
+                <Grid Grid.Column="1" Margin="28,24">
+                    <Border x:Name="QuestionCard" Background="White" CornerRadius="16" Padding="30" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Border.RenderTransform>
+                            <TranslateTransform />
+                        </Border.RenderTransform>
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="24" Opacity="0.07" ShadowDepth="3" Color="#1B2A4A" />
+                        </Border.Effect>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Question header -->
+                            <StackPanel Grid.Row="0" Orientation="Horizontal">
+                                <Border Background="#EFF6FF" CornerRadius="8" Padding="10,4">
+                                    <TextBlock x:Name="QTypeLabel" Text="QUESTION" FontSize="10" FontWeight="Bold" Foreground="{StaticResource PrimaryDark}" />
+                                </Border>
+                                <Border Background="{StaticResource Field}" CornerRadius="8" Padding="10,4" Margin="8,0,0,0" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                                    <TextBlock x:Name="QMarks" Text="Marks" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource Muted}" />
+                                </Border>
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="1" x:Name="QBody" Text="Question text" FontSize="15.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource Ink}" TextWrapping="Wrap" LineHeight="24" Margin="0,16,0,18" />
+
+                            <!-- Answer area (swapped in code-behind: MCQ options vs text) -->
+                            <Grid Grid.Row="2">
+                                <!-- MCQ options -->
+                                <ItemsControl x:Name="OptionsList" Visibility="Collapsed" VerticalAlignment="Top">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Click="OptionButton_Click" Tag="{Binding}" Cursor="Hand" Margin="0,0,0,10" HorizontalContentAlignment="Stretch">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="ob" CornerRadius="12" Padding="16,13" BorderThickness="1.6">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Background" Value="{StaticResource Field}" />
+                                                                    <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                            <Setter Property="Background" Value="#EFF6FF" />
+                                                                            <Setter Property="BorderBrush" Value="{StaticResource Primary}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Border Width="28" Height="28" CornerRadius="14" VerticalAlignment="Center">
+                                                                    <Border.Style>
+                                                                        <Style TargetType="Border">
+                                                                            <Setter Property="Background" Value="#E2E8F0" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                    <Setter Property="Background" Value="{StaticResource Primary}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Border.Style>
+                                                                    <TextBlock Text="{Binding Letter}" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="Foreground" Value="#64748B" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                        <Setter Property="Foreground" Value="White" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+                                                                </Border>
+                                                                <TextBlock Text="{Binding Text}" FontSize="13.5" Foreground="{StaticResource Ink}" VerticalAlignment="Center" Margin="14,0,0,0" TextWrapping="Wrap" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- Written answer -->
+                                <Grid x:Name="WrittenArea" Visibility="Collapsed">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" x:Name="WrittenLabel" Text="YOUR ANSWER" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Muted}" Margin="0,0,0,8" />
+                                    <Border Grid.Row="1" Background="{StaticResource Field}" BorderBrush="{StaticResource Line}" BorderThickness="1.4" CornerRadius="12">
+                                        <TextBox x:Name="AnswerBox" BorderThickness="0" Background="Transparent" Padding="16"
+                                                 AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap"
+                                                 VerticalScrollBarVisibility="Auto" FontSize="13.5" Foreground="{StaticResource Ink}"
+                                                 VerticalContentAlignment="Top" TextChanged="AnswerBox_TextChanged" />
+                                    </Border>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- ===== Footer ===== -->
+            <Border Grid.Row="2" Background="White" CornerRadius="0,0,18,18" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
+                <Grid Margin="28,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding SaveStatus}" FontSize="11.5" Foreground="{StaticResource Faint}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <Button x:Name="PrevButton" Style="{StaticResource SecondaryButton}" Content="Previous" Width="120" Margin="0,0,10,0" Click="PrevButton_Click" />
+                        <Button x:Name="NextButton" Style="{StaticResource SecondaryButton}" Content="Next" Width="120" Margin="0,0,10,0" Click="NextButton_Click" />
+                        <Button x:Name="SubmitButton" Style="{StaticResource PrimaryButton}" Content="Submit Exam" Width="170" Height="46" Click="SubmitButton_Click" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

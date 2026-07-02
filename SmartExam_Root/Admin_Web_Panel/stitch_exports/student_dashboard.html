@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SmartExam Student Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "error-container": "#ffdad6",
+                    "surface-variant": "#d3e4fe",
+                    "on-error-container": "#93000a",
+                    "background": "#f8f9ff",
+                    "secondary-fixed-dim": "#b7c4ff",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "surface-dim": "#cbdbf5",
+                    "on-primary-container": "#eeefff",
+                    "on-surface-variant": "#434655",
+                    "secondary-container": "#4069f2",
+                    "error": "#ba1a1a",
+                    "surface-container-highest": "#d3e4fe",
+                    "on-secondary-fixed": "#001551",
+                    "tertiary": "#943700",
+                    "surface-container-low": "#eff4ff",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "surface-container-lowest": "#ffffff",
+                    "on-background": "#0b1c30",
+                    "on-primary-fixed": "#00174b",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "outline-variant": "#c3c6d7",
+                    "on-error": "#ffffff",
+                    "surface-bright": "#f8f9ff",
+                    "outline": "#737686",
+                    "inverse-on-surface": "#eaf1ff",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "on-secondary": "#ffffff",
+                    "surface-tint": "#0053db",
+                    "on-tertiary-container": "#ffede6",
+                    "primary-fixed": "#dbe1ff",
+                    "inverse-primary": "#b4c5ff",
+                    "tertiary-container": "#bc4800",
+                    "primary": "#004ac6",
+                    "on-secondary-container": "#fffbff",
+                    "tertiary-fixed": "#ffdbcd",
+                    "secondary": "#1d4ed8",
+                    "on-surface": "#0b1c30",
+                    "primary-container": "#2563eb",
+                    "on-tertiary": "#ffffff",
+                    "inverse-surface": "#213145",
+                    "on-tertiary-fixed": "#360f00",
+                    "secondary-fixed": "#dce1ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack_md": "12px",
+                    "stack_lg": "24px",
+                    "title_bar_height": "36px",
+                    "gutter": "16px",
+                    "stack_sm": "8px",
+                    "margin_window": "24px"
+            },
+            "fontFamily": {
+                    "title-lg": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "display-md": ["Inter"],
+                    "mono-timer": ["JetBrains Mono"],
+                    "display-lg": ["Inter"],
+                    "label-caps": ["Inter"],
+                    "mono-code": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                    "title-lg": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                    "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                    "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                    "display-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                    "mono-timer": ["28px", { "lineHeight": "32px", "fontWeight": "500" }],
+                    "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                    "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                    "mono-code": ["14px", { "lineHeight": "22px", "fontWeight": "400" }]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #cbd5e1; /* Blurred gray desktop background simulation */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .wpf-window {
+            width: 960px;
+            height: 640px;
+            background: #ffffff;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-radius: 4px; /* Native Windows 11 look */
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .btn-glow-active:hover {
+            box-shadow: 0 0 10px rgba(37, 99, 235, 0.2);
+        }
+        
+        /* Tooltip behavior */
+        .tooltip-container { position: relative; }
+        .tooltip-text {
+            visibility: hidden;
+            background-color: #213145;
+            color: #fff;
+            text-align: center;
+            padding: 8px 12px;
+            border-radius: 4px;
+            position: absolute;
+            z-index: 100;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            width: 200px;
+            font-size: 12px;
+        }
+        .tooltip-container:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+<div class="wpf-window">
+<!-- TopAppBar: Custom Title Bar (Small Type Map) -->
+<header class="bg-secondary text-on-primary flex justify-between items-center w-full px-gutter h-[36px] select-none">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">shield</span>
+<h1 class="font-title-lg text-title-lg font-bold text-on-primary text-[14px]">SmartExam</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 mr-2">
+<span class="font-label-caps text-label-caps opacity-90">Ali Hassan</span>
+<button class="hover:bg-error transition-colors p-1 flex items-center">
+<span class="material-symbols-outlined text-[18px]">logout</span>
+</button>
+</div>
+<div class="flex items-center">
+<button class="hover:bg-white/10 w-[36px] h-[36px] flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">remove</span>
+</button>
+<button class="hover:bg-white/10 w-[36px] h-[36px] flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">check_box_outline_blank</span>
+</button>
+<button class="hover:bg-error w-[46px] h-[36px] flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- Left Panel: Navigation & Profile -->
+<aside class="w-[280px] bg-white border-r border-outline-variant/30 flex flex-col">
+<!-- Profile Area -->
+<div class="p-stack_lg flex flex-col items-center text-center border-b border-outline-variant/10">
+<div class="w-16 h-16 bg-primary-container text-on-primary-container rounded-full flex items-center justify-center mb-3">
+<span class="font-title-lg text-title-lg">AH</span>
+</div>
+<h2 class="font-title-lg text-title-lg text-on-background">Ali Hassan</h2>
+<p class="font-body-sm text-body-sm text-outline mb-3">ali.hassan@university.edu</p>
+<div class="flex items-center gap-1.5 bg-green-50 text-green-700 px-2 py-0.5 rounded-full border border-green-200">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label-caps text-label-caps">Device Registered</span>
+</div>
+</div>
+<!-- My Exams Section -->
+<div class="flex-1 overflow-y-auto custom-scrollbar p-stack_md">
+<div class="flex items-center justify-between mb-2 px-2">
+<h3 class="font-label-caps text-label-caps text-outline">MY EXAMS</h3>
+<span class="bg-surface-variant text-on-surface-variant text-[10px] px-1.5 rounded-full">3</span>
+</div>
+<nav class="space-y-1">
+<!-- Active Item -->
+<div class="bg-[#EFF6FF] border-l-[3px] border-primary px-3 py-3 rounded-r-lg flex flex-col gap-0.5 cursor-pointer">
+<span class="font-body-md font-semibold text-primary">Mid-Term Lab Exam</span>
+<span class="font-label-caps text-[10px] text-primary/70 uppercase">CS301 • Scheduled</span>
+</div>
+<!-- Inactive Items -->
+<div class="hover:bg-surface-container-low px-3 py-3 rounded-lg border-l-[3px] border-transparent flex flex-col gap-0.5 cursor-pointer transition-colors group">
+<span class="font-body-md font-medium text-on-surface group-hover:text-primary">Algorithm Final Project</span>
+<span class="font-label-caps text-[10px] text-outline uppercase">CS302 • Next Week</span>
+</div>
+<div class="hover:bg-surface-container-low px-3 py-3 rounded-lg border-l-[3px] border-transparent flex flex-col gap-0.5 cursor-pointer transition-colors group">
+<span class="font-body-md font-medium text-on-surface group-hover:text-primary">Database Quiz 3</span>
+<span class="font-label-caps text-[10px] text-outline uppercase">CS204 • Completed</span>
+</div>
+</nav>
+</div>
+<div class="p-stack_md border-t border-outline-variant/10 text-center">
+<p class="font-label-caps text-[10px] text-outline">SYSTEM VERSION 4.2.0-STABLE</p>
+</div>
+</aside>
+<!-- Right Panel: Content Area -->
+<main class="flex-1 bg-[#F8FAFC] p-10 overflow-y-auto custom-scrollbar">
+<div class="max-w-[720px] mx-auto">
+<!-- Exam Details Card -->
+<div class="bg-white rounded-lg border border-outline-variant/40 shadow-sm p-stack_lg">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h2 class="font-display-md text-display-md text-on-background mb-1">Mid-Term Lab Exam</h2>
+<p class="font-body-md text-outline">CS301 — Data Structures • BSCS-6A</p>
+</div>
+<span class="bg-primary/10 text-primary px-3 py-1 rounded-full font-label-caps">Scheduled</span>
+</div>
+<hr class="border-outline-variant/20 mb-6"/>
+<!-- 2-column info grid -->
+<div class="grid grid-cols-2 gap-y-6 gap-x-12 mb-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">calendar_today</span>
+</div>
+<div>
+<p class="font-label-caps text-outline text-[10px]">DATE</p>
+<p class="font-body-md font-medium">May 21, 2025</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">schedule</span>
+</div>
+<div>
+<p class="font-label-caps text-outline text-[10px]">START TIME</p>
+<p class="font-body-md font-medium">10:00 AM</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">timer</span>
+</div>
+<div>
+<p class="font-label-caps text-outline text-[10px]">DURATION</p>
+<p class="font-body-md font-medium">60 Minutes</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">location_on</span>
+</div>
+<div>
+<p class="font-label-caps text-outline text-[10px]">LOCATION</p>
+<p class="font-body-md font-medium">Lab A — Block 3 (PC-04)</p>
+</div>
+</div>
+</div>
+<hr class="border-outline-variant/20 mb-6"/>
+<!-- Instructions -->
+<div class="bg-surface-container-low p-4 rounded-lg mb-6 border-l-4 border-secondary">
+<div class="flex gap-3">
+<span class="material-symbols-outlined text-secondary">info</span>
+<div>
+<h4 class="font-label-caps text-secondary mb-1">SECURE MODE ACTIVE</h4>
+<p class="font-body-sm text-on-surface-variant">This exam will launch in full-screen locked mode. All background applications must be closed. Attempting to switch windows will result in an automatic submission.</p>
+</div>
+</div>
+</div>
+<hr class="border-outline-variant/20 mb-6"/>
+<!-- Countdown -->
+<div class="text-center mb-8">
+<p class="font-label-caps text-outline mb-2">EXAM STARTS IN</p>
+<div class="font-mono-timer text-mono-timer text-primary flex justify-center items-center gap-4">
+<span id="hours">02</span>
+<span class="text-outline/40">:</span>
+<span id="minutes">14</span>
+<span class="text-outline/40">:</span>
+<span id="seconds">33</span>
+</div>
+</div>
+<!-- Start Button with Tooltip -->
+<div class="tooltip-container">
+<button class="w-full h-[44px] bg-outline-variant/30 text-outline cursor-not-allowed rounded-lg font-title-lg text-[16px] transition-all flex items-center justify-center gap-2" disabled="">
+<span class="material-symbols-outlined text-[20px]">play_arrow</span>
+                                Start Exam
+                                <span class="ml-2 font-body-sm opacity-60">(Available at 10:00 AM)</span>
+</button>
+<span class="tooltip-text">This button activates at 10:00 AM</span>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+<script>
+        // Simple countdown simulation for visual interest
+        let totalSeconds = (2 * 3600) + (14 * 60) + 33;
+
+        function updateCountdown() {
+            const h = Math.floor(totalSeconds / 3600);
+            const m = Math.floor((totalSeconds % 3600) / 60);
+            const s = totalSeconds % 60;
+
+            document.getElementById('hours').innerText = h.toString().padStart(2, '0');
+            document.getElementById('minutes').innerText = m.toString().padStart(2, '0');
+            document.getElementById('seconds').innerText = s.toString().padStart(2, '0');
+
+            if (totalSeconds > 0) {
+                totalSeconds--;
+            } else {
+                // Logic for when timer hits zero
+                const btn = document.querySelector('.tooltip-container button');
+                btn.classList.remove('bg-outline-variant/30', 'text-outline', 'cursor-not-allowed');
+                btn.classList.add('bg-primary', 'text-on-primary', 'hover:bg-primary-container');
+                btn.removeAttribute('disabled');
+                btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">play_circle</span> Start Exam Now';
+                document.querySelector('.tooltip-text').innerText = 'The exam is now open!';
+            }
+        }
+
+        setInterval(updateCountdown, 1000);
+    </script>
+</body></html>
+

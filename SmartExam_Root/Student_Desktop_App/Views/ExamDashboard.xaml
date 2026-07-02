@@ -1,0 +1,439 @@
+<Window x:Class="Student_Desktop_App.Views.ExamDashboard"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SmartExam Dashboard"
+        Height="760"
+        Width="1180"
+        MinHeight="680"
+        MinWidth="1080"
+        FontFamily="Segoe UI"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing">
+    <Window.Resources>
+        <!-- Chip for allowed apps -->
+        <Style x:Key="AppChip" TargetType="Border">
+            <Setter Property="Background" Value="#EFF6FF" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Margin" Value="0,0,8,8" />
+        </Style>
+    </Window.Resources>
+
+    <Window.Triggers>
+        <!-- Gentle fade + rise as the dashboard appears -->
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard>
+                <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="RootCard" Storyboard.TargetProperty="Opacity"
+                                     From="0" To="1" Duration="0:0:0.35" />
+                    <DoubleAnimation Storyboard.TargetName="RootCardTransform" Storyboard.TargetProperty="Y"
+                                     From="16" To="0" Duration="0:0:0.4">
+                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                    <!-- Continuous soft pulse on the live status dot -->
+                    <DoubleAnimation Storyboard.TargetName="DotScale" Storyboard.TargetProperty="ScaleX"
+                                     From="1" To="1.7" BeginTime="0:0:0.4" Duration="0:0:1" AutoReverse="True" RepeatBehavior="Forever" />
+                    <DoubleAnimation Storyboard.TargetName="DotScale" Storyboard.TargetProperty="ScaleY"
+                                     From="1" To="1.7" BeginTime="0:0:0.4" Duration="0:0:1" AutoReverse="True" RepeatBehavior="Forever" />
+                </Storyboard>
+            </BeginStoryboard>
+        </EventTrigger>
+    </Window.Triggers>
+
+    <!-- Outer window frame -->
+    <Border x:Name="RootCard" CornerRadius="20" Margin="14" BorderBrush="#DCE3EE" BorderThickness="1" RenderTransformOrigin="0.5,0.5">
+        <Border.RenderTransform>
+            <TranslateTransform x:Name="RootCardTransform" />
+        </Border.RenderTransform>
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0.6,1">
+                <GradientStop Color="#F4F7FC" Offset="0" />
+                <GradientStop Color="#EEF2FA" Offset="1" />
+            </LinearGradientBrush>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="40" Opacity="0.22" ShadowDepth="0" Color="#1B2A4A" />
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- ===================== Title bar ===================== -->
+            <Grid Grid.Row="0" x:Name="TitleBar" Background="Transparent"
+                  MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" Height="58">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Brand -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="22,0,0,0">
+                    <Border Width="38" Height="38" CornerRadius="11" Background="{StaticResource PrimaryGrad}">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="14" Opacity="0.4" ShadowDepth="0" Color="#2563EB" />
+                        </Border.Effect>
+                        <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="White"
+                                   VerticalAlignment="Center" HorizontalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center" Margin="12,0,0,0">
+                        <TextBlock Text="SmartExam" FontSize="15.5" FontWeight="Bold" Foreground="{StaticResource Ink}" />
+                        <TextBlock Text="Secure Exam Client" FontSize="10" Foreground="{StaticResource Faint}" Margin="0,-1,0,0" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Connection status pill -->
+                <Border Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="18,0,0,0"
+                        Background="White" CornerRadius="999" Padding="12,6" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="9" Height="9" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform>
+                                <ScaleTransform x:Name="DotScale" />
+                            </Ellipse.RenderTransform>
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="#22C55E" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsConnected}" Value="False">
+                                            <Setter Property="Fill" Value="#EF4444" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock Text="{Binding ConnectionStatus}" FontSize="11.5" FontWeight="SemiBold"
+                                   Foreground="#475569" VerticalAlignment="Center" Margin="8,0,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Student identity -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
+                        <TextBlock Text="{Binding StudentDisplayName}" FontSize="12.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource Ink}" HorizontalAlignment="Right" />
+                        <TextBlock Text="Student" FontSize="10" Foreground="{StaticResource Faint}" HorizontalAlignment="Right" />
+                    </StackPanel>
+                    <Border Width="36" Height="36" CornerRadius="18" Background="{StaticResource PrimaryGrad}">
+                        <TextBlock Text="{Binding StudentInitials}" Foreground="White" FontWeight="Bold" FontSize="13"
+                                   VerticalAlignment="Center" HorizontalAlignment="Center" />
+                    </Border>
+                </StackPanel>
+
+                <!-- Window controls -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <Button Style="{StaticResource TitleBarButton}" Content="&#xE921;" Click="MinimizeButton_Click" ToolTip="Minimize" />
+                    <Button Style="{StaticResource CloseBarButton}" Content="&#xE8BB;" Click="CloseButton_Click" ToolTip="Close" />
+                </StackPanel>
+            </Grid>
+
+            <!-- ===================== Body ===================== -->
+            <Grid Grid.Row="1" Margin="22,4,22,22">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="360" />
+                </Grid.ColumnDefinitions>
+
+                <!-- ========== LEFT: exam detail ========== -->
+                <Grid Grid.Column="0" Margin="0,0,18,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Exam header card -->
+                    <Border Grid.Row="0" CornerRadius="18" Padding="26,22" Background="{StaticResource PrimaryGrad}">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="26" Opacity="0.30" ShadowDepth="4" Color="#2563EB" />
+                        </Border.Effect>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="YOUR EXAM" FontSize="10.5" FontWeight="Bold" Foreground="#C7DBFF" />
+                                <TextBlock Text="{Binding ExamName}" FontSize="24" FontWeight="Bold" Foreground="White"
+                                           TextWrapping="Wrap" Margin="0,4,0,0" />
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <Border Background="#33FFFFFF" CornerRadius="999" Padding="10,4" Margin="0,0,8,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="White" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding ExamStatus}" FontSize="11.5" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Background="#33FFFFFF" CornerRadius="999" Padding="10,4">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE1D3;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="White" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding ProctorName}" FontSize="11.5" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Instructions + allowed apps -->
+                    <Border Grid.Row="1" Background="White" CornerRadius="18" Padding="24" Margin="0,16,0,0"
+                            BorderBrush="{StaticResource Line}" BorderThickness="1">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="22" Opacity="0.06" ShadowDepth="2" Color="#1B2A4A" />
+                        </Border.Effect>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                                <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{StaticResource Primary}" VerticalAlignment="Center" />
+                                <TextBlock Text="EXAM INSTRUCTIONS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                            </StackPanel>
+
+                            <Border Grid.Row="1" Background="{StaticResource Field}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="12" Padding="16">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <TextBlock Text="{Binding Instructions}" TextWrapping="Wrap" Foreground="#334155" FontSize="13" LineHeight="21" />
+                                </ScrollViewer>
+                            </Border>
+
+                            <StackPanel Grid.Row="2" Margin="0,18,0,0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <TextBlock Text="&#xE71D;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{StaticResource Primary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="PERMITTED APPLICATIONS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                </StackPanel>
+                                <ItemsControl ItemsSource="{Binding AllowedApps}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource AppChip}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="&#xECAA;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="{StaticResource PrimaryDark}" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource PrimaryDark}" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Footer actions -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                        <Button x:Name="RefreshButton" Style="{StaticResource SecondaryButton}" Content="Refresh"
+                                Width="120" Margin="0,0,10,0" Click="RefreshButton_OnClick" />
+                        <Button x:Name="StartExamButton" Style="{StaticResource PrimaryButton}" Content="Start Exam"
+                                Width="180" Height="46" Margin="0,0,10,0" Click="StartExamButton_OnClick" />
+                        <Button x:Name="LogoutButton" Style="{StaticResource DangerButton}" Content="Logout"
+                                Width="110" Click="LogoutButton_OnClick" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- ========== RIGHT: status rail ========== -->
+                <Grid Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Countdown -->
+                    <Border Grid.Row="0" Background="White" CornerRadius="18" Padding="22,18" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="22" Opacity="0.06" ShadowDepth="2" Color="#1B2A4A" />
+                        </Border.Effect>
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="TIME REMAINING" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Faint}" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding RemainingTime}" FontSize="46" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource Primary}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding LowTime}" Value="True">
+                                                <Setter Property="Foreground" Value="#DC2626" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Session info: lab / seat / monitoring -->
+                    <Border Grid.Row="1" Background="White" CornerRadius="18" Padding="20,16" Margin="0,14,0,0" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="LAB" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource Faint}" />
+                                    <TextBlock Text="{Binding LabName}" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="SEAT" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource Faint}" />
+                                    <TextBlock Text="{Binding Seat}" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource Line}" Margin="0,14" />
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="34" Height="34" CornerRadius="9" Background="#ECFDF5" VerticalAlignment="Center">
+                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="#059669" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                </Border>
+                                <StackPanel VerticalAlignment="Center" Margin="12,0,0,0">
+                                    <TextBlock Text="MONITORING" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource Faint}" />
+                                    <TextBlock Text="{Binding MonitoringStatus}" FontSize="12.5" FontWeight="SemiBold" Foreground="#059669" Margin="0,1,0,0" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Pre-exam checklist -->
+                    <Border Grid.Row="2" Background="White" CornerRadius="18" Padding="20,18" Margin="0,14,0,0" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="PRE-EXAM CHECKS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Muted}" Margin="0,0,0,4" />
+                            <TextBlock Text="Complete both to unlock Start Exam." FontSize="11" Foreground="{StaticResource Faint}" Margin="0,0,0,14" TextWrapping="Wrap" />
+
+                            <!-- Attendance row -->
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="36" Height="36" CornerRadius="10" VerticalAlignment="Center">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#F1F5F9" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding AttendanceConfirmed}" Value="True">
+                                                    <Setter Property="Background" Value="#DCFCE7" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="&#xE716;" />
+                                                <Setter Property="Foreground" Value="#94A3B8" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding AttendanceConfirmed}" Value="True">
+                                                        <Setter Property="Text" Value="&#xE73E;" />
+                                                        <Setter Property="Foreground" Value="#16A34A" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+                                    <TextBlock Text="Attendance" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}" />
+                                    <TextBlock Text="{Binding AttendanceStatus}" FontSize="10.5" Foreground="{StaticResource Faint}" />
+                                </StackPanel>
+                                <Button Grid.Column="2" x:Name="CheckInButton" Style="{StaticResource SecondaryButton}" Content="Check In"
+                                        Height="34" Width="92" FontSize="11.5" VerticalAlignment="Center" Click="CheckInButton_OnClick" />
+                            </Grid>
+
+                            <!-- Identity row -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="36" Height="36" CornerRadius="10" VerticalAlignment="Center">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#F1F5F9" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IdentityVerified}" Value="True">
+                                                    <Setter Property="Background" Value="#DCFCE7" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="&#xE77B;" />
+                                                <Setter Property="Foreground" Value="#94A3B8" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IdentityVerified}" Value="True">
+                                                        <Setter Property="Text" Value="&#xE73E;" />
+                                                        <Setter Property="Foreground" Value="#16A34A" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+                                    <TextBlock Text="Identity" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Ink}" />
+                                    <TextBlock Text="{Binding IdentityStatus}" FontSize="10.5" Foreground="{StaticResource Faint}" />
+                                </StackPanel>
+                                <Button Grid.Column="2" x:Name="VerifyIdentityButton" Style="{StaticResource SecondaryButton}" Content="Verify"
+                                        Height="34" Width="92" FontSize="11.5" VerticalAlignment="Center" Click="VerifyIdentityButton_OnClick" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Notifications / teacher messages -->
+                    <Border Grid.Row="3" Background="White" CornerRadius="18" Padding="20,16" Margin="0,14,0,0" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xEA8F;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{StaticResource Primary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="PROCTOR MESSAGES" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                </StackPanel>
+                                <Border HorizontalAlignment="Right" Background="#EF4444" CornerRadius="999" Padding="7,1"
+                                        Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="{Binding UnreadNotifications}" FontSize="10.5" FontWeight="Bold" Foreground="White" />
+                                </Border>
+                            </Grid>
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <TextBlock Text="No messages from your proctor yet."
+                                               FontSize="11.5" Foreground="{StaticResource Faint}" TextWrapping="Wrap"
+                                               Visibility="{Binding HasNotifications, Converter={StaticResource InverseBoolToVis}}" />
+                                    <ItemsControl ItemsSource="{Binding Notifications}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{StaticResource Field}" CornerRadius="10" Padding="12,10" Margin="0,0,0,8"
+                                                        BorderBrush="{StaticResource Line}" BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Ink}" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding Body}" FontSize="11.5" Foreground="#475569" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

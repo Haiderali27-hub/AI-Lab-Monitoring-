@@ -1,0 +1,355 @@
+--- Page 77 ---
+66
+Chapter 5
+SYSTEM DESIGN
+In the context of SmartWash Solution, system design marks a critical phase where the
+conceptual vision begins to take a structured and implementable form. This stage focuses
+on thoughtfully outlining the architecture of the entire system, including its key compo-
+nents, modules, and how they interact with one another. It not only defines the technical
+blueprint of the platform but also ensures that each part of the system aligns with user
+needs, business goals, and functional requirements. By translating abstract requirements
+into a tangible, organized framework, this phase serves as the foundation for a scalable,
+maintainable, and efficient solution. Ultimately, system design bridges the gap between
+planning and development, guiding the project from idea to reality.
+5.1 Structure Diagrams
+A structure diagram acts as a blueprint that reveals how different components within
+a system are organized and connected. It provides a visual layout of the system’s archi-
+tecture, making it easier to understand how each part contributes to the overall function-
+ality. Whether it’s a database, application, or a complete software solution, the structure
+diagram illustrates the hierarchy, arrangement, and interactions among the modules, en-
+suring that they work together seamlessly much like a well-fitted puzzle[45].
+In the context of SmartWash Solution, structure diagrams serve as essential tools for
+visualizing the architecture of the platform. They offer a high-level overview of how ma-
+jor system components such as user modules, services, databases, and controllers interact
+to deliver core functionalities. These diagrams are instrumental in identifying relation-
+ships and dependencies between components, streamlining system design, and ensuring
+coherent development. By offering a clear and comprehensive depiction of the system’s
+backbone, structure diagrams support effective communication among developers, design-
+ers, and stakeholders, and guide the implementation of a stable, well-integrated solution.
+5.1.1 Class Diagram
+A class diagram is a visual representation that outlines the structure of a system and
+the relationships between its essential components. It uses standardized symbols to de-
+pict classes such as users, services, or payments along with their attributes (what they
+have) and methods (what they can do). These diagrams help simplify complex systems by
+breaking them into understandable, organized components, providing a clear overview of
+the system’s architecture. Each class serves as a blueprint for creating real-world objects
+in the software, ensuring consistency and reusability across the system. Relationships be-
+tween classes, including inheritance, associations, aggregations, and dependencies, are ex-
+plicitly defined, allowing developers and stakeholders to understand how different parts of
+the system interact. Class diagrams also support better planning, design, and documenta-
+tion, helping teams anticipate potential design issues, enforce object-oriented principles,
+and maintain system integrity throughout development. By offering a comprehensive
+--- Page 78 ---
+67
+view of the system’s static structure, class diagrams facilitate communication between
+technical and non-technical stakeholders alike, making them an essential tool in modern
+software engineering[46].
+In the given Figure 5.1, the class diagram plays a crucial role in illustrating the foun-
+dational architecture of the SmartWash Solution platform. It visually outlines the core
+entities and their interconnections, providing a clear blueprint of how different parts of
+the system collaborate to deliver seamless functionality. Classes such as User, Service-
+Provider, Admin, Booking, Invoice, Payment, Chat, Review, and Notification have been
+thoughtfully designed to represent the essential actors, services, and operations within
+the system.
+Figure 5.1: Class Diagram
+5.1.2 Deployment Diagrams
+A UML Deployment Diagram visually represents the physical architecture of a sys-
+tem, showing how its software components are distributed across hardware devices during
+runtime. Essentially, it maps out where each part of the system lives, whether it’s a spe-
+cific server, computer, or other device, and illustrates the interactions between these
+elements. It’s a valuable tool for understanding how the physical infrastructure supports
+the system’s functionality, highlighting the relationship between hardware and the soft-
+ware running on it. This diagram provides insight into the deployment of software on
+various nodes, which helps with scalability, performance, and system maintenance[47].
+In Figure 5.2, the Deployment Diagram for SmartWash Solution provides a com-
+prehensive visual representation of the system’s architecture and how its components
+are distributed across various devices and servers. The diagram outlines key hardware
+--- Page 79 ---
+68
+components, such as service provider terminals, customer devices, and admin systems,
+alongside essential software modules, including the user authentication system, scheduling
+and booking engine, payment processing module, and real-time communication platform.
+Figure 5.2: Deployment
+5.2 Behavioral Diagrams
+Behavioral diagrams serve as dynamic blueprints that illustrate how a system operates
+during its execution. These diagrams capture the interactions between various compo-
+nents, users, and external systems, showing how data flows and processes are carried
+out. They are essential for understanding the real-time functionality of software and its
+underlying processes. For example, an activity diagram provides a detailed sequence of
+actions within a system, such as the steps involved in a business process[48].
+Behavioral diagrams are particularly valuable for visualizing the dynamic behaviors
+of a system. By highlighting how data moves and how different system parts interact over
+time, these diagrams offer stakeholders an insightful view into the system’s operational
+flow. They help identify potential bottlenecks, improve system performance, and ensure
+that the system functions as intended.
+5.2.1 Activity Diagrams
+An activity diagram in UML is a specialized type of diagram that goes beyond the
+simplicity of a traditional flowchart. It’s designed to show the dynamic flow of activities
+or tasks within a system. While similar to a flowchart, an activity diagram provides
+--- Page 80 ---
+69
+a more granular view of processes, capturing not just the sequence of steps but also
+the conditions and decisions that affect the flow. It represents how different actions
+interact and depend on one another in real-time scenarios.In an activity diagram, you
+can visualize start and end points, decisions, loops, and concurrent processes. This
+allows you to map out both linear and complex workflows, making it especially useful
+for modeling business processes, use cases, or system behavior. By clearly illustrating
+how tasks are triggered, how data flows between them, and where conditions might cause
+alternative paths, activity diagrams help in understanding the underlying logic and flow
+of a system[49].
+In the given Figure 5.3, the Activity Diagram illustrates the sequence of activities
+involved in the customer booking process within the SmartWash Solution platform. It
+provides a visual representation of how a customer interacts with the system, starting
+from logging in to selecting a service, entering booking details, confirming the booking,
+and completing the payment.
+Figure 5.3: Activity Diagram
+--- Page 81 ---
+70
+5.2.2 Communication Diagrams
+UML Communication Diagrams provide a structured way to visualize how objects
+interact within a system by focusing on the exchange of messages between them. These
+diagrams are similar to sequence diagrams but emphasize the relationships and message
+flow among objects rather than the time sequence. Each object is represented along
+with its links to others, and numbered arrows are used to indicate the order and direc-
+tion of message passing.Unlike object diagrams, which simply show static relationships,
+communication diagrams highlight dynamic behavior by showing how processes are trig-
+gered through communication. They are particularly useful for identifying how multiple
+components collaborate to fulfill a specific use case. This perspective helps developers
+and analysts ensure that object responsibilities and interactions are clearly defined and
+logically organized[50].
+In the given figure 5.4, the communication diagram for SmartWash Solution depicts
+the flow of interactions between different components of the system during the service
+booking process. It illustrates how key modules such as the Customer, SmartWash Sys-
+tem, Booking Request, Slot Availability, Payment Gateway, and Service Notification
+interact with each other to complete a customer’s service booking. The diagram shows
+the sequence of actions from the customer accessing the system to the confirmation of
+booking, providing a clear view of how information and actions are passed between com-
+ponents to fulfill the booking functionality.
+Figure 5.4: Communication Diagram
+--- Page 82 ---
+71
+5.2.3 Sequence Diagrams
+UML Sequence Diagrams are used to visualize the flow of events within a system,
+showing how components or objects interact over time. They provide a timeline-based
+view, with the vertical axis representing time and the horizontal axis representing inter-
+acting objects. Each object has a lifeline, and interactions are shown as arrows indicating
+messages or method calls in sequence. These diagrams help track workflows, message ex-
+changes, and system behavior, making them invaluable for designers, developers, and
+stakeholders when analyzing or building complex systems[51].
+The sequence diagrams for SmartWash Solution depict the chronological interactions
+between system components during the service booking process. They show the flow of
+messages exchanged over time, illustrating the order of tasks such as user authentication,
+slot selection, payment processing, and service provider notifications.
+5.2.3.1 Register User:In the given figure 5.5, the Register User sequence diagram
+illustrates the steps involved when a new user registers within the SmartWash system.
+It begins with the user entering their registration details into the system.After the user
+submits their registration details, the system validates the input to ensure all required
+fields are correctly filled and comply with predefined formats (such as email format and
+password strength).
+Figure 5.5: Sequence Diagram for Register User
+--- Page 83 ---
+72
+5.2.3.2 Authenticate User:In the given figure 5.6, the Authenticate User sequence
+diagram outlines the process through which a user securely logs into the SmartWash
+system. The sequence begins when a user either a Customer or a Service Provider sub-
+mits their login credentials through the application interface. These credentials are then
+passed to the authentication service, which communicates with the database to verify
+the accuracy of the provided information. If the credentials match an existing record,
+the system generates an authentication token to confirm the user’s identity. This token
+is returned to the main system, which then updates the user’s login status accordingly.
+In the final step, the system sends a confirmation message back to the user, indicating a
+successful login. This process ensures secure access control and protects user data from
+unauthorized access. Furthermore, the sequence diagram also incorporates error han-
+dling mechanisms to address failed login attempts. If the authentication service detects
+invalid credentials or a non-existent user record, it immediately triggers an error response.
+This response is relayed back to the application interface, prompting the user with an
+appropriate message to re-enter valid credentials or recover their password. Addition-
+ally, the system tracks multiple consecutive failed login attempts and may temporarily
+lock the user account to prevent brute-force attacks, thereby enhancing the overall secu-
+rity of the SmartWash system. The diagram also highlights the interaction with logging
+mechanisms, which record all login attempts for audit and monitoring purposes, ensuring
+transparency. Moreover, it illustrates how the system handles concurrent login requests
+efficiently, maintaining seamless user experience without compromising security.
+Figure 5.6: Sequence Diagram for Authenticate User
+--- Page 84 ---
+73
+5.2.3.3 View Analytics:In the given figure 5.7, the View Analytics sequence diagram
+illustrates the steps when an admin accesses the business analytics dashboard within
+the SmartWash system. The process begins with the admin requesting analytical data
+through the dashboard interface, which is forwarded to the analytics service. This service
+queries the database, processes the data, and converts it into meaningful insights, includ-
+ing booking trends, revenue reports, customer behavior, and staff performance metrics.
+The compiled analytics are sent back to the dashboard and displayed in a visually acces-
+sible format, enabling informed decision-making. This feature allows admins to monitor
+KPIs, track business growth, detect issues early, and identify improvement opportuni-
+ties. The system supports filtering and drilling into metrics such as revenue by location,
+service category performance, or peak booking times, along with exporting reports for of-
+fline analysis and collaboration. Visual alerts for unusual trends and customizable views
+further help admins focus on relevant metrics, improving decision-making efficiency and
+supporting data-driven choices for resource allocation, marketing, staff management, and
+service enhancements. Additionally, the dashboard provides trend comparisons over dif-
+ferent time periods, helping admins identify patterns and seasonality. Notifications can
+be set for critical thresholds, ensuring timely responses to anomalies. Historical data
+analysis supports forecasting and strategic planning. User access controls ensure that
+sensitive analytics are available only to authorized personnel.
+Figure 5.7: Sequence Diagram for View Analytics
+--- Page 85 ---
+74
+5.2.3.4 Find Nearby Services:In the given figure 5.8, the Find Nearby Services
+sequence diagram demonstrates how users locate service providers based on their current
+geographic location. The process starts when a user sends a request through the app
+to find nearby washing services. The system captures the user’s location using GPS
+functionality and forwards it to the location service module. This module communicates
+with the database to retrieve a list of service providers operating within the user’s vicinity.
+The system may also filter the results based on factors like availability, user ratings, service
+type, or estimated arrival time. Once the results are compiled, they are sent back to the
+user interface. Finally, the user is presented with a map view or list of relevant service
+providers, enabling quick and convenient booking decisions. This functionality enhances
+user convenience by allowing location-based discovery without requiring manual input.
+The integration with GPS and mapping services ensures that users receive accurate, real-
+time results tailored to their specific location. Additionally, the ability to sort or filter
+providers by availability, proximity, ratings, and pricing empowers users to make informed
+and efficient booking decisions. The system also updates listings dynamically as providers
+change their status, ensuring users always see the most current information. Notifications
+may be sent to alert users of newly available or highly rated providers nearby, further
+improving service discovery. Furthermore, users can save preferred providers or locations
+for faster access in future searches, enhancing personalization. The system logs search
+patterns to optimize recommendations and improve overall user experience.
+Figure 5.8: Sequence Diagram for Find Nearby Services
+--- Page 86 ---
+75
+5.2.3.5 Manage Booking Services:In the given figure 5.9, the Manage Booking
+Services sequence diagram outlines how users interact with the system to modify or can-
+cel existing service bookings. The process begins when either a customer or a service
+provider initiates a request to update booking details, such as rescheduling, changing
+time slots, or canceling a service. The system forwards this request to the booking con-
+troller, which validates the changes and interacts with the database to apply the updates.
+Upon successful modification or cancellation, the booking controller confirms the changes
+and triggers a notification. This notification is sent to the concerned party to inform them
+about the updated booking status. This flow ensures that all booking-related changes are
+accurately processed and both parties are kept informed in real time.This flow provides
+flexibility and control to both customers and service providers, enhancing the overall user
+experience. By allowing real-time updates, the system minimizes scheduling conflicts and
+improves operational efficiency. The booking controller includes logic to prevent overlap-
+ping bookings and ensures that service availability is respected before confirming any
+changes. This proactive validation maintains the reliability of appointment schedules
+across the platform. Additionally, the clear communication through notifications helps
+avoid misunderstandings and ensures accountability between the involved parties.To sup-
+port long-term usability, the system also maintains a historical log of all booking changes,
+including timestamps and status updates. This log can be accessed for future reference
+or dispute resolution if needed. Service providers benefit from the ability to manage
+their availability dynamically, which is crucial in high-demand scenarios. Furthermore,
+the system provides analytics on booking patterns to help optimize staff allocation and
+improve service efficiency. Automated alerts also notify users of any policy changes or
+updates in booking procedures, enhancing overall transparency.
+Figure 5.9: Sequence Diagram for Manage Booking Services
+--- Page 87 ---
+76
+5.2.3.6 Manage Payment:In the given figure 5.10, the Manage Payments sequence
+diagram illustrates the flow of actions involved in handling payment-related operations
+within the SmartWash system.The process begins when a customer initiates a payment
+after booking a service. The request is directed to the payment controller, which securely
+interacts with the payment gateway to process the transaction.The gateway validates
+the payment details and communicates with the bank or payment provider to authorize
+the transaction. Once approved, a confirmation is sent back through the gateway to the
+system.The system then stores the transaction details in the database for record-keeping
+and future reference. Finally,the user receives a payment confirmation, and the system
+may also generate an invoice or receipt.This flow ensures secure, traceable,and transpar-
+ent financial transactions for all users.his payment flow is designed with a focus on user
+convenience and transaction integrity.By integrating with trusted payment gateways,the
+system ensures that sensitive financial data is encrypted and processed in a compliant
+manner.Additionally, the payment controller handles error-checking and retries in case of
+temporary failures, minimizing disruptions in the user experience.The system is also capa-
+ble of supporting multiple payment methods, such as credit/debit cards, mobile wallets,
+and online banking, to cater to a wide range of user preferences.These features collectively
+contribute to a seamless and secure financial interaction for customers.To further enhance
+trust and transparency,each payment transaction is logged with timestamps and refer-
+ence numbers, allowing for effective auditing and dispute resolution.Service providers can
+access their earnings history through the platform, which automatically aggregates data
+from completed bookings.The inclusion of a receipt generation system not only fulfills
+customer expectations but also supports business accounting needs.In case of refunds or
+failed transactions, the system follows a predefined rollback mechanism to ensure funds
+are returned appropriately.This comprehensive payment management module strengthens
+the reliability and professionalism of the SmartWash platform.
+Figure 5.10: Sequence Diagram for Manage Payments
+--- Page 88 ---
+77
+5.2.3.7 Manage Ratings:In the given figure 5.11, the Manage Ratings sequence di-
+agram showcases the interactions involved in viewing, responding to, and moderating
+ratings within the SmartWash system. After a service has been completed, the cus-
+tomer may leave a rating and review for the service provider. This input is sent to the
+system and stored in the database. The service provider is then notified of the feed-
+back and has the option to respond directly, promoting transparent communication and
+service improvement. Additionally, the system may include moderation logic to detect
+inappropriate content, spam, or offensive language, ensuring the quality and integrity
+of reviews. The updated rating and any provider response are then displayed to future
+customers, influencing service decisions and helping them make informed choices. This
+feedback loop helps build trust and accountability within the platform. This structured
+flow empowers customers to share their experiences, fostering transparency across the
+platform. It also enables service providers to actively engage with feedback, which can
+lead to improved service quality over time. The inclusion of moderation mechanisms
+helps maintain a respectful and trustworthy review environment. Displaying ratings and
+provider responses publicly encourages accountability, enhances credibility, and promotes
+informed decision-making. Additionally, the system provides analytics on ratings trends
+and customer sentiment, helping management identify areas for operational improvement.
+Overall, the Manage Ratings feature strengthens user confidence, encourages continuous
+service improvement, and builds long-term trust between users and service providers,
+ultimately supporting a more reliable and user-centric platform while enhancing overall
+business performance.
+Figure 5.11: Sequence Diagram for Manage Ratings
+--- Page 89 ---
+78
+5.2.3.8 Initiate Communication:Figure 5.12 presents the “Initiate Communica-
+tion” sequence diagram,which demonstrates the interactive flow through which users
+either customers or service providers initiate and manage conversations within the Smart-
+Wash platform.This communication functionality is a key element of the system, designed
+to facilitate real-time coordination, resolve booking-related concerns, and enhance the
+overall customer experience through seamless dialogue.The sequence begins when a user
+(either a customer or service provider) accesses the communication interface, usually
+through their respective dashboard. Motivated by the need to clarify booking details,
+make inquiries,or request support,the user initiates a new message by submitting a com-
+munication request.This request is then sent to the Communication Controller,a dedicated
+system component responsible for managing messaging operations.Once the message re-
+quest is received,the Communication Controller processes it by validating the recipient’s
+identity, verifying the booking reference (if provided), and then logging the message con-
+tent into the Communication Database.This logging step ensures that all messages are
+stored securely and can be retrieved for future reference or audit purposes.After success-
+ful logging,the system forwards the message to the designated recipient,whether a service
+provider or a customer, depending on the context of the conversation.The recipient is
+promptly notified of the incoming message through system notifications these could be
+delivered via in-app alerts, push notifications, or email,depending on user settings.The
+recipient can then respond directly through the same communication interface.This re-
+ply follows a similar process,being routed through the controller, stored in the database,
+and delivered to the original sender.The SmartWash communication system is designed
+to support real-time or near-real-time interaction, ensuring minimal delays in message
+delivery and fostering a responsive environment.This capability is particularly critical in
+service-based platforms where timely communication can impact service quality, schedul-
+ing, and customer satisfaction.
+Figure 5.12: Sequence Diagram for Initiate Communications
+--- Page 90 ---
+79
+5.2.3.9 Manage Products and Orders:Figure 5.13 illustrates the ”Manage Prod-
+ucts and Orders” sequence diagram, which encapsulates the detailed interactions between
+service providers,customers,and the system to manage product listings and customer or-
+ders within the SmartWash platform.This process ensures that all inventory-related ac-
+tions and customer transactions are executed with precision and in real-time.The sequence
+begins with the Service Provider accessing the system’s product management interface,
+where they have the capability to add new services or products,update existing items, or
+remove outdated or unavailable offerings.Each of these actions generates a request that
+is sent to the system backend.Upon receiving the request, the system validates the input
+data for completeness and accuracy before updating the Product Database accordingly.
+These changes are reflected instantly in the platform, allowing customers to view the most
+up-to-date list of available services.On the customer side, users can browse the platform
+to view available products or services and initiate new orders based on their preferences.
+Customers are also able to access their order history, track current bookings,or request
+changes to previously made orders.When a new order is placed, the system first checks
+the availability of the selected services, computes pricing using the integrated pricing
+engine, and logs the order details into the Order Database.Once the order is successfully
+recorded,the system generates a confirmation message and sends it back to the customer
+through the notification module. Furthermore,any updates or changes in the status of
+the order such as order acceptance, dispatch, cancellation,or completion are monitored
+by the system. Upon detecting such events, the system triggers the appropriate status
+notifications, ensuring that customers and service providers are both kept informed in a
+timely manner. These notifications may be delivered through various channels such as
+email, in-app messages, or SMS alerts, depending on user preferences.
+Figure 5.13: Sequence Diagram for Manage Products and Orders

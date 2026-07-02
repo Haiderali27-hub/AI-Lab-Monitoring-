@@ -1,0 +1,51 @@
+\section{Project Risk Management}
+
+Every software development project is susceptible to risk. For the SmartExam project, specific risks of high importance include the robustness of WebSockets, stability of WPF client lockdowns, protection against HWID spoofing, and the timing of module integrations \cite{risk1}. Knowing these risks before they happen will not stop them but will prepare us for them.
+
+\subsection{Risk Identification}
+
+SmartExam classifies risk management into four types: technical risks, schedule risks, academic risks, and resource risks.
+
+\textbf{Technical risks} include BIOS/motherboard HWID spoofing using virtual machines (VMware, VirtualBox) \cite{pmc_cbt}, overloading the WebSocket connection pool during peak lab sessions \cite{risk1}, bypassing the WPF client lockdown using system keyboard shortcuts \cite{risk1}, and inconsistent results returned by the AI grading module across environment versions \cite{pmc_cbt}.
+
+\textbf{Schedule risks} include the late integration in Sprint 8, module development behind schedule \cite{spp1}, documentation behind code delivery, and late feedback from supervisor delaying chapter submission.
+
+\textbf{Academic risks:} The scope of the implemented prototype is not the same as the SRS design, and there is no justification for our design choices \cite{pmc_cbt}.
+
+\textbf{Resource risks} include limited physical access to lab workstations, free-tier connection limits on the Neon PostgreSQL database server, and personnel unavailability during critical sprints \cite{risk1}.
+
+\subsection{Risk Analysis}
+
+Not all identified risks need the same level of attention \cite{spp1}. An error in document wording is low impact and moderately likely, whereas a WebSocket connection failure during a live exam demonstration is high impact and moderately likely \cite{risk1}. The team evaluates each risk using a probability-impact scale to determine its priority \cite{spp1, risk1}. Table~\ref{tab:risk_matrix} documents each risk with its assessed likelihood, impact level, and resulting priority.
+
+\begin{table}[H]
+\centering
+\caption{Project Risk Rating Matrix}
+\label{tab:risk_matrix}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{>{\raggedright\arraybackslash}p{7cm}|ccc}
+\hline\hline
+\textbf{Risk} & \textbf{Likelihood} & \textbf{Impact} & \textbf{Priority} \\ \hline
+Workstation HWID spoofing or virtual machine usage & Medium & High & High \\
+Incomplete module integration before deadline         & Medium & High & High \\
+Real-time monitoring latency or system overload       & Low    & High & Medium \\
+Workstation or hardware unavailability in lab         & Low    & High & Medium \\
+Third-party library or API deprecation                & Low    & Medium & Low \\
+Data privacy or student record exposure               & Very Low & High & Medium \\
+Team member unavailability during critical sprint     & Low    & Medium & Low \\ \hline\hline
+\end{tabular}
+\end{table}
+
+\subsection{Risk Mitigation Plan}
+
+A response strategy has been documented for every risk identified in Table~\ref{tab:risk_matrix}.
+
+\textbf{HWID Spoofing:} The student client makes a triple call to WMI for hardware IDs: the BIOS serial number, physical disk ID, and motherboard manufacturer string. Spoofing all three simultaneously in a virtualized environment is highly impractical. The server validates all three values; if the client mismatch or sends incomplete/invalid IDs, the connection is refused.
+
+\textbf{Delay on Module Integration:} Each module exposes a versioned REST API developed in isolation against server mocks. Integration simply requires the client to consume the live endpoints. This minimizes design changes and significantly reduces Sprint 8 integration risk since modules are developed in parallel with live API server endpoints.
+
+\textbf{WebSocket Overload:} The WPF client buffers telemetry locally in memory for 5 seconds and transmits it in batch JSON packets instead of sending individual real-time events. The API server enforces connection limits, maintaining a pool of up to 30 concurrent connections per lab session to ensure database load remains stable.
+
+\textbf{Neon PostgreSQL Limitation:} We monitor database usage weekly. If usage approaches free-tier limits, application pool configurations are adjusted to reduce connection lifespans and optimize reuse before upgrading.
+
+\textbf{WebSocket Connection Failure:} If a student's WebSocket connection fails during the exam, the client continues logging telemetry locally in binary format, transmitting the buffered data once the connection is re-established.

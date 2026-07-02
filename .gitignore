@@ -1,0 +1,32 @@
+.DS_Store
+
+# ── Secrets — never commit real credentials ─────────────────────
+# The real appsettings hold the Neon DB password + JWT secret.
+# Copy appsettings.example.json → appsettings.json locally instead.
+SmartExam_Root/Backend_API/appsettings.json
+SmartExam_Root/Backend_API/appsettings.Development.json
+SmartExam_Root/Backend_API.Tests/appsettings.json
+**/appsettings.Development.json
+*.env
+.env
+
+# ── Node / frontend ─────────────────────────────────────────────
+**/node_modules/
+**/dist/
+
+# ── .NET build output ───────────────────────────────────────────
+**/bin/
+**/obj/
+SmartExam_Root/Backend_API/Reports/
+
+# ── IDE / editor state ──────────────────────────────────────────
+.idea/
+.vscode/
+.vs/
+*.user
+
+# ── Repo hygiene ────────────────────────────────────────────────
+# A stale full duplicate of the whole project extracted inside itself.
+/AI-Lab-Monitoring--main/
+# Large intermediate archives (thesis PDFs are kept; raw zips are not).
+*.zip

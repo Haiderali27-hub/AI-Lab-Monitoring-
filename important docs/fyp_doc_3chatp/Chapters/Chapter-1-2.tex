@@ -1,0 +1,133 @@
+\section{Product Scope}
+
+We built the SmartExam platform to solve the unique challenges of running computer-lab exams \cite{scope1}. Our system integrates pre-exam arrangements, student authentication and admission, real-time telemetry capturing, safe storage and delivery of student code, and post-exam scoring reports. We defined a standard workflow from logging in and associating hardware to submitting evidence to the system in a form of audit log. 
+
+Our platform spans twelve functional modules. 
+
+The core functions fall within five major domains: We achieve authentication and security through workstations tied to individual user accounts through their specific Hardware IDs (HWID). Then teachers manage all details related to the actual exam, including a whitelist of enabled applications and provided test cases. We monitor the exam by means of an automated background process that records the student's current state. We also secure the code transmitted and ensure it is free from copying. 
+
+Last, we produce simple yet comprehensive PDF summary report for teachers. 
+
+Table~\ref{tab:Abbreviations} shows frequently used abbreviations and their meanings in this report.
+
+\begin{table}[!ht]
+    \caption{Abbreviations}
+    \label{tab:Abbreviations}
+    \centering
+    \begin{tabular}{ccl} 
+        \hline
+        \textbf{Serial \#} & \textbf{Abbreviation} & \textbf{Definition} \\
+        \hline
+        1 & AI & Artificial Intelligence \\
+        2 & LMS & Learning Management System \\
+        3 & CBT & Computer-Based Testing \\
+        4 & SRS & Software Requirements Specification \\
+        5 & RBAC & Role-Based Access Control \\
+        6 & UI & User Interface \\
+        7 & UX & User Experience \\
+        8 & WBS & Work Breakdown Structure \\
+        9 & CPM & Critical Path Method \\
+        10 & QA & Quality Assurance \\
+        11 & DBMS & Database Management System \\
+        12 & API & Application Programming Interface \\
+        13 & FR & Functional Requirement \\
+        14 & NFR & Non-Functional Requirement \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{Existing System Description}
+
+currently most universities operate their practical programming exams physically; coordinating over WhatsApp, recording attendance manually on papers, and submitting the final submitted program on the teacher's laptop via flash drives. In cases where fraud is identified, an teacher may have to struggle to reconstruct the students' timeline based on their memory and the limited provided data.
+
+Let us look at 10 popular online testing platforms, plagiarism checkers, and LMS below. Each solves one aspect of what goes into a complete physical computer-lab testing process, but not an integration of them. For example, there is no desktop lockdown + live remote observation + automatic code execution + hardware/software evidentiary data logging needed for physical lab exams.
+
+\subsubsection{Respondus LockDown Browser}
+This application ``prevents students from accessing websites, other applications, the ability to print or copy and paste content from other resources'' during online quizzes or exams. 
+
+Popular for its tight integration with learning management systems such as Canvas and Blackboard, the program is capable of remotely monitoring webcam video through Respondus Monitor \cite{respondus1}. 
+
+However, the system's forte is in home-based testing. It cannot manage physical labs in the same sense as locking seats, reserving workstation access, or restricting students to designated local hardware. Moreover, it lacks a coding compiler, meaning that submitted code can not be directly compiled and graded by Respondus LockDown Browser, requiring additional software or an external web portal for submissions.
+
+\subsubsection{Safe Exam Browser}
+SEB is another lockdown application but is open source and restricts workstation use to the website displaying only the web-based quiz \cite{seb1}. Teachers can create custom XML configuration files to permit access only to specified websites. 
+
+SEB operates efficiently on Windows, macOS and iOS operating systems. 
+
+Its limitations include the fact that SEB can neither organize classroom-based test reservations nor manage student workstation logistics. The software has not built in compilers or facial verification capabilities, nor does it have live monitoring controls for supervising invigilators, requiring a separate platform for exam data submission.
+
+\subsubsection{MOSS}
+Stanford's MOSS (Measure Of Software Similarity) is one of the more prevalent and highly regarded web-based services available for detecting computer program plagiarism. The system determines similarity between a set of source code files submitted from different students and automatically attempts to filter out common structures such as common programming exercises and starter programs \cite{moss1}. 
+
+MOSS is effective as a plagiarism checking system but not as a secure testing platform; there are no features for remote desktop lock-down, for controlling background operations or student identity authentication.
+
+\subsubsection{ExamSoft}
+This application utilizes an isolated offline desktop client as its core to host its testing functions. This makes it appropriate for various higher-stakes institutional exams which students may have to sit, especially for professional licensing organizations \cite{examsoft1}. One of the system's key benefits is the need for minimal internet infrastructure to run, yet teachers can still receive a compilation of results and detailed feedback reports upon data synchronization. 
+
+The main disadvantage for us is: ExamSoft cannot assign physical seats in a lab, or associate students to specific computers. It does not include code compilability or live monitoring capabilities, and requires a physical invigilator in the room.
+
+\subsubsection{Moodle}
+Moodle is the most widely adopted learning management system (LMS) of its kind-a non-commercial open-source project that offers a host of functionalities including quizzes, online courses and student management systems \cite{moodle1}. 
+
+Moodle has a plethora of open-source plugins and extensions which add considerable function to the base software. The limitation of Moodle for our application is its lack of robust workstation lockdown features, real-time supervision console to monitor student activity, comprehensive security logs, and ability to run compiled code from within the platform.
+
+\subsubsection{Proctorio}
+Proctorio is a proctoring solution that combines artificial intelligence and computer webcam feeds to analyze user behavior and alert proctors to any potentially suspect actions. Its browser lock-down features can help restrict access to unauthorized websites and software during an exam and integrates seamlessly with numerous educational portals \cite{proctorio1}. But this product is geared entirely towards online distance testing and offers no features for managing physical classroom spaces, assigning workstations based on local network address or any means to tie student activity to physical hardware.
+
+\subsubsection{Honorlock}
+Honorlock provides live remote examination by means of facial recognition, thereby helping teachers verify identities and preventing students' use of secondary devices during remote testing \cite{honorlock1}. 
+
+Its primary functions are browser locking and alerting on anomalous test activity, which are very useful for distance education. 
+
+However, it offers little for an institution utilizing physical computer labs -- not to mention there's no management interface for reserving and seating students, no ability to verify student authenticity, and no features for computer hardware control or code compilation.
+
+\subsubsection{Blackboard Learn}
+Blackboard Learn is an LMS providing all of the basics needed to manage a course: quiz-building capabilities, graded assignment submissions, grade reporting and access controls, as well as the ability to integrate with additional educational applications \cite{blackboard1}. Yet Blackboard Learn is still very much an online course management tool. It doesn't offer hardware monitoring, the ability to track workstation processes in real-time, nor code compilation; physical security logs for dispute resolution must be obtained with outside products.
+
+\subsubsection{Canvas LMS}
+Canvas is a well-received academic platform that enables educational institutions to deliver and manage online learning content, including assessments and grading assignments \cite{canvas1}. 
+
+With plentiful plugin availability, it's a highly customizable solution, but it does not provide the kind of workstation or machine level control needed. There are no controls to monitor actual workstation use, no computer hardware-binding capabilities, and no means of allocating lab seats in a real-time context.
+
+\subsubsection{Google Classroom}
+Google Classroom offers a light and efficient way to create assignments, manage schedules, store documents, and connect to Google Meet for virtual classes. Teachers find the software easy to use and integrate into existing G Suite for Education setups \cite{gclassroom1}. 
+
+The core problem remains: the software offers no form of lockdown or hardware monitoring for students who need to participate in physically secure examinations, thus providing no mechanism for evidence-gathering about physical misuse. 
+
+After review, one can see that current applications address single segments of the needed components for remote computer lab exam monitoring. Individual applications will prevent browsers from launching; others will check plagiarism or coordinate a course. A gap exists however, as no single application exists for physical lab testing that provides workstation lock down; remotely readable computer hardware and software data logging; a reliable, verifiable audit trail; WebSockets based real-time communication channels; a Web Application Programming Interface (Web API) allowing for interaction with individual hardware; isolated execution environments; the ability to bind and verify students against particular machines; or control and schedule lab seating -- all in one environment. See Table~\ref{tab:comparison} for differences between proposed functionalities and existing applications:
+
+\begin{table}[H]
+\centering
+\caption{Applications Comparison}
+\label{tab:comparison}
+\renewcommand{\arraystretch}{1.3}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}X|C{0.6cm}|C{0.6cm}|C{0.6cm}|C{0.6cm}|C{0.6cm}|C{0.6cm}|C{0.6cm}|C{0.6cm}|C{0.6cm}|C{0.6cm}|C{1.0cm}|}
+\hline\hline
+\multicolumn{1}{|c|}{\multirow{2}{*}{\textbf{Features}}} & \multicolumn{11}{c|}{\textbf{Applications}} \\ \cline{2-12}
+\multicolumn{1}{|c|}{} &
+\rotatebox{90}{Respondus LockDown~\hspace{0.2cm}} &
+\rotatebox{90}{Safe Exam Browser~\hspace{0.2cm}} &
+\rotatebox{90}{MOSS~\hspace{0.2cm}} &
+\rotatebox{90}{ExamSoft~\hspace{0.2cm}} &
+\rotatebox{90}{Moodle~\hspace{0.2cm}} &
+\rotatebox{90}{Proctorio~\hspace{0.2cm}} &
+\rotatebox{90}{Honorlock~\hspace{0.2cm}} &
+\rotatebox{90}{Blackboard Learn~\hspace{0.2cm}} &
+\rotatebox{90}{Canvas LMS~\hspace{0.2cm}} &
+\rotatebox{90}{Google Classroom~\hspace{0.2cm}} &
+\rotatebox{90}{\textbf{Proposed System}\hspace{0.2cm}} \\
+\hline\hline
+Browser Lockdown        & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & \xmark & \xmark & \cmark \\ \hline
+ID Verification         & \xmark & \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & \xmark & \xmark & \cmark \\ \hline
+AI Monitoring           & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & \cmark & \xmark & \xmark & \xmark & \cmark \\ \hline
+Exam Scheduling         & \xmark & \xmark & \xmark & \cmark & \cmark & \xmark & \xmark & \cmark & \cmark & \xmark & \cmark \\ \hline
+Result Management       & \xmark & \xmark & \xmark & \cmark & \cmark & \xmark & \xmark & \cmark & \cmark & \xmark & \cmark \\ \hline
+Lab/Workstation Control & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
+\hline\hline
+\end{tabularx}
+\end{table}
+
+\subsection{Analysis of Future System Use}
+We implemented a system from front end to back end for managing each step of lab testing from initial configuration, such as role definition, assignment, seating plans before exam to the actual exam execution, session monitoring, to generating exam report. With the system, administrators create various roles, teachers schedule exams, and they can select seats of specific lab rooms to design their seating plan. During an exam session, each student will run a client program which can perform actions in locked mode (i.e., only allowing the pre-defined environment for the exam). During this, invigilators will check the student focus time, screen display of all students and can manually release the student's client machine in case of hardware or other problems via the web application with real-time focus timelines displayed on a dashboard with WebSockets implementation. When the exam session is finished, an exam report which summarizes all the marks will be generated and released by the system in the PDF format. This is particularly helpful for programming, database design, and networking laboratory exams, since these examinations involve on-site computer execution (and running of code) by students. Because all students write and compile on local machine, SmartExam provides the standardization environment and a direct replacement for manual process of exam coordination such as marking of student answer. Last but not the least, for any future investigation and accountability issues, a relational database is used for the storage of system's audit trails, which are focused loss detection and instructor's actions (e.g. Manually un-lock client, score adjust).

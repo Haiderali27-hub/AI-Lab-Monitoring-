@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SmartExam Admin - Notifications</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .unread-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #004ac6;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface": "#faf8ff",
+                      "on-primary": "#ffffff",
+                      "on-surface-variant": "#434655",
+                      "surface-container-high": "#e7e7f3",
+                      "primary-fixed": "#dbe1ff",
+                      "tertiary": "#943700",
+                      "surface-container": "#ededf9",
+                      "on-error-container": "#93000a",
+                      "on-error": "#ffffff",
+                      "on-primary-fixed-variant": "#003ea8",
+                      "on-secondary-fixed": "#151c23",
+                      "on-tertiary-container": "#ffede6",
+                      "on-secondary-container": "#5e656d",
+                      "background": "#faf8ff",
+                      "error": "#ba1a1a",
+                      "secondary": "#585f67",
+                      "on-secondary-fixed-variant": "#40484f",
+                      "secondary-fixed-dim": "#c0c7d0",
+                      "outline": "#737686",
+                      "on-background": "#191b23",
+                      "inverse-primary": "#b4c5ff",
+                      "surface-bright": "#faf8ff",
+                      "tertiary-fixed-dim": "#ffb596",
+                      "secondary-container": "#dce3ec",
+                      "error-container": "#ffdad6",
+                      "surface-variant": "#e1e2ed",
+                      "on-surface": "#191b23",
+                      "inverse-surface": "#2e3039",
+                      "tertiary-container": "#bc4800",
+                      "primary-fixed-dim": "#b4c5ff",
+                      "on-secondary": "#ffffff",
+                      "primary": "#004ac6",
+                      "surface-tint": "#0053db",
+                      "on-primary-fixed": "#00174b",
+                      "on-tertiary-fixed": "#360f00",
+                      "on-tertiary-fixed-variant": "#7d2d00",
+                      "outline-variant": "#c3c6d7",
+                      "surface-container-low": "#f3f3fe",
+                      "on-tertiary": "#ffffff",
+                      "secondary-fixed": "#dce3ec",
+                      "surface-dim": "#d9d9e5",
+                      "surface-container-lowest": "#ffffff",
+                      "tertiary-fixed": "#ffdbcd",
+                      "surface-container-highest": "#e1e2ed",
+                      "primary-container": "#2563eb",
+                      "on-primary-container": "#eeefff",
+                      "inverse-on-surface": "#f0f0fb"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "gutter": "1rem",
+                      "stack-md": "1rem",
+                      "stack-sm": "0.5rem",
+                      "container-max": "1280px",
+                      "system-b-margin": "1.5rem",
+                      "system-a-margin": "1rem"
+              },
+              "fontFamily": {
+                      "headline-sm": ["Inter"],
+                      "label-sm": ["Inter"],
+                      "label-md": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "body-md": ["Inter"],
+                      "headline-md": ["Inter"]
+              },
+              "fontSize": {
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                      "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-low border-r border-outline-variant flex flex-col py-4 space-y-2 z-50">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">school</span>
+</div>
+<div>
+<h1 class="font-headline-sm text-headline-sm text-on-surface">Admin Portal</h1>
+<p class="text-on-surface-variant text-[10px] uppercase tracking-wider font-bold">Institutional Control</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-2 space-y-1">
+<a class="flex items-center px-4 py-2.5 text-on-surface-variant hover:bg-surface-variant rounded-lg transition-all duration-200" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center px-4 py-2.5 text-on-surface-variant hover:bg-surface-variant rounded-lg transition-all duration-200" href="#">
+<span class="material-symbols-outlined mr-3">assignment</span>
+<span class="font-label-md text-label-md">Exams</span>
+</a>
+<a class="flex items-center px-4 py-2.5 text-on-surface-variant hover:bg-surface-variant rounded-lg transition-all duration-200" href="#">
+<span class="material-symbols-outlined mr-3">history</span>
+<span class="font-label-md text-label-md">Audit Logs</span>
+</a>
+<a class="flex items-center justify-between px-4 py-2.5 bg-primary-container text-on-primary-container rounded-lg transition-all duration-200" href="#">
+<div class="flex items-center">
+<span class="material-symbols-outlined mr-3" style="font-variation-settings: 'FILL' 1;">notifications</span>
+<span class="font-label-md text-label-md">Notifications</span>
+</div>
+<span class="bg-on-primary-container text-primary px-2 py-0.5 rounded-full text-[10px] font-bold">4</span>
+</a>
+</nav>
+<div class="px-2 mt-auto">
+<a class="flex items-center px-4 py-2.5 text-on-surface-variant hover:bg-surface-variant rounded-lg transition-all duration-200" href="#">
+<span class="material-symbols-outlined mr-3">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="ml-64 flex-1 flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="bg-surface border-b border-outline-variant flex justify-between items-center w-full px-8 h-16 sticky top-0 z-40">
+<div class="flex items-center gap-4">
+<h2 class="font-headline-sm text-headline-sm text-primary">Notifications</h2>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden md:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-surface-container rounded-full border-none focus:ring-2 focus:ring-primary text-body-md w-64" placeholder="Search notifications..." type="text"/>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-colors">help</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-colors">settings</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a senior academic administrator with a neutral, authoritative expression. The portrait features soft, cinematic studio lighting with a clean, minimalist background in a modern institutional setting. The aesthetic is sharp, high-resolution, and perfectly integrated into a corporate digital environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGypBThhTChqnfcyKUZR9zrifef4w07BbOSAxDt4qpJyVpEiyAI9Rk2hJZ5L3-7n9fHSrbLW_BeCoLeYkez_Qv3Wzrj0H2BJWuzXm9RAgAyTxZtFHwLj6yF3qxLI4K_YZXQoyuDfIrKiY2thloKRwUr26mjo_FOy72hEQ5xZmQah4gOWeFhQsIXqQYjYigUo3yaqizGoxz9MsVVtWnGd0wpc4TkD0sLTTzSbNiR6hb7li0Ay5_E4vtBT4v2ZNetgbIFZaTQW_TNWg"/>
+</div>
+</div>
+</header>
+<!-- Notification Feed -->
+<div class="p-8 max-w-5xl mx-auto w-full">
+<!-- Filters -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-outline-variant">
+<div class="flex gap-6 overflow-x-auto no-scrollbar">
+<button class="pb-3 border-b-2 border-primary text-primary font-label-md text-label-md whitespace-nowrap">All</button>
+<button class="pb-3 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface font-label-md text-label-md whitespace-nowrap">Unread</button>
+<button class="pb-3 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface font-label-md text-label-md whitespace-nowrap">Exam</button>
+<button class="pb-3 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface font-label-md text-label-md whitespace-nowrap">Violations</button>
+<button class="pb-3 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface font-label-md text-label-md whitespace-nowrap">System</button>
+</div>
+<button class="mb-3 text-primary font-label-md text-label-md hover:underline flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">done_all</span>
+                    Mark all as read
+                </button>
+</div>
+<!-- List -->
+<div class="space-y-3">
+<!-- Unread Notification 1 -->
+<div class="bg-white border border-outline-variant rounded-lg p-4 flex gap-4 border-l-[3px] border-l-primary bg-primary-container/5 relative transition-all hover:shadow-sm cursor-pointer">
+<div class="flex-shrink-0">
+<div class="w-10 h-10 rounded-full bg-error-container text-on-error-container flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">report</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-bold text-body-lg text-on-surface">Critical Violation Detected</h3>
+<div class="flex items-center gap-2">
+<span class="text-label-sm text-on-surface-variant">2 mins ago</span>
+<div class="unread-dot"></div>
+</div>
+</div>
+<p class="text-body-md text-on-surface-variant mb-2 leading-relaxed">System flagged multiple browser tab switches for candidate Sarah Jenkins. Eye-tracking loss exceeded 15 seconds during Question 24.</p>
+<a class="text-primary font-label-md text-label-md hover:underline flex items-center gap-1" href="#">
+                            View Exam: Advanced Bio-Chemistry Midterm
+                            <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</a>
+</div>
+</div>
+<!-- Unread Notification 2 -->
+<div class="bg-white border border-outline-variant rounded-lg p-4 flex gap-4 border-l-[3px] border-l-primary bg-primary-container/5 relative transition-all hover:shadow-sm cursor-pointer">
+<div class="flex-shrink-0">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">assignment_turned_in</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-bold text-body-lg text-on-surface">Exam Session Completed</h3>
+<div class="flex items-center gap-2">
+<span class="text-label-sm text-on-surface-variant">15 mins ago</span>
+<div class="unread-dot"></div>
+</div>
+</div>
+<p class="text-body-md text-on-surface-variant mb-2 leading-relaxed">All 145 students have successfully submitted their responses for the Global Economics Survey.</p>
+<a class="text-primary font-label-md text-label-md hover:underline flex items-center gap-1" href="#">
+                            View Results: Economics 101 Final
+                        </a>
+</div>
+</div>
+<!-- Unread Notification 3 -->
+<div class="bg-white border border-outline-variant rounded-lg p-4 flex gap-4 border-l-[3px] border-l-primary bg-primary-container/5 relative transition-all hover:shadow-sm cursor-pointer">
+<div class="flex-shrink-0">
+<div class="w-10 h-10 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">cloud_upload</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-bold text-body-lg text-on-surface">Bulk Content Upload Successful</h3>
+<div class="flex items-center gap-2">
+<span class="text-label-sm text-on-surface-variant">45 mins ago</span>
+<div class="unread-dot"></div>
+</div>
+</div>
+<p class="text-body-md text-on-surface-variant mb-2 leading-relaxed">500 new question items have been processed and added to the 'Humanities' question bank.</p>
+<a class="text-primary font-label-md text-label-md hover:underline flex items-center gap-1" href="#">
+                            Manage Question Bank
+                        </a>
+</div>
+</div>
+<!-- Read Notification 4 -->
+<div class="bg-white border border-outline-variant rounded-lg p-4 flex gap-4 relative transition-all hover:bg-surface-container-low cursor-pointer">
+<div class="flex-shrink-0">
+<div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined">settings_suggest</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-bold text-body-lg text-on-surface">System Update Scheduled</h3>
+<div class="flex items-center gap-2">
+<span class="text-label-sm text-on-surface-variant">2 hours ago</span>
+</div>
+</div>
+<p class="text-body-md text-on-surface-variant mb-2 leading-relaxed">Maintenance window scheduled for Sunday at 02:00 AM UTC. Proctored exams will be disabled during this 30-minute window.</p>
+</div>
+</div>
+<!-- Read Notification 5 -->
+<div class="bg-white border border-outline-variant rounded-lg p-4 flex gap-4 relative transition-all hover:bg-surface-container-low cursor-pointer">
+<div class="flex-shrink-0">
+<div class="w-10 h-10 rounded-full bg-error-container/40 text-error flex items-center justify-center">
+<span class="material-symbols-outlined">warning</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-bold text-body-lg text-on-surface">AI Proctoring Offline</h3>
+<div class="flex items-center gap-2">
+<span class="text-label-sm text-on-surface-variant">5 hours ago</span>
+</div>
+</div>
+<p class="text-body-md text-on-surface-variant mb-2 leading-relaxed">Minor disruption in facial recognition microservice. Manual proctoring backup was initiated automatically.</p>
+<a class="text-primary font-label-md text-label-md hover:underline" href="#">View System Status</a>
+</div>
+</div>
+<!-- Read Notification 6 -->
+<div class="bg-white border border-outline-variant rounded-lg p-4 flex gap-4 relative transition-all hover:bg-surface-container-low cursor-pointer">
+<div class="flex-shrink-0">
+<div class="w-10 h-10 rounded-full bg-surface-container text-on-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined">person_add</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-bold text-body-lg text-on-surface">New Proctor Account Created</h3>
+<div class="flex items-center gap-2">
+<span class="text-label-sm text-on-surface-variant">Yesterday</span>
+</div>
+</div>
+<p class="text-body-md text-on-surface-variant mb-2 leading-relaxed">Access granted to 'David Miller' for the Engineering Department exam sessions.</p>
+</div>
+</div>
+<!-- Read Notification 7 -->
+<div class="bg-white border border-outline-variant rounded-lg p-4 flex gap-4 relative transition-all hover:bg-surface-container-low cursor-pointer">
+<div class="flex-shrink-0">
+<div class="w-10 h-10 rounded-full bg-tertiary-container/20 text-tertiary flex items-center justify-center">
+<span class="material-symbols-outlined">analytics</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-bold text-body-lg text-on-surface">Weekly Performance Report</h3>
+<div class="flex items-center gap-2">
+<span class="text-label-sm text-on-surface-variant">2 days ago</span>
+</div>
+</div>
+<p class="text-body-md text-on-surface-variant mb-2 leading-relaxed">Your weekly summary of institutional exam integrity and student pass rates is ready for review.</p>
+<a class="text-primary font-label-md text-label-md hover:underline" href="#">Download PDF</a>
+</div>
+</div>
+<!-- Read Notification 8 -->
+<div class="bg-white border border-outline-variant rounded-lg p-4 flex gap-4 relative transition-all hover:bg-surface-container-low cursor-pointer">
+<div class="flex-shrink-0">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined">info</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-bold text-body-lg text-on-surface">Privacy Policy Updated</h3>
+<div class="flex items-center gap-2">
+<span class="text-label-sm text-on-surface-variant">3 days ago</span>
+</div>
+</div>
+<p class="text-body-md text-on-surface-variant mb-2 leading-relaxed">We have updated our data retention policy for student biometric data to comply with new regulations.</p>
+</div>
+</div>
+</div>
+<!-- Pagination -->
+<div class="mt-10 flex flex-col md:flex-row items-center justify-between gap-4 border-t border-outline-variant pt-6">
+<span class="font-label-md text-label-md text-on-surface-variant">Showing 1–8 of 24</span>
+<div class="flex items-center gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-primary text-on-primary font-bold text-label-md">1</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-container-low transition-colors font-bold text-label-md">2</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-container-low transition-colors font-bold text-label-md">3</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Micro-interactions for notifications
+        document.querySelectorAll('.cursor-pointer').forEach(card => {
+            card.addEventListener('click', function() {
+                const dot = this.querySelector('.unread-dot');
+                if (dot) {
+                    dot.style.opacity = '0';
+                    this.classList.remove('border-l-primary', 'bg-primary-container/5');
+                    setTimeout(() => dot.remove(), 300);
+                }
+            });
+        });
+    </script>
+</body></html>
+

@@ -1,0 +1,24 @@
+\chapter{SOFTWARE REQUIREMENTS SPECIFICATION}
+\label{chap:srs}
+
+This chapter contains the Software Requirements Specification (SRS) of the AI-Driven Lab Exam Monitoring and Management System \cite{srs1}. It specifies what the system must do, the quality standards it must meet, and the constraints within which it must operate. The design and implementation chapters describe the implementation details; this chapter does not.
+
+Why does the SRS matter? Requirements discovered halfway through tend to make very different software than requirements set before any code is written. This chapter was written after structured interviews with lab supervisors, prototype screen walks with potential users, and two focused brainstorming sessions with the project team. This process is explained in the Requirement Gathering section. The specification fills a real void in operation. Lab exams are done manually at SZABIST and similar institutions. No platform connects scheduling, machine allocation, live monitoring, submission handling, and reporting into a single verifiable workflow. This SRS specifies what such a platform must provide.
+
+\section{Introduction}
+The proposed system deals with a complex process with multiple roles, sequential phases, and strict fairness constraints. Without a formal specification, it is too easy for design choices to drift away from what supervisors and students really need.
+
+This introduction outlines the scope of the SRS, the intended audience, and the organization of the document. The following sections discuss functional requirements, non-functional requirements, requirement gathering techniques, and the project time frame.
+
+\subsection{Document Scope}
+The SRS covers authentication and device binding, role management, exam scheduling and configuration, behaviour of the student desktop client, live monitoring telemetry, submission management, AI-assisted grading, plagiarism analysis, audit logging, and PDF reporting. It also describes quality properties that govern how these features work: security, reliability, usability, performance, maintainability, and privacy.
+
+What this document does not contain: database schemas, API endpoint definitions, UI wireframes, and deployment configs. These details arise in design sprints and are recorded separately in the design chapter.
+
+\subsection{Audience}
+This document is used by three different groups for different reasons:
+\begin{itemize}
+    \item It serves as a technical contract for the \textbf{project team}. Each functional requirement in this document is linked to at least one design element, UI screen, or test case. If a feature is listed here, it must be in the prototype. If it is not listed here, the team does not build it unless the requirements change via a documented update.
+    \item It is used by the \textbf{supervisor and academic evaluators} to assess scope, coherence, and academic value. They should see that the requirements are specific enough to direct the engineering decisions, and that the overall scope is realistic for a two-semester FYP.
+    \item \textbf{Future stakeholders}—lab admins, institutional IT staff, or FYP cohorts after the current one—use it to discover what the current prototype can deliver and where extensions are possible.
+\end{itemize}
