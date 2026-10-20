@@ -154,8 +154,9 @@ public class SubmissionService
                 .Where(a => a.QuestionId == answer.QuestionId &&
                             a.ExamSession.ExamId == session.ExamId &&
                             a.ExamSession.UserId != session.UserId &&
-                            (a.ExamSession.Status == SessionStatus.Submitted ||
-                             a.ExamSession.Status == SessionStatus.ForceSubmitted))
+                            // Every finalised session counts — TimedOut (Module 6 sweeper) included, or a
+                            // student who let the clock run out would never be compared with anyone.
+                            a.ExamSession.Status != SessionStatus.InProgress)
                 .ToListAsync();
 
             foreach (var other in otherAnswers)

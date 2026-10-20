@@ -248,6 +248,8 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M6-I-16 | After timeout | Save, submit, heartbeat | 400 "time is over", 400, `sessionStatus: TimedOut` | ✅ |
 | M6-I-17 | Resume inside extra time | Exam ended 5 min ago, +10 min | `student/start` + `start-session` return the same session; without extra time `EXAM_CLOSED` | ✅ |
 | M6-I-18 | Force-submit by session id | Unassigned invigilator; owner; twice | HubException; ForceSubmitted + receipt + audit `SESSION_FORCE_SUBMITTED`; second → HubException; heartbeat reports it | ✅ |
+| M6-I-19 | Timed-out sessions in plagiarism | Two students, same theory answer, both timed out by the sweeper | One `PlagiarismResult` for the pair (D-23) | ✅ |
+| M6-I-20 | Running session wins over next exam | +10 min, exam ended 5 min ago, another exam tomorrow | `student/current` shows the running exam (`InProgress`, ~5 min left), `student/start` resumes it; after submit the next exam shows (D-24) | ✅ |
 | M6-E-01 | Results show submitted student | Simulator submits → teacher results page | Student row with score | ✅ |
 | M6-E-02 | Force submit all from UI | Teacher clicks Force Submit All | Simulator's next save → 400 | ✅ |
 | M6-E-03 | Per-student force submit button | Drawer → Force submit | Tile shows Submitted | ✅ |
@@ -462,6 +464,8 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | D-20 | review (S4) | Hub `ForceSubmitSession(studentId)` picks the student's first in-progress session — ambiguous with a practice session open | **Fixed** — `ForceSubmitSessionById(sessionId)`, used by the Live Monitor |
 | D-21 | M6-I-11 | `save-answer` accepted any question id, so a student could store answers to another exam's questions in their session | **Fixed** — question must belong to the session's exam; text ≤ 100 000 chars |
 | D-22 | review (S4) | The desktop app only saved answered questions, so clearing an answer never reached the server | **Fixed** — revisioned saves send every edit, including a cleared answer |
+| D-23 | M6-I-19 (S4 verifier) | Plagiarism detection only compared against `Submitted`/`ForceSubmitted` sessions, so sessions the new sweeper finalised as `TimedOut` were never compared | **Fixed** — every finalised session (`Status != InProgress`) is compared |
+| D-24 | M6-I-20 (S4 verifier) | `student/current` and `student/start` chose the next scheduled exam once the running exam's own window had closed, so a student in extra time got no "Resume Exam" and the resume was refused | **Fixed** — both prefer the assignment whose session is still running inside the student's own deadline |
 
 ---
 

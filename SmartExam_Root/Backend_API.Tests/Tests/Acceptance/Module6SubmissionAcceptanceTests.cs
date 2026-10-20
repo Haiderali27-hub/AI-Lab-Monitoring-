@@ -466,4 +466,56 @@ public class Module6SubmissionAcceptanceTests : IDisposable
         (await TestHost.DataAsync(await TestHost.HeartbeatAsync(student, sid))).GetProperty("sessionStatus").GetString()
             .Should().Be("ForceSubmitted");
     }
+
+    // ── Stage S4 verifier regressions ───────────────────────────────────────────
+
+    [Fact]
+    public async Task M6_I_19_TimedOutSessions_AreComparedForPlagiarism()
+    {
+        // Regression: the plagiarism query only looked at Submitted / ForceSubmitted sessions, so a student the
+        // sweeper timed out was never compared with anyone (and nobody was compared with them).
+        const string copied = "A stack is LIFO and a queue is FIFO, push pop enqueue dequeue";
+        var s1 = await _host.AsStudent();
+        var sid1 = await _host.StartSessionAsync(s1, _host.Seed.ExamId);
+        var s2 = await _host.AsStudent2();
+        var sid2 = await _host.StartSessionAsync(s2, _host.Seed.ExamId);
+        (await TestHost.SaveAnswerAsync(s1, sid1, _host.Seed.Question2Id, copied)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SaveAnswerAsync(s2, sid2, _host.Seed.Question2Id, copied)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await _host.EndExamWindowAsync(_host.Seed.ExamId, minutesAgo: 3);
+        (await Sweeper(_host).SweepAsync(DateTime.UtcNow)).Should().Be(2);
+
+        var pairs = await _host.WithDbAsync(db => db.PlagiarismResults.AsNoTracking()
+            .Where(p => p.ExamId == _host.Seed.ExamId && p.QuestionId == _host.Seed.Question2Id).ToListAsync());
+        pairs.Should().ContainSingle("the second timed-out session is compared with the first");
+        new[] { pairs[0].UserIdA, pairs[0].UserIdB }.Should().BeEquivalentTo(new[] { _host.Seed.StudentId, _host.Seed.Student2Id });
+    }
+
+    [Fact]
+    public async Task M6_I_20_RunningSessionInExtraTime_WinsOverTheNextScheduledExam()
+    {
+        // Regression: student/current and student/start picked the next scheduled exam once the running exam's
+        // own window had closed, so a student in extra time saw no "Resume Exam" and the resume was refused.
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        using (var hub = _host.CreateHub(TestHost.Principal(_host.Seed.TeacherId, "Teacher")))
+            await hub.Hub.ExtendStudentTime(sid, 10);
+        var nextExam = await _host.CreateExamAsync(new[] { _host.Seed.StudentId }, startUtc: DateTime.UtcNow.AddDays(1));
+        await _host.EndExamWindowAsync(_host.Seed.ExamId, minutesAgo: 5);
+
+        var relaunched = await _host.AsStudent();
+        var current = await TestHost.DataAsync(await relaunched.GetAsync("/api/exams/student/current"));
+        current.GetProperty("examId").GetGuid().Should().Be(_host.Seed.ExamId, "not the exam {0} tomorrow", nextExam);
+        current.GetProperty("status").GetString().Should().Be("InProgress");
+        current.GetProperty("remainingSeconds").GetInt32().Should().BeInRange(4 * 60, 5 * 60);
+
+        var resume = await relaunched.PostAsync("/api/exams/student/start", null);
+        resume.StatusCode.Should().Be(HttpStatusCode.OK, await resume.Content.ReadAsStringAsync());
+        (await TestHost.DataAsync(resume)).GetProperty("id").GetGuid().Should().Be(sid);
+
+        // Once the session is finalised the dashboard moves on to the next exam as before.
+        (await TestHost.SubmitAsync(relaunched, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.DataAsync(await relaunched.GetAsync("/api/exams/student/current"))).GetProperty("examId").GetGuid()
+            .Should().Be(nextExam);
+    }
 }

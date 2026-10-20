@@ -1284,6 +1284,7 @@ public class ExamsController : ControllerBase
         //   1. an Active exam whose window is still open,
         //   2. else the Scheduled exam with the NEAREST end-time still in the future,
         //   3. else fall back to the most recent past exam (so the "window ended" message shows).
+        // Module 6: a session the student is still running (inside their own extra time) wins over all three.
         var candidates = await _db.ExamAssignments
             .Include(a => a.Exam)
             .Include(a => a.Exam.Section).ThenInclude(s => s.Teacher)
@@ -1292,7 +1293,8 @@ public class ExamsController : ControllerBase
             .ToListAsync();
 
         var assignment =
-            candidates
+            await RunningAssignmentAsync(candidates, studentId, now)
+            ?? candidates
                 .Where(a => a.Exam.Status == ExamStatus.Active &&
                             a.Exam.StartTime.AddMinutes(a.Exam.DurationMinutes) > now)
                 .OrderBy(a => a.Exam.StartTime)
@@ -1410,7 +1412,8 @@ public class ExamsController : ControllerBase
             .ToListAsync();
 
         var assignment =
-            startCandidates
+            await RunningAssignmentAsync(startCandidates, studentId, now)
+            ?? startCandidates
                 .Where(a => a.Exam.StartTime.AddMinutes(a.Exam.DurationMinutes) > now)
                 .OrderBy(a => a.Exam.StartTime)
                 .FirstOrDefault()
@@ -1469,6 +1472,22 @@ public class ExamsController : ControllerBase
     }
 
     // ── Module 3 / 9: start gates shared by start-session and student/start ────
+
+    /// Module 6: the candidate assignment whose session this student is still running and may resume (exam not
+    /// ended, own deadline incl. extra minutes ahead). student/current and student/start prefer it over their
+    /// window-based pick, so a student working in extra time after the exam's own end is not pointed at their
+    /// next scheduled exam instead (which would hide "Resume Exam" and refuse the resume as not started yet).
+    private async Task<ExamAssignment?> RunningAssignmentAsync(IReadOnlyCollection<ExamAssignment> candidates, Guid studentId, DateTime now)
+    {
+        if (candidates.Count == 0) return null;
+        var examIds = candidates.Select(a => a.ExamId).ToList();
+        var running = await _db.ExamSessions.AsNoTracking().Include(s => s.Exam)
+            .Where(s => s.UserId == studentId && s.Status == SessionStatus.InProgress && examIds.Contains(s.ExamId))
+            .OrderByDescending(s => s.StartedAt)
+            .ToListAsync();
+        var session = running.FirstOrDefault(s => s.Exam.Status != ExamStatus.Ended && now <= SubmissionService.EffectiveEnd(s));
+        return session is null ? null : candidates.First(a => a.ExamId == session.ExamId);
+    }
 
     /// The student's in-progress session of this exam while it can still be resumed: the exam was not
     /// ended and the student's own deadline (exam end + extra minutes, plus the grace when asked) is ahead.

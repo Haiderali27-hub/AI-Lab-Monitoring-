@@ -104,10 +104,13 @@ public partial class ExamWindow : Window
     {
         _lockdown.Start(this);
         // The window is locked down, so never leave the student staring at an empty exam: retry until loaded.
+        // Stops once the window was closed meanwhile (the server force-submitted or timed out the session).
         while (!await _viewModel.LoadAsync())
         {
+            if (_submitted) return;
             _viewModel.SaveStatus = "Could not load the questions — retrying…";
             await Task.Delay(TimeSpan.FromSeconds(5));
+            if (_submitted) return;
         }
         if (_viewModel.Questions.Count > 0)
         {
