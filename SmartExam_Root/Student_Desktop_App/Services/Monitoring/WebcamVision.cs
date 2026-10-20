@@ -139,7 +139,7 @@ public sealed class WebcamVision : IDisposable
             failures = 0;
             return result;
         }
-        catch (Exception ex) when (ex is OpenCVException or ArgumentException || IsNativeFailure(ex))
+        catch (Exception ex) when (ex is OpenCVException or OpenCvSharpException or ArgumentException || IsNativeFailure(ex))
         {
             if (++failures >= MaxConsecutiveFailures)
             {

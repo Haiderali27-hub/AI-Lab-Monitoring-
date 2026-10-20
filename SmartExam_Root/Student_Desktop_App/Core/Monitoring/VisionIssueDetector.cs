@@ -47,7 +47,9 @@ public sealed record VisionThresholds
 /// <see cref="VisionThresholds.MinFaceHeight"/>.</item>
 /// <item><b>LookingAway</b> — the one face turned beyond the yaw/pitch limits for 3 s, measured from
 /// <see cref="HeadPose"/> relative to the student's own baseline (the median of the first calm frames), so a camera
-/// mounted beside or above the screen does not make everybody "look away".</item>
+/// mounted beside or above the screen does not make everybody "look away". A frame with no face neither starts nor
+/// ends it: a head turned far enough is only found on some frames, and resetting the 3 s on every miss would let a
+/// student turned to the neighbour's screen escape both this rule and NoFace.</item>
 /// <item><b>PhoneDetected</b> — a cell phone in two consecutive phone checks, when the phone model is present.</item>
 /// </list>
 /// A frame without face analysis (no model, covered or unavailable camera — those have their own events) is "no
@@ -120,9 +122,15 @@ public sealed class VisionIssueDetector
             Add(transitions, _noFace.Step(faces.Count == 0, o.AtUtc, "No face in front of the camera"));
             Add(transitions, _multipleFaces.Step(faces.Count >= 2, o.AtUtc, $"{faces.Count} faces in view"));
 
-            if (faces.Count != 1)
+            if (faces.Count == 0)
             {
-                // Nobody to judge, or several people (that has its own event): not "looking away".
+                // Nobody to judge: leave LookingAway exactly as it is (no Step: its timers keep running, nothing new is
+                // decided). A face lost while turning away keeps counting towards LookingAway; a student who has left
+                // the seat produces no "away" frame, so only NoFace is raised.
+            }
+            else if (faces.Count >= 2)
+            {
+                // Several people (that has its own event): not "looking away".
                 Add(transitions, _lookingAway.Step(false, o.AtUtc, ""));
             }
             else if (HeadPose.Estimate(faces[0]) is { } raw)

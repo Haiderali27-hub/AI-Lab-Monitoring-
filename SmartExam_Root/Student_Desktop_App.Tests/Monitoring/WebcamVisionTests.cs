@@ -196,6 +196,42 @@ public class WebcamVisionTests
         HeadPose.Estimate(f with { Landmarks = new[] { f.RightEye, f.LeftEye } }).Should().BeNull();
     }
 
+    // Verifier regression: the size gate used the eye distance, which shrinks with cos(yaw), so a strongly turned head
+    // (the case that matters most) came back "too small to judge" and LookingAway could never be raised for it.
+    [Theory]
+    [InlineData(80, 0.12f)]
+    [InlineData(-70, 0.06f)]    // a smaller face: its eyes are only 0.02 frame heights apart at 70°
+    [InlineData(75, 0.08f)]
+    public void M5_U_19_HeadPose_StrongTurns_AreStillMeasured(double yaw, float eyeDistance)
+    {
+        var pose = HeadPose.Estimate(HeadPose.Synthesize(yaw, 0, eyeDistance: eyeDistance));
+        pose.Should().NotBeNull();
+        pose!.Value.YawDegrees.Should().BeApproximately(yaw, 2.0);
+    }
+
+    [Fact]
+    public void M5_U_19_HeadPose_ProfileFace_IsTurned90TowardsTheNose()
+    {
+        HeadPose.Estimate(HeadPose.Synthesize(88, 0))!.Value.YawDegrees.Should().Be(90);
+        HeadPose.Estimate(HeadPose.Synthesize(-89, 5, rollDegrees: 10))!.Value.YawDegrees.Should().Be(-90);
+        // Eyes collapsed onto the nose with no sideways nose: a blur, not a pose.
+        var f = HeadPose.Synthesize(0, 0);
+        var mid = new FacePoint((f.RightEye.X + f.LeftEye.X) / 2, f.RightEye.Y);
+        HeadPose.Estimate(f with { Landmarks = new[] { mid, mid, new FacePoint(mid.X, f.Nose.Y), f.RightMouth, f.LeftMouth } })
+            .Should().BeNull();
+    }
+
+    [Fact]
+    public void M5_U_20_LookingAway_AFullyTurnedHead_IsRaised_NotTreatedAsUnknown()
+    {
+        var d = new VisionIssueDetector();
+        Feed(d, 0, 6, t => At(t, Face(eyeDistance: 0.08f))).Should().BeEmpty();
+        d.Baseline.Should().NotBeNull();
+        // Turned to the neighbour so far that the far eye goes behind the nose; YuNet still finds the face in profile.
+        var turned = Feed(d, 6.5, 10.5, t => At(t, Face(yaw: t < 8 ? 75 : 88, eyeDistance: 0.08f)));
+        turned.Should().ContainSingle(x => x.Issue == CameraIssue.LookingAway && x.Raised).Which.Detail.Should().Contain("turned sideways");
+    }
+
     // ---------- M5-U-20: face / phone debounce ----------
 
     private static DetectedFace Face(double yaw = 0, double pitch = 0, float centreX = 0.65f, float eyeDistance = 0.12f) =>
@@ -270,6 +306,26 @@ public class WebcamVisionTests
         Feed(d, 26.5, 31, t => At(t, Face(yaw: 18, pitch: 35))).Should().BeEmpty();
         Feed(d, 31.5, 35, t => At(t, Face(yaw: 18, pitch: -22)))
             .Should().ContainSingle(t => t.Issue == CameraIssue.LookingAway && t.Raised).Which.Detail.Should().Contain("looking up");
+    }
+
+    [Fact]
+    public void M5_U_20_LookingAway_AFaceThatFlickersInAndOut_WhileTurned_StillCounts()
+    {
+        // Verifier regression: a frame without a face reset the LookingAway timer, and a frame with the turned face reset
+        // NoFace, so a head turned far enough for the detector to find it only every other frame escaped both rules.
+        var d = new VisionIssueDetector();
+        Feed(d, 0, 6, t => At(t, Face())).Should().BeEmpty();
+        var frame = 0;
+        var flicker = Feed(d, 6.5, 11, t => frame++ % 2 == 0 ? At(t, Face(yaw: 70)) : At(t));
+        flicker.Should().ContainSingle(x => x.Issue == CameraIssue.LookingAway && x.Raised);
+        flicker.Should().NotContain(x => x.Issue == CameraIssue.NoFace);
+
+        // A student who simply leaves the seat is NoFace only, never LookingAway.
+        var left = new VisionIssueDetector();
+        Feed(left, 0, 6, t => At(t, Face())).Should().BeEmpty();
+        var gone = Feed(left, 6.5, 20, t => At(t));
+        gone.Should().ContainSingle(x => x.Issue == CameraIssue.NoFace && x.Raised);
+        gone.Should().NotContain(x => x.Issue == CameraIssue.LookingAway);
     }
 
     [Fact]

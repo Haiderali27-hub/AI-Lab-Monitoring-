@@ -43,9 +43,11 @@ public readonly record struct HeadPoseEstimate(double YawDegrees, double PitchDe
 /// <item>Pitch: where the nose tip sits between the eye line and the mouth line, solved for the angle that moves it
 /// there (the depth term shrinks by cos θ when the head is also turned).</item>
 /// </list>
-/// Exact on synthetic landmarks to within 2° over yaw ±45°, pitch ±30°, roll ±20° (M5-U-19); on real landmarks the
-/// error is the detector's, a few degrees for a face at a lab desk. The monitoring rule also subtracts each student's
-/// own baseline, which absorbs a camera mounted above or beside the screen. Pure.
+/// Exact on synthetic landmarks to within 2° over yaw ±80°, pitch ±30°, roll ±20° (M5-U-19); on real landmarks the
+/// error is the detector's, a few degrees for a face at a lab desk. A face in profile (the far eye hidden behind the
+/// nose, eye span collapsed) is reported as turned 90° towards the nose, not as "unknown": the further a student turns,
+/// the surer the verdict must be. The monitoring rule also subtracts each student's own baseline, which absorbs a
+/// camera mounted above or beside the screen. Pure.
 /// </summary>
 public static class HeadPose
 {
@@ -56,16 +58,22 @@ public static class HeadPose
     private const double MouthDrop = 150;         // mouth line below the nose tip
     private const double MouthDepth = 125;        // mouth plane behind the nose tip
 
-    /// <summary>Faces whose eyes are closer than this (in frame heights, ≈ 10 px at 240 rows) are too small to judge.</summary>
-    public const double MinEyeDistance = 0.04;
+    /// <summary>Faces whose eye line and mouth line are closer than this (in frame heights, ≈ 10 px at 240 rows) are too
+    /// small to judge. Measured eye-to-mouth, not eye-to-eye: the eye distance shrinks as the head turns, so gating on it
+    /// would make a fully turned head "too small" — exactly the pose that must be caught.</summary>
+    public const double MinFaceSize = 0.04;
+
+    /// <summary>Eye span (after undoing roll) below this fraction of the eye-to-mouth distance = face in profile (≈ 84°+).</summary>
+    private const double ProfileEyeSpan = 0.1;
 
     /// <summary>The pose, or null when the landmarks are too small or degenerate to say anything.</summary>
-    public static HeadPoseEstimate? Estimate(DetectedFace face, double minEyeDistance = MinEyeDistance)
+    public static HeadPoseEstimate? Estimate(DetectedFace face, double minFaceSize = MinFaceSize)
     {
         if (!face.HasLandmarks) return null;
         double eyeMidX = (face.RightEye.X + face.LeftEye.X) / 2.0, eyeMidY = (face.RightEye.Y + face.LeftEye.Y) / 2.0;
         double mouthMidX = (face.RightMouth.X + face.LeftMouth.X) / 2.0, mouthMidY = (face.RightMouth.Y + face.LeftMouth.Y) / 2.0;
-        if (Distance(face.RightEye.X, face.RightEye.Y, face.LeftEye.X, face.LeftEye.Y) < minEyeDistance) return null;
+        var faceSize = Distance(eyeMidX, eyeMidY, mouthMidX, mouthMidY);
+        if (faceSize < minFaceSize) return null;
 
         // 1. Undo roll: turn about the eye midpoint until the eye→mouth mid-line points straight down.
         var roll = Math.Atan2(mouthMidX - eyeMidX, mouthMidY - eyeMidY);
@@ -81,8 +89,15 @@ public static class HeadPose
         var mouth = Upright(mouthMidX, mouthMidY);
 
         var eyeSpan = leftEye.X - rightEye.X;
-        // Eyes swapped or on top of each other, or the mouth not below the eyes: landmarks that make no sense.
-        if (eyeSpan <= minEyeDistance / 2 || mouth.Y <= eyeSpan * 0.2) return null;
+        // Eyes clearly swapped (a mirror image of a face): landmarks that make no sense.
+        if (eyeSpan < -ProfileEyeSpan * faceSize) return null;
+        if (eyeSpan <= ProfileEyeSpan * faceSize)
+        {
+            // Profile: the far eye is (nearly) behind the nose. The nose still sticks out to the side the head turned to;
+            // without that the landmarks are a blur, not a pose. Pitch cannot be read from a profile.
+            if (Math.Abs(nose.X) < ProfileEyeSpan * faceSize) return null;
+            return new HeadPoseEstimate(Math.Sign(nose.X) * 90, 0);
+        }
 
         // 2. Yaw from the nose's sideways offset.
         var yaw = Math.Atan(nose.X / eyeSpan * 2 * EyeHalfDistance / EyeDepth);
