@@ -84,16 +84,21 @@ public sealed class LockdownCoordinator : IDisposable
         if (!_active) return;
         _active = false;
 
-        _keyboard.Uninstall();
-        _clipboard.Stop();
-        _processes.Stop();
-        _devices.Stop();
-        _taskManager?.Restore();
-
-        AppDomain.CurrentDomain.UnhandledException -= OnCrash;
-        AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
-        if (Application.Current is not null)
-            Application.Current.DispatcherUnhandledException -= OnDispatcherCrash;
+        // Stop() also runs from the crash / process-exit handlers on non-UI threads, where a UI-bound step
+        // can throw. Restore the Task Manager policy first and isolate every step, so nothing is left behind.
+        LockdownTeardown.RunAll(
+            ("taskmgr-policy", () => _taskManager?.Restore()),
+            ("keyboard-hook", _keyboard.Uninstall),
+            ("clipboard", _clipboard.Stop),
+            ("process-guard", _processes.Stop),
+            ("device-guard", _devices.Stop),
+            ("handlers", () =>
+            {
+                AppDomain.CurrentDomain.UnhandledException -= OnCrash;
+                AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
+                if (Application.Current is not null)
+                    Application.Current.DispatcherUnhandledException -= OnDispatcherCrash;
+            }));
     }
 
     private void Report(string reason, string detail)

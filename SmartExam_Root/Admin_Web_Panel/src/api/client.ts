@@ -10,6 +10,7 @@ export const TOKEN_REFRESHED_EVENT = 'smartexam:token-refreshed';
 
 // Refresh this many seconds before the access token's `exp`, so requests never race the expiry.
 const PROACTIVE_REFRESH_SECONDS = 60;
+const REFRESH_TIMEOUT_MS = 10_000;
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -51,7 +52,8 @@ async function doRefresh(failedToken: string | null): Promise<RefreshResult> {
 
   try {
     // Plain axios: the refresh call must not go through this client's own interceptors.
-    const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+    // Bounded: a hung server must not stall every queued request (or a logout) indefinitely.
+    const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken }, { timeout: REFRESH_TIMEOUT_MS });
     const data = res.data?.data;
     if (!data?.accessToken || !data?.refreshToken) return { token: null, rejected: true };
     localStorage.setItem(TOKEN_KEY, data.accessToken);
@@ -94,6 +96,10 @@ export async function getFreshAccessToken(): Promise<string> {
 
 // Auth endpoints that must never trigger a refresh-and-retry.
 const NO_REFRESH = ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/student-login'];
+// ...and the ones that are sent without a proactive refresh. Logout is deliberately NOT here: after an idle
+// spell the access token has expired, and logout must still reach the server with a valid token, otherwise
+// the refresh-token family is never revoked (it would stay usable for the rest of its lifetime).
+const NO_PROACTIVE_REFRESH = ['/auth/login', '/auth/refresh', '/auth/student-login'];
 
 function redirectToLogin() {
   clearStoredSession();
@@ -104,7 +110,7 @@ function redirectToLogin() {
 
 // Attach the (proactively refreshed) JWT to every request
 apiClient.interceptors.request.use(async (config) => {
-  const skip = NO_REFRESH.some(p => (config.url ?? '').includes(p));
+  const skip = NO_PROACTIVE_REFRESH.some(p => (config.url ?? '').includes(p));
   const token = skip ? localStorage.getItem(TOKEN_KEY) : await getFreshAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

@@ -93,9 +93,17 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.NewPassword) || req.NewPassword.Length < 8)
             return BadRequest(new { message = "New password must be at least 8 characters." });
 
+        // A password change ends every OTHER session (a stolen refresh token must not outlive it); the
+        // caller's own session and refresh-token family stay valid. Revoke first: it may clear the tracker.
+        var jti = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value;
+        var (revokedRefreshTokens, revokedSessions) =
+            await _refreshTokens.RevokeOtherSessionsAsync(userId, jti, RefreshTokenRevocation.PasswordChanged);
+        user = await _db.Users.FindAsync(userId);
+        if (user is null) return NotFound(new { message = "User not found." });
+
         user.Salt = PasswordHelper.GenerateSalt();
         user.PasswordHash = PasswordHelper.HashPassword(req.NewPassword, user.Salt);
-        _audit.Add(userId, "PASSWORD_CHANGED", "User", userId.ToString());
+        _audit.Add(userId, "PASSWORD_CHANGED", "User", userId.ToString(), new { revokedRefreshTokens, revokedSessions });
         await _db.SaveChangesAsync();
 
         return Ok(new { message = "Password updated successfully." });

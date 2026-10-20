@@ -39,4 +39,6 @@ public static class RefreshTokenRevocation
     public const string Logout = "logout";
     public const string ForceLogout = "force_logout";
     public const string Deactivated = "deactivated";
+    public const string PasswordChanged = "password_changed";
+    public const string PasswordReset = "password_reset";
 }

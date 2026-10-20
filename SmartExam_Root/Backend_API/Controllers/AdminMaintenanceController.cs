@@ -56,6 +56,7 @@ public class AdminMaintenanceController : ControllerBase
         _db.Workstations.RemoveRange(_db.Workstations);
         _db.Labs.RemoveRange(_db.Labs);
         _db.UserSessions.RemoveRange(_db.UserSessions);
+        _db.RefreshTokens.RemoveRange(_db.RefreshTokens);
         _db.DeviceBindings.RemoveRange(_db.DeviceBindings);
         _db.Users.RemoveRange(_db.Users);
         await _db.SaveChangesAsync();

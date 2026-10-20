@@ -150,6 +150,93 @@ public class RefreshTokenAndRollNumberTests : IDisposable
     }
 
     [Fact]
+    public async Task Logout_AlsoRevokesEarlierAccessTokensOfTheFamily()
+    {
+        // Verifier regression: logout used to revoke only the presented access token, so the access
+        // token superseded by a rotation stayed usable for the rest of its 30 minutes.
+        var login = await StudentLoginAsync();
+        var access1 = login.GetProperty("accessToken").GetString()!;
+        var data = await TestHost.DataAsync(await RefreshAsync(login.GetProperty("refreshToken").GetString()!));
+        var access2 = data.GetProperty("accessToken").GetString()!;
+
+        (await Authed(access2).PostAsync("/api/auth/logout", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await Authed(access1).GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await Authed(access2).GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ChangePassword_RevokesOtherSessions_KeepsTheCallers()
+    {
+        // Two independent logins (e.g. a lab PC and a stolen refresh token elsewhere).
+        var other = await StudentLoginAsync();
+        var mine = await StudentLoginAsync();
+        var myAccess = mine.GetProperty("accessToken").GetString()!;
+
+        var resp = await Authed(myAccess).PostAsJsonAsync("/api/auth/change-password",
+            new { currentPassword = SeededData.StudentPassword, newPassword = "N3w-Passw0rd!" });
+        resp.StatusCode.Should().Be(HttpStatusCode.OK, await resp.Content.ReadAsStringAsync());
+
+        // The other session is over: its refresh token and its access token are both dead.
+        (await RefreshAsync(other.GetProperty("refreshToken").GetString()!)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await Authed(other.GetProperty("accessToken").GetString()!).GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        var otherRow = await _host.WithDbAsync(db => db.RefreshTokens.SingleAsync(t =>
+            t.TokenHash == RefreshTokenService.Hash(other.GetProperty("refreshToken").GetString()!)));
+        otherRow.RevokedReason.Should().Be(RefreshTokenRevocation.PasswordChanged);
+
+        // The caller keeps working and can still refresh.
+        (await Authed(myAccess).GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await RefreshAsync(mine.GetProperty("refreshToken").GetString()!)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var audit = await _host.AuditLogsAsync("PASSWORD_CHANGED");
+        audit.Should().ContainSingle().Which.GetProperty("details").GetString().Should().Contain("\"revokedRefreshTokens\":1");
+    }
+
+    [Fact]
+    public async Task ChangePassword_WithWrongCurrentPassword_RevokesNothing()
+    {
+        var other = await StudentLoginAsync();
+        var mine = await StudentLoginAsync();
+
+        var resp = await Authed(mine.GetProperty("accessToken").GetString()!).PostAsJsonAsync("/api/auth/change-password",
+            new { currentPassword = "wrong-password", newPassword = "N3w-Passw0rd!" });
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        (await RefreshAsync(other.GetProperty("refreshToken").GetString()!)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task AdminPasswordReset_RevokesAllOfTheUsersSessions()
+    {
+        var login = await StudentLoginAsync();
+        var admin = await _host.AsAdmin();
+
+        (await admin.PutAsJsonAsync($"/api/users/{_host.Seed.StudentId}", new
+        {
+            name = "Test Student", email = SeededData.StudentEmail, role = "Student", password = "Reset-Passw0rd!"
+        })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await RefreshAsync(login.GetProperty("refreshToken").GetString()!)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await Authed(login.GetProperty("accessToken").GetString()!).GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        // The admin's own session is untouched.
+        (await admin.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task AdminEditWithoutPassword_KeepsTheUsersSessions()
+    {
+        var login = await StudentLoginAsync();
+        var admin = await _host.AsAdmin();
+
+        (await admin.PutAsJsonAsync($"/api/users/{_host.Seed.StudentId}", new
+        {
+            name = "Renamed Student", email = SeededData.StudentEmail, role = "Student"
+        })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await RefreshAsync(login.GetProperty("refreshToken").GetString()!)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task ForceLogout_RevokesRefreshTokens()
     {
         var raw = (await StudentLoginAsync()).GetProperty("refreshToken").GetString()!;

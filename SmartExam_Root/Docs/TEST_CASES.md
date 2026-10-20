@@ -61,6 +61,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M1-I-10 | Refresh keeps seat claims, never extends the family | Desktop login with machine name → refresh | New token still has `client=desktop` + `machine`; successor `ExpiresAt` = original; only the SHA-256 hash is stored | ✅ xUnit |
 | M1-I-11 | Roll-number management | Set " bscs-21-001 ", reuse it, omit it, clear it, import duplicates | Stored `BSCS-21-001`; duplicate → 409; omitted = unchanged; `""` clears; import skips duplicate roll | ✅ xUnit |
 | M1-I-12 | HWID v2 upgrade rule | Wrong legacy proof; v2 without proof; second v2 on a v2 binding; first bind with v2 | 401 `DEVICE_MISMATCH` (no rebind, no audit); first bind stores `HwidVersion=2` | ✅ xUnit |
+| M1-I-13 | Session revocation on logout / password change | Rotate then logout; change own password with a second live login; wrong current password; admin password reset; admin edit without password | Logout kills earlier access tokens of the family too; password change revokes every other refresh family + access token (`password_changed`), keeps the caller's; wrong password revokes nothing; admin reset revokes all of the user's sessions, admin's own untouched; plain edit revokes nothing | ✅ xUnit (verifier) |
 | M1-A-07 | Refresh rotation + reuse over HTTP | Simulator: login → refresh → replay old refresh | 200 then 401 `REFRESH_TOKEN_REUSED`; successor and its access token dead; `REFRESH_TOKEN_REUSE` audited | ✅ Playwright api |
 | M1-A-08 | Logout / force-logout revoke refresh | Logout, refresh; login, admin force-logout, refresh | 401 both | ✅ Playwright api |
 | M1-A-09 | Staff refresh + 30-min access token | Staff login, decode JWT, refresh | `exp - iat` = 1800; refresh 200 with role | ✅ Playwright api |
@@ -69,6 +70,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M1-E-04 | Rejected refresh → login | Invalid access + unknown refresh token → open Users | Redirected to `/login`, session cleared | ✅ Playwright e2e |
 | M1-E-05 | Web logout revokes server-side | Logout button, then POST `/refresh` with the old refresh token | 401 | ✅ Playwright e2e |
 | M1-E-06 | Roll number in Users page | Admin creates student with roll number (lower-case) | Shown upper-case, searchable; desktop-style login by roll → 200 | ✅ Playwright e2e |
+| M1-E-07 | Logout after idle expiry | Access token in localStorage already expired → Logout button | Logout refreshes first and reaches the server with a valid token (200); the newest refresh token is then `INVALID_REFRESH_TOKEN` | ✅ Playwright e2e (verifier) |
 | M1-U-01 | Desktop refresh is single-flight | Two concurrent 401s; stale failure after another refresh; near-expiry token | One `POST /refresh`; both callers get the new pair; proactive refresh 60 s before expiry | ✅ desktop xUnit (`TokenRefreshGateTests`) |
 | M1-U-02 | Desktop keeps the session on transient errors | Refresh → network error / 429 / 5xx vs `REFRESH_TOKEN_REUSED` | Transient: keep token, no kick; refusal: session over; logout during refresh is not undone | ✅ desktop xUnit |
 | M1-U-03 | HWID v2 fingerprint composition | BIOS/disk/board serials incl. OEM junk ("To be filled by O.E.M.", "0", …) | `v2\|BIOS\|DISK\|BOARD`; junk dropped; < 2 usable serials → SMBIOS UUID, else MachineGuid appended | ✅ desktop xUnit (`DeviceFingerprintTests`) |
@@ -153,6 +155,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M4-U-15 | Escape tools caught without a window | `taskmgr`, `procexp64`, `SystemInformer`, `regedit` windowless; windowless `cmd`/`powershell` (IDE terminals) | Enforce → Kill, Report → Report; shells allowed unless windowed; teacher can whitelist | ✅ desktop xUnit |
 | M4-U-16 | Task Manager policy apply / restore | Fake registry: value absent / 0 / 1 (GPO); marker write fails; registry write fails; apply twice | Marker written before `DisableTaskMgr=1`; restore deletes or rewrites the original; idempotent; no registry change without a marker | ✅ desktop xUnit (`TaskManagerPolicyTests`) |
 | M4-U-17 | Task Manager crash recovery | Marker left by killed pid 42; next start as pid 77 (file marker in a temp dir) | Original value restored, marker removed; not restored while another SmartExam instance still runs; corrupt marker → default (value deleted) | ✅ desktop xUnit |
+| M4-U-18 | Teardown isolation | A teardown step throws (cross-thread HwndSource in the crash / ProcessExit handler) | Later steps still run, failures reported; Task Manager policy restored first, even when a UI-bound step throws | ✅ desktop xUnit (`LockdownTeardownTests`, verifier) |
 | M4-I-01 | Lockdown config in student status | Exam LockdownMode=Enforce | `/student/current` returns mode + allowedApps | ✅ |
 | M4-I-02 | Violation types accepted | POST event `UnauthorizedProcess` | 200, stored with type | ✅ |
 | M4-I-03 | Severity classification | 1 FocusLost → Warning; 3 → Suspicious; ProcessKilled → Violation | Tile status matches | ✅ |
@@ -406,6 +409,9 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | D-10 | M9-I-19 | Any teacher could read another section's attendance (via `GET /exams/{id}/assignments`) and change another teacher's eligibility, roster and seat map | **Fixed** — owner-teacher / admin guard on all Module 9 roster endpoints |
 | D-11 | M9-I-20 | `SeatMatch=Ip` skipped web-portal tokens, so a student could start from a wrong PC through the browser | **Fixed** — web tokens are checked by the server-observed request IP in Ip / Either mode |
 | D-12 | M1-E-05 | Web panel logout only cleared localStorage; the access token stayed valid server-side until it expired | **Fixed** — logout calls `POST /api/auth/logout`, which also revokes the refresh-token family |
+| D-13 | M1-E-07 | Web logout after an idle spell was sent with the expired access token (proactive refresh skipped for `/auth/logout`) → 401, and the refresh-token family stayed valid for up to 12 h | **Fixed** — logout is refreshed proactively; refresh calls time out after 10 s |
+| D-14 | M1-I-13 | Password change / admin password reset left every other refresh token (12 h) and access token alive; logout left the family's earlier access tokens alive | **Fixed** — `RefreshTokenService.RevokeOtherSessionsAsync`, logout revokes the family's sessions |
+| D-15 | M4-U-18 | `LockdownCoordinator.Stop()` restored the Task Manager policy last; from the crash / ProcessExit handlers (non-UI thread) the clipboard step can throw first, leaving `DisableTaskMgr=1` until the next app start | **Fixed** — `Core/Lockdown/LockdownTeardown` runs isolated steps, Task Manager restore first |
 
 ---
 

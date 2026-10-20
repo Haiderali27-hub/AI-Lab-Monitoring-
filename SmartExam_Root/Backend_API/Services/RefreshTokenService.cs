@@ -24,7 +24,8 @@ public sealed record RefreshOutcome(bool Ok, string Code, string Message, TokenR
 ///    the same family. The family's absolute expiry is fixed at login — rotation never extends it.
 ///  • Presenting a rotated token again is a theft signal: every token of the family is revoked, and so
 ///    is every access token (UserSession) the family issued, so OnTokenValidated rejects them at once.
-///  • Logout revokes the caller's family; force-logout / deactivation revoke all of the user's tokens.
+///  • Logout revokes the caller's family (and its access tokens); force-logout / deactivation revoke all of
+///    the user's tokens; a password change revokes every other session, an admin password reset all of them.
 /// </summary>
 public class RefreshTokenService
 {
@@ -147,11 +148,40 @@ public class RefreshTokenService
             deviceBound));
     }
 
-    /// <summary>Logout: revokes the family that issued the access token <paramref name="jti"/>. Saves.</summary>
+    /// <summary>
+    /// Logout: revokes the family that issued the access token <paramref name="jti"/>, and every access
+    /// token that family issued (earlier, already-rotated ones stay valid until expiry otherwise). Saves.
+    /// </summary>
     public async Task<int> RevokeFamilyByJtiAsync(string jti, string reason)
     {
-        var familyId = await _db.RefreshTokens.Where(t => t.Jti == jti).Select(t => (Guid?)t.FamilyId).FirstOrDefaultAsync();
-        return familyId is Guid f ? await RevokeFamilyAsync(f, reason) : 0;
+        var familyId = await FamilyOfJtiAsync(jti);
+        if (familyId is not Guid f) return 0;
+
+        var revoked = await RevokeFamilyAsync(f, reason);
+        await RevokeFamilySessionsAsync(f);
+        await _db.SaveChangesAsync();
+        return revoked;
+    }
+
+    /// <summary>
+    /// Password change: ends every OTHER session of the user — all refresh-token families except the one
+    /// that issued <paramref name="keepJti"/>, and every other live access token. With no
+    /// <paramref name="keepJti"/> (an admin resetting someone else's password) everything is revoked.
+    /// Saves; call before staging other changes (a concurrency retry clears the change tracker).
+    /// </summary>
+    public async Task<(int RefreshTokens, int Sessions)> RevokeOtherSessionsAsync(Guid userId, string? keepJti, string reason)
+    {
+        var keepFamily = keepJti is null ? null : await FamilyOfJtiAsync(keepJti);
+        var tokens = keepFamily is Guid f
+            ? await RevokeWhereAsync(t => t.UserId == userId && t.FamilyId != f, reason)
+            : await RevokeWhereAsync(t => t.UserId == userId, reason);
+
+        var sessions = await _db.UserSessions
+            .Where(s => s.UserId == userId && !s.IsRevoked && (keepJti == null || s.Jti != keepJti))
+            .ToListAsync();
+        sessions.ForEach(s => s.IsRevoked = true);
+        await _db.SaveChangesAsync();
+        return (tokens, sessions.Count);
     }
 
     /// <summary>
@@ -194,15 +224,24 @@ public class RefreshTokenService
     private async Task HandleReuseAsync(Guid userId, Guid familyId, string channel, string? ip)
     {
         var revokedTokens = await RevokeFamilyAsync(familyId, RefreshTokenRevocation.Reuse);
+        var revokedSessions = await RevokeFamilySessionsAsync(familyId);
 
+        _audit.Add(userId, "REFRESH_TOKEN_REUSE", "User", userId.ToString(),
+            new { familyId, channel, ip, revokedTokens, revokedSessions });
+        await _db.SaveChangesAsync();
+    }
+
+    private Task<Guid?> FamilyOfJtiAsync(string jti) =>
+        _db.RefreshTokens.Where(t => t.Jti == jti).Select(t => (Guid?)t.FamilyId).FirstOrDefaultAsync();
+
+    /// <summary>Stages revocation of every access token (UserSession) the family issued. Does not save.</summary>
+    private async Task<int> RevokeFamilySessionsAsync(Guid familyId)
+    {
         var jtis = await _db.RefreshTokens.Where(t => t.FamilyId == familyId).Select(t => t.Jti).ToListAsync();
         // Load-and-modify (ExecuteUpdate is not supported by the EF InMemory provider used in tests).
         var sessions = await _db.UserSessions.Where(s => jtis.Contains(s.Jti) && !s.IsRevoked).ToListAsync();
         sessions.ForEach(s => s.IsRevoked = true);
-
-        _audit.Add(userId, "REFRESH_TOKEN_REUSE", "User", userId.ToString(),
-            new { familyId, channel, ip, revokedTokens, revokedSessions = sessions.Count });
-        await _db.SaveChangesAsync();
+        return sessions.Count;
     }
 
     private (string raw, RefreshToken row) Stage(Guid userId, string jti, string channel, string? machineName, string? ip,

@@ -173,6 +173,16 @@ public class UsersController : ControllerBase
         _audit.Add(CurrentUserId, "USER_UPDATED", "User", id.ToString(), new { user.Email, user.RollNumber, role = user.Role.ToString(), passwordReset });
         await _db.SaveChangesAsync();
 
+        // An admin password reset signs the user out everywhere (refresh tokens + live access tokens),
+        // except the admin's own current session when they reset their own password here.
+        if (passwordReset)
+        {
+            var keepJti = id == CurrentUserId
+                ? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value
+                : null;
+            await _refreshTokens.RevokeOtherSessionsAsync(id, keepJti, RefreshTokenRevocation.PasswordReset);
+        }
+
         return Ok(new { user.UserId, user.Name, user.Email, user.RollNumber, user.Role, message = "User updated." });
     }
 

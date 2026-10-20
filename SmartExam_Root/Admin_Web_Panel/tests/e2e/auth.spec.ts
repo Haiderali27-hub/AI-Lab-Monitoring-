@@ -99,3 +99,34 @@ test('M1-E-05 Logout revokes the refresh token server-side', async ({ page, requ
   const res = await request.post(`${API_URL}/api/auth/refresh`, { data: { refreshToken } });
   expect(res.status()).toBe(401);
 });
+
+test('M1-E-07 Logout after the access token expired still revokes the session', async ({ page, request }) => {
+  // Verifier regression: logout skipped the proactive refresh, so after an idle spell it was sent with an
+  // expired token, got 401, and the refresh-token family stayed alive server-side.
+  await loginAs(page, ADMIN.email, ADMIN.password);
+  await page.evaluate(() => {
+    const b64 = (o: object) => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+    const expired = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ exp: Math.floor(Date.now() / 1000) - 120 })}.sig`;
+    localStorage.setItem('smartexam_token', expired);
+  });
+
+  // Capture the rotated pair through a pass-through route: the page navigates to /login right after the
+  // logout, after which the browser no longer has the refresh response body.
+  let newRefreshToken: string | null = null;
+  await page.route('**/api/auth/refresh', async route => {
+    const response = await route.fetch();
+    if (response.status() === 200) newRefreshToken = (await response.json()).data.refreshToken;
+    await route.fulfill({ response });
+  });
+  const loggedOut = page.waitForResponse(r => r.url().includes('/api/auth/logout'));
+  await page.getByRole('button', { name: /logout/i }).click();
+
+  expect((await loggedOut).status()).toBe(200);
+  await expect(page).toHaveURL(/\/login/);
+  expect(newRefreshToken).toBeTruthy();
+
+  // The newest refresh token was revoked by the logout (not by reuse detection).
+  const res = await request.post(`${API_URL}/api/auth/refresh`, { data: { refreshToken: newRefreshToken } });
+  expect(res.status()).toBe(401);
+  expect((await res.json()).code).toBe('INVALID_REFRESH_TOKEN');
+});
