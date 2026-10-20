@@ -261,6 +261,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M9-A-01 | Manual eligibility toggle | Teacher sets ineligible | Student start → 400 | ✅ |
 | M9-A-02 | Attendance import + recalculate (black-box) | CSV `attended,email,total` + unknown email; recalculate | 75% eligible / 60% ineligible with note; unknown email reported; student upload 403 | ✅ |
 | M9-A-03 | Seat enforcement, desktop path | Seat R1C2, simulator on another PC; then from R1C2 | 403 `SEAT_MISMATCH` + audit + `seatStatus=Mismatch`; then 200 | ✅ |
+| M9-A-04 | Roster owner-only (black-box) | Second teacher calls assignments / eligibility / seat / unassign | 403 each; owner still sees the student eligible | ✅ |
 | M9-I-01 | Attendance CSV import | POST CSV 2 rows | Records stored | ✅ |
 | M9-I-02 | Recalculate sets ineligible | 60% attendance, min 75 | IsEligible=false, note "Attendance 60% < 75%" | ✅ |
 | M9-I-03 | Recalculate keeps overrides | Manual override true, attendance 60% | Stays eligible | ✅ |
@@ -279,6 +280,8 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M9-I-16 | Workstation edit/delete | Set HostName; delete assigned / spare seat | HostName drives matching; 409 / 200; teacher 403 | ✅ |
 | M9-I-17 | Auto-register opt-in + unregistered list | Default vs `Labs:AutoRegister=true` | PC listed at `/api/labs/unregistered-machines` / workstation created | ✅ |
 | M9-I-18 | EnforceSeat off; desktop client required | `enforceSeat=false`; `Exams:RequireDesktopClientForStart=true` | Start from any PC 200; web token 403 `DESKTOP_CLIENT_REQUIRED` | ✅ |
+| M9-I-19 | Exam roster is owner-only | Other teacher: GET assignments, PUT eligibility, add/remove student, seat mapping; owner/admin; unknown exam | 403 ×5, nothing changed or audited; 200; 404 | ✅ |
+| M9-I-20 | Ip mode checks web tokens too | `SeatMatch=Ip`, web-portal token from wrong / right IP; MachineName mode | 403 `SEAT_MISMATCH` + audit / 200; `seatStatus=NotChecked` | ✅ |
 | M9-E-01 | Eligibility page loads | Teacher → Eligibility | Assignments table | ✅ |
 | M9-E-02 | Toggle eligibility in UI | Click toggle | Simulator start → 400 | ✅ |
 | M9-E-03 | Attendance upload dialog | Upload CSV | Attendance column filled | ✅ |
@@ -381,6 +384,8 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | D-07 | review | Live Monitor logged "Window Focus Lost" whenever the window title wasn't "Exam Browser" | **Fixed** — uses the client's foreground flag |
 | D-08 | M3-I-01 | `start-session` never checked `StartTime` — a student could start a future exam; the desktop Start button enabled early (it only looked at time-to-end) | **Fixed** — `EXAM_NOT_STARTED` on both start paths + `StartGate` on the server clock |
 | D-09 | M9-I-10 | Every student login auto-registered its PC into "Systems Engineering Lab", defeating seat enforcement | **Fixed** — only with `Labs:AutoRegister=true` (dotnet-run demo profiles) |
+| D-10 | M9-I-19 | Any teacher could read another section's attendance (via `GET /exams/{id}/assignments`) and change another teacher's eligibility, roster and seat map | **Fixed** — owner-teacher / admin guard on all Module 9 roster endpoints |
+| D-11 | M9-I-20 | `SeatMatch=Ip` skipped web-portal tokens, so a student could start from a wrong PC through the browser | **Fixed** — web tokens are checked by the server-observed request IP in Ip / Either mode |
 
 ---
 

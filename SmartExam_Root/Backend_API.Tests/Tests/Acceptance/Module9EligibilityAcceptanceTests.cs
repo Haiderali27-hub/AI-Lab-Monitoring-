@@ -404,4 +404,64 @@ public class Module9EligibilityAcceptanceTests : IDisposable
         var desktop = await strict.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "PC-01");
         (await strict.StartSessionRawAsync(desktop, strict.Seed.ExamId)).StatusCode.Should().Be(HttpStatusCode.OK);
     }
+
+    // ── Verifier regressions (M9-I-19, M9-I-20) ──────────────────────────────
+
+    [Fact]
+    public async Task M9_I_19_OtherTeacher_CannotReadOrChange_RosterEligibilityOrSeats()
+    {
+        var teacher = await _host.AsTeacher();
+        (await ImportAttendanceAsync(teacher, Csv((SeededData.StudentEmail, 40, 30)))).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var (_, otherEmail, otherPassword) = await _host.CreateUserAsync("Teacher");
+        var other = await _host.LoginAsync(otherEmail, otherPassword);
+        var exam = _host.Seed.ExamId;
+        var student = _host.Seed.StudentId;
+
+        // The assignment list carries the section's attendance — another teacher must not see it.
+        (await other.GetAsync($"/api/exams/{exam}/assignments")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await other.PutAsJsonAsync($"/api/exams/{exam}/eligibility", new
+        {
+            assignments = new[] { new { userId = student, isEligible = false, eligibilityNote = "not mine to decide" } }
+        })).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await other.PutAsJsonAsync($"/api/exams/{exam}/assignments/{student}/workstation", new { workstationId = (Guid?)null }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await other.DeleteAsync($"/api/exams/{exam}/assignments/{_host.Seed.Student2Id}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var (loneId, _, _) = await _host.CreateUserAsync("Student");
+        (await other.PostAsJsonAsync($"/api/exams/{exam}/assignments", new { userId = loneId })).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        // Nothing changed, nothing audited on the other teacher's behalf.
+        var row = await _host.WithDbAsync(db => db.ExamAssignments.SingleAsync(a => a.ExamId == exam && a.UserId == student));
+        row.IsEligible.Should().BeTrue();
+        row.WorkstationId.Should().Be(_host.Seed.WorkstationId);
+        (await _host.AuditLogsAsync("ELIGIBILITY_UPDATED")).Should().BeEmpty();
+        (await _host.WithDbAsync(db => db.ExamAssignments.CountAsync(a => a.ExamId == exam && a.UserId == loneId))).Should().Be(0);
+
+        // The owner and an admin still can; an unknown exam is 404 rather than an empty 200.
+        (await teacher.GetAsync($"/api/exams/{exam}/assignments")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await (await _host.AsAdmin()).GetAsync($"/api/exams/{exam}/assignments")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await teacher.GetAsync($"/api/exams/{Guid.NewGuid()}/assignments")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task M9_I_20_IpMode_AlsoChecksWebPortalTokens_ByRequestIp()
+    {
+        using var host = new TestHost(b => b.UseSetting("SeatMatch", "Ip"));
+
+        // A web-portal token has no machine name, but the server sees the request IP: a wrong IP is refused.
+        var wrong = (await host.AsStudent()).FromIp("10.0.0.99");
+        var status = await TestHost.DataAsync(await wrong.GetAsync("/api/exams/student/current"));
+        status.GetProperty("seatStatus").GetString().Should().Be("Mismatch");
+        var resp = await host.StartSessionRawAsync(wrong, host.Seed.ExamId);
+        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await TestHost.ErrorCodeAsync(resp)).Should().Be("SEAT_MISMATCH");
+        (await host.AuditLogsAsync("SEAT_MISMATCH")).Should().ContainSingle();
+
+        var right = (await host.AsStudent()).FromIp("192.168.1.1");
+        (await host.StartSessionRawAsync(right, host.Seed.ExamId)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // MachineName mode (the default) cannot check a web token at all — it is reported, not blocked.
+        var web = await _host.AsStudent();
+        (await TestHost.DataAsync(await web.GetAsync("/api/exams/student/current"))).GetProperty("seatStatus").GetString().Should().Be("NotChecked");
+    }
 }

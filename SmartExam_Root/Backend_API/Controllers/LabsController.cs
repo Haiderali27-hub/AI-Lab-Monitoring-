@@ -43,9 +43,10 @@ public class LabsController : ControllerBase
             .Include(b => b.User)
             .Where(b => b.MachineName != null)
             .ToListAsync();
+        // Windows computer names are case-insensitive — same rule as seat matching (SeatGuard.Matches).
         var occupantByMachine = bindings
-            .GroupBy(b => b.MachineName!)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(b => b.LastSeenAt).First());
+            .GroupBy(b => b.MachineName!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(b => b.LastSeenAt).First(), StringComparer.OrdinalIgnoreCase);
 
         var result = labs.Select(l => new
         {

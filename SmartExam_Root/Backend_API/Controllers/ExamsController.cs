@@ -429,12 +429,31 @@ public class ExamsController : ControllerBase
         return Ok(students);
     }
 
+    // ── Module 9: who may manage an exam's roster, eligibility and seats ──────
+    // A teacher only manages exams of the sections they teach; admins any exam. Without this a
+    // teacher could read another class's attendance or flip another teacher's eligibility decisions.
+
+    private bool CanManage(Section section) =>
+        User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value != "Teacher" || section.TeacherId == CurrentUserId;
+
+    // (exam, null) when the caller may manage the exam; (null, 404/403 result) otherwise.
+    private async Task<(Exam? exam, IActionResult? denied)> LoadManagedExamAsync(Guid examId)
+    {
+        var exam = await _db.Exams.Include(e => e.Section).FirstOrDefaultAsync(e => e.ExamId == examId);
+        if (exam is null) return (null, NotFound(new { message = "Exam not found." }));
+        if (!CanManage(exam.Section))
+            return (null, StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only manage exams of your own sections." }));
+        return (exam, null);
+    }
+
     // GET /api/exams/{examId}/assignments  — Get exam assignments for eligibility/workstation tracking
     [HttpGet("{examId:guid}/assignments")]
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> GetAssignments(Guid examId)
     {
-        var sectionId = await _db.Exams.Where(e => e.ExamId == examId).Select(e => (Guid?)e.SectionId).FirstOrDefaultAsync();
+        var (exam, denied) = await LoadManagedExamAsync(examId);
+        if (denied is not null) return denied;
+        Guid? sectionId = exam!.SectionId;
 
         var assignments = await _db.ExamAssignments
             .Where(a => a.ExamId == examId)
@@ -483,6 +502,9 @@ public class ExamsController : ControllerBase
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> UpdateEligibility(Guid examId, [FromBody] UpdateEligibilityDto req)
     {
+        var (_, denied) = await LoadManagedExamAsync(examId);
+        if (denied is not null) return denied;
+
         var dbAssignments = await _db.ExamAssignments
             .Where(a => a.ExamId == examId)
             .ToListAsync();
@@ -544,7 +566,7 @@ public class ExamsController : ControllerBase
             .Include(e => e.Assignments)
             .FirstOrDefaultAsync(e => e.ExamId == examId);
         if (exam is null) return NotFound(new { message = "Exam not found." });
-        if (User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value == "Teacher" && exam.Section.TeacherId != CurrentUserId)
+        if (!CanManage(exam.Section))
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only recalculate eligibility for your own exams." });
         if (exam.Status == ExamStatus.Ended)
             return Conflict(new { message = "This exam has ended; eligibility can no longer be recalculated." });
@@ -598,9 +620,9 @@ public class ExamsController : ControllerBase
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> AddAssignment(Guid examId, [FromBody] AddAssignmentRequest req)
     {
-        var exam = await _db.Exams.FindAsync(examId);
-        if (exam is null) return NotFound(new { message = "Exam not found." });
-        if (exam.Status == ExamStatus.Ended)
+        var (exam, denied) = await LoadManagedExamAsync(examId);
+        if (denied is not null) return denied;
+        if (exam!.Status == ExamStatus.Ended)
             return Conflict(new { message = "Cannot add students to an ended exam." });
 
         var isStudent = await _db.Users.AnyAsync(u => u.UserId == req.UserId && u.Role == UserRole.Student);
@@ -623,6 +645,9 @@ public class ExamsController : ControllerBase
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> RemoveAssignment(Guid examId, Guid userId)
     {
+        var (_, denied) = await LoadManagedExamAsync(examId);
+        if (denied is not null) return denied;
+
         var assignment = await _db.ExamAssignments
             .FirstOrDefaultAsync(a => a.ExamId == examId && a.UserId == userId);
         if (assignment is null) return NotFound(new { message = "Assignment not found." });
@@ -644,6 +669,9 @@ public class ExamsController : ControllerBase
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> AssignWorkstation(Guid examId, Guid userId, [FromBody] AssignWorkstationRequest req)
     {
+        var (_, denied) = await LoadManagedExamAsync(examId);
+        if (denied is not null) return denied;
+
         var assignment = await _db.ExamAssignments
             .FirstOrDefaultAsync(a => a.ExamId == examId && a.UserId == userId);
         if (assignment is null) return NotFound(new { message = "Assignment not found." });

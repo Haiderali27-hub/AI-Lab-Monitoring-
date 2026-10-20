@@ -21,7 +21,7 @@ public enum SeatStatus
     Mismatch,      // assigned seat, caller is somewhere else
     Unassigned,    // no seat on this assignment — nothing to enforce
     NotEnforced,   // seat assigned but Exam.EnforceSeat is off
-    NotChecked     // caller is not the desktop client (web token) — it carries no machine identity
+    NotChecked     // web token in MachineName mode — it carries no machine identity to compare
 }
 
 public sealed record SeatCheckResult(
@@ -50,8 +50,9 @@ public sealed record SeatCheckResult(
 /// Module 9 — seat enforcement shared by start-session, student/start and the heartbeat.
 /// The desktop client's machine name comes from the <c>machine</c> claim stamped into its token at
 /// student-login (the same value saved to DeviceBinding.MachineName); the IP is taken from the
-/// request itself at check time, never from the client. Only tokens issued by student-login
-/// (<c>client=desktop</c>) are seat-checked — web-portal tokens carry no machine identity; set
+/// request itself at check time, never from the client. Tokens issued by student-login
+/// (<c>client=desktop</c>) are checked in every mode; web-portal tokens carry no machine identity,
+/// so they are checked by request IP in Ip / Either mode and not at all in MachineName mode — set
 /// <c>Exams:RequireDesktopClientForStart=true</c> to refuse exam starts from them altogether.
 /// Limitation (thesis): the machine name is client-reported; HWID binds the student, not the seat.
 /// </summary>
@@ -95,9 +96,18 @@ public class SeatGuard
         SeatCheckResult Result(SeatStatus s) => new(s, ws.MachineNumber, ws.HostName, ws.IpAddress, machine, ip);
 
         if (!a.Exam.EnforceSeat) return Result(SeatStatus.NotEnforced);
-        if (!IsDesktopClient(user)) return Result(SeatStatus.NotChecked);
 
-        return Result(Matches(Mode, ws.HostName, ws.MachineNumber, ws.IpAddress, machine, ip)
+        var mode = Mode;
+        if (!IsDesktopClient(user))
+        {
+            // A web token has no machine name, but the request IP is observed by the server itself,
+            // so in Ip / Either mode it is still checked (by IP only) — otherwise logging into the web
+            // portal from another PC would side-step an IP-based seat map.
+            if (mode == SeatMatchMode.MachineName) return Result(SeatStatus.NotChecked);
+            mode = SeatMatchMode.Ip;
+        }
+
+        return Result(Matches(mode, ws.HostName, ws.MachineNumber, ws.IpAddress, machine, ip)
             ? SeatStatus.Ok
             : SeatStatus.Mismatch);
     }

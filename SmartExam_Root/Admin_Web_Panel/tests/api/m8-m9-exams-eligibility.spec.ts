@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { StaffApi, defaultQuestions } from '../support/staffApi';
 import { examWithStudents } from '../support/scenario';
-import { API_URL } from '../support/env';
+import { API_URL, uniqueTag } from '../support/env';
 
 test.describe('M8 — Exam Creation & Configuration', () => {
   test('M8-A-01 Create exam via API', async ({ request }) => {
@@ -111,5 +111,25 @@ test.describe('M9 — Eligibility & Access Control', () => {
     // From the assigned PC it starts.
     expect((await students[0].login(students[0].hwid, 'R1C2')).status()).toBe(200);
     expect((await students[0].startCurrent()).status()).toBe(200);
+  });
+
+  test('M9-A-04 Another teacher cannot read or change the roster, eligibility or seats', async ({ request }) => {
+    const { exam, teacher, users } = await examWithStudents(request, 1);
+    const admin = await StaffApi.admin(request);
+    const tag = uniqueTag('t');
+    const other = { name: `E2E Teacher ${tag}`, email: `${tag}@e2e.smartexam.test`, password: 'Teacher@123', role: 'Teacher' };
+    expect((await admin.createUserRaw(other)).status()).toBe(201);
+    const intruder = await StaffApi.login(request, other.email, other.password);
+
+    expect((await intruder.get(`/api/exams/${exam.examId}/assignments`)).status()).toBe(403);
+    expect((await intruder.put(`/api/exams/${exam.examId}/eligibility`, {
+      assignments: [{ userId: users[0].userId, isEligible: false, eligibilityNote: 'not mine' }],
+    })).status()).toBe(403);
+    expect((await intruder.put(`/api/exams/${exam.examId}/assignments/${users[0].userId}/workstation`, { workstationId: null })).status()).toBe(403);
+    expect((await intruder.delete(`/api/exams/${exam.examId}/assignments/${users[0].userId}`)).status()).toBe(403);
+
+    // The owner sees the student still eligible.
+    const row = (await teacher.assignments(exam.examId)).find(r => r.userId === users[0].userId);
+    expect(row.isEligible).toBe(true);
   });
 });
