@@ -125,6 +125,12 @@ Definition of Done for every task: code + tests listed in its row passing in CI,
 **Acceptance:** M2-U-01…06, M2-I-01…08, M2-E-01…04, M2-D-01…03, M2-M-01…05.
 **Effort:** 5–6 dev-days.
 
+**Status (2026-10-20)**
+- ✅ Done — backend: `ReadinessCheck` table + migration `AddReadinessChecks` (also `Exam.RequireReadiness/RequireWebcam/RequireMic/IsMock`); `POST/GET /api/exams/{id}/readiness` (server recomputes `passedAll` and rejects a pass that skipped a required camera/mic); both start paths (`start-session` and the desktop's `student/start`) return `READINESS_REQUIRED` without a passing check ≤ 30 min old; `student/current` reports `requireReadiness`/`readinessPassed`/`serverTimeUtc`; `GET /api/exams/student/practice`; practice exams get a new session per attempt, are never picked as the dashboard's real exam, produce no plagiarism rows, and are excluded from student dashboard/trend and system analytics. `ReadinessUpdated` hub event.
+- ✅ Done — desktop: `Core/Readiness/ReadinessPolicy` (pure rules) + `Services/Readiness/ReadinessCheckService` (health probe ×3, Date-header clock skew, GDI screen capture, WMI camera, `waveInGetNumDevs` mic, monitors/RDP/VM/keyboard-hook secure mode, ≥ 200 MB disk). Dashboard "Identity → Verify" replaced by "System check → Run check" with a per-item checklist and Retry; Start requires check-in + pass when the exam demands it; Practice picker + button. VM detection also reported live during the exam (`DeviceGuardService` → `VirtualMachine`).
+- ✅ Done — web: create/edit wizard toggles (readiness on by default for new exams, webcam, mic, practice); Eligibility "System Check" column (✓ / ✗ / ⌛ expired / —) with failure tooltip; "Practice" badge on the student exams page.
+- ⏳ Remaining: camera frame grab and mic level (currently device presence only — needs WinRT `MediaCapture`/NAudio), seeded practice exam on Neon, FlaUI tests M2-D-*, manual checks M2-M-*, readiness indicator on the Live Monitor tile.
+
 ### 3.3 Module 9 — Eligibility & Access Control (thesis FR9)
 
 **Goal:** eligibility is computed from attendance with a logged manual override, and students can only sit the exam from their assigned seat.

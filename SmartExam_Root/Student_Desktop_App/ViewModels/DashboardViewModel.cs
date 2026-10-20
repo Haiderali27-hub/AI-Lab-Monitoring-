@@ -2,13 +2,16 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Windows.Threading;
 using Student_Desktop_App.Core;
+using Student_Desktop_App.Core.Readiness;
 using Student_Desktop_App.Services;
+using Student_Desktop_App.Services.Readiness;
 
 namespace Student_Desktop_App.ViewModels;
 
 public class DashboardViewModel(ApiClient apiClient) : BindableBase
 {
     private readonly ApiClient _apiClient = apiClient;
+    private readonly ReadinessCheckService _readiness = new(apiClient);
     private readonly DispatcherTimer _countdownTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
     private string _studentDisplayName = "Student";
@@ -25,9 +28,12 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
     private string _connectionStatus = "Connecting…";
     private bool _isConnected;
     private string _attendanceStatus = "Not checked in";
-    private string _identityStatus = "Not verified";
+    private string _readinessStatus = "Not run";
     private bool _attendanceConfirmed;
-    private bool _identityVerified;
+    private bool _readinessPassed;
+    private bool _isCheckingReadiness;
+    private bool _requireReadiness;
+    private ReadinessRequirements _requirements = new(false, false, true, Core.Lockdown.LockdownMode.Report);
     private bool _canStartExam;
     private bool _examInProgress;
     private bool _baseEligibleToStart;
@@ -48,6 +54,12 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
     public string? ExamLockdownMode { get; private set; }
     public bool? ExamBlockMultiMonitor { get; private set; }
     public ObservableCollection<NotificationItem> Notifications { get; } = new();
+    // Module 2 pre-exam checklist (one row per check, each retryable).
+    public ObservableCollection<ReadinessRow> ReadinessItems { get; } = new();
+    // Practice (mock) exams the student can rehearse with.
+    public ObservableCollection<PracticeExamSummary> PracticeExams { get; } = new();
+    public bool HasPracticeExams => PracticeExams.Count > 0;
+    public bool HasReadinessItems => ReadinessItems.Count > 0;
 
     public string StudentDisplayName
     {
@@ -153,10 +165,10 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         set => SetProperty(ref _attendanceStatus, value);
     }
 
-    public string IdentityStatus
+    public string ReadinessStatus
     {
-        get => _identityStatus;
-        set => SetProperty(ref _identityStatus, value);
+        get => _readinessStatus;
+        set => SetProperty(ref _readinessStatus, value);
     }
 
     public bool AttendanceConfirmed
@@ -165,10 +177,23 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         set => SetProperty(ref _attendanceConfirmed, value);
     }
 
-    public bool IdentityVerified
+    public bool ReadinessPassed
     {
-        get => _identityVerified;
-        set => SetProperty(ref _identityVerified, value);
+        get => _readinessPassed;
+        set => SetProperty(ref _readinessPassed, value);
+    }
+
+    public bool IsCheckingReadiness
+    {
+        get => _isCheckingReadiness;
+        set => SetProperty(ref _isCheckingReadiness, value);
+    }
+
+    // True when this exam's server-side start gate needs a passing check.
+    public bool RequireReadiness
+    {
+        get => _requireReadiness;
+        set => SetProperty(ref _requireReadiness, value);
     }
 
     public bool CanStartExam
@@ -203,6 +228,19 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         ConnectionStatus = "Connected to exam server";
         ApplyExamStatus(result.Data);
         await RefreshNotificationsAsync(cancellationToken);
+        await RefreshPracticeExamsAsync(cancellationToken);
+    }
+
+    public async Task RefreshPracticeExamsAsync(CancellationToken cancellationToken = default)
+    {
+        var token = SessionStore.CurrentToken;
+        if (token is null) return;
+
+        var result = await _apiClient.GetPracticeExamsAsync(token.AccessToken, cancellationToken);
+        PracticeExams.Clear();
+        if (result.Success && result.Data is not null)
+            foreach (var p in result.Data) PracticeExams.Add(p);
+        OnPropertyChanged(nameof(HasPracticeExams));
     }
 
     private static string ComputeInitials(string name)
@@ -243,9 +281,11 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
             return false;
         }
 
-        if (!AttendanceConfirmed || !IdentityVerified)
+        if (!AttendanceConfirmed || (RequireReadiness && !ReadinessPassed))
         {
-            Message = "Complete attendance and identity verification before starting the exam.";
+            Message = RequireReadiness
+                ? "Check in and pass the system check before starting the exam."
+                : "Check in before starting the exam.";
             return false;
         }
 
@@ -253,6 +293,13 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         if (!result.Success || result.Data is null)
         {
             Message = result.Message;
+            if (result.Code == "READINESS_REQUIRED")
+            {
+                // Server says our last pass is missing or expired (> 30 min) — run it again.
+                ReadinessPassed = false;
+                ReadinessStatus = "Expired — run the check again";
+                UpdateStartEligibility();
+            }
             return false;
         }
 
@@ -286,27 +333,88 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         return true;
     }
 
-    public async Task<bool> VerifyIdentityAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Module 2: runs every workstation check, shows each row, and reports the result to the
+    /// server (which decides whether start unlocks). Replaces the old "Verify identity" button,
+    /// which only logged an event — face recognition is out of scope (thesis Ch-1-4).
+    /// </summary>
+    public async Task<bool> RunReadinessAsync(CancellationToken cancellationToken = default)
     {
+        if (_currentExamId is null)
+        {
+            Message = "No exam to check for. Refresh and try again.";
+            return false;
+        }
+
+        IsCheckingReadiness = true;
+        ReadinessStatus = "Checking…";
+        ReadinessItems.Clear();
+        foreach (var check in ReadinessPolicy.AllChecks)
+            ReadinessItems.Add(new ReadinessRow(check) { IsRunning = true });
+        OnPropertyChanged(nameof(HasReadinessItems));
+
+        try
+        {
+            foreach (var row in ReadinessItems)
+            {
+                row.Apply(await _readiness.RunAsync(row.Name, _requirements, cancellationToken));
+            }
+            return await ReportReadinessAsync(cancellationToken);
+        }
+        finally
+        {
+            IsCheckingReadiness = false;
+        }
+    }
+
+    /// <summary>Re-runs one failed check, then re-reports the whole checklist.</summary>
+    public async Task<bool> RetryReadinessItemAsync(string check, CancellationToken cancellationToken = default)
+    {
+        var row = ReadinessItems.FirstOrDefault(r => r.Name == check);
+        if (row is null || IsCheckingReadiness) return false;
+
+        IsCheckingReadiness = true;
+        row.IsRunning = true;
+        try
+        {
+            row.Apply(await _readiness.RunAsync(check, _requirements, cancellationToken));
+            return await ReportReadinessAsync(cancellationToken);
+        }
+        finally
+        {
+            IsCheckingReadiness = false;
+        }
+    }
+
+    private async Task<bool> ReportReadinessAsync(CancellationToken cancellationToken)
+    {
+        var results = ReadinessItems.Select(r => r.Result!).ToList();
+        var localPass = ReadinessPolicy.PassedAll(results);
+
         var token = SessionStore.CurrentToken;
         if (token is null || _currentExamId is null)
         {
-            Message = "Exam session missing. Refresh and try again.";
+            Message = "Session missing. Please login again.";
             return false;
         }
 
-        var payload = new { examId = _currentExamId, atUtc = DateTime.UtcNow };
-        var result = await _apiClient.SendMonitoringEventAsync(token.AccessToken, "IdentityVerified", null, payload, cancellationToken);
-        if (!result.Success)
+        var payload = new
         {
-            Message = result.Message;
-            return false;
-        }
+            passedAll = localPass,
+            machineName = Environment.MachineName,
+            results = results.Select(r => new { name = r.Name, passed = r.Passed, detail = r.Detail, durationMs = r.DurationMs })
+        };
+        var (ok, serverPass, message) = await _apiClient.SubmitReadinessAsync(token.AccessToken, _currentExamId.Value, payload, cancellationToken);
 
-        IdentityVerified = true;
-        IdentityStatus = "Verified";
+        ReadinessPassed = ok && serverPass;
+        var failed = results.Count(r => !r.Passed);
+        ReadinessStatus = !ok ? "Could not reach server"
+            : ReadinessPassed ? "All checks passed"
+            : failed > 0 ? $"{failed} check(s) failed"
+            : "Rejected by server — a required device was not checked";
+        if (!ok) Message = message;
         UpdateStartEligibility();
-        return true;
+        return ReadinessPassed;
     }
 
     public void UpdateMonitoringStatus(string status)
@@ -346,6 +454,12 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         AllowedAppNames.Clear();
         ExamLockdownMode = status.LockdownMode;
         ExamBlockMultiMonitor = status.BlockMultiMonitor;
+        RequireReadiness = status.RequireReadiness;
+        _requirements = new ReadinessRequirements(
+            status.RequireWebcam,
+            status.RequireMic,
+            status.BlockMultiMonitor ?? AppConfigProvider.Current.BlockMultiMonitor,
+            AppConfigProvider.ParseLockdownMode(status.LockdownMode ?? AppConfigProvider.Current.LockdownMode));
         if (!string.IsNullOrWhiteSpace(status.AllowedApps))
         {
             try
@@ -365,14 +479,16 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         if (AllowedApps.Count == 0) AllowedApps.Add("Only the exam app is allowed");
         OnPropertyChanged(nameof(HasAllowedApps));
 
-        // Re-checking is required each refresh unless the exam is already running
+        // Attendance is re-confirmed each refresh unless the exam is already running.
+        // Readiness follows the server: a pass stays valid for 30 minutes.
         if (!ExamInProgress)
         {
             AttendanceConfirmed = false;
-            IdentityVerified = false;
             AttendanceStatus = "Not checked in";
-            IdentityStatus = "Not verified";
         }
+        ReadinessPassed = status.ReadinessPassed;
+        if (status.ReadinessPassed) ReadinessStatus = "Passed (valid 30 min)";
+        else if (ReadinessItems.Count == 0) ReadinessStatus = status.RequireReadiness ? "Required before start" : "Optional for this exam";
 
         _baseEligibleToStart = status.IsEligible &&
                        _remainingSeconds > 0 &&
@@ -405,6 +521,46 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
 
     private void UpdateStartEligibility()
     {
-        CanStartExam = _baseEligibleToStart && AttendanceConfirmed && IdentityVerified;
+        CanStartExam = _baseEligibleToStart && AttendanceConfirmed && (!RequireReadiness || ReadinessPassed);
+    }
+}
+
+/// <summary>One row of the readiness checklist.</summary>
+public class ReadinessRow(string name) : BindableBase
+{
+    private bool _isRunning;
+    private ReadinessItemResult? _result;
+
+    public string Name { get; } = name;
+    public string DisplayName { get; } = ReadinessPolicy.DisplayName(name);
+    public ReadinessItemResult? Result => _result;
+
+    public bool IsRunning
+    {
+        get => _isRunning;
+        set
+        {
+            if (!SetProperty(ref _isRunning, value)) return;
+            OnPropertyChanged(nameof(State));
+            OnPropertyChanged(nameof(Failed));
+            OnPropertyChanged(nameof(Detail));
+        }
+    }
+
+    public bool Passed => _result?.Passed == true;
+    public bool Failed => _result is { Passed: false } && !_isRunning;
+    public string Detail => _isRunning ? "Checking…" : _result?.Detail ?? "";
+    /// "Running" | "Passed" | "Skipped" | "Failed" — drives the row icon.
+    public string State => _isRunning ? "Running" : _result is null ? "Running" : _result.Skipped ? "Skipped" : _result.Passed ? "Passed" : "Failed";
+
+    public void Apply(ReadinessItemResult result)
+    {
+        _result = result;
+        _isRunning = false;
+        OnPropertyChanged(nameof(IsRunning));
+        OnPropertyChanged(nameof(Passed));
+        OnPropertyChanged(nameof(Failed));
+        OnPropertyChanged(nameof(Detail));
+        OnPropertyChanged(nameof(State));
     }
 }

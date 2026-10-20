@@ -38,7 +38,7 @@ public class Module2ReadinessAcceptanceTests : IDisposable
     private static Task<HttpResponseMessage> PostReadinessAsync(HttpClient c, Guid examId, bool passed) =>
         c.PostAsJsonAsync($"/api/exams/{examId}/readiness", Readiness(passed));
 
-    [Fact(Skip = "Pending: M2-I-01 — readiness check endpoint")]
+    [Fact]
     public async Task M2_I_01_SubmitReadiness_AllPass_Returns200_StoresRow_AndAuditsPassed()
     {
         var examId = await ReadinessExamAsync();
@@ -55,7 +55,7 @@ public class Module2ReadinessAcceptanceTests : IDisposable
         (await _host.AuditLogsAsync("READINESS_PASSED")).Should().ContainSingle();
     }
 
-    [Fact(Skip = "Pending: M2-I-02 — start-session gated on readiness")]
+    [Fact]
     public async Task M2_I_02_StartWithoutReadiness_Returns400_ReadinessRequired()
     {
         var examId = await ReadinessExamAsync(requireReadiness: true);
@@ -66,7 +66,7 @@ public class Module2ReadinessAcceptanceTests : IDisposable
         (await TestHost.ErrorCodeAsync(resp)).Should().Be("READINESS_REQUIRED");
     }
 
-    [Fact(Skip = "Pending: M2-I-03 — start-session gated on readiness")]
+    [Fact]
     public async Task M2_I_03_StartAfterPassingCheck_Returns200()
     {
         var examId = await ReadinessExamAsync(requireReadiness: true);
@@ -76,7 +76,7 @@ public class Module2ReadinessAcceptanceTests : IDisposable
         (await _host.StartSessionRawAsync(student, examId)).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
-    [Fact(Skip = "Pending: M2-I-04 — failed readiness must not unlock start")]
+    [Fact]
     public async Task M2_I_04_FailedCheck_DoesNotUnlockStart()
     {
         var examId = await ReadinessExamAsync(requireReadiness: true);
@@ -90,7 +90,7 @@ public class Module2ReadinessAcceptanceTests : IDisposable
         (await TestHost.ErrorCodeAsync(resp)).Should().Be("READINESS_REQUIRED");
     }
 
-    [Fact(Skip = "Pending: M2-I-05 — readiness check expires after 30 min")]
+    [Fact]
     public async Task M2_I_05_StaleCheck_OlderThan30Min_Returns400()
     {
         var examId = await ReadinessExamAsync(requireReadiness: true);
@@ -110,7 +110,7 @@ public class Module2ReadinessAcceptanceTests : IDisposable
         (await TestHost.ErrorCodeAsync(resp)).Should().Be("READINESS_REQUIRED");
     }
 
-    [Fact(Skip = "Pending: M2-I-06 — staff readiness view")]
+    [Fact]
     public async Task M2_I_06_TeacherGetReadiness_ReturnsLatestPerStudent()
     {
         var examId = await ReadinessExamAsync();
@@ -133,7 +133,7 @@ public class Module2ReadinessAcceptanceTests : IDisposable
         (await s1.GetAsync($"/api/exams/{examId}/readiness")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
-    [Fact(Skip = "Pending: M2-I-07 — mock exams excluded from results/analytics/plagiarism")]
+    [Fact]
     public async Task M2_I_07_MockExam_ExcludedFromAnalyticsAndPlagiarism()
     {
         var examId = await ReadinessExamAsync(requireReadiness: false, isMock: true);
@@ -155,7 +155,7 @@ public class Module2ReadinessAcceptanceTests : IDisposable
         dashboard.GetProperty("totalExamsTaken").GetInt32().Should().Be(0, "practice attempts are not counted as exams taken");
     }
 
-    [Fact(Skip = "Pending: M2-I-08 — mock exams allow unlimited attempts")]
+    [Fact]
     public async Task M2_I_08_MockExam_StartTwiceAfterSubmit_CreatesNewSessionEachTime()
     {
         var examId = await ReadinessExamAsync(requireReadiness: false, isMock: true);
@@ -170,5 +170,82 @@ public class Module2ReadinessAcceptanceTests : IDisposable
 
         var third = await _host.StartSessionAsync(student, examId);
         third.Should().NotBe(first).And.NotBe(second);
+    }
+
+    [Fact]
+    public async Task M2_I_09_DesktopStartPath_GatedOnReadiness_AndStatusReportsIt()
+    {
+        var examId = await ReadinessExamAsync(requireReadiness: true);
+        var student = await _host.AsStudent();
+        // Seeded exams compete for "current"; end them so the dashboard shows this one.
+        await _host.WithDbAsync(async db =>
+        {
+            foreach (var e in db.Exams.Where(e => e.ExamId != examId)) e.Status = Backend_API.Models.Enums.ExamStatus.Ended;
+            await db.SaveChangesAsync();
+        });
+
+        var current = await TestHost.DataAsync(await student.GetAsync("/api/exams/student/current"));
+        current.GetProperty("examId").GetGuid().Should().Be(examId);
+        current.GetProperty("requireReadiness").GetBoolean().Should().BeTrue();
+        current.GetProperty("readinessPassed").GetBoolean().Should().BeFalse();
+
+        var blocked = await student.PostAsync("/api/exams/student/start", null);
+        blocked.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await TestHost.ErrorCodeAsync(blocked)).Should().Be("READINESS_REQUIRED");
+
+        (await PostReadinessAsync(student, examId, passed: true)).StatusCode.Should().Be(HttpStatusCode.OK);
+        current = await TestHost.DataAsync(await student.GetAsync("/api/exams/student/current"));
+        current.GetProperty("readinessPassed").GetBoolean().Should().BeTrue();
+        (await student.PostAsync("/api/exams/student/start", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task M2_I_10_RequiredWebcam_NotReported_IsNotAPass()
+    {
+        var examId = await _host.CreateExamAsync(new[] { _host.Seed.StudentId },
+            extra: new Dictionary<string, object?> { ["requireReadiness"] = true, ["requireWebcam"] = true });
+        var student = await _host.AsStudent();
+
+        // Client claims "all passed" but never ran the camera check.
+        var resp = await student.PostAsJsonAsync($"/api/exams/{examId}/readiness", new
+        {
+            passedAll = true,
+            machineName = "PC-01",
+            results = new[] { new { name = "Network", passed = true, detail = "ok", durationMs = 5 } }
+        });
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHost.JsonAsync(resp);
+        body.GetProperty("passedAll").GetBoolean().Should().BeFalse();
+        body.GetProperty("missingRequired").EnumerateArray().Select(e => e.GetString()).Should().Contain("Camera");
+
+        (await TestHost.ErrorCodeAsync(await _host.StartSessionRawAsync(student, examId))).Should().Be("READINESS_REQUIRED");
+    }
+
+    [Fact]
+    public async Task M2_I_11_ReadinessForUnassignedExam_Returns404()
+    {
+        var examId = await _host.CreateExamAsync(new[] { _host.Seed.Student2Id });
+        var student = await _host.AsStudent();
+        (await PostReadinessAsync(student, examId, passed: true)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task M2_I_12_PracticeExam_ListedSeparately_NotPickedAsCurrentExam()
+    {
+        var mockId = await ReadinessExamAsync(requireReadiness: false, isMock: true);
+        var student = await _host.AsStudent();
+
+        var practice = await TestHost.DataAsync(await student.GetAsync("/api/exams/student/practice"));
+        practice.EnumerateArray().Select(p => p.GetProperty("examId").GetGuid()).Should().Contain(mockId);
+
+        var current = await TestHost.DataAsync(await student.GetAsync("/api/exams/student/current"));
+        if (current.TryGetProperty("examId", out var cur) && cur.ValueKind != JsonValueKind.Null)
+            cur.GetGuid().Should().NotBe(mockId, "the dashboard's real exam is never a practice exam");
+
+        var sid = await _host.StartSessionAsync(student, mockId);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+        practice = await TestHost.DataAsync(await student.GetAsync("/api/exams/student/practice"));
+        practice.EnumerateArray().Single(p => p.GetProperty("examId").GetGuid() == mockId)
+            .GetProperty("attempts").GetInt32().Should().Be(1);
     }
 }

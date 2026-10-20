@@ -62,31 +62,38 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 
 | ID | Title | Steps | Expected | Status |
 |----|-------|-------|----------|--------|
-| M2-U-01 | Network check pass/fail | Fake health latency 300 ms / 3000 ms | pass / fail | 📋 desktop |
-| M2-U-02 | Clock skew check | Skew 10 s / 120 s | pass / fail | 📋 |
-| M2-U-03 | Camera check skipped when not required | `RequireWebcam=false` | Item = skipped, overall can pass | 📋 |
-| M2-U-04 | Multi-monitor fails secure mode | 2 screens + `BlockMultiMonitor` | fail with detail | 📋 |
-| M2-U-05 | RDP session fails secure mode | TerminalServerSession=true | fail | 📋 |
-| M2-U-06 | Overall result aggregation | Mixed results | `PassedAll` only if all required pass | 📋 |
-| M2-I-01 | Submit readiness result | Student POST readiness (all pass) | 200, row stored, audit `READINESS_PASSED` | ⏳ |
-| M2-I-02 | Start blocked without readiness | `RequireReadiness=true`, no check | 400 `READINESS_REQUIRED` | ⏳ |
-| M2-I-03 | Start allowed after passing check | Pass then start | 200 | ⏳ |
-| M2-I-04 | Failed check doesn't unlock start | Post failed check, start | 400 | ⏳ |
-| M2-I-05 | Stale check (>30 min) | Check at T-31 min | 400 | ⏳ |
-| M2-I-06 | Staff can read readiness | Teacher GET readiness | Per-student latest | ⏳ |
-| M2-I-07 | Mock exam excluded from analytics | Submit mock | Not in results/analytics/plagiarism | ⏳ |
-| M2-I-08 | Mock exam multiple attempts | Start mock twice after submit | New session each time | ⏳ |
-| M2-A-01 | Readiness endpoint exists & is student-only | Teacher POSTs readiness | 403 | ⏳ |
-| M2-E-01 | Teacher sees readiness column | Simulator posts readiness → Eligibility page | ✓ shown for that student | ⏳ |
-| M2-E-02 | Failed readiness visible | Simulator posts failing camera | ✗ with detail tooltip | ⏳ |
-| M2-E-03 | Create exam: readiness toggles | Teacher creates exam with RequireWebcam | Saved & shown on edit | ⏳ |
-| M2-E-04 | Practice exam labelled | Student portal exams list | Mock shows "Practice" badge | ⏳ |
+| M2-U-01 | Network check pass/fail | Fake health latency 300 ms / 3000 ms | pass / fail | ✅ desktop xUnit |
+| M2-U-02 | Clock skew check | Skew 10 s / 120 s | pass / fail | ✅ |
+| M2-U-03 | Camera check skipped when not required | `RequireWebcam=false` | Item = skipped, overall can pass | ✅ |
+| M2-U-04 | Multi-monitor fails secure mode | 2 screens + `BlockMultiMonitor` | fail with detail | ✅ |
+| M2-U-05 | RDP session fails secure mode | TerminalServerSession=true | fail (also VM, keyboard-hook failure) | ✅ |
+| M2-U-06 | Overall result aggregation | Mixed results | `PassedAll` only if all required pass | ✅ |
+| M2-U-07 | Disk space check | 199 MB / 200 MB free | fail / pass | ✅ |
+| M2-U-08 | Real probes on this PC | Run every check via `ReadinessCheckService` | 7 rows, no probe throws, disk passes | ✅ |
+| M2-I-01 | Submit readiness result | Student POST readiness (all pass) | 200, row stored, audit `READINESS_PASSED` | ✅ |
+| M2-I-02 | Start blocked without readiness | `RequireReadiness=true`, no check | 400 `READINESS_REQUIRED` | ✅ |
+| M2-I-03 | Start allowed after passing check | Pass then start | 200 | ✅ |
+| M2-I-04 | Failed check doesn't unlock start | Post failed check, start | 400 | ✅ |
+| M2-I-05 | Stale check (>30 min) | Check at T-31 min | 400 | ✅ |
+| M2-I-06 | Staff can read readiness | Teacher GET readiness | Per-student latest | ✅ |
+| M2-I-07 | Mock exam excluded from analytics | Submit mock | Not in results/analytics/plagiarism | ✅ |
+| M2-I-08 | Mock exam multiple attempts | Start mock twice after submit | New session each time | ✅ |
+| M2-I-09 | Desktop start path gated + status flag | `student/current`, `student/start` | 400 → pass → 200; `readinessPassed` true | ✅ |
+| M2-I-10 | Required webcam can't be skipped | `RequireWebcam`, client claims pass without Camera row | `passedAll=false`, `missingRequired=[Camera]` | ✅ |
+| M2-I-11 | Readiness for unassigned exam | POST for another student's exam | 404 | ✅ |
+| M2-I-12 | Practice listed separately | `GET student/practice`; `student/current` | Mock listed with attempts; never the current exam | ✅ |
+| M2-A-01 | Readiness endpoint exists & is student-only | Teacher POSTs readiness | 403 | ✅ |
+| M2-A-02 | Desktop start path gated | `student/current` → `student/start` before/after a pass | 400 `READINESS_REQUIRED`, then 200; `readinessPassed` flips | ✅ |
+| M2-E-01 | Teacher sees readiness column | Simulator posts readiness → Eligibility page | ✓ shown for that student | ✅ |
+| M2-E-02 | Failed readiness visible | Simulator posts failing camera | ✗ with detail tooltip | ✅ |
+| M2-E-03 | Create exam: readiness toggles | Teacher creates exam with RequireWebcam | Saved & shown on edit | ✅ |
+| M2-E-04 | Practice exam labelled | Student portal exams list | Mock shows "Practice" badge | ✅ |
 | M2-D-01 | Readiness checklist renders | Open dashboard for exam | All check rows visible with status | 📋 FlaUI |
 | M2-D-02 | Retry single failed check | Click retry on Network | Only that item re-runs | 📋 |
 | M2-D-03 | Start disabled until pass | Fail a check | Start button disabled | 📋 |
 | M2-M-01 | Real webcam detected | Lab PC with webcam | Camera ✓ | 📋 manual |
 | M2-M-02 | Webcam unplugged | Unplug, run | Camera ✗ "No device" | 📋 |
-| M2-M-03 | Mic muted | Mute mic | Mic ✗ low level | 📋 |
+| M2-M-03 | Mic muted | Mute mic | Mic ✗ low level (not built: presence-only check today) | 📋 |
 | M2-M-04 | Second monitor attached | Plug monitor | Secure mode ✗ | 📋 |
 | M2-M-05 | Network cable pulled | Unplug LAN | Network ✗ | 📋 |
 
@@ -122,6 +129,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M4-U-11 | AllowedApps matching is case/extension/path-insensitive | `Code.EXE`, `C:\…\code.exe` vs `code` | Allowed | ✅ |
 | M4-U-12 | Foreground check uses PID, not title | Notepad titled "Exam" | Not treated as exam window | ✅ |
 | M4-U-13 | Violation classifier | Warnings ×3 → Suspicious; Suspicious ×2 → Violation; ProcessKilled/USB/RDP → Violation; `"Violation"+reason` resolves to the specific type | As described | ✅ backend xUnit |
+| M4-U-14 | Virtual machine detection | WMI manufacturer/model of VMware, VirtualBox, Hyper-V, QEMU vs Dell/Surface | Vendor name / null | ✅ desktop xUnit |
 | M4-I-01 | Lockdown config in student status | Exam LockdownMode=Enforce | `/student/current` returns mode + allowedApps | ✅ |
 | M4-I-02 | Violation types accepted | POST event `UnauthorizedProcess` | 200, stored with type | ✅ |
 | M4-I-03 | Severity classification | 1 FocusLost → Warning; 3 → Suspicious; ProcessKilled → Violation | Tile status matches | ✅ |

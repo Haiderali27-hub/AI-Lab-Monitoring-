@@ -16,6 +16,12 @@ public class Exam
     public int PlagiarismThreshold { get; set; } = 70;  // percentage
     public LockdownMode LockdownMode { get; set; } = LockdownMode.Report;
     public bool BlockMultiMonitor { get; set; } = true;
+    // Module 2: start is refused until a passing readiness check (≤ 30 min old) exists.
+    public bool RequireReadiness { get; set; }
+    public bool RequireWebcam { get; set; }
+    public bool RequireMic { get; set; }
+    // Practice exam: unlimited attempts, excluded from results stats/analytics/plagiarism.
+    public bool IsMock { get; set; }
     public ExamStatus Status { get; set; } = ExamStatus.Scheduled;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

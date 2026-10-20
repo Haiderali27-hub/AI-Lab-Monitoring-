@@ -95,7 +95,7 @@ public partial class ExamDashboard : Window
         await _viewModel.InitializeAsync();
         StartExamButton.IsEnabled = _viewModel.CanStartExam;
         CheckInButton.IsEnabled = true;
-        VerifyIdentityButton.IsEnabled = true;
+        RunReadinessButton.IsEnabled = true;
     }
 
     private async void CheckInButton_OnClick(object sender, RoutedEventArgs e)
@@ -109,15 +109,65 @@ public partial class ExamDashboard : Window
         StartExamButton.IsEnabled = _viewModel.CanStartExam;
     }
 
-    private async void VerifyIdentityButton_OnClick(object sender, RoutedEventArgs e)
+    private async void RunReadinessButton_OnClick(object sender, RoutedEventArgs e)
     {
-        VerifyIdentityButton.IsEnabled = false;
-        var ok = await _viewModel.VerifyIdentityAsync();
-        if (!ok)
+        RunReadinessButton.IsEnabled = false;
+        StartExamButton.IsEnabled = false;
+        try
         {
-            VerifyIdentityButton.IsEnabled = true;
+            await _viewModel.RunReadinessAsync();
         }
+        finally
+        {
+            // A pass is valid for 30 min, so allow re-running at any time.
+            RunReadinessButton.IsEnabled = true;
+            StartExamButton.IsEnabled = _viewModel.CanStartExam;
+        }
+    }
+
+    private async void RetryReadinessItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string check }) return;
+        StartExamButton.IsEnabled = false;
+        await _viewModel.RetryReadinessItemAsync(check);
         StartExamButton.IsEnabled = _viewModel.CanStartExam;
+    }
+
+    // Practice (mock) exam: same exam window and monitoring as the real thing, but ungraded
+    // and repeatable. Lockdown runs in Report mode so a rehearsal never kills the student's apps.
+    private async void PracticeButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (PracticeExamPicker.SelectedItem is not PracticeExamSummary practice) return;
+        var token = SessionStore.CurrentToken;
+        if (token is null) return;
+
+        PracticeButton.IsEnabled = false;
+        try
+        {
+            var (sessionId, message) = await _apiClient.StartSessionAsync(token.AccessToken, practice.ExamId);
+            if (sessionId is not Guid sid)
+            {
+                MessageBox.Show(this, message, "Practice exam", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            _monitoringService.Start(token.AccessToken, sid, Array.Empty<string>().ToList());
+            var examWindow = new ExamWindow(_apiClient, token.AccessToken, practice.ExamId, sid, practice.DurationMinutes * 60,
+                new List<string>(), "Report", false)
+            {
+                Owner = this
+            };
+            Hide();
+            examWindow.ShowDialog();
+            Show();
+            _monitoringService.Stop();
+            await _viewModel.InitializeAsync();
+            StartExamButton.IsEnabled = _viewModel.CanStartExam;
+        }
+        finally
+        {
+            PracticeButton.IsEnabled = true;
+        }
     }
 
     private async void StartExamButton_OnClick(object sender, RoutedEventArgs e)

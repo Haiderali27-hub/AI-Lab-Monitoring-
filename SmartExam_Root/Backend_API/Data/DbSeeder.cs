@@ -154,6 +154,37 @@ public static class DbSeeder
             new ExamAssignment { Exam = exam, Student = student2, IsEligible = true }
         );
 
+        // --- Practice exam (Module 2): open for a week, unlimited attempts, never graded into stats ---
+        var practice = new Exam
+        {
+            Section = section,
+            Title = "Practice Exam (Mock)",
+            Instructions = "Ungraded rehearsal. Try the exam window, timer and submit as often as you like.",
+            StartTime = DateTime.UtcNow.AddMinutes(-5),
+            DurationMinutes = 7 * 24 * 60,
+            AllowedApps = "[]",
+            AiEvaluationEnabled = true,
+            PlagiarismThreshold = 70,
+            IsMock = true,
+            Status = ExamStatus.Scheduled
+        };
+        var practiceQ = new Question
+        {
+            Exam = practice,
+            Type = QuestionType.Mcq,
+            BodyText = "Practice question: which data structure is First-In-First-Out (FIFO)?",
+            Marks = 1,
+            OrderIndex = 1,
+            OptionsJson = System.Text.Json.JsonSerializer.Serialize(new[] { "Stack", "Queue", "Tree" }),
+            CorrectOptionIndex = 1
+        };
+        await db.Exams.AddAsync(practice);
+        await db.Questions.AddAsync(practiceQ);
+        await db.ExamAssignments.AddRangeAsync(
+            new ExamAssignment { Exam = practice, Student = student1, IsEligible = true },
+            new ExamAssignment { Exam = practice, Student = student2, IsEligible = true }
+        );
+
         // --- Demo exam #2: ended with one graded submission, so Results/Analytics pages have data ---
         var examEnded = new Exam
         {

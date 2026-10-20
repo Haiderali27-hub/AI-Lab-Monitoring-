@@ -118,7 +118,7 @@ public class AnalyticsService
 
         // Exams per month (last 6 months)
         var examsByMonth = await _db.Exams
-            .Where(e => e.StartTime >= now.AddMonths(-6))
+            .Where(e => !e.IsMock && e.StartTime >= now.AddMonths(-6))
             .GroupBy(e => new { e.StartTime.Year, e.StartTime.Month })
             .Select(g => new MonthCount
             {
@@ -128,7 +128,7 @@ public class AnalyticsService
             .ToListAsync();
 
         // Top courses by exam count
-        var topCourses = await _db.Exams
+        var topCourses = await _db.Exams.Where(e => !e.IsMock)
             .Include(e => e.Section).ThenInclude(s => s.Course)
             .GroupBy(e => e.Section.Course.Name)
             .Select(g => new { CourseName = g.Key, ExamCount = g.Count() })
@@ -149,8 +149,8 @@ public class AnalyticsService
         {
             TotalStudents = await _db.Users.CountAsync(u => u.Role == Models.Enums.UserRole.Student),
             TotalTeachers = await _db.Users.CountAsync(u => u.Role == Models.Enums.UserRole.Teacher),
-            TotalExams = await _db.Exams.CountAsync(),
-            TotalExamsLast30Days = await _db.Exams.CountAsync(e => e.StartTime >= thirtyDaysAgo),
+            TotalExams = await _db.Exams.CountAsync(e => !e.IsMock),
+            TotalExamsLast30Days = await _db.Exams.CountAsync(e => !e.IsMock && e.StartTime >= thirtyDaysAgo),
             TotalViolationsLast30Days = await _db.MonitoringEvents.CountAsync(
                 e => Backend_API.Services.ViolationClassifier.ViolationTypes.Contains(e.EventType) && e.RecordedAt >= thirtyDaysAgo),
             ExamsByMonth = examsByMonth,

@@ -250,6 +250,9 @@ namespace Backend_API.Migrations
                     b.Property<string>("Instructions")
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsMock")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("LockdownMode")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -257,6 +260,15 @@ namespace Backend_API.Migrations
 
                     b.Property<int>("PlagiarismThreshold")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("RequireMic")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequireReadiness")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequireWebcam")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("SectionId")
                         .HasColumnType("uuid");
@@ -512,6 +524,41 @@ namespace Backend_API.Migrations
                     b.HasIndex("ExamId");
 
                     b.ToTable("Questions");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.ReadinessCheck", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CheckedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ExamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MachineName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<bool>("PassedAll")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ResultsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ExamId", "UserId", "CheckedAt");
+
+                    b.ToTable("ReadinessChecks");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Section", b =>
@@ -920,6 +967,25 @@ namespace Backend_API.Migrations
                         .IsRequired();
 
                     b.Navigation("Exam");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.ReadinessCheck", b =>
+                {
+                    b.HasOne("Backend_API.Models.Exam", "Exam")
+                        .WithMany()
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend_API.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Exam");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Section", b =>

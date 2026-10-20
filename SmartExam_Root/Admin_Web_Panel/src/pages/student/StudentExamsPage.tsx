@@ -95,8 +95,15 @@ export default function StudentExamsPage() {
                 >
                   {/* Card Header */}
                   <div className="flex justify-between items-start">
-                    <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider">
-                      {exam.courseName ? exam.courseName.slice(0, 7) : 'EXAM'}
+                    <span className="flex items-center gap-1.5">
+                      <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider">
+                        {exam.courseName ? exam.courseName.slice(0, 7) : 'EXAM'}
+                      </span>
+                      {exam.isMock && (
+                        <span data-testid="practice-badge" className="px-2.5 py-0.5 rounded-full bg-violet-50 text-violet-700 text-[10px] font-bold uppercase tracking-wider">
+                          Practice
+                        </span>
+                      )}
                     </span>
                     
                     {isPassed && (

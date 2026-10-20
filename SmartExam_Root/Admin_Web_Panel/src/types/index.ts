@@ -60,6 +60,18 @@ export interface Exam {
   durationMinutes: number;
   status: ExamStatus;
   questionCount: number;
+  isMock?: boolean;
+}
+
+/** Module 2 — latest pre-exam system check of one student (GET /exams/{id}/readiness). */
+export interface ReadinessResult {
+  userId: string;
+  studentName: string;
+  passedAll: boolean;
+  checkedAt: string;
+  isFresh: boolean;
+  machineName?: string | null;
+  results: { name: string; passed: boolean; detail?: string | null; durationMs: number }[];
 }
 
 export interface Question {

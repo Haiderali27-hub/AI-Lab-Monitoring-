@@ -43,7 +43,9 @@ public class SubmissionService
         if (session.Exam.AiEvaluationEnabled)
             await GradeAsync(answers);
 
-        await DetectPlagiarismAsync(session, answers);
+        // Practice exams: shared answers are expected, not misconduct
+        if (!session.Exam.IsMock)
+            await DetectPlagiarismAsync(session, answers);
 
         await _db.SaveChangesAsync();
     }

@@ -84,6 +84,27 @@ export class StudentClient {
     return res;
   }
 
+  /**
+   * POST /api/exams/{examId}/readiness — what the desktop "Run check" button sends (Module 2).
+   * Default = every desktop check passing; override items to simulate failures.
+   */
+  readiness(examId: string, overrides: { name: string; passed: boolean; detail?: string }[] = []): Promise<APIResponse> {
+    const defaults = [
+      { name: 'Network', passed: true, detail: '120 ms' },
+      { name: 'ClockSkew', passed: true, detail: '2 s difference' },
+      { name: 'ScreenCapture', passed: true, detail: 'Screen can be captured' },
+      { name: 'Camera', passed: true, detail: 'Not required for this exam' },
+      { name: 'Microphone', passed: true, detail: 'Not required for this exam' },
+      { name: 'SecureMode', passed: true, detail: 'Single monitor, local session' },
+      { name: 'Disk', passed: true, detail: '12.0 GB free' },
+    ];
+    const results = defaults.map(d => ({ ...d, ...overrides.find(o => o.name === d.name), durationMs: 10 }));
+    return this.request.post(`${API_URL}/api/exams/${examId}/readiness`, {
+      headers: this.headers(),
+      data: { passedAll: results.every(r => r.passed), machineName: this.machineName, results },
+    });
+  }
+
   /** startSession() that must succeed. */
   async start(examId: string): Promise<string> {
     const res = await this.startSession(examId);

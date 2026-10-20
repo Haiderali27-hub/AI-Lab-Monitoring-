@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { Exam, ExamAssignment } from '../types';
+import type { Exam, ExamAssignment, ReadinessResult } from '../types';
 
 export const examsApi = {
   getAll: () =>
@@ -10,6 +10,9 @@ export const examsApi = {
 
   getAssignments: (examId: string) =>
     apiClient.get<ExamAssignment[]>(`/exams/${examId}/assignments`).then(r => r.data),
+
+  getReadiness: (examId: string) =>
+    apiClient.get<ReadinessResult[]>(`/exams/${examId}/readiness`).then(r => r.data),
 
   updateEligibility: (examId: string, assignments: { userId: string; isEligible: boolean; eligibilityNote?: string }[]) =>
     apiClient.put(`/exams/${examId}/eligibility`, { assignments }),

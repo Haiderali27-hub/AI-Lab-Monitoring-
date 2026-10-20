@@ -25,7 +25,7 @@ public class StudentPortalController : ControllerBase
         var studentId = Me;
 
         var sessions = await _db.ExamSessions
-            .Where(s => s.UserId == studentId && s.Status != Models.Enums.SessionStatus.InProgress)
+            .Where(s => s.UserId == studentId && s.Status != Models.Enums.SessionStatus.InProgress && !s.Exam.IsMock)
             .Include(s => s.Exam).ThenInclude(e => e.Section).ThenInclude(sec => sec.Course)
             .Include(s => s.Exam).ThenInclude(e => e.Questions)
             .Include(s => s.Answers).ThenInclude(a => a.AiGradingResult)
@@ -96,6 +96,7 @@ public class StudentPortalController : ControllerBase
                 a.Exam.StartTime,
                 a.Exam.DurationMinutes,
                 a.Exam.Status,
+                a.Exam.IsMock,
                 a.IsEligible,
                 QuestionCount = a.Exam.Questions.Count,
                 TotalMarks = a.Exam.Questions.Sum(q => q.Marks)
@@ -115,6 +116,7 @@ public class StudentPortalController : ControllerBase
 
         var session = await _db.ExamSessions
             .Where(s => s.ExamId == examId && s.UserId == studentId)
+            .OrderByDescending(s => s.StartedAt)   // practice exams: latest attempt
             .Include(s => s.Exam).ThenInclude(e => e.Questions)
             .Include(s => s.Answers).ThenInclude(a => a.Question)
             .Include(s => s.Answers).ThenInclude(a => a.AiGradingResult)
@@ -203,7 +205,7 @@ public class StudentPortalController : ControllerBase
         var studentId = Me;
 
         var sessions = await _db.ExamSessions
-            .Where(s => s.UserId == studentId && s.Status != Models.Enums.SessionStatus.InProgress)
+            .Where(s => s.UserId == studentId && s.Status != Models.Enums.SessionStatus.InProgress && !s.Exam.IsMock)
             .Include(s => s.Exam).ThenInclude(e => e.Questions)
             .Include(s => s.Answers).ThenInclude(a => a.AiGradingResult)
             .Include(s => s.Answers).ThenInclude(a => a.TeacherGradeOverride)

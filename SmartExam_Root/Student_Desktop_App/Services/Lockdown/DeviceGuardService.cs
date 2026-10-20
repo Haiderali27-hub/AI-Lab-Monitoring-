@@ -34,6 +34,8 @@ public sealed class DeviceGuardService : IDisposable
     {
         CheckEnvironment();
         _timer.Start();
+        if (Readiness.ReadinessCheckService.DetectVirtualMachine() is { } vm)
+            DeviceViolation?.Invoke("VirtualMachine", vm);
         try
         {
             // EventType 2 = device arrival

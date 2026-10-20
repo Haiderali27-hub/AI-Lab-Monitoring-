@@ -26,7 +26,16 @@ public record StudentExamStatus(
     string? Seat = null,
     string? AllowedApps = null,
     string? LockdownMode = null,
-    bool? BlockMultiMonitor = null);
+    bool? BlockMultiMonitor = null,
+    bool RequireReadiness = false,
+    bool RequireWebcam = false,
+    bool RequireMic = false,
+    bool ReadinessPassed = false,
+    DateTime? ServerTimeUtc = null);
+
+public record HealthProbe(bool Ok, TimeSpan RoundTrip, DateTimeOffset? ServerTime);
+
+public record PracticeExamSummary(Guid ExamId, string Title, int DurationMinutes, int QuestionCount, int Attempts, Guid? InProgressSessionId);
 
 public record StartExamResult(Guid Id, string Status, DateTime? StartedAtUtc);
 

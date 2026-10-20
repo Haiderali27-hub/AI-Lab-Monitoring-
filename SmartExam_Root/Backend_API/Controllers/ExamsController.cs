@@ -52,6 +52,7 @@ public class ExamsController : ControllerBase
                     a.Exam.StartTime,
                     a.Exam.DurationMinutes,
                     a.Exam.Status,
+                    a.Exam.IsMock,
                     a.IsEligible,
                     WorkstationNumber = a.Workstation != null ? a.Workstation.MachineNumber : null
                 })
@@ -66,6 +67,7 @@ public class ExamsController : ControllerBase
             .Select(e => new
             {
                 e.ExamId, e.Title, e.StartTime, e.DurationMinutes, e.Status,
+                e.IsMock,
                 e.SectionId,
                 CourseName = e.Section.Course.Name,
                 SectionName = e.Section.Name,
@@ -107,6 +109,10 @@ public class ExamsController : ControllerBase
             exam.PlagiarismThreshold,
             exam.LockdownMode,
             exam.BlockMultiMonitor,
+            exam.RequireReadiness,
+            exam.RequireWebcam,
+            exam.RequireMic,
+            exam.IsMock,
             exam.Status,
             exam.CreatedAt,
             Section = exam.Section is null ? null : new
@@ -164,6 +170,10 @@ public class ExamsController : ControllerBase
             PlagiarismThreshold = req.PlagiarismThreshold,
             LockdownMode = req.LockdownMode,
             BlockMultiMonitor = req.BlockMultiMonitor,
+            RequireReadiness = req.RequireReadiness,
+            RequireWebcam = req.RequireWebcam,
+            RequireMic = req.RequireMic,
+            IsMock = req.IsMock,
             Status = ExamStatus.Scheduled,
             CreatedAt = DateTime.UtcNow
         };
@@ -212,6 +222,10 @@ public class ExamsController : ControllerBase
         exam.PlagiarismThreshold = req.PlagiarismThreshold;
         exam.LockdownMode = req.LockdownMode;
         exam.BlockMultiMonitor = req.BlockMultiMonitor;
+        exam.RequireReadiness = req.RequireReadiness;
+        exam.RequireWebcam = req.RequireWebcam;
+        exam.RequireMic = req.RequireMic;
+        exam.IsMock = req.IsMock;
 
         // Replace questions (safe: Scheduled exams have no sessions/answers yet).
         // Materialize first — RemoveRange triggers EF fixup that mutates the live nav collections mid-iteration.
@@ -605,7 +619,7 @@ public class ExamsController : ControllerBase
     public async Task<IActionResult> GetPlagiarism(Guid examId)
     {
         var plagResults = await _db.PlagiarismResults
-            .Where(pr => pr.ExamId == examId)
+            .Where(pr => pr.ExamId == examId && !pr.Exam.IsMock)
             .Include(pr => pr.Question)
             .Include(pr => pr.StudentA)
             .Include(pr => pr.StudentB)
@@ -701,11 +715,17 @@ public class ExamsController : ControllerBase
         if (SubmissionService.IsClosed(assignment.Exam, DateTime.UtcNow))
             return BadRequest(new { message = "This exam has already ended." });
 
-        // Check if session already exists
+        // Check if session already exists. Practice exams allow a fresh attempt after each submit.
         var existing = await _db.ExamSessions
-            .FirstOrDefaultAsync(s => s.ExamId == id && s.UserId == userId);
+            .Where(s => s.ExamId == id && s.UserId == userId &&
+                        (!assignment.Exam.IsMock || s.Status == SessionStatus.InProgress))
+            .OrderByDescending(s => s.StartedAt)
+            .FirstOrDefaultAsync();
         if (existing is not null)
             return Ok(new { existing.SessionId, message = "Session already active." });
+
+        if (assignment.Exam.RequireReadiness && !await HasFreshPassingReadinessAsync(id, userId))
+            return BadRequest(new { code = "READINESS_REQUIRED", message = ReadinessRequiredMessage });
 
         // Activate exam if it is the first student starting
         if (assignment.Exam.Status == ExamStatus.Scheduled)
@@ -826,7 +846,7 @@ public class ExamsController : ControllerBase
             .Include(a => a.Exam)
             .Include(a => a.Exam.Section).ThenInclude(s => s.Teacher)
             .Include(a => a.Workstation).ThenInclude(w => w!.Lab)
-            .Where(a => a.UserId == studentId && (a.Exam.Status == ExamStatus.Active || a.Exam.Status == ExamStatus.Scheduled))
+            .Where(a => a.UserId == studentId && !a.Exam.IsMock && (a.Exam.Status == ExamStatus.Active || a.Exam.Status == ExamStatus.Scheduled))
             .ToListAsync();
 
         var assignment =
@@ -893,7 +913,12 @@ public class ExamsController : ControllerBase
             assignment.Workstation?.MachineNumber ?? "Unassigned",
             assignment.Exam.AllowedApps,
             assignment.Exam.LockdownMode.ToString(),
-            assignment.Exam.BlockMultiMonitor
+            assignment.Exam.BlockMultiMonitor,
+            assignment.Exam.RequireReadiness,
+            assignment.Exam.RequireWebcam,
+            assignment.Exam.RequireMic,
+            await HasFreshPassingReadinessAsync(assignment.ExamId, studentId),
+            now
         );
 
         return Ok(new ApiEnvelope<StudentExamStatus>(true, "SUCCESS", "Success", response));
@@ -911,7 +936,7 @@ public class ExamsController : ControllerBase
         // exactly the exam their dashboard is showing.
         var startCandidates = await _db.ExamAssignments
             .Include(a => a.Exam)
-            .Where(a => a.UserId == studentId && a.IsEligible && (a.Exam.Status == ExamStatus.Active || a.Exam.Status == ExamStatus.Scheduled))
+            .Where(a => a.UserId == studentId && a.IsEligible && !a.Exam.IsMock && (a.Exam.Status == ExamStatus.Active || a.Exam.Status == ExamStatus.Scheduled))
             .ToListAsync();
 
         var assignment =
@@ -941,6 +966,9 @@ public class ExamsController : ControllerBase
             return Ok(new ApiEnvelope<StartExamResult>(true, "SUCCESS", "Success", res));
         }
 
+        if (assignment.Exam.RequireReadiness && !await HasFreshPassingReadinessAsync(assignment.ExamId, studentId))
+            return BadRequest(new ApiEnvelope<object>(false, "READINESS_REQUIRED", ReadinessRequiredMessage, null));
+
         // Activate the exam on the first student start (as start-session does) so it
         // appears on the proctor's live monitor.
         if (assignment.Exam.Status == ExamStatus.Scheduled)
@@ -961,6 +989,144 @@ public class ExamsController : ControllerBase
         var result = new StartExamResult(session.SessionId, "InProgress", session.StartedAt);
         return Ok(new ApiEnvelope<StartExamResult>(true, "SUCCESS", "Success", result));
     }
+
+    // ── Module 2: pre-exam readiness + practice exams ─────────────────────────
+
+    // A passing check unlocks start for this long (thesis FR2: verify shortly before the exam).
+    public static readonly TimeSpan ReadinessValidity = TimeSpan.FromMinutes(30);
+    private const string ReadinessRequiredMessage =
+        "Run the pre-exam system check on this computer and pass it before starting the exam.";
+
+    private async Task<bool> HasFreshPassingReadinessAsync(Guid examId, Guid userId)
+    {
+        var latest = await _db.ReadinessChecks
+            .Where(r => r.ExamId == examId && r.UserId == userId)
+            .OrderByDescending(r => r.CheckedAt)
+            .FirstOrDefaultAsync();
+        return latest is not null && latest.PassedAll && latest.CheckedAt >= DateTime.UtcNow - ReadinessValidity;
+    }
+
+    // POST /api/exams/{id}/readiness  — desktop client reports its pre-exam system check
+    [HttpPost("{id:guid}/readiness")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> SubmitReadiness(Guid id, [FromBody] ReadinessSubmitRequest req)
+    {
+        var userId = CurrentUserId;
+        var assignment = await _db.ExamAssignments
+            .Include(a => a.Exam)
+            .FirstOrDefaultAsync(a => a.ExamId == id && a.UserId == userId);
+        if (assignment is null) return NotFound(new { message = "Exam not found." });
+
+        var results = (req.Results ?? new()).Take(20).Select(r => new ReadinessItem(
+            (r.Name ?? "").Trim() is { Length: > 0 } n ? n[..Math.Min(n.Length, 64)] : "Unnamed",
+            r.Passed,
+            r.Detail is null ? null : r.Detail[..Math.Min(r.Detail.Length, 500)],
+            Math.Max(0, r.DurationMs))).ToList();
+
+        // The server decides "passed": every reported item must pass, and the devices this
+        // exam requires must have been checked — a client can't skip a check to unlock start.
+        var missing = new List<string>();
+        if (assignment.Exam.RequireWebcam && !results.Any(r => r.Name == "Camera" && r.Passed)) missing.Add("Camera");
+        if (assignment.Exam.RequireMic && !results.Any(r => r.Name == "Microphone" && r.Passed)) missing.Add("Microphone");
+        var passedAll = req.PassedAll && results.Count > 0 && results.All(r => r.Passed) && missing.Count == 0;
+
+        var check = new ReadinessCheck
+        {
+            ExamId = id,
+            UserId = userId,
+            PassedAll = passedAll,
+            ResultsJson = System.Text.Json.JsonSerializer.Serialize(results),
+            MachineName = req.MachineName is null ? null : req.MachineName[..Math.Min(req.MachineName.Length, 128)],
+            CheckedAt = DateTime.UtcNow
+        };
+        _db.ReadinessChecks.Add(check);
+        _audit.Add(userId, passedAll ? "READINESS_PASSED" : "READINESS_FAILED", "Exam", id.ToString(), new
+        {
+            machine = check.MachineName,
+            failed = results.Where(r => !r.Passed).Select(r => r.Name).Concat(missing).ToList()
+        });
+        await _db.SaveChangesAsync();
+
+        await _hub.Clients.Group($"exam:{id}").SendAsync("ReadinessUpdated", new
+        {
+            examId = id, userId, passedAll, checkedAt = check.CheckedAt, machineName = check.MachineName
+        });
+
+        return Ok(new
+        {
+            check.Id,
+            passedAll,
+            check.CheckedAt,
+            validUntil = check.CheckedAt + ReadinessValidity,
+            missingRequired = missing
+        });
+    }
+
+    // GET /api/exams/{id}/readiness  — staff: latest readiness result per assigned student
+    [HttpGet("{id:guid}/readiness")]
+    [Authorize(Roles = "Teacher,Admin,SuperAdmin,Invigilator")]
+    public async Task<IActionResult> GetReadiness(Guid id)
+    {
+        if (!await _db.Exams.AnyAsync(e => e.ExamId == id)) return NotFound(new { message = "Exam not found." });
+
+        var checks = await _db.ReadinessChecks
+            .Where(r => r.ExamId == id)
+            .Include(r => r.User)
+            .ToListAsync();
+
+        var cutoff = DateTime.UtcNow - ReadinessValidity;
+        var latest = checks
+            .GroupBy(r => r.UserId)
+            .Select(g => g.OrderByDescending(r => r.CheckedAt).First())
+            .Select(r => new
+            {
+                r.UserId,
+                StudentName = r.User.Name,
+                r.PassedAll,
+                r.CheckedAt,
+                IsFresh = r.CheckedAt >= cutoff,
+                r.MachineName,
+                Results = System.Text.Json.JsonSerializer.Deserialize<List<ReadinessItem>>(r.ResultsJson) ?? new()
+            })
+            .OrderBy(r => r.StudentName)
+            .ToList();
+
+        return Ok(latest);
+    }
+
+    // GET /api/exams/student/practice  — practice (mock) exams this student can rehearse with
+    [HttpGet("student/practice")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetPracticeExams()
+    {
+        var studentId = CurrentUserId;
+        var now = DateTime.UtcNow;
+
+        var exams = await _db.Exams
+            .Include(e => e.Questions)
+            .Where(e => e.IsMock && e.Status != ExamStatus.Ended &&
+                        e.Assignments.Any(a => a.UserId == studentId && a.IsEligible))
+            .ToListAsync();
+
+        var sessions = await _db.ExamSessions
+            .Where(s => s.UserId == studentId && s.Exam.IsMock)
+            .ToListAsync();
+
+        var practice = exams
+            .Where(e => e.StartTime <= now && !SubmissionService.IsClosed(e, now))
+            .OrderBy(e => e.Title)
+            .Select(e => new PracticeExamSummary(
+                e.ExamId,
+                e.Title,
+                e.DurationMinutes,
+                e.Questions.Count,
+                sessions.Count(s => s.ExamId == e.ExamId && s.Status != SessionStatus.InProgress),
+                sessions.Where(s => s.ExamId == e.ExamId && s.Status == SessionStatus.InProgress)
+                        .Select(s => (Guid?)s.SessionId).FirstOrDefault()))
+            .ToList();
+
+        return Ok(new ApiEnvelope<List<PracticeExamSummary>>(true, "SUCCESS", "Success", practice));
+    }
 }
 
 // ── DTOs ──────────────────────────────────────────────────────
@@ -976,6 +1142,11 @@ public class CreateExamDto
     public int PlagiarismThreshold { get; set; } = 70;
     public LockdownMode LockdownMode { get; set; } = LockdownMode.Report;
     public bool BlockMultiMonitor { get; set; } = true;
+    // Opt-in over the API (keeps older clients/tests working); the web wizard ticks it by default.
+    public bool RequireReadiness { get; set; }
+    public bool RequireWebcam { get; set; }
+    public bool RequireMic { get; set; }
+    public bool IsMock { get; set; }
     public List<CreateQuestionDto> Questions { get; set; } = new();
     public List<Guid> StudentIds { get; set; } = new();
 }
@@ -1021,4 +1192,21 @@ public record MonitoringEventRequest(MonitoringEventType EventType, string Paylo
 public record AddAssignmentRequest(Guid UserId);
 public record AssignWorkstationRequest(Guid? WorkstationId);
 public record ExtendTimeRequest(int AdditionalMinutes);
+
+public class ReadinessSubmitRequest
+{
+    public bool PassedAll { get; set; }
+    public string? MachineName { get; set; }
+    public List<ReadinessItemRequest>? Results { get; set; }
+}
+
+public class ReadinessItemRequest
+{
+    public string? Name { get; set; }
+    public bool Passed { get; set; }
+    public string? Detail { get; set; }
+    public int DurationMs { get; set; }
+}
+
+public record ReadinessItem(string Name, bool Passed, string? Detail, int DurationMs);
 

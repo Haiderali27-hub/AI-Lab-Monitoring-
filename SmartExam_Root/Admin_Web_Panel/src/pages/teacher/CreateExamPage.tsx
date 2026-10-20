@@ -58,6 +58,11 @@ export default function CreateExamPage() {
   const [plagiarismThreshold, setPlagiarismThreshold] = useState(70);
   const [lockdownMode, setLockdownMode] = useState<'Off' | 'Report' | 'Enforce'>('Report');
   const [blockMultiMonitor, setBlockMultiMonitor] = useState(true);
+  // Module 2 — pre-exam readiness (on by default for new exams) and practice exams
+  const [requireReadiness, setRequireReadiness] = useState(true);
+  const [requireWebcam, setRequireWebcam] = useState(false);
+  const [requireMic, setRequireMic] = useState(false);
+  const [isMock, setIsMock] = useState(false);
 
   const [assignedStudentIds, setAssignedStudentIds] = useState<string[]>([]);
   // In edit mode, the prefetched assignment list must survive the section-students reload
@@ -95,6 +100,10 @@ export default function CreateExamPage() {
         setPlagiarismThreshold(exam.plagiarismThreshold ?? 70);
         setLockdownMode(exam.lockdownMode ?? 'Report');
         setBlockMultiMonitor(exam.blockMultiMonitor ?? true);
+        setRequireReadiness(exam.requireReadiness ?? false);
+        setRequireWebcam(exam.requireWebcam ?? false);
+        setRequireMic(exam.requireMic ?? false);
+        setIsMock(exam.isMock ?? false);
         const qs = [...(exam.questions ?? [])].sort((a: any, b: any) => a.orderIndex - b.orderIndex);
         setQuestions(qs.map((q: any) => ({
           type: q.type as QuestionType,
@@ -344,6 +353,10 @@ export default function CreateExamPage() {
       plagiarismThreshold,
       lockdownMode,
       blockMultiMonitor,
+      requireReadiness,
+      requireWebcam,
+      requireMic,
+      isMock,
       questions: questions.map(q => ({
         type: q.type,
         bodyText: q.bodyText,
@@ -850,6 +863,62 @@ export default function CreateExamPage() {
                     type="checkbox"
                     checked={blockMultiMonitor}
                     onChange={e => setBlockMultiMonitor(e.target.checked)}
+                    className="mt-1"
+                  />
+                </label>
+
+                <label htmlFor="require-readiness" className="flex items-start justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                  <div className="space-y-1">
+                    <span className="font-semibold text-sm text-slate-800 block">Require pre-exam system check</span>
+                    <span className="text-xs text-slate-500">Students must pass the desktop system check (network, clock, screen capture, secure mode, disk) within 30 minutes before starting.</span>
+                  </div>
+                  <input
+                    id="require-readiness"
+                    type="checkbox"
+                    checked={requireReadiness}
+                    onChange={e => setRequireReadiness(e.target.checked)}
+                    className="mt-1"
+                  />
+                </label>
+
+                <label htmlFor="require-webcam" className="flex items-start justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                  <div className="space-y-1">
+                    <span className="font-semibold text-sm text-slate-800 block">Require webcam</span>
+                    <span className="text-xs text-slate-500">The system check fails if no working camera is found.</span>
+                  </div>
+                  <input
+                    id="require-webcam"
+                    type="checkbox"
+                    checked={requireWebcam}
+                    onChange={e => setRequireWebcam(e.target.checked)}
+                    className="mt-1"
+                  />
+                </label>
+
+                <label htmlFor="require-mic" className="flex items-start justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                  <div className="space-y-1">
+                    <span className="font-semibold text-sm text-slate-800 block">Require microphone</span>
+                    <span className="text-xs text-slate-500">The system check fails if no microphone is found.</span>
+                  </div>
+                  <input
+                    id="require-mic"
+                    type="checkbox"
+                    checked={requireMic}
+                    onChange={e => setRequireMic(e.target.checked)}
+                    className="mt-1"
+                  />
+                </label>
+
+                <label htmlFor="is-mock" className="flex items-start justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                  <div className="space-y-1">
+                    <span className="font-semibold text-sm text-slate-800 block">Practice exam (ungraded)</span>
+                    <span className="text-xs text-slate-500">Unlimited attempts for rehearsal. Excluded from student stats, analytics and plagiarism checks.</span>
+                  </div>
+                  <input
+                    id="is-mock"
+                    type="checkbox"
+                    checked={isMock}
+                    onChange={e => setIsMock(e.target.checked)}
                     className="mt-1"
                   />
                 </label>

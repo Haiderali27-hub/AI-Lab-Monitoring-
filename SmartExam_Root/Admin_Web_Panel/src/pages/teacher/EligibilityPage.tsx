@@ -3,13 +3,38 @@ import { useSearchParams } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import { examsApi } from '../../api/exams.api';
 import { labsApi } from '../../api/labs.api';
-import type { Exam, ExamAssignment, LabInfo } from '../../types';
+import type { Exam, ExamAssignment, LabInfo, ReadinessResult } from '../../types';
+
+/** ✓ fresh pass · ✗ failed · ⌛ passed but older than 30 min · — never run */
+function ReadinessBadge({ result }: { result?: ReadinessResult }) {
+  const symbol = !result ? '—' : !result.passedAll ? '✗' : result.isFresh ? '✓' : '⌛';
+  const color = !result ? 'text-slate-300' : !result.passedAll ? 'text-red-600' : result.isFresh ? 'text-emerald-600' : 'text-amber-500';
+  const failed = result?.results.filter(r => !r.passed) ?? [];
+  return (
+    <span className="relative group inline-flex">
+      <span data-testid="readiness-status" tabIndex={0} className={`font-bold text-base cursor-default ${color}`}>{symbol}</span>
+      {result && (
+        <span role="tooltip"
+              className="hidden group-hover:block group-focus-within:block absolute z-20 left-6 top-0 w-64 p-3 rounded-lg bg-slate-800 text-white text-xs shadow-lg">
+          <span className="block font-semibold mb-1">
+            {result.passedAll ? (result.isFresh ? 'System check passed' : 'Passed, but expired (> 30 min)') : 'System check failed'}
+          </span>
+          {failed.map(f => <span key={f.name} className="block">✗ {f.name}: {f.detail || 'failed'}</span>)}
+          <span className="block text-slate-400 mt-1">
+            {new Date(result.checkedAt).toLocaleTimeString()}{result.machineName ? ` · ${result.machineName}` : ''}
+          </span>
+        </span>
+      )}
+    </span>
+  );
+}
 
 export default function EligibilityPage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedExamId, setSelectedExamId] = useState('');
   const [assignments, setAssignments] = useState<ExamAssignment[]>([]);
+  const [readiness, setReadiness] = useState<Record<string, ReadinessResult>>({});
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [labs, setLabs] = useState<LabInfo[]>([]);
@@ -45,6 +70,9 @@ export default function EligibilityPage() {
       })
       .catch((err) => console.error('Failed to load assignments:', err))
       .finally(() => setLoading(false));
+    examsApi.getReadiness(selectedExamId)
+      .then((rows) => setReadiness(Object.fromEntries(rows.map(r => [r.userId, r]))))
+      .catch(() => setReadiness({}));
   };
 
   // Load assignments + enrolled section students when selected exam changes
@@ -232,6 +260,7 @@ export default function EligibilityPage() {
                     <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Student Name</th>
                     <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Email</th>
                     <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Workstation</th>
+                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">System Check</th>
                     <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Eligibility</th>
                     <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Note / Reason</th>
                     <th className="px-6 py-4 w-14"></th>
@@ -240,7 +269,7 @@ export default function EligibilityPage() {
                 <tbody className="divide-y divide-slate-100">
                   {assignments.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
+                      <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">
                         {selectedExamId ? 'No student assignments registered.' : 'Please select an exam.'}
                       </td>
                     </tr>
@@ -279,6 +308,9 @@ export default function EligibilityPage() {
                               ))
                             )}
                           </select>
+                        </td>
+                        <td className="px-6 py-4">
+                          <ReadinessBadge result={readiness[item.userId]} />
                         </td>
                         <td className="px-6 py-4">
                           <label className="relative inline-flex items-center cursor-pointer">

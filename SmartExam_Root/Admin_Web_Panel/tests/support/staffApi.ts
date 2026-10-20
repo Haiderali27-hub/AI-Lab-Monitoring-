@@ -24,6 +24,12 @@ export interface ExamInput {
   questions?: QuestionInput[];
   studentIds?: string[];
   instructions?: string;
+  // Module 2 / 4 settings
+  requireReadiness?: boolean;
+  requireWebcam?: boolean;
+  requireMic?: boolean;
+  isMock?: boolean;
+  lockdownMode?: 'Off' | 'Report' | 'Enforce';
 }
 
 export interface CreatedUser {
@@ -149,6 +155,11 @@ export class StaffApi {
       plagiarismThreshold: input.plagiarismThreshold ?? 70,
       questions: input.questions ?? defaultQuestions(),
       studentIds: input.studentIds ?? [],
+      ...(input.requireReadiness !== undefined && { requireReadiness: input.requireReadiness }),
+      ...(input.requireWebcam !== undefined && { requireWebcam: input.requireWebcam }),
+      ...(input.requireMic !== undefined && { requireMic: input.requireMic }),
+      ...(input.isMock !== undefined && { isMock: input.isMock }),
+      ...(input.lockdownMode !== undefined && { lockdownMode: input.lockdownMode }),
     };
   }
 

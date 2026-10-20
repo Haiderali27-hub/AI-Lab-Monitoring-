@@ -32,6 +32,7 @@ public class AppDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<ExamReport> ExamReports => Set<ExamReport>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<ReadinessCheck> ReadinessChecks => Set<ReadinessCheck>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -156,5 +157,15 @@ public class AppDbContext : DbContext
         // Index for fast unread notification queries
         modelBuilder.Entity<Notification>()
             .HasIndex(n => new { n.RecipientId, n.IsRead });
+
+        // Module 2 readiness checks — latest per (exam, student) is what gates start
+        modelBuilder.Entity<ReadinessCheck>().HasKey(r => r.Id);
+        modelBuilder.Entity<ReadinessCheck>().Property(r => r.MachineName).HasMaxLength(128);
+        modelBuilder.Entity<ReadinessCheck>()
+            .HasIndex(r => new { r.ExamId, r.UserId, r.CheckedAt });
+        modelBuilder.Entity<ReadinessCheck>()
+            .HasOne(r => r.Exam).WithMany().HasForeignKey(r => r.ExamId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ReadinessCheck>()
+            .HasOne(r => r.User).WithMany().HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }

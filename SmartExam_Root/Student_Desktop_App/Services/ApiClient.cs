@@ -43,6 +43,78 @@ public class ApiClient
         }
     }
 
+    /// <summary>Module 2 readiness: one timed GET /api/health, plus the server's Date header.</summary>
+    public async Task<HealthProbe> ProbeHealthAsync(CancellationToken cancellationToken = default)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(10));
+            using var response = await _httpClient.GetAsync("api/health", cts.Token);
+            sw.Stop();
+            return new HealthProbe(response.IsSuccessStatusCode, sw.Elapsed, response.Headers.Date);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new HealthProbe(false, sw.Elapsed, null);
+        }
+    }
+
+    // Plain JSON response (no ApiEnvelope).
+    public async Task<(bool ok, bool passedAll, string message)> SubmitReadinessAsync(
+        string accessToken,
+        Guid examId,
+        object payload,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var request = CreateAuthorizedJsonRequest(HttpMethod.Post, $"api/exams/{examId}/readiness", accessToken, payload);
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode) return (false, false, $"Server rejected the check (HTTP {(int)response.StatusCode}).");
+            using var doc = JsonDocument.Parse(body);
+            var passed = doc.RootElement.TryGetProperty("passedAll", out var p) && p.GetBoolean();
+            return (true, passed, passed ? "System check passed." : "System check failed.");
+        }
+        catch (Exception ex)
+        {
+            return (false, false, ex.Message);
+        }
+    }
+
+    public async Task<ApiResult<List<PracticeExamSummary>>> GetPracticeExamsAsync(
+        string accessToken,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/exams/student/practice", accessToken);
+        return await SendWithRefreshAsync<List<PracticeExamSummary>>(request, cancellationToken);
+    }
+
+    // start-session returns a plain object { sessionId } or { code, message } (no ApiEnvelope).
+    public async Task<(Guid? sessionId, string message)> StartSessionAsync(
+        string accessToken,
+        Guid examId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var request = CreateAuthorizedRequest(HttpMethod.Post, $"api/exams/{examId}/start-session", accessToken);
+            request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
+            if (response.IsSuccessStatusCode && doc.RootElement.TryGetProperty("sessionId", out var sid))
+                return (sid.GetGuid(), "Started.");
+            return (null, doc.RootElement.TryGetProperty("message", out var m) ? m.GetString() ?? "Could not start." : $"HTTP {(int)response.StatusCode}");
+        }
+        catch (Exception ex)
+        {
+            return (null, ex.Message);
+        }
+    }
+
     public async Task<ApiResult<TokenResponse>> StudentLoginAsync(
         string usernameOrEmail,
         string password,
