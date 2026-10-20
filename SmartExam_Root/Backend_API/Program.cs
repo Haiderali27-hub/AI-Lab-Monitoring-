@@ -32,6 +32,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<JwtHelper>();
 builder.Services.AddScoped<Backend_API.Services.AuditService>();
 builder.Services.AddScoped<Backend_API.Services.SubmissionService>();
+// Module 9 — seat enforcement (config: SeatMatch = MachineName | Ip | Either)
+builder.Services.AddScoped<Backend_API.Services.SeatGuard>();
 
 // Module 4 — Analytics
 builder.Services.AddScoped<Backend_API.Services.Analytics.AnalyticsService>();

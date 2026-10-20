@@ -44,6 +44,11 @@ public class TestWebAppFactory : WebApplicationFactory<Program>
         // Use InMemory database for testing
         builder.UseSetting("UseInMemoryDatabase", "true");
 
+        // Module 9: pin the secure defaults so a local appsettings.Development.json (e.g. one that
+        // enables demo auto-registration) can never change what the tests assert.
+        builder.UseSetting("Labs:AutoRegister", "false");
+        builder.UseSetting("Exams:RequireDesktopClientForStart", "false");
+
         // Disable real email in tests
         builder.UseSetting("Email:SenderEmail", "test@test.com");
         builder.UseSetting("Email:AppPassword", "fake_password");

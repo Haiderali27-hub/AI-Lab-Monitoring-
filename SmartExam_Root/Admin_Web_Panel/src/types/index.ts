@@ -61,6 +61,9 @@ export interface Exam {
   status: ExamStatus;
   questionCount: number;
   isMock?: boolean;
+  earlyJoinMinutes?: number;        // Module 3: start-session opens this many minutes early
+  minAttendancePercent?: number;    // Module 9: threshold for "Recalculate from attendance"
+  enforceSeat?: boolean;            // Module 9: only the assigned workstation may start/continue
 }
 
 /** Module 2 — latest pre-exam system check of one student (GET /exams/{id}/readiness). */
@@ -101,14 +104,40 @@ export interface ExamAssignment {
   studentEmail: string;
   workstationId: string | null;
   workstationNumber: string | null;
+  workstationHostName?: string | null;
+  workstationIp?: string | null;
   isEligible: boolean;
   eligibilityNote: string | null;
+  // Module 9 — attendance (null when no record / no classes) and who made the decision
+  attendancePercent?: number | null;
+  attendedClasses?: number | null;
+  totalClasses?: number | null;
+  eligibilityOverridden?: boolean;
+  eligibilitySource?: 'Attendance' | 'Manual' | null;
+}
+
+/** POST /sections/{id}/attendance/import response (Module 9). */
+export interface AttendanceImportResult {
+  imported: number;
+  updated: number;
+  errors: { line: number; email: string; reason: string }[];
+  warnings: { line: number; email: string; reason: string }[];
+}
+
+/** POST /exams/{id}/eligibility/recalculate response (Module 9). */
+export interface RecalculateResult {
+  computed: number;
+  ineligible: number;
+  skippedOverridden: number;
+  notComputed: number;
+  minAttendancePercent: number;
 }
 
 // ── Labs / Seating (Module 9) ─────────────────────────────────
 export interface LabWorkstation {
   workstationId: string;
   machineNumber: string;
+  hostName?: string | null;             // real Windows PC name used for seat enforcement
   ipAddress: string;
   occupantName?: string | null;         // student most recently logged in from this PC
   occupantWindowsUser?: string | null;  // their Windows account
@@ -137,6 +166,8 @@ export interface StudentLiveStatus {
   violationCount: number;
   tileStatus: TileStatus;
   lastViolation?: string | null;    // human label of the most recent violation, e.g. "Blocked keys: Alt+Tab"
+  seatStatus?: 'Ok' | 'Mismatch' | 'Unassigned' | 'NotEnforced' | 'NotChecked' | null;  // Module 9
+  seatDetail?: string | null;       // "logged in from R1C2 (assigned R1C1)" while mismatched
 }
 
 export type TileStatus = 'Normal' | 'Warning' | 'Suspicious' | 'Violation';

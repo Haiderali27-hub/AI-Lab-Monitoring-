@@ -12,13 +12,13 @@
 |---|--------|---------------|--------|-----------|
 | 1 | Authentication & Device Binding | S2 | Mostly complete | 80% |
 | 2 | Pre-Exam Verification & Mock Test | S4 | **Not started** | 0% |
-| 3 | Student Exam Dashboard | S4 | Mostly complete | 80% |
+| 3 | Student Exam Dashboard | S4 | **Start gate done** (see §3.4 status) | 95% |
 | 4 | Secure Exam Environment (lockdown) | S4 | **Implemented, lab validation pending** (see §3.1 status) | 75% |
 | 5 | Live Monitoring Client Service | S5 | Barely started | 20% |
 | 6 | Submission & Backup | S6 | Partial | 50% |
 | 7 | User & Role Management | S2 | Mostly complete | 85% |
 | 8 | Exam Creation & Configuration | S3 | Mostly complete | 80% |
-| 9 | Eligibility & Access Control | S3 | Partial | 55% |
+| 9 | Eligibility & Access Control | S3 | **Implemented, lab validation pending** (see §3.3 status) | 90% |
 | 10 | Live Proctoring Dashboard | S5 | Partial | 60% |
 | 11 | AI-Assisted Evaluation | S6 | Barely started | 15% |
 | 12 | Logs, Analytics & Audit Trail | S7 | Partial | 55% |
@@ -148,6 +148,15 @@ Definition of Done for every task: code + tests listed in its row passing in CI,
 **Acceptance:** M9-U-01…03, M9-I-01…10, M9-E-01…05.
 **Effort:** 4 dev-days.
 
+**Status (2026-10-20)**
+- ✅ Done — data: migration `AddAttendanceSeatAndEarlyJoin` — `AttendanceRecords` (unique `SectionId+UserId`), `Exam.MinAttendancePercent` (existing rows 75) / `EnforceSeat` (**existing rows false**, new exams true) / `EarlyJoinMinutes`, `ExamAssignment.EligibilityOverridden` / `EligibilitySource` (string), `Workstation.HostName`; `MonitoringEventType.SeatMismatch` (severity Violation).
+- ✅ Done — attendance: `POST /api/sections/{id}/attendance/import` (multipart `file`, ≤ 1 MB; columns found by header name in any order; unknown/inactive students and bad rows reported per line, non-enrolled students imported with a warning; upsert; teachers only for their own sections; audit `ATTENDANCE_IMPORTED`) and `GET /api/sections/{id}/attendance`. Pure `AttendanceCsvParser`.
+- ✅ Done — eligibility: `POST /api/exams/{id}/eligibility/recalculate` (owner teacher/admin; 409 once Ended) via pure `EligibilityCalculator` (unrounded compare, note `Attendance 60% < 75%`; no record / zero classes → not computed, decision kept); `ELIGIBILITY_COMPUTED` per student + `ELIGIBILITY_RECALCULATED` summary. `PUT eligibility` turns only rows that actually change into `Manual` overrides (`ELIGIBILITY_OVERRIDDEN`) and accepts `clearOverride` (`ELIGIBILITY_OVERRIDE_CLEARED`). `GET assignments` adds `attendancePercent/attendedClasses/totalClasses/eligibilityOverridden/eligibilitySource/workstationHostName/workstationIp`.
+- ✅ Done — seat enforcement (`Services/SeatGuard`): student-login stamps `client=desktop` + `machine=<PC name>` into the token; `start-session`, `student/start` and every heartbeat compare it (or the request IP — `SeatMatch: MachineName | Ip | Either`, top-level key) with the assigned workstation's `HostName ?? MachineNumber` / `IpAddress`, only when a seat is assigned and `EnforceSeat`. Start → 403 `SEAT_MISMATCH` + audit + `ViolationEvent` to `exam:{id}`, no session; heartbeat → `SeatMismatch` event (de-duplicated per seat for 5 min), audit, alert, `seatStatus/expectedSeat/actualMachine/seatDetail` on `StudentHeartbeat`. `student/current` reports `seatStatus` and folds it into `canStartNow`/message. Web-portal tokens carry no machine identity and are not seat-checked; `Exams:RequireDesktopClientForStart=true` (recommended in production, see `appsettings.example.json`) refuses them with `DESKTOP_CLIENT_REQUIRED`.
+- ✅ Done — labs: auto-registration only with `Labs:AutoRegister=true` (the `dotnet run` launch profiles set it for the demo; tests pin it off); `PUT/DELETE /api/labs/{labId}/workstations/{id}` (HostName, IP validation, 409 while assigned, audited) and `GET /api/labs/unregistered-machines`.
+- ✅ Done — web: Eligibility page Attendance column, Manual/Attendance badge with "clear override", Upload Attendance dialog (CSV file → Import, per-line errors/warnings), Recalculate, minimum shown, dirty-rows-only save; Live Monitor "Seat mismatch: logged in from X (assigned Y)" + "Wrong seat" badge; Labs page PC-name field, edit/delete, unregistered-PC chips; create/edit wizard "Early join (minutes)", "Minimum attendance %", "Enforce assigned seat".
+- ⏳ Remaining: manual lab check M9-M-01 (register each lab PC's Windows name); thesis note — the machine name is client-reported, HWID binds the student not the seat (future: admin-registered `Workstation.HwidHash`); FlaUI for the desktop seat message.
+
 ### 3.4 Module 3 — Exam Dashboard fixes
 
 - Server: `start-session` rejects before `StartTime` (allow `Exam.EarlyJoinMinutes`, default 0) → `EXAM_NOT_STARTED`. Update `Module8ExamCreationTests` which currently starts a future exam.
@@ -155,6 +164,13 @@ Definition of Done for every task: code + tests listed in its row passing in CI,
 - Show readiness indicators (Module 2) on the dashboard.
 
 **Acceptance:** M3-I-01…04, M3-E-01…03, M3-D-01…02. **Effort:** 1.5 dev-days.
+
+**Status (2026-10-20)**
+- ✅ Done — server: `start-session` and `student/start` refuse a start before `StartTime − EarlyJoinMinutes` with `EXAM_NOT_STARTED` (+ `startsAtUtc/opensAtUtc/serverTimeUtc`); `student/start` reports an over window as `EXAM_CLOSED` (`OUTSIDE_EXAM_WINDOW` is gone). `Exam.EarlyJoinMinutes` (0–60, validated; create/edit/detail). `student/current` adds `secondsUntilStart`, `opensAtUtc`, `earlyJoinMinutes`, `canStartNow`, `seatStatus`. `Module8ExamCreationTests` MCQ tests now start an exam that has begun.
+- ✅ Done — desktop: pure `Core/Dashboard/StartGate` (clock offset from `serverTimeUtc`, so changing the PC clock does not unlock Start); dashboard clock reads "STARTS IN" until the opening, then "TIME REMAINING"; Start unlocks by itself at the opening (still needs check-in + readiness) without re-polling; server messages (`EXAM_NOT_STARTED`, `SEAT_MISMATCH`) are shown as-is.
+- ✅ Done — web portal: countdown uses the exam's `startTime` (the fallback used "now", which ended the countdown at once).
+- Fairness note: early joiners get up to `EarlyJoinMinutes` extra writing time — the end stays `StartTime + Duration`. Teachers should keep the window small (default 0).
+- ⏳ Remaining: FlaUI M3-D-01/02.
 
 ---
 
@@ -249,7 +265,7 @@ Backend: `MonitoringController` new endpoints `POST screenshot`, `POST events/ba
 
 1. `AddLockdownConfig` — Exam.LockdownMode, BlockMultiMonitor
 2. `AddReadinessChecks` — ReadinessChecks table; Exam.RequireReadiness/RequireWebcam/RequireMic/IsMock/EarlyJoinMinutes
-3. `AddAttendanceAndSeatEnforcement` — AttendanceRecords; Exam.MinAttendancePercent/EnforceSeat; ExamAssignment.EligibilityOverridden/EligibilitySource
+3. ✅ `AddAttendanceSeatAndEarlyJoin` — AttendanceRecords; Exam.MinAttendancePercent/EnforceSeat/EarlyJoinMinutes (EarlyJoinMinutes was not in #2 after all); ExamAssignment.EligibilityOverridden/EligibilitySource; Workstation.HostName
 4. `AddScreenshotsAndClientEventId` — Screenshots; MonitoringEvent.ClientEventId (unique); Exam.ScreenshotIntervalSeconds/WebcamIntervalSeconds; ExamSession.LastHeartbeatAt/ExtraMinutes
 5. `AddAnswerRevision` — Answer.Revision, ClientSavedAt
 6. `AddIncidentsAndProctors` — Incidents, ExamProctors
@@ -268,7 +284,9 @@ Every migration: tested on a copy of the Neon DB first (`pg_dump` → local dock
 | `POST /api/exams/{id}/readiness` | Student | 2 |
 | `GET /api/exams/{id}/readiness` | Staff | 2 |
 | `POST /api/sections/{id}/attendance/import` | Teacher/Admin | 9 |
+| `GET /api/sections/{id}/attendance` | Teacher/Admin | 9 |
 | `POST /api/exams/{id}/eligibility/recalculate` | Teacher | 9 |
+| `PUT/DELETE /api/labs/{labId}/workstations/{id}`, `GET /api/labs/unregistered-machines` | Admin | 9 |
 | `POST /api/monitoring/screenshot` | Student | 5 |
 | `POST /api/monitoring/events/batch` | Student | 5 |
 | `GET /api/exams/{id}/sessions/{sid}/screenshots` | Staff (owner/proctor) | 5/10 |
@@ -279,7 +297,7 @@ Every migration: tested on a copy of the Neon DB first (`pg_dump` → local dock
 | `POST /api/analytics/reports/{type}` (`attendance|violations|scores|evidence-zip|excel`) | Staff | 12 |
 | `POST /api/auth/refresh` (real) | Any | 1 |
 
-Error codes are returned in the existing `ApiEnvelope` shape: `READINESS_REQUIRED`, `EXAM_NOT_STARTED`, `SEAT_MISMATCH`, `NOT_ELIGIBLE`, `EXAM_CLOSED`, `STALE_REVISION`.
+Error codes are returned in the existing `ApiEnvelope` shape: `READINESS_REQUIRED`, `EXAM_NOT_STARTED`, `SEAT_MISMATCH`, `DESKTOP_CLIENT_REQUIRED`, `NOT_ELIGIBLE`, `EXAM_CLOSED`, `STALE_REVISION`.
 
 ---
 

@@ -116,6 +116,40 @@ namespace Backend_API.Migrations
                     b.ToTable("Answers");
                 });
 
+            modelBuilder.Entity("Backend_API.Models.AttendanceRecord", b =>
+                {
+                    b.Property<Guid>("AttendanceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttendedClasses")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ImportedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TotalClasses")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("AttendanceId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("SectionId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("AttendanceRecords");
+                });
+
             modelBuilder.Entity("Backend_API.Models.AuditLog", b =>
                 {
                     b.Property<Guid>("LogId")
@@ -247,6 +281,12 @@ namespace Backend_API.Migrations
                     b.Property<int>("DurationMinutes")
                         .HasColumnType("integer");
 
+                    b.Property<int>("EarlyJoinMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("EnforceSeat")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Instructions")
                         .HasColumnType("text");
 
@@ -257,6 +297,9 @@ namespace Backend_API.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
+
+                    b.Property<double>("MinAttendancePercent")
+                        .HasColumnType("double precision");
 
                     b.Property<int>("PlagiarismThreshold")
                         .HasColumnType("integer");
@@ -299,6 +342,13 @@ namespace Backend_API.Migrations
 
                     b.Property<string>("EligibilityNote")
                         .HasColumnType("text");
+
+                    b.Property<bool>("EligibilityOverridden")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("EligibilitySource")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<Guid>("ExamId")
                         .HasColumnType("uuid");
@@ -747,6 +797,10 @@ namespace Backend_API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("HostName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<string>("IpAddress")
                         .IsRequired()
                         .HasColumnType("text");
@@ -812,6 +866,25 @@ namespace Backend_API.Migrations
                     b.Navigation("ExamSession");
 
                     b.Navigation("Question");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.AttendanceRecord", b =>
+                {
+                    b.HasOne("Backend_API.Models.Section", "Section")
+                        .WithMany()
+                        .HasForeignKey("SectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend_API.Models.User", "Student")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Section");
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("Backend_API.Models.AuditLog", b =>

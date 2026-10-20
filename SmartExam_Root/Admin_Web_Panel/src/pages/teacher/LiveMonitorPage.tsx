@@ -90,13 +90,19 @@ export default function LiveMonitorPage() {
         answeredCount: data.answeredCount ?? 0,
         totalQuestions: data.totalQuestions ?? activeExam.questionCount,
         violationCount: data.violationCount ?? 0,
-        tileStatus: (data.tileStatus || 'Normal') as TileStatus
+        tileStatus: (data.tileStatus || 'Normal') as TileStatus,
+        seatStatus: data.seatStatus ?? null,
+        seatDetail: data.seatDetail ?? null
       };
 
       setStudentStatuses(prev => {
         const next = new Map(prev);
-        // Keep the last violation label across heartbeats (heartbeats don't carry it).
-        next.set(data.userId, { ...updatedStatus, lastViolation: prev.get(data.userId)?.lastViolation ?? null });
+        // Keep the last violation label across heartbeats (heartbeats don't carry it) — except a
+        // wrong seat (Module 9), which the server re-checks on every heartbeat and reports itself.
+        const lastViolation = data.seatStatus === 'Mismatch'
+          ? `Seat mismatch: ${data.seatDetail || 'not at the assigned workstation'}`
+          : prev.get(data.userId)?.lastViolation ?? null;
+        next.set(data.userId, { ...updatedStatus, lastViolation });
         return next;
       });
 
@@ -486,6 +492,11 @@ export default function LiveMonitorPage() {
                         <p className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">
                           Seat {s.workstationNumber}{s.machineName ? ` • ${s.machineName}` : ''}{s.windowsUsername ? ` (${s.windowsUsername})` : ''}
                         </p>
+                        {s.seatStatus === 'Mismatch' && (
+                          <span data-testid="seat-mismatch" className="inline-block mt-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[9px] font-bold uppercase tracking-wider">
+                            Wrong seat
+                          </span>
+                        )}
                       </div>
                       <div className="flex flex-col items-end">
                         <span className={`material-symbols-outlined ${heartColor}`} style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>

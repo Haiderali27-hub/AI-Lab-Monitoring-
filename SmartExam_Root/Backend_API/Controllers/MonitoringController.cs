@@ -18,10 +18,16 @@ namespace Backend_API.Controllers;
 [Authorize(Roles = "Student")]
 public class MonitoringController(
     AppDbContext db,
-    IHubContext<MonitoringHub> hubContext) : ControllerBase
+    IHubContext<MonitoringHub> hubContext,
+    SeatGuard seats) : ControllerBase
 {
     private readonly AppDbContext _db = db;
     private readonly IHubContext<MonitoringHub> _hubContext = hubContext;
+    private readonly SeatGuard _seats = seats;
+
+    // A student sitting at the wrong seat heartbeats every 10 s; record the violation once per
+    // (session, seat actually used) in this window instead of on every beat.
+    public static readonly TimeSpan SeatMismatchDedupWindow = TimeSpan.FromMinutes(5);
 
     [HttpPost("heartbeat")]
     public async Task<IActionResult> Heartbeat([FromBody] HeartbeatPayload request)
@@ -60,6 +66,44 @@ public class MonitoringController(
             });
         }
 
+        // Module 9: the seat is re-checked on every heartbeat, not only at start.
+        ExamAssignment? assignment = null;
+        SeatCheckResult? seat = null;
+        if (session is not null)
+        {
+            assignment = await _db.ExamAssignments
+                .Include(a => a.Exam)
+                .Include(a => a.Workstation)
+                .FirstOrDefaultAsync(a => a.ExamId == session.ExamId && a.UserId == studentId);
+            if (assignment is not null)
+            {
+                seat = _seats.Check(assignment, User, HttpContext);
+                // Only a running session is flagged (a late heartbeat after submit is not a violation).
+                if (seat.IsMismatch && session.Status == SessionStatus.InProgress)
+                {
+                    var mismatchPayload = SeatGuard.MismatchPayload(seat, "heartbeat");
+                    var since = now - SeatMismatchDedupWindow;
+                    var alreadyRecorded = await _db.MonitoringEvents.AnyAsync(e =>
+                        e.ExamSessionId == session.SessionId &&
+                        e.EventType == MonitoringEventType.SeatMismatch &&
+                        e.RecordedAt >= since &&
+                        e.Payload == mismatchPayload);
+                    if (!alreadyRecorded)
+                    {
+                        _db.MonitoringEvents.Add(new MonitoringEvent
+                        {
+                            EventId = Guid.NewGuid(),
+                            ExamSessionId = session.SessionId,
+                            EventType = MonitoringEventType.SeatMismatch,
+                            Payload = mismatchPayload,
+                            RecordedAt = now
+                        });
+                        await _seats.ReportMismatchAsync(session.ExamId, studentId, session.SessionId, seat, "heartbeat");
+                    }
+                }
+            }
+        }
+
         var user = await _db.Users
             .Include(u => u.DeviceBinding)
             .FirstOrDefaultAsync(u => u.UserId == studentId);
@@ -93,9 +137,6 @@ public class MonitoringController(
             var examEnd = session.Exam.StartTime.AddMinutes(session.Exam.DurationMinutes);
             remainingSeconds = Math.Max(0, (int)(examEnd - now).TotalSeconds);
 
-            var assignment = await _db.ExamAssignments
-                .Include(a => a.Workstation)
-                .FirstOrDefaultAsync(a => a.ExamId == session.ExamId && a.UserId == studentId);
             if (assignment?.Workstation is not null)
             {
                 workstationNumber = assignment.Workstation.MachineNumber;
@@ -122,7 +163,12 @@ public class MonitoringController(
                     answeredCount,
                     totalQuestions,
                     violationCount,
-                    tileStatus
+                    tileStatus,
+                    // Module 9: Ok | Mismatch | Unassigned | NotEnforced | NotChecked
+                    seatStatus = seat?.Status.ToString() ?? nameof(SeatStatus.Unassigned),
+                    expectedSeat = seat?.ExpectedSeat,
+                    actualMachine = seat?.ActualMachine,
+                    seatDetail = seat is { IsMismatch: true } ? seat.Detail : null
                 });
         }
 

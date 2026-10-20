@@ -77,7 +77,7 @@ export default function StudentDashboardPage() {
             title: basic.title,
             courseName: basic.courseName,
             status: basic.status,
-            startTime: basic.startedAt || new Date().toISOString(),
+            startTime: basic.startTime || basic.startedAt || new Date().toISOString(),
             durationMinutes: 60,
             location: 'Lab A — Block 3 (PC-04)'
           });

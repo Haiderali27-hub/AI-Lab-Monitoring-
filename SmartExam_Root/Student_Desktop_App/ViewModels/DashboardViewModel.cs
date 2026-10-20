@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Windows.Threading;
 using Student_Desktop_App.Core;
+using Student_Desktop_App.Core.Dashboard;
 using Student_Desktop_App.Core.Readiness;
 using Student_Desktop_App.Services;
 using Student_Desktop_App.Services.Readiness;
@@ -36,8 +37,12 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
     private ReadinessRequirements _requirements = new(false, false, true, Core.Lockdown.LockdownMode.Report);
     private bool _canStartExam;
     private bool _examInProgress;
-    private bool _baseEligibleToStart;
     private bool _lowTime;
+    private string _countdownLabel = "TIME REMAINING";
+    // Module 3 start gate, evaluated on the server clock (see Core/Dashboard/StartGate).
+    private StartGateInput? _gate;
+    private TimeSpan _clockOffset;
+    private bool _wasOpen;
     private int _remainingSeconds;
     private int _unreadNotifications;
     private Guid? _currentExamId;
@@ -127,6 +132,13 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
     {
         get => _remainingTime;
         set => SetProperty(ref _remainingTime, value);
+    }
+
+    // "TIME REMAINING" once the exam is open, "STARTS IN" before (RemainingTime then counts to the opening).
+    public string CountdownLabel
+    {
+        get => _countdownLabel;
+        set => SetProperty(ref _countdownLabel, value);
     }
 
     public string MonitoringStatus
@@ -292,7 +304,14 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         var result = await _apiClient.StartExamAsync(token.AccessToken, cancellationToken);
         if (!result.Success || result.Data is null)
         {
+            // Server messages are authoritative: EXAM_NOT_STARTED (our clock was off), SEAT_MISMATCH
+            // ("This exam must be taken from seat R1C1 …"), NOT_ELIGIBLE, EXAM_CLOSED, READINESS_REQUIRED.
             Message = result.Message;
+            if (result.Code == "SEAT_MISMATCH" && _gate is not null)
+            {
+                _gate = _gate with { SeatStatus = "Mismatch" };
+                UpdateStartEligibility();
+            }
             if (result.Code == "READINESS_REQUIRED")
             {
                 // Server says our last pass is missing or expired (> 30 min) — run it again.
@@ -427,7 +446,8 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
     public void UpdateRemainingSeconds(int seconds)
     {
         _remainingSeconds = Math.Max(0, seconds);
-        RemainingTime = TimeSpan.FromSeconds(_remainingSeconds).ToString("hh\\:mm\\:ss");
+        if (_gate is not null) _gate = _gate with { EndUtc = StartGate.ServerNow(_clockOffset, DateTime.UtcNow).AddSeconds(_remainingSeconds) };
+        RefreshCountdownDisplay();
         if (_remainingSeconds > 0 && !_countdownTimer.IsEnabled)
         {
             _countdownTimer.Start();
@@ -445,8 +465,15 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         ProctorName = status.ProctorName ?? "Not assigned";
         Seat = status.Seat ?? "Unassigned";
         _remainingSeconds = Math.Max(0, status.RemainingSeconds);
-        RemainingTime = TimeSpan.FromSeconds(_remainingSeconds).ToString("hh\\:mm\\:ss");
-        LowTime = _remainingSeconds is > 0 and <= 300;
+        _clockOffset = StartGate.ClockOffset(status.ServerTimeUtc, DateTime.UtcNow);
+        _gate = new StartGateInput(
+            status.IsEligible,
+            status.Status,
+            StartGate.OpensAt(status.ExamStartUtc, status.EarlyJoinMinutes, status.OpensAtUtc),
+            status.ExamEndUtc,
+            status.SeatStatus);
+        _wasOpen = StartGate.HasOpened(_gate.OpensAtUtc, _clockOffset, DateTime.UtcNow);
+        RefreshCountdownDisplay();
         ExamInProgress = string.Equals(status.Status, "InProgress", StringComparison.OrdinalIgnoreCase);
 
         // Parse the allowed-apps JSON array into chips
@@ -490,11 +517,6 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         if (status.ReadinessPassed) ReadinessStatus = "Passed (valid 30 min)";
         else if (ReadinessItems.Count == 0) ReadinessStatus = status.RequireReadiness ? "Required before start" : "Optional for this exam";
 
-        _baseEligibleToStart = status.IsEligible &&
-                       _remainingSeconds > 0 &&
-                       !string.Equals(status.Status, "InProgress", StringComparison.OrdinalIgnoreCase) &&
-                       !string.Equals(status.Status, "Submitted", StringComparison.OrdinalIgnoreCase);
-
         UpdateStartEligibility();
 
         _countdownTimer.Tick -= CountdownTick;
@@ -509,19 +531,48 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         if (_remainingSeconds <= 0)
         {
             RemainingTime = "00:00:00";
+            CountdownLabel = "TIME REMAINING";
             LowTime = false;
             _countdownTimer.Stop();
+            UpdateStartEligibility();
             return;
         }
 
         _remainingSeconds--;
-        RemainingTime = TimeSpan.FromSeconds(_remainingSeconds).ToString("hh\\:mm\\:ss");
-        LowTime = _remainingSeconds <= 300;
+        RefreshCountdownDisplay();
+
+        // The opening moment passed while the student waited on the dashboard: unlock Start
+        // (still subject to check-in/readiness) without re-polling, which would reset check-in.
+        var open = _gate is not null && StartGate.HasOpened(_gate.OpensAtUtc, _clockOffset, DateTime.UtcNow);
+        if (open && !_wasOpen)
+        {
+            _wasOpen = true;
+            if (_gate!.IsEligible) Message = "The exam is open. Check in and start when you are ready.";
+            UpdateStartEligibility();
+        }
+    }
+
+    // Before the exam opens the big clock counts down to the opening; afterwards to the end.
+    private void RefreshCountdownDisplay()
+    {
+        var untilOpen = _gate is null ? TimeSpan.Zero : StartGate.UntilOpen(_gate.OpensAtUtc, _clockOffset, DateTime.UtcNow);
+        if (untilOpen > TimeSpan.Zero && _remainingSeconds > 0)
+        {
+            CountdownLabel = "STARTS IN";
+            RemainingTime = StartGate.Format(untilOpen);
+            LowTime = false;
+            return;
+        }
+
+        CountdownLabel = "TIME REMAINING";
+        RemainingTime = StartGate.Format(TimeSpan.FromSeconds(_remainingSeconds));
+        LowTime = _remainingSeconds is > 0 and <= 300;
     }
 
     private void UpdateStartEligibility()
     {
-        CanStartExam = _baseEligibleToStart && AttendanceConfirmed && (!RequireReadiness || ReadinessPassed);
+        var gateOpen = _gate is not null && StartGate.CanStart(_gate, _clockOffset, DateTime.UtcNow);
+        CanStartExam = gateOpen && AttendanceConfirmed && (!RequireReadiness || ReadinessPassed);
     }
 }
 

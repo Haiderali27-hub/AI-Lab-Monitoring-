@@ -63,6 +63,10 @@ export default function CreateExamPage() {
   const [requireWebcam, setRequireWebcam] = useState(false);
   const [requireMic, setRequireMic] = useState(false);
   const [isMock, setIsMock] = useState(false);
+  // Module 3 / 9 — start gate and access control
+  const [earlyJoinMinutes, setEarlyJoinMinutes] = useState(0);
+  const [minAttendancePercent, setMinAttendancePercent] = useState(75);
+  const [enforceSeat, setEnforceSeat] = useState(true);
 
   const [assignedStudentIds, setAssignedStudentIds] = useState<string[]>([]);
   // In edit mode, the prefetched assignment list must survive the section-students reload
@@ -104,6 +108,9 @@ export default function CreateExamPage() {
         setRequireWebcam(exam.requireWebcam ?? false);
         setRequireMic(exam.requireMic ?? false);
         setIsMock(exam.isMock ?? false);
+        setEarlyJoinMinutes(exam.earlyJoinMinutes ?? 0);
+        setMinAttendancePercent(exam.minAttendancePercent ?? 75);
+        setEnforceSeat(exam.enforceSeat ?? true);
         const qs = [...(exam.questions ?? [])].sort((a: any, b: any) => a.orderIndex - b.orderIndex);
         setQuestions(qs.map((q: any) => ({
           type: q.type as QuestionType,
@@ -357,6 +364,9 @@ export default function CreateExamPage() {
       requireWebcam,
       requireMic,
       isMock,
+      earlyJoinMinutes,
+      minAttendancePercent,
+      enforceSeat,
       questions: questions.map(q => ({
         type: q.type,
         bodyText: q.bodyText,
@@ -919,6 +929,54 @@ export default function CreateExamPage() {
                     type="checkbox"
                     checked={isMock}
                     onChange={e => setIsMock(e.target.checked)}
+                    className="mt-1"
+                  />
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="early-join" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                      Early join (minutes)
+                    </label>
+                    <input
+                      id="early-join"
+                      type="number"
+                      min={0}
+                      max={60}
+                      value={earlyJoinMinutes}
+                      onChange={e => setEarlyJoinMinutes(Math.max(0, Math.min(60, Number(e.target.value) || 0)))}
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-slate-800"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Students may start this many minutes before the start time (0–60). The end time does not move.</p>
+                  </div>
+                  <div>
+                    <label htmlFor="min-attendance" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                      Minimum attendance %
+                    </label>
+                    <input
+                      id="min-attendance"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.1"
+                      value={minAttendancePercent}
+                      onChange={e => setMinAttendancePercent(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-slate-800"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Used by "Recalculate" on the Eligibility page.</p>
+                  </div>
+                </div>
+
+                <label htmlFor="enforce-seat" className="flex items-start justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                  <div className="space-y-1">
+                    <span className="font-semibold text-sm text-slate-800 block">Enforce assigned seat</span>
+                    <span className="text-xs text-slate-500">A student with a mapped workstation can only start (and keep heartbeating) from that PC; otherwise start is refused and the proctor is alerted.</span>
+                  </div>
+                  <input
+                    id="enforce-seat"
+                    type="checkbox"
+                    checked={enforceSeat}
+                    onChange={e => setEnforceSeat(e.target.checked)}
                     className="mt-1"
                   />
                 </label>

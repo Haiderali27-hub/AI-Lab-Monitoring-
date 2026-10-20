@@ -33,6 +33,7 @@ public class AppDbContext : DbContext
     public DbSet<ExamReport> ExamReports => Set<ExamReport>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ReadinessCheck> ReadinessChecks => Set<ReadinessCheck>();
+    public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -167,5 +168,18 @@ public class AppDbContext : DbContext
             .HasOne(r => r.Exam).WithMany().HasForeignKey(r => r.ExamId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<ReadinessCheck>()
             .HasOne(r => r.User).WithMany().HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        // Module 9 attendance — one row per (section, student), upserted by the CSV import
+        modelBuilder.Entity<AttendanceRecord>().HasKey(r => r.AttendanceId);
+        modelBuilder.Entity<AttendanceRecord>()
+            .HasIndex(r => new { r.SectionId, r.UserId }).IsUnique();
+        modelBuilder.Entity<AttendanceRecord>()
+            .HasOne(r => r.Section).WithMany().HasForeignKey(r => r.SectionId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<AttendanceRecord>()
+            .HasOne(r => r.Student).WithMany().HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        // Module 9 eligibility provenance + seat identity
+        modelBuilder.Entity<ExamAssignment>().Property(a => a.EligibilitySource).HasConversion<string>().HasMaxLength(16);
+        modelBuilder.Entity<Workstation>().Property(w => w.HostName).HasMaxLength(128);
     }
 }

@@ -31,6 +31,12 @@ public partial class ExamDashboard : Window
         _monitoringService.SessionRevoked += () => Dispatcher.Invoke(() => KickToLogin("Your session was ended by an administrator."));
 
         _sessionWatch.Tick += SessionWatch_Tick;
+        // The start gate can open on its own (countdown reaches the exam's opening time).
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DashboardViewModel.CanStartExam))
+                StartExamButton.IsEnabled = _viewModel.CanStartExam;
+        };
         DataContext = _viewModel;
     }
 

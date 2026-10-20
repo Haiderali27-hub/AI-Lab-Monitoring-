@@ -36,12 +36,15 @@ public class Module8ExamCreationTests : IDisposable
 
     // ── Payload builders ─────────────────────────────────────────────
 
-    private object ValidExamPayload(string title = "Module 8 Exam", string? instructions = "Read every question carefully. No internet allowed.") => new
+    // startTime defaults to 2 h ahead; tests that then START the exam pass a past time, because
+    // start-session refuses a start before StartTime (Module 3, EXAM_NOT_STARTED).
+    private object ValidExamPayload(string title = "Module 8 Exam", string? instructions = "Read every question carefully. No internet allowed.",
+        DateTime? startTime = null) => new
     {
         title,
         instructions,
         sectionId = _seed.SectionId,
-        startTime = DateTime.UtcNow.AddHours(2),
+        startTime = startTime ?? DateTime.UtcNow.AddHours(2),
         durationMinutes = 90,
         allowedApps = "[\"code.exe\"]",
         aiEvaluationEnabled = true,
@@ -183,7 +186,7 @@ public class Module8ExamCreationTests : IDisposable
     {
         // Teacher replaces the seed exam questions with the MCQ set
         await AuthHelper.AuthorizeAs(_client, SeededData.TeacherEmail, SeededData.TeacherPassword);
-        var putResp = await _client.PutAsJsonAsync($"/api/exams/{_seed.ExamId}", ValidExamPayload(title: "MCQ Grading Exam"));
+        var putResp = await _client.PutAsJsonAsync($"/api/exams/{_seed.ExamId}", ValidExamPayload(title: "MCQ Grading Exam", startTime: DateTime.UtcNow.AddMinutes(-1)));
         putResp.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Find the MCQ question id
@@ -221,7 +224,7 @@ public class Module8ExamCreationTests : IDisposable
     public async Task McqAnswer_WrongOption_ScoresZero()
     {
         await AuthHelper.AuthorizeAs(_client, SeededData.TeacherEmail, SeededData.TeacherPassword);
-        await _client.PutAsJsonAsync($"/api/exams/{_seed.ExamId}", ValidExamPayload(title: "MCQ Wrong Answer Exam"));
+        await _client.PutAsJsonAsync($"/api/exams/{_seed.ExamId}", ValidExamPayload(title: "MCQ Wrong Answer Exam", startTime: DateTime.UtcNow.AddMinutes(-1)));
         var exam = await (await _client.GetAsync($"/api/exams/{_seed.ExamId}")).Content.ReadFromJsonAsync<JsonElement>();
         var mcqId = exam.GetProperty("questions").EnumerateArray()
             .First(q => q.GetProperty("type").GetString() == "Mcq")

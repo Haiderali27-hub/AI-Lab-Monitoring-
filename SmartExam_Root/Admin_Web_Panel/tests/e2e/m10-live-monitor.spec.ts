@@ -288,11 +288,25 @@ test.describe('M4 — Secure Exam Environment (dashboard side)', () => {
 });
 
 test.describe('M9 — Eligibility & Access Control (dashboard side)', () => {
-  test.fixme('M9-E-05 Seat mismatch alert', async ({ page, request }) => {
-    const { students, users } = await openLiveExam(page, request);
-    // Seat R1C1 assigned, simulator logs in from machine "R1C2" (planned M9-I-06 / M9-I-09)
-    await students[0].login(students[0].hwid, 'R1C2');
+  test('M9-E-05 Seat mismatch alert', async ({ page, request }) => {
+    const teacher = await StaffApi.teacher(request);
+    await teacher.endAllActiveExams();
+    const { students, users, exam } = await examWithStudents(request, 1);
+    const r1c1 = await teacher.workstation('R1C1');
+    expect((await teacher.assignSeat(exam.examId, users[0].userId, r1c1.workstationId)).status()).toBe(200);
+
+    // Seat R1C1 assigned: the simulator starts from R1C1 (start activates the exam) ...
+    expect((await students[0].login(students[0].hwid, 'R1C1')).status()).toBe(200);
+    await students[0].start(exam.examId);
+    await signInWeb(page, teacher);
+    await page.goto('/teacher/live-monitor');
+    await expect(page.getByText(`Live Monitor — ${exam.title}`)).toBeVisible();
+
+    // ... then the same bound student shows up from machine R1C2 mid-exam (M9-I-09).
+    expect((await students[0].login(students[0].hwid, 'R1C2')).status()).toBe(200);
     const tile = await waitForTile(page, students[0], users[0].name);
-    await expect(tile).toContainText(/seat mismatch/i);
+    await expect(tile).toContainText(/seat mismatch: logged in from R1C2/i);
+    await expect(tile.getByTestId('seat-mismatch')).toBeVisible();
+    await expect(tile.getByTestId('tile-status')).toHaveText('Critical');
   });
 });

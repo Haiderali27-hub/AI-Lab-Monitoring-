@@ -75,7 +75,8 @@ public static class DbSeeder
         await db.Labs.AddAsync(lab);
         await db.Workstations.AddRangeAsync(ws1, ws2);
 
-        // (2) The REAL lab: any machine a student logs in from is auto-registered here,
+        // (2) The REAL lab: with Labs:AutoRegister=true (set by the dotnet-run launch profiles for
+        //     demos; off by default) any machine a student logs in from is auto-registered here,
         //     so its actual PC name + the student on it appears live. Starts empty.
         var engLab = new Lab { Name = "Systems Engineering Lab", Location = "Block A, Room 105" };
         await db.Labs.AddAsync(engLab);
@@ -148,7 +149,7 @@ public static class DbSeeder
         await db.Questions.AddRangeAsync(q1, q2, q3);
         await db.TestCases.AddRangeAsync(q1_tc1, q1_tc2);
 
-        // Assign both students; seats are auto-mapped from the Systems Engineering Lab on login.
+        // Assign both students without seats (no seat → no seat enforcement); a teacher maps seats on the Eligibility page.
         await db.ExamAssignments.AddRangeAsync(
             new ExamAssignment { Exam = exam, Student = student1, IsEligible = true },
             new ExamAssignment { Exam = exam, Student = student2, IsEligible = true }

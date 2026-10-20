@@ -319,7 +319,7 @@
                             <DropShadowEffect BlurRadius="22" Opacity="0.06" ShadowDepth="2" Color="#1B2A4A" />
                         </Border.Effect>
                         <StackPanel HorizontalAlignment="Center">
-                            <TextBlock Text="TIME REMAINING" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Faint}" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding CountdownLabel}" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Faint}" HorizontalAlignment="Center" />
                             <TextBlock Text="{Binding RemainingTime}" FontSize="46" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">

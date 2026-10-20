@@ -14,7 +14,7 @@ namespace Backend_API.Tests.Tests.Acceptance;
 /// <summary>
 /// M9 — Eligibility &amp; Access Control (TEST_CASES.md §M9, layers U (via API) and I).
 /// M9-A-01 (manual toggle blocks start) is covered here as M3_I_04 and in Playwright.
-/// Planned contract: IMPLEMENTATION_PLAN.md §3.3 — attendance CSV import, recalculate endpoint,
+/// Contract: IMPLEMENTATION_PLAN.md §3.3 — attendance CSV import, recalculate endpoint,
 /// EligibilityOverridden, seat enforcement (403 SEAT_MISMATCH), Labs:AutoRegister=false by default.
 /// The seeded student is assigned to workstation PC-01 / 192.168.1.1 on the seeded exam.
 /// </summary>
@@ -46,7 +46,7 @@ public class Module9EligibilityAcceptanceTests : IDisposable
 
     // ── U rows expressed through the API ─────────────────────────────────────
 
-    [Fact(Skip = "Pending: M9-U-01 — attendance percentage calculation")]
+    [Fact]
     public async Task M9_U_01_Attendance30Of40_Is75Percent_Eligible()
     {
         var teacher = await _host.AsTeacher();
@@ -57,7 +57,7 @@ public class Module9EligibilityAcceptanceTests : IDisposable
         row.GetProperty("attendancePercent").GetDouble().Should().Be(75.0);
     }
 
-    [Fact(Skip = "Pending: M9-U-02 — 75% threshold boundary")]
+    [Fact]
     public async Task M9_U_02_ThresholdBoundary_74_9Ineligible_75Eligible()
     {
         var teacher = await _host.AsTeacher();
@@ -69,7 +69,7 @@ public class Module9EligibilityAcceptanceTests : IDisposable
         For(rows, _host.Seed.Student2Id).GetProperty("isEligible").GetBoolean().Should().BeTrue("75% meets the minimum");
     }
 
-    [Fact(Skip = "Pending: M9-U-03 — zero classes is not computed")]
+    [Fact]
     public async Task M9_U_03_ZeroClasses_NotComputed_AndFlagged()
     {
         var teacher = await _host.AsTeacher();
@@ -82,7 +82,7 @@ public class Module9EligibilityAcceptanceTests : IDisposable
 
     // ── I rows ───────────────────────────────────────────────────────────────
 
-    [Fact(Skip = "Pending: M9-I-01 — attendance CSV import")]
+    [Fact]
     public async Task M9_I_01_AttendanceCsvImport_StoresRecords()
     {
         var teacher = await _host.AsTeacher();
@@ -100,7 +100,7 @@ public class Module9EligibilityAcceptanceTests : IDisposable
             .StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
-    [Fact(Skip = "Pending: M9-I-02 — recalculate eligibility from attendance")]
+    [Fact]
     public async Task M9_I_02_Recalculate_60PercentWithMin75_SetsIneligible_WithNote()
     {
         var teacher = await _host.AsTeacher();
@@ -114,7 +114,7 @@ public class Module9EligibilityAcceptanceTests : IDisposable
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
-    [Fact(Skip = "Pending: M9-I-03 — manual overrides survive recalculation")]
+    [Fact]
     public async Task M9_I_03_Recalculate_KeepsManualOverride()
     {
         var teacher = await _host.AsTeacher();
@@ -132,7 +132,7 @@ public class Module9EligibilityAcceptanceTests : IDisposable
         (await _host.AuditLogsAsync("ELIGIBILITY_OVERRIDDEN")).Should().NotBeEmpty();
     }
 
-    [Fact(Skip = "Pending: M9-I-04 — eligibility decisions audited")]
+    [Fact]
     public async Task M9_I_04_Recalculate_AuditsEligibilityComputedPerStudent()
     {
         var teacher = await _host.AsTeacher();
@@ -145,14 +145,14 @@ public class Module9EligibilityAcceptanceTests : IDisposable
         string.Join("|", logs.Select(l => l.GetRawText())).Should().Contain(_host.Seed.StudentId.ToString()).And.Contain(_host.Seed.Student2Id.ToString());
     }
 
-    [Fact(Skip = "Pending: M9-I-05 — seat enforcement (match by machine name)")]
+    [Fact]
     public async Task M9_I_05_SeatMatchByMachineName_Start200()
     {
         var student = await _host.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "PC-01");
         (await _host.StartSessionRawAsync(student, _host.Seed.ExamId)).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
-    [Fact(Skip = "Pending: M9-I-06 — seat enforcement (mismatch)")]
+    [Fact]
     public async Task M9_I_06_SeatMismatch_Returns403_AndAudited()
     {
         var student = await _host.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "PC-02");
@@ -166,7 +166,7 @@ public class Module9EligibilityAcceptanceTests : IDisposable
         (await _host.WithDbAsync(db => db.ExamSessions.CountAsync(s => s.UserId == _host.Seed.StudentId))).Should().Be(0);
     }
 
-    [Fact(Skip = "Pending: M9-I-07 — seat enforcement (SeatMatch=Ip)")]
+    [Fact]
     public async Task M9_I_07_SeatMatchByIp_ComparesRequestIp()
     {
         using var host = new TestHost(b => b.UseSetting("SeatMatch", "Ip"));
@@ -184,7 +184,7 @@ public class Module9EligibilityAcceptanceTests : IDisposable
         (await TestHost.ErrorCodeAsync(resp)).Should().Be("SEAT_MISMATCH");
     }
 
-    [Fact(Skip = "Pending: M9-I-08 — seat enforcement skipped when no seat assigned")]
+    [Fact]
     public async Task M9_I_08_NoSeatAssigned_NotEnforced_Start200()
     {
         var examId = await _host.CreateExamAsync(new[] { _host.Seed.StudentId });   // assignments created without a workstation
@@ -194,7 +194,7 @@ public class Module9EligibilityAcceptanceTests : IDisposable
         (await _host.AuditLogsAsync("SEAT_MISMATCH")).Should().BeEmpty();
     }
 
-    [Fact(Skip = "Pending: M9-I-09 — seat re-checked on every heartbeat")]
+    [Fact]
     public async Task M9_I_09_HeartbeatFromWrongSeat_RecordsSeatMismatchViolation()
     {
         var atSeat = await _host.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "PC-01");
@@ -209,7 +209,7 @@ public class Module9EligibilityAcceptanceTests : IDisposable
                                      || (e.EventType == MonitoringEventType.Violation && e.Payload.Contains("SeatMismatch")));
     }
 
-    [Fact(Skip = "Pending: M9-I-10 — Labs:AutoRegister defaults to false")]
+    [Fact]
     public async Task M9_I_10_AutoRegisterOffByDefault_NoWorkstationCreatedOnLogin()
     {
         var admin = await _host.AsAdmin();
@@ -219,5 +219,189 @@ public class Module9EligibilityAcceptanceTests : IDisposable
         await _host.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "NEW-PC-77");
 
         (await _host.WithDbAsync(db => db.Workstations.AnyAsync(w => w.MachineNumber == "NEW-PC-77"))).Should().BeFalse();
+    }
+
+    // ── Hardening beyond the catalogue's first ten rows (M9-I-11…18) ─────────
+
+    [Fact]
+    public async Task M9_I_11_Import_OtherTeachersSection403_BadHeader400_NotEnrolledIsWarning()
+    {
+        var (_, otherEmail, otherPassword) = await _host.CreateUserAsync("Teacher");
+        var other = await _host.LoginAsync(otherEmail, otherPassword);
+        (await ImportAttendanceAsync(other, Csv((SeededData.StudentEmail, 40, 30)))).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await _host.WithDbAsync(db => db.AttendanceRecords.CountAsync())).Should().Be(0);
+
+        var teacher = await _host.AsTeacher();
+        var bad = await ImportAttendanceAsync(teacher, "student,classes\nx,1\n");
+        bad.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // A student who isn't formally enrolled is still imported, with a warning.
+        var (_, loneEmail, _) = await _host.CreateUserAsync("Student");
+        var resp = await ImportAttendanceAsync(teacher, Csv((loneEmail, 10, 9), (SeededData.StudentEmail, 10, 11)));
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHost.JsonAsync(resp);
+        body.GetProperty("imported").GetInt32().Should().Be(1);
+        body.GetProperty("warnings").EnumerateArray().Single().GetProperty("email").GetString().Should().Be(loneEmail);
+        body.GetProperty("errors").EnumerateArray().Single().GetProperty("reason").GetString().Should().Contain("greater than total");
+
+        // Re-import updates in place and is audited.
+        var again = await TestHost.JsonAsync(await ImportAttendanceAsync(teacher, Csv((loneEmail, 12, 10))));
+        again.GetProperty("updated").GetInt32().Should().Be(1);
+        (await _host.WithDbAsync(db => db.AttendanceRecords.CountAsync())).Should().Be(1);
+        (await _host.AuditLogsAsync("ATTENDANCE_IMPORTED")).Should().HaveCount(2);
+
+        var rows = await (await teacher.GetAsync($"/api/sections/{_host.Seed.SectionId}/attendance")).Content.ReadFromJsonAsync<List<JsonElement>>();
+        rows!.Single().GetProperty("attendedClasses").GetInt32().Should().Be(10);
+    }
+
+    [Fact]
+    public async Task M9_I_12_Recalculate_EndedExam409_OtherTeacher403_Student403()
+    {
+        var (_, otherEmail, otherPassword) = await _host.CreateUserAsync("Teacher");
+        (await (await _host.LoginAsync(otherEmail, otherPassword)).PostAsync($"/api/exams/{_host.Seed.ExamId}/eligibility/recalculate", null))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await (await _host.AsStudent()).PostAsync($"/api/exams/{_host.Seed.ExamId}/eligibility/recalculate", null))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var teacher = await _host.AsTeacher();
+        (await teacher.PostAsync($"/api/exams/{_host.Seed.ExamId}/force-submit-all", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await teacher.PostAsync($"/api/exams/{_host.Seed.ExamId}/eligibility/recalculate", null)).StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task M9_I_13_ClearOverride_HandsDecisionBackToAttendance_AndOnlyChangedRowsAreOverridden()
+    {
+        var teacher = await _host.AsTeacher();
+        // The page sends EVERY row on save; only the one that changed becomes an override.
+        (await teacher.PutAsJsonAsync($"/api/exams/{_host.Seed.ExamId}/eligibility", new
+        {
+            assignments = new[]
+            {
+                new { userId = _host.Seed.StudentId, isEligible = true, eligibilityNote = "HOD approved", clearOverride = false },
+                new { userId = _host.Seed.Student2Id, isEligible = true, eligibilityNote = "", clearOverride = false }
+            }
+        })).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await _host.AuditLogsAsync("ELIGIBILITY_OVERRIDDEN")).Should().ContainSingle();
+
+        (await ImportAttendanceAsync(teacher, Csv((SeededData.StudentEmail, 40, 24), (SeededData.Student2Email, 40, 20)))).StatusCode.Should().Be(HttpStatusCode.OK);
+        var rows = await RecalculateAndGetAssignmentsAsync(teacher);
+        For(rows, _host.Seed.StudentId).GetProperty("isEligible").GetBoolean().Should().BeTrue("manual override survives");
+        For(rows, _host.Seed.Student2Id).GetProperty("isEligible").GetBoolean().Should().BeFalse("50% < 75%");
+        For(rows, _host.Seed.Student2Id).GetProperty("eligibilitySource").GetString().Should().Be("Attendance");
+
+        (await teacher.PutAsJsonAsync($"/api/exams/{_host.Seed.ExamId}/eligibility", new
+        {
+            assignments = new[] { new { userId = _host.Seed.StudentId, isEligible = true, eligibilityNote = "HOD approved", clearOverride = true } }
+        })).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await _host.AuditLogsAsync("ELIGIBILITY_OVERRIDE_CLEARED")).Should().ContainSingle();
+
+        var after = For(await RecalculateAndGetAssignmentsAsync(teacher), _host.Seed.StudentId);
+        after.GetProperty("isEligible").GetBoolean().Should().BeFalse();
+        after.GetProperty("eligibilityOverridden").GetBoolean().Should().BeFalse();
+        after.GetProperty("eligibilityNote").GetString().Should().Be("Attendance 60% < 75%");
+    }
+
+    [Fact]
+    public async Task M9_I_14_HeartbeatMismatch_RecordedOncePerWindow_AndReportedOnTheTile()
+    {
+        var atSeat = await _host.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "PC-01");
+        var sid = await _host.StartSessionAsync(atSeat, _host.Seed.ExamId);
+        await TestHost.HeartbeatAsync(atSeat, sid);
+        _host.Hub.Named("StudentHeartbeat").Last().ArgsJson.Should().Contain("\"seatStatus\":\"Ok\"");
+
+        var moved = await _host.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "PC-07");
+        for (var i = 0; i < 3; i++)
+            (await TestHost.HeartbeatAsync(moved, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await _host.WithDbAsync(db => db.MonitoringEvents.CountAsync(e => e.ExamSessionId == sid && e.EventType == MonitoringEventType.SeatMismatch)))
+            .Should().Be(1, "repeated heartbeats from the same wrong seat are de-duplicated");
+        (await _host.AuditLogsAsync("SEAT_MISMATCH")).Should().ContainSingle();
+
+        var beat = _host.Hub.Named("StudentHeartbeat").Last().ArgsJson;
+        beat.Should().Contain("\"seatStatus\":\"Mismatch\"").And.Contain("PC-07").And.Contain("\"tileStatus\":\"Violation\"");
+        _host.Hub.Named("ViolationEvent").Should().Contain(m => m.ArgsJson.Contains("SeatMismatch") && m.ArgsJson.Contains("logged in from PC-07"));
+    }
+
+    [Fact]
+    public async Task M9_I_15_DesktopStartPath_AlsoEnforcesSeat_AndCurrentExamWarnsFirst()
+    {
+        var wrong = await _host.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "PC-02");
+
+        var status = await TestHost.DataAsync(await wrong.GetAsync("/api/exams/student/current"));
+        status.GetProperty("seatStatus").GetString().Should().Be("Mismatch");
+        status.GetProperty("canStartNow").GetBoolean().Should().BeFalse();
+        status.GetProperty("message").GetString().Should().Contain("seat PC-01");
+
+        var resp = await wrong.PostAsync("/api/exams/student/start", null);
+        resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await TestHost.ErrorCodeAsync(resp)).Should().Be("SEAT_MISMATCH");
+        (await _host.WithDbAsync(db => db.ExamSessions.CountAsync(s => s.UserId == _host.Seed.StudentId))).Should().Be(0);
+
+        var right = await _host.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "pc-01");
+        (await TestHost.DataAsync(await right.GetAsync("/api/exams/student/current"))).GetProperty("seatStatus").GetString().Should().Be("Ok");
+        (await right.PostAsync("/api/exams/student/start", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task M9_I_16_Workstations_EditHostNameDrivesMatching_DeleteRefusedWhileAssigned()
+    {
+        var admin = await _host.AsAdmin();
+        var edit = await admin.PutAsJsonAsync($"/api/labs/{_host.Seed.LabId}/workstations/{_host.Seed.WorkstationId}",
+            new { machineNumber = "PC-01", hostName = "LAB-PC-07", ipAddress = "192.168.1.1" });
+        edit.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await _host.AuditLogsAsync("WORKSTATION_UPDATED")).Should().ContainSingle();
+        (await admin.PutAsJsonAsync($"/api/labs/{_host.Seed.LabId}/workstations/{_host.Seed.WorkstationId}",
+            new { machineNumber = "PC-01", ipAddress = "not-an-ip" })).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // The seat label no longer matches; the real PC name does.
+        var byLabel = await _host.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "PC-01");
+        (await _host.StartSessionRawAsync(byLabel, _host.Seed.ExamId)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var byHost = await _host.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "LAB-PC-07");
+        (await _host.StartSessionRawAsync(byHost, _host.Seed.ExamId)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await admin.DeleteAsync($"/api/labs/{_host.Seed.LabId}/workstations/{_host.Seed.WorkstationId}")).StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await (await _host.AsTeacher()).DeleteAsync($"/api/labs/{_host.Seed.LabId}/workstations/{_host.Seed.WorkstationId}"))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var spare = await admin.PostAsJsonAsync($"/api/labs/{_host.Seed.LabId}/workstations", new { machineNumber = "PC-50", ipAddress = "192.168.1.50" });
+        var spareId = (await TestHost.JsonAsync(spare)).GetProperty("workstationId").GetGuid();
+        (await admin.DeleteAsync($"/api/labs/{_host.Seed.LabId}/workstations/{spareId}")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task M9_I_17_AutoRegisterOptIn_And_UnregisteredMachinesList()
+    {
+        // Default: the unknown PC is listed for an admin to register, not auto-created.
+        await _host.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "NEW-PC-77");
+        var list = await (await (await _host.AsAdmin()).GetAsync("/api/labs/unregistered-machines")).Content.ReadFromJsonAsync<List<JsonElement>>();
+        list!.Should().Contain(m => m.GetProperty("machineName").GetString() == "NEW-PC-77");
+
+        // Demo opt-in (Labs:AutoRegister=true) keeps the old behaviour.
+        using var demo = new TestHost(b => b.UseSetting("Labs:AutoRegister", "true"));
+        (await (await demo.AsAdmin()).PostAsJsonAsync("/api/labs", new { name = "Systems Engineering Lab", location = "Block 2" }))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+        await demo.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "NEW-PC-77");
+        (await demo.WithDbAsync(db => db.Workstations.AnyAsync(w => w.MachineNumber == "NEW-PC-77"))).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task M9_I_18_EnforceSeatOff_And_RequireDesktopClient()
+    {
+        // EnforceSeat=false: a seat may be assigned for the map without blocking anyone.
+        var teacher = await _host.AsTeacher();
+        var examId = await _host.CreateExamAsync(new[] { _host.Seed.StudentId }, extra: new Dictionary<string, object?> { ["enforceSeat"] = false });
+        (await teacher.PutAsJsonAsync($"/api/exams/{examId}/assignments/{_host.Seed.StudentId}/workstation",
+            new { workstationId = _host.Seed.WorkstationId })).StatusCode.Should().Be(HttpStatusCode.OK);
+        var elsewhere = await _host.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "HOME-PC");
+        (await _host.StartSessionRawAsync(elsewhere, examId)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Exams:RequireDesktopClientForStart=true: web-portal tokens can't start an exam at all.
+        using var strict = new TestHost(b => b.UseSetting("Exams:RequireDesktopClientForStart", "true"));
+        var web = await strict.AsStudent();
+        var refused = await strict.StartSessionRawAsync(web, strict.Seed.ExamId);
+        refused.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await TestHost.ErrorCodeAsync(refused)).Should().Be("DESKTOP_CLIENT_REQUIRED");
+        var desktop = await strict.StudentClientLoginAsync(SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid, machineName: "PC-01");
+        (await strict.StartSessionRawAsync(desktop, strict.Seed.ExamId)).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 }

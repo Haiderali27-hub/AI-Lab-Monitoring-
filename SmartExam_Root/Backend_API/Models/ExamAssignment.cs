@@ -1,3 +1,5 @@
+using Backend_API.Models.Enums;
+
 namespace Backend_API.Models;
 
 public class ExamAssignment
@@ -8,6 +10,9 @@ public class ExamAssignment
     public Guid? WorkstationId { get; set; }
     public bool IsEligible { get; set; } = true;
     public string? EligibilityNote { get; set; }
+    // Module 9: a teacher's manual decision; recalculation from attendance leaves it alone.
+    public bool EligibilityOverridden { get; set; }
+    public EligibilitySource? EligibilitySource { get; set; }
 
     // Navigation
     public Exam Exam { get; set; } = null!;

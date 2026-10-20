@@ -20,13 +20,16 @@ public class ExamsController : ControllerBase
     private readonly AuditService _audit;
     private readonly IHubContext<MonitoringHub> _hub;
     private readonly SubmissionService _submissions;
+    private readonly SeatGuard _seats;
 
-    public ExamsController(AppDbContext db, AuditService audit, IHubContext<MonitoringHub> hub, SubmissionService submissions)
+    public ExamsController(AppDbContext db, AuditService audit, IHubContext<MonitoringHub> hub, SubmissionService submissions,
+        SeatGuard seats)
     {
         _db = db;
         _audit = audit;
         _hub = hub;
         _submissions = submissions;
+        _seats = seats;
     }
 
     private Guid CurrentUserId =>
@@ -69,6 +72,9 @@ public class ExamsController : ControllerBase
                 e.ExamId, e.Title, e.StartTime, e.DurationMinutes, e.Status,
                 e.IsMock,
                 e.SectionId,
+                e.EarlyJoinMinutes,
+                e.MinAttendancePercent,
+                e.EnforceSeat,
                 CourseName = e.Section.Course.Name,
                 SectionName = e.Section.Name,
                 QuestionCount = e.Questions.Count
@@ -113,6 +119,9 @@ public class ExamsController : ControllerBase
             exam.RequireWebcam,
             exam.RequireMic,
             exam.IsMock,
+            exam.EarlyJoinMinutes,
+            exam.MinAttendancePercent,
+            exam.EnforceSeat,
             exam.Status,
             exam.CreatedAt,
             Section = exam.Section is null ? null : new
@@ -145,6 +154,8 @@ public class ExamsController : ControllerBase
                     a.WorkstationId,
                     a.IsEligible,
                     a.EligibilityNote,
+                    a.EligibilityOverridden,
+                    a.EligibilitySource,
                     Student = a.Student is null ? null : new { a.Student.UserId, a.Student.Name, a.Student.Email }
                 }).ToList()
         });
@@ -174,6 +185,9 @@ public class ExamsController : ControllerBase
             RequireWebcam = req.RequireWebcam,
             RequireMic = req.RequireMic,
             IsMock = req.IsMock,
+            EarlyJoinMinutes = req.EarlyJoinMinutes,
+            MinAttendancePercent = req.MinAttendancePercent,
+            EnforceSeat = req.EnforceSeat,
             Status = ExamStatus.Scheduled,
             CreatedAt = DateTime.UtcNow
         };
@@ -226,6 +240,9 @@ public class ExamsController : ControllerBase
         exam.RequireWebcam = req.RequireWebcam;
         exam.RequireMic = req.RequireMic;
         exam.IsMock = req.IsMock;
+        exam.EarlyJoinMinutes = req.EarlyJoinMinutes;
+        exam.MinAttendancePercent = req.MinAttendancePercent;
+        exam.EnforceSeat = req.EnforceSeat;
 
         // Replace questions (safe: Scheduled exams have no sessions/answers yet).
         // Materialize first — RemoveRange triggers EF fixup that mutates the live nav collections mid-iteration.
@@ -268,6 +285,8 @@ public class ExamsController : ControllerBase
         return Ok(new { message = "Exam deleted successfully." });
     }
 
+    public const int MaxEarlyJoinMinutes = 60;
+
     // Shared validation for create + edit. Returns null when the payload is valid.
     private async Task<IActionResult?> ValidateExamPayloadAsync(CreateExamDto req)
     {
@@ -277,6 +296,10 @@ public class ExamsController : ControllerBase
             return BadRequest(new { message = "Duration must be a positive number of minutes." });
         if (req.PlagiarismThreshold is < 0 or > 100)
             return BadRequest(new { message = "Plagiarism threshold must be between 0 and 100." });
+        if (req.EarlyJoinMinutes is < 0 or > MaxEarlyJoinMinutes)
+            return BadRequest(new { message = $"Early join must be between 0 and {MaxEarlyJoinMinutes} minutes." });
+        if (double.IsNaN(req.MinAttendancePercent) || req.MinAttendancePercent is < 0 or > 100)
+            return BadRequest(new { message = "Minimum attendance must be between 0 and 100 percent." });
         if (!await _db.Sections.AnyAsync(s => s.SectionId == req.SectionId))
             return NotFound(new { message = "Section not found." });
         if (req.Questions.Count == 0)
@@ -411,6 +434,8 @@ public class ExamsController : ControllerBase
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> GetAssignments(Guid examId)
     {
+        var sectionId = await _db.Exams.Where(e => e.ExamId == examId).Select(e => (Guid?)e.SectionId).FirstOrDefaultAsync();
+
         var assignments = await _db.ExamAssignments
             .Where(a => a.ExamId == examId)
             .Include(a => a.Student)
@@ -424,11 +449,33 @@ public class ExamsController : ControllerBase
                 StudentEmail = a.Student.Email,
                 a.WorkstationId,
                 WorkstationNumber = a.Workstation != null ? a.Workstation.MachineNumber : null,
+                WorkstationHostName = a.Workstation != null ? a.Workstation.HostName : null,
+                WorkstationIp = a.Workstation != null ? a.Workstation.IpAddress : null,
                 a.IsEligible,
-                a.EligibilityNote
+                a.EligibilityNote,
+                a.EligibilityOverridden,
+                a.EligibilitySource
             })
             .ToListAsync();
-        return Ok(assignments);
+
+        // Module 9: attendance of the exam's section, joined in memory (one row per student)
+        var attendance = sectionId is null
+            ? new Dictionary<Guid, AttendanceRecord>()
+            : await _db.AttendanceRecords.Where(r => r.SectionId == sectionId).ToDictionaryAsync(r => r.UserId);
+
+        return Ok(assignments.Select(a =>
+        {
+            attendance.TryGetValue(a.UserId, out var rec);
+            return new
+            {
+                a.AssignmentId, a.ExamId, a.UserId, a.StudentName, a.StudentEmail,
+                a.WorkstationId, a.WorkstationNumber, a.WorkstationHostName, a.WorkstationIp,
+                a.IsEligible, a.EligibilityNote, a.EligibilityOverridden, a.EligibilitySource,
+                AttendedClasses = rec?.AttendedClasses,
+                TotalClasses = rec?.TotalClasses,
+                AttendancePercent = rec is null ? null : EligibilityCalculator.Percent(rec.AttendedClasses, rec.TotalClasses)
+            };
+        }));
     }
 
     // PUT /api/exams/{examId}/eligibility  — Bulk update student eligibility
@@ -440,21 +487,110 @@ public class ExamsController : ControllerBase
             .Where(a => a.ExamId == examId)
             .ToListAsync();
 
+        int overridden = 0, cleared = 0;
         foreach (var update in req.Assignments)
         {
             var existing = dbAssignments.FirstOrDefault(a => a.UserId == update.UserId);
-            if (existing is not null)
+            if (existing is null) continue;
+
+            if (update.ClearOverride)
             {
-                existing.IsEligible = update.IsEligible;
-                existing.EligibilityNote = update.EligibilityNote;
+                // Back to attendance-driven: the next recalculation decides again.
+                if (!existing.EligibilityOverridden) continue;
+                existing.EligibilityOverridden = false;
+                existing.EligibilitySource = null;
+                cleared++;
+                _audit.Add(CurrentUserId, "ELIGIBILITY_OVERRIDE_CLEARED", "ExamAssignment", existing.AssignmentId.ToString(),
+                    new { examId, studentId = existing.UserId });
+                continue;
             }
+
+            // Only rows the teacher actually changed become manual overrides — the page sends every
+            // row on Save, and flagging untouched rows would make recalculation skip the whole class.
+            var note = string.IsNullOrWhiteSpace(update.EligibilityNote) ? null : update.EligibilityNote.Trim();
+            var previousNote = string.IsNullOrWhiteSpace(existing.EligibilityNote) ? null : existing.EligibilityNote.Trim();
+            if (existing.IsEligible == update.IsEligible && string.Equals(previousNote, note, StringComparison.Ordinal))
+                continue;
+
+            _audit.Add(CurrentUserId, "ELIGIBILITY_OVERRIDDEN", "ExamAssignment", existing.AssignmentId.ToString(), new
+            {
+                examId,
+                studentId = existing.UserId,
+                isEligible = update.IsEligible,
+                note,
+                previous = new { isEligible = existing.IsEligible, note = previousNote, source = existing.EligibilitySource?.ToString() }
+            });
+            existing.IsEligible = update.IsEligible;
+            existing.EligibilityNote = note;
+            existing.EligibilityOverridden = true;
+            existing.EligibilitySource = EligibilitySource.Manual;
+            overridden++;
         }
 
         // Thesis FR9: eligibility decisions must be logged
         _audit.Add(CurrentUserId, "ELIGIBILITY_UPDATED", "Exam", examId.ToString(),
-            new { updatedCount = req.Assignments.Count });
+            new { updatedCount = req.Assignments.Count, overridden, cleared });
         await _db.SaveChangesAsync();
-        return Ok(new { message = "Eligibility updated successfully." });
+        return Ok(new { message = "Eligibility updated successfully.", overridden, cleared });
+    }
+
+    // POST /api/exams/{examId}/eligibility/recalculate — eligibility from imported attendance (Module 9)
+    [HttpPost("{examId:guid}/eligibility/recalculate")]
+    [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
+    public async Task<IActionResult> RecalculateEligibility(Guid examId)
+    {
+        var exam = await _db.Exams
+            .Include(e => e.Section)
+            .Include(e => e.Assignments)
+            .FirstOrDefaultAsync(e => e.ExamId == examId);
+        if (exam is null) return NotFound(new { message = "Exam not found." });
+        if (User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value == "Teacher" && exam.Section.TeacherId != CurrentUserId)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only recalculate eligibility for your own exams." });
+        if (exam.Status == ExamStatus.Ended)
+            return Conflict(new { message = "This exam has ended; eligibility can no longer be recalculated." });
+
+        var records = await _db.AttendanceRecords
+            .Where(r => r.SectionId == exam.SectionId)
+            .ToDictionaryAsync(r => r.UserId);
+
+        int computed = 0, skippedOverridden = 0, notComputed = 0, ineligible = 0;
+        foreach (var a in exam.Assignments)
+        {
+            if (a.EligibilityOverridden)
+            {
+                skippedOverridden++;
+                continue;
+            }
+
+            var hasRecord = records.TryGetValue(a.UserId, out var rec);
+            var decision = EligibilityCalculator.Decide(hasRecord, rec?.AttendedClasses ?? 0, rec?.TotalClasses ?? 0, exam.MinAttendancePercent);
+            a.EligibilityNote = decision.Note;
+            if (!decision.Computed)
+            {
+                // No data: the existing decision stands (no division by zero, nothing to audit).
+                notComputed++;
+                continue;
+            }
+
+            a.IsEligible = decision.IsEligible!.Value;
+            a.EligibilitySource = EligibilitySource.Attendance;
+            computed++;
+            if (!a.IsEligible) ineligible++;
+            _audit.Add(CurrentUserId, "ELIGIBILITY_COMPUTED", "ExamAssignment", a.AssignmentId.ToString(), new
+            {
+                examId,
+                studentId = a.UserId,
+                percent = Math.Round(decision.Percent!.Value, 2),
+                min = exam.MinAttendancePercent,
+                isEligible = a.IsEligible
+            });
+        }
+
+        _audit.Add(CurrentUserId, "ELIGIBILITY_RECALCULATED", "Exam", examId.ToString(),
+            new { computed, ineligible, skippedOverridden, notComputed, min = exam.MinAttendancePercent });
+        await _db.SaveChangesAsync();
+
+        return Ok(new { computed, ineligible, skippedOverridden, notComputed, minAttendancePercent = exam.MinAttendancePercent });
     }
 
     // POST /api/exams/{examId}/assignments  — Add a student to an existing exam (Module 9)
@@ -705,15 +841,34 @@ public class ExamsController : ControllerBase
     {
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
 
+        var now = DateTime.UtcNow;
+
         var assignment = await _db.ExamAssignments
             .Include(a => a.Exam)
+            .Include(a => a.Workstation)
             .FirstOrDefaultAsync(a => a.ExamId == id && a.UserId == userId);
 
         if (assignment is null) return Forbid();
         if (!assignment.IsEligible)
             return BadRequest(new { message = "You are not eligible for this exam." });
-        if (SubmissionService.IsClosed(assignment.Exam, DateTime.UtcNow))
+        if (SubmissionService.IsClosed(assignment.Exam, now))
             return BadRequest(new { message = "This exam has already ended." });
+
+        // Module 3: server-side start gate — the client's clock and Start button are never trusted.
+        var opensAt = OpensAt(assignment.Exam);
+        if (now < opensAt)
+            return BadRequest(new
+            {
+                code = "EXAM_NOT_STARTED",
+                message = NotStartedMessage(opensAt),
+                startsAtUtc = assignment.Exam.StartTime,
+                opensAtUtc = opensAt,
+                serverTimeUtc = now
+            });
+
+        // Module 9: the seat is checked before "already active" so moving seats can't resume a session.
+        var seatRefusal = await CheckSeatOnStartAsync(assignment);
+        if (seatRefusal is not null) return seatRefusal;
 
         // Check if session already exists. Practice exams allow a fresh attempt after each submit.
         var existing = await _db.ExamSessions
@@ -890,13 +1045,27 @@ public class ExamsController : ControllerBase
         var remainingSeconds = Math.Max(0, (int)(examEnd - now).TotalSeconds);
         var status = session?.Status.ToString() ?? "NotStarted";
 
+        var opensAt = OpensAt(assignment.Exam);
+        var secondsUntilStart = Math.Max(0, (int)Math.Ceiling((opensAt - now).TotalSeconds));
+        var seat = _seats.Check(assignment, User, HttpContext);
+        var readinessPassed = await HasFreshPassingReadinessAsync(assignment.ExamId, studentId);
+
         var message = !assignment.IsEligible
             ? (assignment.EligibilityNote ?? "Student is not eligible for this exam.")
-            : assignment.Exam.StartTime > now
-                ? "Exam has not started yet."
-                : examEnd < now
-                    ? "Exam window has ended."
-                    : "Student can proceed.";
+            : seat.IsMismatch
+                ? seat.StudentMessage
+                : now < opensAt
+                    ? "Exam has not started yet."
+                    : examEnd < now
+                        ? "Exam window has ended."
+                        : "Student can proceed.";
+
+        // What a start request would do right now (same rules as student/start).
+        var canStartNow = assignment.IsEligible &&
+                          now >= opensAt && now < examEnd && assignment.Exam.Status != ExamStatus.Ended &&
+                          !seat.IsMismatch &&
+                          (!assignment.Exam.RequireReadiness || readinessPassed) &&
+                          (session is null || session.Status == SessionStatus.InProgress);
 
         var response = new StudentExamStatus(
             assignment.ExamId,
@@ -917,8 +1086,13 @@ public class ExamsController : ControllerBase
             assignment.Exam.RequireReadiness,
             assignment.Exam.RequireWebcam,
             assignment.Exam.RequireMic,
-            await HasFreshPassingReadinessAsync(assignment.ExamId, studentId),
-            now
+            readinessPassed,
+            now,
+            secondsUntilStart,
+            opensAt,
+            assignment.Exam.EarlyJoinMinutes,
+            canStartNow,
+            seat.Status.ToString()
         );
 
         return Ok(new ApiEnvelope<StudentExamStatus>(true, "SUCCESS", "Success", response));
@@ -936,6 +1110,7 @@ public class ExamsController : ControllerBase
         // exactly the exam their dashboard is showing.
         var startCandidates = await _db.ExamAssignments
             .Include(a => a.Exam)
+            .Include(a => a.Workstation)
             .Where(a => a.UserId == studentId && a.IsEligible && !a.Exam.IsMock && (a.Exam.Status == ExamStatus.Active || a.Exam.Status == ExamStatus.Scheduled))
             .ToListAsync();
 
@@ -952,10 +1127,16 @@ public class ExamsController : ControllerBase
         }
 
         var examEnd = assignment.Exam.StartTime.AddMinutes(assignment.Exam.DurationMinutes);
-        if (assignment.Exam.StartTime > now || examEnd < now)
-        {
-            return BadRequest(new ApiEnvelope<object>(false, "OUTSIDE_EXAM_WINDOW", "Exam cannot be started outside its scheduled time window.", null));
-        }
+        if (assignment.Exam.Status == ExamStatus.Ended || examEnd < now)
+            return BadRequest(new ApiEnvelope<object>(false, "EXAM_CLOSED", "This exam has already ended.", null));
+
+        var opensAt = OpensAt(assignment.Exam);
+        if (now < opensAt)
+            return BadRequest(new ApiEnvelope<object>(false, "EXAM_NOT_STARTED", NotStartedMessage(opensAt),
+                new { startsAtUtc = assignment.Exam.StartTime, opensAtUtc = opensAt, serverTimeUtc = now }));
+
+        var seatRefusal = await CheckSeatOnStartAsync(assignment);
+        if (seatRefusal is not null) return seatRefusal;
 
         var existing = await _db.ExamSessions
             .FirstOrDefaultAsync(s => s.ExamId == assignment.ExamId && s.UserId == studentId && s.Status == SessionStatus.InProgress);
@@ -988,6 +1169,32 @@ public class ExamsController : ControllerBase
 
         var result = new StartExamResult(session.SessionId, "InProgress", session.StartedAt);
         return Ok(new ApiEnvelope<StartExamResult>(true, "SUCCESS", "Success", result));
+    }
+
+    // ── Module 3 / 9: start gates shared by start-session and student/start ────
+
+    /// When start-session starts accepting: StartTime minus the exam's early-join window.
+    public static DateTime OpensAt(Exam exam) => exam.StartTime.AddMinutes(-Math.Max(0, exam.EarlyJoinMinutes));
+
+    private static string NotStartedMessage(DateTime opensAtUtc) =>
+        $"The exam has not started yet. It opens at {opensAtUtc:yyyy-MM-dd HH:mm} UTC.";
+
+    /// <summary>
+    /// Desktop-client requirement + seat enforcement. Returns the 403 to send, or null to continue.
+    /// A mismatch is audited (SEAT_MISMATCH) and raised on the proctors' live monitor; no session is created.
+    /// </summary>
+    private async Task<IActionResult?> CheckSeatOnStartAsync(ExamAssignment assignment)
+    {
+        if (_seats.DesktopClientRequired && !SeatGuard.IsDesktopClient(User))
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiEnvelope<object>(false, "DESKTOP_CLIENT_REQUIRED",
+                "Exams can only be started from the SmartExam desktop app on a lab workstation.", null));
+
+        var seat = _seats.Check(assignment, User, HttpContext);
+        if (!seat.IsMismatch) return null;
+
+        await _seats.ReportMismatchAsync(assignment.ExamId, assignment.UserId, null, seat, "start");
+        await _db.SaveChangesAsync();
+        return StatusCode(StatusCodes.Status403Forbidden, new ApiEnvelope<object>(false, SeatGuard.MismatchCode, seat.StudentMessage, null));
     }
 
     // ── Module 2: pre-exam readiness + practice exams ─────────────────────────
@@ -1147,6 +1354,11 @@ public class CreateExamDto
     public bool RequireWebcam { get; set; }
     public bool RequireMic { get; set; }
     public bool IsMock { get; set; }
+    // Module 3: minutes before StartTime that start-session already accepts (0–60).
+    public int EarlyJoinMinutes { get; set; }
+    // Module 9: attendance threshold for "Recalculate from attendance", and seat enforcement.
+    public double MinAttendancePercent { get; set; } = 75;
+    public bool EnforceSeat { get; set; } = true;
     public List<CreateQuestionDto> Questions { get; set; } = new();
     public List<Guid> StudentIds { get; set; } = new();
 }
@@ -1179,6 +1391,8 @@ public class StudentEligibilityUpdate
     public Guid UserId { get; set; }
     public bool IsEligible { get; set; }
     public string? EligibilityNote { get; set; }
+    // Hand the decision back to "Recalculate from attendance" (drops the Manual override).
+    public bool ClearOverride { get; set; }
 }
 
 public class OverrideGradeRequest

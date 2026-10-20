@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import AppLayout from '../../components/layout/AppLayout';
 import { labsApi } from '../../api/labs.api';
-import type { LabInfo } from '../../types';
+import type { LabInfo, LabWorkstation } from '../../types';
 
 /**
- * Module 9 — Lab & Workstation inventory (backs the seating map).
- * Admins register labs and their workstations (machine number + IP);
- * teachers then assign these seats to students on the Eligibility page.
+ * Module 9 — Lab & Workstation inventory (backs the seating map and seat enforcement).
+ * Admins register labs and their workstations (seat label, the PC's Windows name, IP);
+ * teachers then assign these seats to students on the Eligibility page. Machines are no
+ * longer auto-registered on student login (Labs:AutoRegister=false), so PCs students have
+ * logged in from but that no workstation covers are listed here for an admin to register.
  */
 export default function LabsPage() {
   const [labs, setLabs] = useState<LabInfo[]>([]);
@@ -20,8 +22,13 @@ export default function LabsPage() {
 
   // Add-workstation form
   const [wsNumber, setWsNumber] = useState('');
+  const [wsHost, setWsHost] = useState('');
   const [wsIp, setWsIp] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Inline edit of one workstation
+  const [editing, setEditing] = useState<{ id: string; number: string; host: string; ip: string } | null>(null);
+  const [unregistered, setUnregistered] = useState<{ machineName: string; lastStudent: string; lastSeenAt: string }[]>([]);
 
   const loadLabs = () => {
     setLoading(true);
@@ -32,6 +39,9 @@ export default function LabsPage() {
       })
       .catch((err) => console.error('Failed to load labs:', err))
       .finally(() => setLoading(false));
+    labsApi.unregisteredMachines()
+      .then(setUnregistered)
+      .catch(() => setUnregistered([]));
   };
 
   useEffect(() => { loadLabs(); }, []);
@@ -60,8 +70,9 @@ export default function LabsPage() {
     if (!selectedLabId || !wsNumber.trim()) return;
     setSaving(true);
     try {
-      await labsApi.createWorkstation(selectedLabId, wsNumber.trim(), wsIp.trim());
+      await labsApi.createWorkstation(selectedLabId, wsNumber.trim(), wsIp.trim(), wsHost.trim());
       setWsNumber('');
+      setWsHost('');
       setWsIp('');
       loadLabs();
     } catch (err: any) {
@@ -70,6 +81,35 @@ export default function LabsPage() {
       setSaving(false);
     }
   };
+
+  const startEdit = (ws: LabWorkstation) =>
+    setEditing({ id: ws.workstationId, number: ws.machineNumber, host: ws.hostName || '', ip: ws.ipAddress || '' });
+
+  const handleSaveEdit = async () => {
+    if (!editing || !selectedLabId || !editing.number.trim()) return;
+    setSaving(true);
+    try {
+      await labsApi.updateWorkstation(selectedLabId, editing.id, editing.number.trim(), editing.ip.trim(), editing.host.trim());
+      setEditing(null);
+      loadLabs();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update workstation.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (ws: LabWorkstation) => {
+    if (!window.confirm(`Delete workstation ${ws.machineNumber}?`)) return;
+    try {
+      await labsApi.deleteWorkstation(selectedLabId, ws.workstationId);
+      loadLabs();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete workstation.');
+    }
+  };
+
+  const inputCls = 'h-8 px-2 border border-slate-200 rounded-md focus:ring-2 focus:ring-primary-500 outline-none text-xs font-mono bg-white w-full';
 
   return (
     <AppLayout title="Labs & Workstations">
@@ -164,6 +204,16 @@ export default function LabsPage() {
                 />
               </div>
               <div className="space-y-1.5">
+                <label htmlFor="ws-host" className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">PC Name (Windows)</label>
+                <input
+                  id="ws-host"
+                  value={wsHost}
+                  onChange={(e) => setWsHost(e.target.value)}
+                  placeholder="e.g. LAB-PC-07 (optional)"
+                  className="h-9 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none text-xs font-mono bg-white"
+                />
+              </div>
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">IP Address</label>
                 <input
                   value={wsIp}
@@ -181,6 +231,26 @@ export default function LabsPage() {
               </button>
             </form>
 
+            {/* PCs students used that no workstation covers (seat enforcement matches PC name, else machine number) */}
+            {unregistered.length > 0 && (
+              <div data-testid="unregistered-machines" className="px-6 py-3 border-b border-slate-100 bg-amber-50/50">
+                <p className="text-[10px] font-bold tracking-wider text-amber-700 uppercase mb-2">Unregistered PCs seen at login</p>
+                <div className="flex flex-wrap gap-2">
+                  {unregistered.map((m) => (
+                    <button
+                      key={m.machineName}
+                      type="button"
+                      onClick={() => { setWsHost(m.machineName); setWsNumber((prev) => prev || m.machineName); }}
+                      title={`Last used by ${m.lastStudent} — click to fill the form`}
+                      className="px-2.5 py-1 rounded-full border border-amber-200 bg-white text-[11px] font-mono text-amber-800 hover:bg-amber-100"
+                    >
+                      {m.machineName}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Workstation grid */}
             {selectedLab.workstations.length === 0 ? (
               <div className="p-10 text-center text-sm text-slate-400 italic">
@@ -190,6 +260,19 @@ export default function LabsPage() {
               <div className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 stagger">
                 {selectedLab.workstations.map((ws) => {
                   const occupied = Boolean(ws.occupantName);
+                  if (editing?.id === ws.workstationId) {
+                    return (
+                      <div key={ws.workstationId} className="border border-primary-300 rounded-xl p-3.5 bg-white space-y-2">
+                        <input aria-label="Machine number" value={editing.number} onChange={(e) => setEditing({ ...editing, number: e.target.value })} className={inputCls} />
+                        <input aria-label="PC name" placeholder="PC name (optional)" value={editing.host} onChange={(e) => setEditing({ ...editing, host: e.target.value })} className={inputCls} />
+                        <input aria-label="IP address" placeholder="IP address" value={editing.ip} onChange={(e) => setEditing({ ...editing, ip: e.target.value })} className={inputCls} />
+                        <div className="flex justify-end gap-2 pt-1">
+                          <button type="button" onClick={() => setEditing(null)} className="px-3 h-7 text-xs text-slate-500 hover:text-slate-800">Cancel</button>
+                          <button type="button" onClick={handleSaveEdit} disabled={saving} className="px-3 h-7 text-xs font-bold bg-primary-500 text-white rounded-md disabled:opacity-50">Save</button>
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <div
                       key={ws.workstationId}
@@ -212,7 +295,10 @@ export default function LabsPage() {
                           <span className="text-[9px] font-bold uppercase text-slate-400">Free</span>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-400 font-mono mb-1.5">{ws.ipAddress || 'No IP set'}</p>
+                      <p className="text-[11px] text-slate-400 font-mono">{ws.ipAddress || 'No IP set'}</p>
+                      <p className="text-[11px] text-slate-400 font-mono mb-1.5" title="Windows computer name matched by seat enforcement">
+                        {ws.hostName ? `PC ${ws.hostName}` : 'PC name = machine number'}
+                      </p>
                       {occupied ? (
                         <div className="pt-1.5 border-t border-green-100">
                           <p className="text-xs font-semibold text-slate-800 truncate">{ws.occupantName}</p>
@@ -228,6 +314,10 @@ export default function LabsPage() {
                       ) : (
                         <p className="text-[10px] text-slate-300 italic pt-1.5 border-t border-slate-100">No student logged in</p>
                       )}
+                      <div className="flex justify-end gap-2 mt-2">
+                        <button type="button" onClick={() => startEdit(ws)} className="text-[10px] font-bold text-primary-600 hover:underline">Edit</button>
+                        <button type="button" onClick={() => handleDelete(ws)} className="text-[10px] font-bold text-red-500 hover:underline">Delete</button>
+                      </div>
                     </div>
                   );
                 })}

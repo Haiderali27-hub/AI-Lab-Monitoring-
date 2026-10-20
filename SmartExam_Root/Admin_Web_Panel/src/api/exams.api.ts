@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { Exam, ExamAssignment, ReadinessResult } from '../types';
+import type { AttendanceImportResult, Exam, ExamAssignment, ReadinessResult, RecalculateResult } from '../types';
 
 export const examsApi = {
   getAll: () =>
@@ -14,8 +14,20 @@ export const examsApi = {
   getReadiness: (examId: string) =>
     apiClient.get<ReadinessResult[]>(`/exams/${examId}/readiness`).then(r => r.data),
 
-  updateEligibility: (examId: string, assignments: { userId: string; isEligible: boolean; eligibilityNote?: string }[]) =>
+  updateEligibility: (examId: string, assignments: { userId: string; isEligible: boolean; eligibilityNote?: string; clearOverride?: boolean }[]) =>
     apiClient.put(`/exams/${examId}/eligibility`, { assignments }),
+
+  // Module 9 — attendance-driven eligibility
+  recalculateEligibility: (examId: string) =>
+    apiClient.post<RecalculateResult>(`/exams/${examId}/eligibility/recalculate`).then(r => r.data),
+
+  importAttendance: (sectionId: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiClient.post<AttendanceImportResult>(`/sections/${sectionId}/attendance/import`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data);
+  },
 
   getResults: (examId: string) =>
     apiClient.get<any[]>(`/exams/${examId}/results`).then(r => r.data),

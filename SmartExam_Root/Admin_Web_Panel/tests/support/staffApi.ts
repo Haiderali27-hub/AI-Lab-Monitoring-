@@ -30,6 +30,10 @@ export interface ExamInput {
   requireMic?: boolean;
   isMock?: boolean;
   lockdownMode?: 'Off' | 'Report' | 'Enforce';
+  // Module 3 / 9 settings
+  earlyJoinMinutes?: number;
+  minAttendancePercent?: number;
+  enforceSeat?: boolean;
 }
 
 export interface CreatedUser {
@@ -160,6 +164,9 @@ export class StaffApi {
       ...(input.requireMic !== undefined && { requireMic: input.requireMic }),
       ...(input.isMock !== undefined && { isMock: input.isMock }),
       ...(input.lockdownMode !== undefined && { lockdownMode: input.lockdownMode }),
+      ...(input.earlyJoinMinutes !== undefined && { earlyJoinMinutes: input.earlyJoinMinutes }),
+      ...(input.minAttendancePercent !== undefined && { minAttendancePercent: input.minAttendancePercent }),
+      ...(input.enforceSeat !== undefined && { enforceSeat: input.enforceSeat }),
     };
   }
 
@@ -201,6 +208,34 @@ export class StaffApi {
 
   setEligibility(examId: string, userId: string, isEligible: boolean, eligibilityNote = '') {
     return this.put(`/api/exams/${examId}/eligibility`, { assignments: [{ userId, isEligible, eligibilityNote }] });
+  }
+
+  // ── Module 9: attendance, recalculation, seats ─────────────────────────────
+  /** Multipart CSV upload exactly as the Eligibility page's "Upload Attendance" dialog sends it. */
+  importAttendance(sectionId: string, csv: string): Promise<APIResponse> {
+    return this.request.post(`${API_URL}/api/sections/${sectionId}/attendance/import`, {
+      headers: this.headers(),
+      multipart: { file: { name: 'attendance.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) } },
+    });
+  }
+
+  recalculateEligibility(examId: string) { return this.post(`/api/exams/${examId}/eligibility/recalculate`); }
+
+  assignSeat(examId: string, userId: string, workstationId: string | null) {
+    return this.put(`/api/exams/${examId}/assignments/${userId}/workstation`, { workstationId });
+  }
+
+  async labs(): Promise<{ labId: string; name: string; workstations: { workstationId: string; machineNumber: string; hostName?: string | null; ipAddress: string }[] }[]> {
+    const res = await this.get('/api/labs');
+    expect(res.status()).toBe(200);
+    return res.json();
+  }
+
+  /** Seeded demo seat (DbSeeder "Lab A (Demo)" → R1C1 / R1C2). */
+  async workstation(machineNumber: string) {
+    const ws = (await this.labs()).flatMap(l => l.workstations).find(w => w.machineNumber === machineNumber);
+    expect(ws, `seeded workstation ${machineNumber}`).toBeTruthy();
+    return ws!;
   }
 
   extendTime(examId: string, additionalMinutes: number) {

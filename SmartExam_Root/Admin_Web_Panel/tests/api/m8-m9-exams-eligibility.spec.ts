@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { StaffApi, defaultQuestions } from '../support/staffApi';
 import { examWithStudents } from '../support/scenario';
+import { API_URL } from '../support/env';
 
 test.describe('M8 — Exam Creation & Configuration', () => {
   test('M8-A-01 Create exam via API', async ({ request }) => {
@@ -56,5 +57,59 @@ test.describe('M9 — Eligibility & Access Control', () => {
     // Re-enabling unblocks
     await teacher.setEligibility(exam.examId, users[0].userId, true);
     expect((await students[0].startSession(exam.examId)).status()).toBe(200);
+  });
+
+  test('M9-A-02 Attendance import + recalculate (header order free, unknown emails reported)', async ({ request }) => {
+    const { students, exam, teacher, users } = await examWithStudents(request, 2);
+    const { sectionId } = await teacher.examDetail(exam.examId);
+
+    const res = await teacher.importAttendance(sectionId,
+      `attended,email,total\n30,${users[0].email},40\n24,${users[1].email},40\n1,ghost@e2e.smartexam.test,2\n`);
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.imported + body.updated).toBe(2);
+    expect(JSON.stringify(body.errors)).toContain('ghost@e2e.smartexam.test');
+
+    const recalc = await teacher.recalculateEligibility(exam.examId);
+    expect(recalc.status()).toBe(200);
+    const rows = await teacher.assignments(exam.examId);
+    const ok = rows.find(r => r.userId === users[0].userId);
+    const low = rows.find(r => r.userId === users[1].userId);
+    expect(ok.attendancePercent).toBe(75);
+    expect(ok.isEligible).toBe(true);
+    expect(low.isEligible).toBe(false);
+    expect(low.eligibilityNote).toBe('Attendance 60% < 75%');
+    expect(low.eligibilitySource).toBe('Attendance');
+
+    expect((await students[1].startCurrent()).status()).toBe(400);
+    const computed = await (await StaffApi.admin(request)).auditLogs('ELIGIBILITY_COMPUTED');
+    expect(computed.filter(l => l.details.includes(users[1].userId))).toHaveLength(1);
+
+    // Students can't upload attendance
+    const asStudent = await request.post(`${API_URL}/api/sections/${sectionId}/attendance/import`, {
+      headers: { Authorization: `Bearer ${students[0].token}` },
+      multipart: { file: { name: 'a.csv', mimeType: 'text/csv', buffer: Buffer.from('email,total,attended\n') } },
+    });
+    expect(asStudent.status()).toBe(403);
+  });
+
+  test('M9-A-03 Seat enforcement on the desktop start path', async ({ request }) => {
+    const { students, exam, teacher, users } = await examWithStudents(request, 1);
+    const seat = await teacher.workstation('R1C2');
+    expect((await teacher.assignSeat(exam.examId, users[0].userId, seat.workstationId)).status()).toBe(200);
+
+    // The simulator's random machine name is not R1C2 → refused, audited, no session.
+    const refused = await students[0].startCurrent();
+    expect(refused.status()).toBe(403);
+    const body = await refused.json();
+    expect(body.code).toBe('SEAT_MISMATCH');
+    expect(body.message).toContain('R1C2');
+    expect((await students[0].currentExam()).seatStatus).toBe('Mismatch');
+    const audits = await (await StaffApi.admin(request)).auditLogs('SEAT_MISMATCH');
+    expect(audits.some(l => l.details.includes(users[0].userId))).toBe(true);
+
+    // From the assigned PC it starts.
+    expect((await students[0].login(students[0].hwid, 'R1C2')).status()).toBe(200);
+    expect((await students[0].startCurrent()).status()).toBe(200);
   });
 });

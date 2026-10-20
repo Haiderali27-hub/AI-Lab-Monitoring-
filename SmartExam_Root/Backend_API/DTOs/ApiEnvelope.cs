@@ -34,7 +34,14 @@ public record StudentExamStatus(
     bool RequireWebcam = false,
     bool RequireMic = false,
     bool ReadinessPassed = false,
-    DateTime? ServerTimeUtc = null
+    DateTime? ServerTimeUtc = null,
+    // Module 3: start gate, evaluated on the server clock (EarlyJoinMinutes before ExamStartUtc)
+    int SecondsUntilStart = 0,
+    DateTime? OpensAtUtc = null,
+    int EarlyJoinMinutes = 0,
+    bool CanStartNow = false,
+    // Module 9: Ok | Mismatch | Unassigned | NotEnforced | NotChecked (see Services/SeatGuard)
+    string? SeatStatus = null
 );
 
 public record PracticeExamSummary(Guid ExamId, string Title, int DurationMinutes, int QuestionCount, int Attempts, Guid? InProgressSessionId);

@@ -31,7 +31,13 @@ public record StudentExamStatus(
     bool RequireWebcam = false,
     bool RequireMic = false,
     bool ReadinessPassed = false,
-    DateTime? ServerTimeUtc = null);
+    DateTime? ServerTimeUtc = null,
+    // Module 3 start gate (server clock) and Module 9 seat check — see Core/Dashboard/StartGate
+    int SecondsUntilStart = 0,
+    DateTime? OpensAtUtc = null,
+    int EarlyJoinMinutes = 0,
+    bool? CanStartNow = null,
+    string? SeatStatus = null);
 
 public record HealthProbe(bool Ok, TimeSpan RoundTrip, DateTimeOffset? ServerTime);
 

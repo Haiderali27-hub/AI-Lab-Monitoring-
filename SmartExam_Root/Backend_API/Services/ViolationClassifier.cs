@@ -27,7 +27,8 @@ public static class ViolationClassifier
         MonitoringEventType.MultiMonitor,
         MonitoringEventType.RemoteSession,
         MonitoringEventType.VirtualMachine,
-        MonitoringEventType.LockdownDegraded
+        MonitoringEventType.LockdownDegraded,
+        MonitoringEventType.SeatMismatch
     };
 
     private enum Severity { Warning = 1, Suspicious = 2, Violation = 3 }
@@ -40,6 +41,7 @@ public static class ViolationClassifier
             or MonitoringEventType.VirtualMachine or MonitoringEventType.LockdownDegraded
             => Severity.Suspicious,
         // ProcessKilled = the student actually launched a forbidden app; USB/RDP = evidence risk;
+        // SeatMismatch = someone sitting at the wrong workstation (possible impersonation);
         // generic Violation keeps the pre-Module-4 behaviour (any violation shows red).
         _ => Severity.Violation
     };

@@ -22,6 +22,12 @@ public class Exam
     public bool RequireMic { get; set; }
     // Practice exam: unlimited attempts, excluded from results stats/analytics/plagiarism.
     public bool IsMock { get; set; }
+    // Module 3: start-session opens this many minutes before StartTime (0 = exactly at StartTime).
+    public int EarlyJoinMinutes { get; set; }
+    // Module 9: eligibility threshold used by "Recalculate from attendance".
+    public double MinAttendancePercent { get; set; } = 75;
+    // Module 9: when a seat is assigned, the student may only start/continue from that workstation.
+    public bool EnforceSeat { get; set; } = true;
     public ExamStatus Status { get; set; } = ExamStatus.Scheduled;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

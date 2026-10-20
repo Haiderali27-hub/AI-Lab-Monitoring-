@@ -101,15 +101,20 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 
 | ID | Title | Steps | Expected | Status |
 |----|-------|-------|----------|--------|
-| M3-A-01 | Current exam status | Student GET `/api/exams/student/current` | Exam, remainingSeconds > 0, isEligible | ✅ |
-| M3-I-01 | Start before StartTime blocked | Exam starts in +1 h; start-session | 400 `EXAM_NOT_STARTED` | ⏳ |
-| M3-I-02 | Early-join window honoured | `EarlyJoinMinutes=5`, start at T-3 min | 200 | ⏳ |
+| M3-A-01 | Current exam status | Student GET `/api/exams/student/current` | Exam, remainingSeconds > 0, isEligible, `canStartNow`, `secondsUntilStart=0` | ✅ |
+| M3-A-02 | Start before StartTime refused (black-box) | Exam at +30 min; start-session and student/start | Both 400 `EXAM_NOT_STARTED`; status `canStartNow=false` | ✅ |
+| M3-A-03 | Early join (black-box) | `earlyJoinMinutes=5`, start at T-3 | `canStartNow=true`, start 200 | ✅ |
+| M3-I-01 | Start before StartTime blocked | Exam starts in +1 h; start-session | 400 `EXAM_NOT_STARTED` | ✅ |
+| M3-I-02 | Early-join window honoured | `EarlyJoinMinutes=5`, start at T-3 min | 200 | ✅ |
 | M3-I-03 | Start after end blocked | Exam ended | 400 | ✅ (since `768df71`) |
 | M3-I-04 | Ineligible blocked | IsEligible=false | 400 | ✅ |
+| M3-I-05 | Desktop start path codes | student/start before open / inside early-join / after end | `EXAM_NOT_STARTED` / 200 / `EXAM_CLOSED` (replaces `OUTSIDE_EXAM_WINDOW`) | ✅ |
+| M3-I-06 | Start gate reported on server clock | GET student/current for exam at +20 min, early join 5 | `secondsUntilStart`≈15 min, `opensAtUtc`, `serverTimeUtc`, `canStartNow=false` | ✅ |
+| M3-I-07 | Early-join validation | `earlyJoinMinutes` −1 / 61; 10 | 400 / round-trips on exam detail | ✅ |
 | M3-E-01 | Student portal lists exam | Login as student in web portal | Exam card visible | ✅ |
 | M3-E-02 | Student result page | After submit + grading | Result page shows marks | ✅ |
-| M3-E-03 | Countdown not available before start | Future exam | Portal shows "starts in" not "remaining" | ⏳ |
-| M3-D-01 | Start button disabled before start time | Future exam in WPF | Disabled with message | 📋 |
+| M3-E-03 | Countdown not available before start | Future exam | Portal shows "starts in" not "remaining" | ✅ |
+| M3-D-01 | Start button disabled before start time | Future exam in WPF | Disabled; clock shows "STARTS IN"; unlocks at the opening on the server clock | ✅ logic (`StartGateTests`, M3_D_01_*); FlaUI 📋 |
 | M3-D-02 | Countdown resync after extend | Teacher extends | WPF timer jumps within 1 heartbeat | 📋 |
 
 ## M4 — Secure Exam Environment
@@ -247,25 +252,40 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 
 | ID | Title | Steps | Expected | Status |
 |----|-------|-------|----------|--------|
-| M9-U-01 | Attendance % calc | 30/40 | 75% | 📋 |
-| M9-U-02 | Threshold boundary | 74.9% vs 75% min | ineligible / eligible | 📋 |
-| M9-U-03 | Zero classes | total=0 | Not computed, flagged | 📋 |
+| M9-U-01 | Attendance % calc | 30/40 | 75% | ✅ (via API) |
+| M9-U-02 | Threshold boundary | 74.9% vs 75% min | ineligible / eligible | ✅ (via API) |
+| M9-U-03 | Zero classes | total=0 | Not computed, flagged | ✅ (via API) |
+| M9-U-04 | Attendance CSV parser | Header in any order, BOM/CRLF/quotes/`;`, bad rows, duplicates, missing header | Rows parsed by header name; each bad row carries a reason | ✅ |
+| M9-U-05 | Eligibility rule | 749/1000, 750/1000, 24/40, 2/3, no record, 0 classes | Unrounded compare; notes "Attendance 60% < 75%" / "… ≥ …"; not computed | ✅ |
+| M9-U-06 | Seat matching | MachineName / Ip / Either; HostName vs seat label; IPv4-mapped IPv6 | Matches as specified | ✅ |
 | M9-A-01 | Manual eligibility toggle | Teacher sets ineligible | Student start → 400 | ✅ |
-| M9-I-01 | Attendance CSV import | POST CSV 2 rows | Records stored | ⏳ |
-| M9-I-02 | Recalculate sets ineligible | 60% attendance, min 75 | IsEligible=false, note "Attendance 60% < 75%" | ⏳ |
-| M9-I-03 | Recalculate keeps overrides | Manual override true, attendance 60% | Stays eligible | ⏳ |
-| M9-I-04 | Decisions audited | Recalculate | `ELIGIBILITY_COMPUTED` per student | ⏳ |
-| M9-I-05 | Seat match by machine name | Assigned R1C1, binding MachineName R1C1 | start 200 | ⏳ |
-| M9-I-06 | Seat mismatch blocked | Assigned R1C1, logs in from R1C2 | 403 `SEAT_MISMATCH`, audit | ⏳ |
-| M9-I-07 | Seat match by IP mode | SeatMatch=Ip | Compare request IP | ⏳ |
-| M9-I-08 | No seat assigned → not enforced | WorkstationId null | 200 | ⏳ |
-| M9-I-09 | Heartbeat from wrong seat flagged | Mid-exam seat change | Violation `SeatMismatch` | ⏳ |
-| M9-I-10 | Auto-register off by default | Student login from new PC | No workstation auto-created | ⏳ |
+| M9-A-02 | Attendance import + recalculate (black-box) | CSV `attended,email,total` + unknown email; recalculate | 75% eligible / 60% ineligible with note; unknown email reported; student upload 403 | ✅ |
+| M9-A-03 | Seat enforcement, desktop path | Seat R1C2, simulator on another PC; then from R1C2 | 403 `SEAT_MISMATCH` + audit + `seatStatus=Mismatch`; then 200 | ✅ |
+| M9-I-01 | Attendance CSV import | POST CSV 2 rows | Records stored | ✅ |
+| M9-I-02 | Recalculate sets ineligible | 60% attendance, min 75 | IsEligible=false, note "Attendance 60% < 75%" | ✅ |
+| M9-I-03 | Recalculate keeps overrides | Manual override true, attendance 60% | Stays eligible | ✅ |
+| M9-I-04 | Decisions audited | Recalculate | `ELIGIBILITY_COMPUTED` per student | ✅ |
+| M9-I-05 | Seat match by machine name | Assigned PC-01, desktop login from PC-01 | start 200 | ✅ |
+| M9-I-06 | Seat mismatch blocked | Assigned PC-01, logs in from PC-02 | 403 `SEAT_MISMATCH`, audit, live alert, no session | ✅ |
+| M9-I-07 | Seat match by IP mode | SeatMatch=Ip | Compare request IP | ✅ |
+| M9-I-08 | No seat assigned → not enforced | WorkstationId null | 200 | ✅ |
+| M9-I-09 | Heartbeat from wrong seat flagged | Mid-exam seat change | Violation `SeatMismatch` | ✅ |
+| M9-I-10 | Auto-register off by default | Student login from new PC | No workstation auto-created | ✅ |
+| M9-I-11 | Import authorisation + validation | Other teacher's section; bad header; non-enrolled student; re-import | 403; 400; imported with warning; updated in place; `ATTENDANCE_IMPORTED` audited | ✅ |
+| M9-I-12 | Recalculate guards | Other teacher / student / ended exam | 403 / 403 / 409 | ✅ |
+| M9-I-13 | Only changed rows become overrides; clear override | Save 2 rows (1 changed); clear override; recalculate | 1 `ELIGIBILITY_OVERRIDDEN`; `ELIGIBILITY_OVERRIDE_CLEARED`; attendance applies again | ✅ |
+| M9-I-14 | Heartbeat mismatch de-duplicated | 3 heartbeats from wrong seat | 1 `SeatMismatch` event, 1 audit; heartbeat `seatStatus=Mismatch`, tile Violation | ✅ |
+| M9-I-15 | student/start + student/current honour the seat | Desktop login from wrong / right PC | `seatStatus=Mismatch`, `canStartNow=false`, 403; then Ok, 200 | ✅ |
+| M9-I-16 | Workstation edit/delete | Set HostName; delete assigned / spare seat | HostName drives matching; 409 / 200; teacher 403 | ✅ |
+| M9-I-17 | Auto-register opt-in + unregistered list | Default vs `Labs:AutoRegister=true` | PC listed at `/api/labs/unregistered-machines` / workstation created | ✅ |
+| M9-I-18 | EnforceSeat off; desktop client required | `enforceSeat=false`; `Exams:RequireDesktopClientForStart=true` | Start from any PC 200; web token 403 `DESKTOP_CLIENT_REQUIRED` | ✅ |
 | M9-E-01 | Eligibility page loads | Teacher → Eligibility | Assignments table | ✅ |
 | M9-E-02 | Toggle eligibility in UI | Click toggle | Simulator start → 400 | ✅ |
-| M9-E-03 | Attendance upload dialog | Upload CSV | Attendance column filled | ⏳ |
-| M9-E-04 | Recalculate button | Click | Ineligible rows show reason | ⏳ |
-| M9-E-05 | Seat mismatch alert | Simulator logs in from wrong machine | Alert on live monitor | ⏳ |
+| M9-E-03 | Attendance upload dialog | Upload CSV | Attendance column filled | ✅ |
+| M9-E-04 | Recalculate button | Click | Ineligible rows show reason | ✅ |
+| M9-E-05 | Seat mismatch alert | Simulator starts at R1C1, re-logs in from R1C2 | Tile "Seat mismatch: logged in from R1C2 (assigned R1C1)", Critical | ✅ |
+| M9-E-06 | Manual override badge | Override 1 row, recalculate, clear override | "Manual" badge kept through recalculation; cleared → attendance applies | ✅ |
+| M9-M-01 | Seat enforcement on real lab PCs | Register each PC's Windows name as HostName; sit at the wrong PC | Start refused with seat message; proctor alerted | 📋 |
 
 ## M10 — Live Proctoring Dashboard
 
@@ -359,6 +379,8 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | D-05 | M10-E-04 | Hub `SendWarning` only stores a notification — nothing is pushed live to the student client | Open (P2, Module 10) |
 | D-06 | M5-A-02 | Heartbeat naming another student's session returns 200 (ignored, not attributed) instead of 403/404 | Open (low) |
 | D-07 | review | Live Monitor logged "Window Focus Lost" whenever the window title wasn't "Exam Browser" | **Fixed** — uses the client's foreground flag |
+| D-08 | M3-I-01 | `start-session` never checked `StartTime` — a student could start a future exam; the desktop Start button enabled early (it only looked at time-to-end) | **Fixed** — `EXAM_NOT_STARTED` on both start paths + `StartGate` on the server clock |
+| D-09 | M9-I-10 | Every student login auto-registered its PC into "Systems Engineering Lab", defeating seat enforcement | **Fixed** — only with `Labs:AutoRegister=true` (dotnet-run demo profiles) |
 
 ---
 

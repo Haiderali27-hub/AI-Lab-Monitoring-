@@ -56,11 +56,12 @@ public class LabsController : ControllerBase
                 .OrderBy(w => w.MachineNumber)
                 .Select(w =>
                 {
-                    occupantByMachine.TryGetValue(w.MachineNumber, out var occ);
+                    occupantByMachine.TryGetValue(w.HostName ?? w.MachineNumber, out var occ);
                     return new
                     {
                         w.WorkstationId,
                         w.MachineNumber,
+                        w.HostName,
                         w.IpAddress,
                         OccupantName = occ?.User?.Name,
                         OccupantWindowsUser = occ?.WindowsUsername,
@@ -102,19 +103,96 @@ public class LabsController : ControllerBase
         var duplicate = await _db.Workstations.AnyAsync(w => w.LabId == labId && w.MachineNumber == req.MachineNumber);
         if (duplicate) return Conflict(new { message = "A workstation with that machine number already exists in this lab." });
 
+        var ipError = ValidateIp(req.IpAddress);
+        if (ipError is not null) return BadRequest(new { message = ipError });
+
         var ws = new Workstation
         {
             LabId = labId,
             MachineNumber = req.MachineNumber.Trim(),
+            HostName = NullIfBlank(req.HostName),
             IpAddress = req.IpAddress?.Trim() ?? string.Empty
         };
         _db.Workstations.Add(ws);
-        _audit.Add(CurrentUserId, "WORKSTATION_CREATED", "Workstation", ws.WorkstationId.ToString(), new { lab.Name, ws.MachineNumber, ws.IpAddress });
+        _audit.Add(CurrentUserId, "WORKSTATION_CREATED", "Workstation", ws.WorkstationId.ToString(), new { lab.Name, ws.MachineNumber, ws.HostName, ws.IpAddress });
         await _db.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetAll), new { ws.WorkstationId, ws.MachineNumber, ws.IpAddress });
+        return CreatedAtAction(nameof(GetAll), new { ws.WorkstationId, ws.MachineNumber, ws.HostName, ws.IpAddress });
     }
+
+    // PUT /api/labs/{labId}/workstations/{id} — edit a seat's label, PC name and IP (seat enforcement inputs)
+    [HttpPut("{labId:guid}/workstations/{id:guid}")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<IActionResult> UpdateWorkstation(Guid labId, Guid id, [FromBody] CreateWorkstationRequest req)
+    {
+        var ws = await _db.Workstations.FirstOrDefaultAsync(w => w.WorkstationId == id && w.LabId == labId);
+        if (ws is null) return NotFound(new { message = "Workstation not found." });
+        if (string.IsNullOrWhiteSpace(req.MachineNumber))
+            return BadRequest(new { message = "Machine number is required." });
+        var ipError = ValidateIp(req.IpAddress);
+        if (ipError is not null) return BadRequest(new { message = ipError });
+
+        var machineNumber = req.MachineNumber.Trim();
+        if (await _db.Workstations.AnyAsync(w => w.LabId == labId && w.WorkstationId != id && w.MachineNumber == machineNumber))
+            return Conflict(new { message = "A workstation with that machine number already exists in this lab." });
+
+        var before = new { ws.MachineNumber, ws.HostName, ws.IpAddress };
+        ws.MachineNumber = machineNumber;
+        ws.HostName = NullIfBlank(req.HostName);
+        ws.IpAddress = req.IpAddress?.Trim() ?? string.Empty;
+        _audit.Add(CurrentUserId, "WORKSTATION_UPDATED", "Workstation", ws.WorkstationId.ToString(),
+            new { before, after = new { ws.MachineNumber, ws.HostName, ws.IpAddress } });
+        await _db.SaveChangesAsync();
+
+        return Ok(new { ws.WorkstationId, ws.MachineNumber, ws.HostName, ws.IpAddress });
+    }
+
+    // DELETE /api/labs/{labId}/workstations/{id} — refused while any exam assignment uses the seat
+    [HttpDelete("{labId:guid}/workstations/{id:guid}")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<IActionResult> DeleteWorkstation(Guid labId, Guid id)
+    {
+        var ws = await _db.Workstations.FirstOrDefaultAsync(w => w.WorkstationId == id && w.LabId == labId);
+        if (ws is null) return NotFound(new { message = "Workstation not found." });
+        if (await _db.ExamAssignments.AnyAsync(a => a.WorkstationId == id))
+            return Conflict(new { message = $"Workstation {ws.MachineNumber} is assigned to a student in an exam. Unassign it first." });
+
+        _db.Workstations.Remove(ws);
+        _audit.Add(CurrentUserId, "WORKSTATION_DELETED", "Workstation", ws.WorkstationId.ToString(), new { ws.MachineNumber, ws.HostName, ws.IpAddress });
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Workstation deleted." });
+    }
+
+    // GET /api/labs/unregistered-machines — PCs students logged in from that no workstation covers
+    // (replaces the old auto-registration: an admin registers them deliberately).
+    [HttpGet("unregistered-machines")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<IActionResult> GetUnregisteredMachines()
+    {
+        var known = (await _db.Workstations
+            .Select(w => w.HostName ?? w.MachineNumber)
+            .ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var machines = await _db.DeviceBindings
+            .Include(b => b.User)
+            .Where(b => b.MachineName != null)
+            .ToListAsync();
+
+        return Ok(machines
+            .Where(b => !known.Contains(b.MachineName!))
+            .GroupBy(b => b.MachineName!, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(b => b.LastSeenAt).First())
+            .OrderByDescending(b => b.LastSeenAt)
+            .Select(b => new { MachineName = b.MachineName!, LastStudent = b.User.Name, b.LastSeenAt }));
+    }
+
+    private static string? NullIfBlank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private static string? ValidateIp(string? ip) =>
+        string.IsNullOrWhiteSpace(ip) || System.Net.IPAddress.TryParse(ip.Trim(), out _)
+            ? null
+            : "IP address is not valid.";
 }
 
 public record CreateLabRequest(string Name, string? Location);
-public record CreateWorkstationRequest(string MachineNumber, string? IpAddress);
+public record CreateWorkstationRequest(string MachineNumber, string? IpAddress, string? HostName = null);

@@ -32,7 +32,7 @@ test.describe('M3 — Student Exam Dashboard (web portal)', () => {
     await expect(page.getByText('14.3%')).toBeVisible();
   });
 
-  test.fixme('M3-E-03 Countdown not available before start', async ({ page, request }) => {
+  test('M3-E-03 Countdown not available before start', async ({ page, request }) => {
     const { users } = await examWithStudents(request, 1, { startTime: new Date(Date.now() + 60 * 60_000) });
     await signInStudentWeb(page, request, users[0]);
     await page.goto('/student/dashboard');

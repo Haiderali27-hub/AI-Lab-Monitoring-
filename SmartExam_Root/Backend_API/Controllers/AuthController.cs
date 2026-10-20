@@ -19,12 +19,14 @@ public class AuthController : ControllerBase
     private readonly AppDbContext _db;
     private readonly JwtHelper _jwt;
     private readonly AuditService _audit;
+    private readonly IConfiguration _config;
 
-    public AuthController(AppDbContext db, JwtHelper jwt, AuditService audit)
+    public AuthController(AppDbContext db, JwtHelper jwt, AuditService audit, IConfiguration config)
     {
         _db = db;
         _jwt = jwt;
         _audit = audit;
+        _config = config;
     }
 
     // POST /api/auth/login
@@ -192,11 +194,19 @@ public class AuthController : ControllerBase
             deviceBound = true;
         }
 
-        // Auto-register this physical machine as a workstation in the Systems Engineering Lab,
-        // so whoever runs the client from their own PC shows up live in that lab's seat map.
-        await EnsureWorkstationRegisteredAsync(req.MachineName);
+        // Demo convenience only (Labs:AutoRegister=true): auto-register this machine as a workstation
+        // in the Systems Engineering Lab. Off by default — letting any PC enrol itself would defeat
+        // seat enforcement, so admins register lab PCs on the Labs page instead.
+        if (_config.GetValue("Labs:AutoRegister", false))
+            await EnsureWorkstationRegisteredAsync(req.MachineName);
 
-        var (token, jti, expiry) = _jwt.GenerateToken(user);
+        // The desktop token carries the machine identity reported at login; start-session, student/start
+        // and every heartbeat compare it with the assigned seat (Module 9, Services/SeatGuard).
+        var clientClaims = new List<System.Security.Claims.Claim> { new(SeatGuard.ClientClaim, SeatGuard.DesktopClient) };
+        if (!string.IsNullOrWhiteSpace(req.MachineName))
+            clientClaims.Add(new(SeatGuard.MachineClaim, req.MachineName.Trim()[..Math.Min(req.MachineName.Trim().Length, 128)]));
+
+        var (token, jti, expiry) = _jwt.GenerateToken(user, clientClaims);
         _audit.Add(user.UserId, "LOGIN_SUCCESS", "User", user.UserId.ToString(), new { user.Email, role = "Student", channel = "student-client" });
 
         _db.UserSessions.Add(new UserSession
@@ -236,7 +246,7 @@ public class AuthController : ControllerBase
         user.PasswordHash = PasswordHelper.HashPassword(password, user.Salt);
     }
 
-    // Idempotently add the caller's machine to the Systems Engineering Lab.
+    // Idempotently add the caller's machine to the Systems Engineering Lab (only when Labs:AutoRegister=true).
     private async Task EnsureWorkstationRegisteredAsync(string? machineName)
     {
         if (string.IsNullOrWhiteSpace(machineName)) return;

@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import { examsApi } from '../../api/exams.api';
 import { labsApi } from '../../api/labs.api';
-import type { Exam, ExamAssignment, LabInfo, ReadinessResult } from '../../types';
+import type { AttendanceImportResult, Exam, ExamAssignment, LabInfo, ReadinessResult } from '../../types';
 
 /** ✓ fresh pass · ✗ failed · ⌛ passed but older than 30 min · — never run */
 function ReadinessBadge({ result }: { result?: ReadinessResult }) {
@@ -29,17 +29,46 @@ function ReadinessBadge({ result }: { result?: ReadinessResult }) {
   );
 }
 
+/** "75%" (rounded to 2 dp, trailing zeros dropped) with "30/40 classes" underneath; "—" without a record. */
+function AttendanceCell({ item, min }: { item: ExamAssignment; min?: number }) {
+  if (item.totalClasses == null) return <span className="text-slate-300 text-sm" title="No attendance imported for this student">—</span>;
+  if (item.attendancePercent == null) return <span className="text-amber-600 text-xs font-semibold" title="Zero classes recorded">0 classes</span>;
+  const pct = Math.round(item.attendancePercent * 100) / 100;
+  const below = min != null && item.attendancePercent < min;
+  return (
+    <div data-testid="attendance-cell">
+      <span className={`font-bold text-sm ${below ? 'text-red-600' : 'text-emerald-700'}`}>{pct}%</span>
+      <span className="block text-[10px] text-slate-400">{item.attendedClasses}/{item.totalClasses} classes</span>
+    </div>
+  );
+}
+
+type Baseline = Record<string, { isEligible: boolean; note: string }>;
+
+const baselineOf = (rows: ExamAssignment[]): Baseline =>
+  Object.fromEntries(rows.map(a => [a.userId, { isEligible: a.isEligible, note: a.eligibilityNote || '' }]));
+
 export default function EligibilityPage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedExamId, setSelectedExamId] = useState('');
   const [assignments, setAssignments] = useState<ExamAssignment[]>([]);
+  // Server state of each row — Save sends only rows that differ, so untouched rows never become manual overrides.
+  const [baseline, setBaseline] = useState<Baseline>({});
+  const [editingNotes, setEditingNotes] = useState<Set<string>>(new Set());
   const [readiness, setReadiness] = useState<Record<string, ReadinessResult>>({});
   const [loading, setLoading] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
   const [labs, setLabs] = useState<LabInfo[]>([]);
   const [sectionStudents, setSectionStudents] = useState<{ userId: string; name: string; email: string }[]>([]);
   const [addStudentId, setAddStudentId] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Attendance CSV dialog (Module 9)
+  const [showImport, setShowImport] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<AttendanceImportResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   // Load all exams + labs initially
   useEffect(() => {
@@ -60,13 +89,17 @@ export default function EligibilityPage() {
       .catch((err) => console.error('Failed to load labs:', err));
   }, [searchParams]);
 
+  const selectedExam = exams.find(e => e.examId === selectedExamId);
+  const minAttendance = selectedExam?.minAttendancePercent;
+
   const loadAssignments = () => {
     if (!selectedExamId) return;
     setLoading(true);
     examsApi.getAssignments(selectedExamId)
       .then((data) => {
         setAssignments(data);
-        setHasChanges(false);
+        setBaseline(baselineOf(data));
+        setEditingNotes(new Set());
       })
       .catch((err) => console.error('Failed to load assignments:', err))
       .finally(() => setLoading(false));
@@ -75,10 +108,19 @@ export default function EligibilityPage() {
       .catch(() => setReadiness({}));
   };
 
-  // Load assignments + enrolled section students when selected exam changes
+  // Load assignments + enrolled section students when selected exam changes. Rows of the previous
+  // exam are cleared on a switch; a reload of the same exam keeps the table mounted (no flashing,
+  // and a row being edited isn't swapped for a spinner).
+  const loadedExamId = useRef('');
   useEffect(() => {
     if (!selectedExamId) return;
+    if (loadedExamId.current !== selectedExamId) {
+      loadedExamId.current = selectedExamId;
+      setAssignments([]);
+      setBaseline({});
+    }
     loadAssignments();
+    setNotice(null);
     const exam = exams.find(e => e.examId === selectedExamId);
     if (exam?.sectionId) {
       examsApi.getSectionStudents(exam.sectionId)
@@ -90,6 +132,13 @@ export default function EligibilityPage() {
     setAddStudentId('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedExamId, exams]);
+
+  const isDirty = (a: ExamAssignment) => {
+    const b = baseline[a.userId];
+    return !b || b.isEligible !== a.isEligible || b.note !== (a.eligibilityNote || '');
+  };
+  const dirtyRows = useMemo(() => assignments.filter(isDirty), [assignments, baseline]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hasChanges = dirtyRows.length > 0;
 
   // Section students not yet assigned to this exam (candidates for "Add Student")
   const unassignedStudents = sectionStudents.filter(
@@ -130,49 +179,89 @@ export default function EligibilityPage() {
     setAssignments((prev) =>
       prev.map((a) => (a.userId === userId ? { ...a, isEligible: !a.isEligible } : a))
     );
-    setHasChanges(true);
   };
 
   const handleNoteChange = (userId: string, note: string) => {
     setAssignments((prev) =>
       prev.map((a) => (a.userId === userId ? { ...a, eligibilityNote: note } : a))
     );
-    setHasChanges(true);
   };
 
   const handleMarkAll = (eligible: boolean) => {
     setAssignments((prev) => prev.map((a) => ({ ...a, isEligible: eligible })));
-    setHasChanges(true);
   };
 
   const handleSave = async () => {
-    if (!selectedExamId) return;
+    if (!selectedExamId || !hasChanges) return;
     try {
       await examsApi.updateEligibility(
         selectedExamId,
-        assignments.map((a) => ({
+        dirtyRows.map((a) => ({
           userId: a.userId,
           isEligible: a.isEligible,
           eligibilityNote: a.eligibilityNote || '',
         }))
       );
-      setHasChanges(false);
       alert('Eligibility parameters successfully updated.');
+      loadAssignments();
     } catch (err) {
       console.error(err);
       alert('Failed to save eligibility changes.');
     }
   };
 
-  const handleDiscard = () => {
-    if (selectedExamId) {
-      setLoading(true);
-      examsApi.getAssignments(selectedExamId)
-        .then((data) => {
-          setAssignments(data);
-          setHasChanges(false);
-        })
-        .finally(() => setLoading(false));
+  const handleDiscard = () => loadAssignments();
+
+  // Hand one student's decision back to the attendance rule (drops the manual override).
+  const handleClearOverride = async (a: ExamAssignment) => {
+    try {
+      await examsApi.updateEligibility(selectedExamId, [{
+        userId: a.userId, isEligible: a.isEligible, eligibilityNote: a.eligibilityNote || '', clearOverride: true,
+      }]);
+      setNotice(`${a.studentName} now follows attendance again — click Recalculate to apply it.`);
+      loadAssignments();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to clear the override.');
+    }
+  };
+
+  const handleRecalculate = async () => {
+    if (!selectedExamId) return;
+    if (hasChanges && !window.confirm('Recalculating discards your unsaved changes. Continue?')) return;
+    setBusy(true);
+    try {
+      const r = await examsApi.recalculateEligibility(selectedExamId);
+      setNotice(
+        `Recalculated from attendance (minimum ${r.minAttendancePercent}%): ${r.computed} computed, ` +
+        `${r.ineligible} ineligible, ${r.skippedOverridden} manual override(s) kept, ${r.notComputed} without attendance data.`
+      );
+      loadAssignments();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to recalculate eligibility.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openImport = () => {
+    setImportFile(null);
+    setImportResult(null);
+    setImportError(null);
+    setShowImport(true);
+  };
+
+  const handleImport = async () => {
+    if (!importFile || !selectedExam?.sectionId) return;
+    setBusy(true);
+    setImportError(null);
+    try {
+      const result = await examsApi.importAttendance(selectedExam.sectionId, importFile);
+      setImportResult(result);
+      loadAssignments();
+    } catch (err: any) {
+      setImportError(err.response?.data?.message || 'Failed to import the attendance file.');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -200,9 +289,14 @@ export default function EligibilityPage() {
                 ))}
               </select>
             </div>
+            {minAttendance != null && (
+              <p className="text-xs text-slate-400">
+                Minimum attendance: <span data-testid="min-attendance" className="font-bold text-slate-600">{minAttendance}%</span>
+              </p>
+            )}
           </div>
-          
-          <div className="flex items-center gap-3">
+
+          <div className="flex flex-wrap items-center gap-3">
             {/* Add a section student who isn't assigned yet (Module 9) */}
             {unassignedStudents.length > 0 && (
               <div className="flex items-center gap-2">
@@ -232,6 +326,21 @@ export default function EligibilityPage() {
               <span className="font-bold text-primary-600 text-sm">{assignments.length} Students</span>
             </div>
             <button
+              onClick={openImport}
+              disabled={!selectedExam?.sectionId}
+              className="px-4 h-10 border border-slate-200 text-slate-600 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-xs disabled:opacity-40"
+            >
+              Upload Attendance
+            </button>
+            <button
+              onClick={handleRecalculate}
+              disabled={!selectedExamId || busy}
+              title="Set eligibility from imported attendance; manual overrides are kept"
+              className="px-4 h-10 bg-primary-500 text-white font-bold rounded-lg hover:bg-primary-600 transition-colors text-xs disabled:opacity-40"
+            >
+              Recalculate
+            </button>
+            <button
               onClick={() => handleMarkAll(true)}
               className="px-4 h-10 bg-blue-50 hover:bg-blue-100 text-primary-600 font-bold rounded-lg transition-colors flex items-center gap-2 text-xs"
             >
@@ -246,8 +355,15 @@ export default function EligibilityPage() {
           </div>
         </div>
 
+        {notice && (
+          <div role="status" className="flex items-start justify-between gap-4 bg-blue-50 border border-blue-100 text-blue-800 text-sm rounded-lg px-4 py-3">
+            <span>{notice}</span>
+            <button onClick={() => setNotice(null)} className="text-blue-400 hover:text-blue-700 text-xs font-bold" aria-label="Dismiss">✕</button>
+          </div>
+        )}
+
         {/* Table View */}
-        {loading ? (
+        {loading && assignments.length === 0 ? (
           <div className="min-h-[300px] flex items-center justify-center">
             <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
           </div>
@@ -261,6 +377,7 @@ export default function EligibilityPage() {
                     <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Email</th>
                     <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Workstation</th>
                     <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">System Check</th>
+                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Attendance</th>
                     <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Eligibility</th>
                     <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Note / Reason</th>
                     <th className="px-6 py-4 w-14"></th>
@@ -269,14 +386,19 @@ export default function EligibilityPage() {
                 <tbody className="divide-y divide-slate-100">
                   {assignments.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">
+                      <td colSpan={8} className="px-6 py-12 text-center text-sm text-slate-400">
                         {selectedExamId ? 'No student assignments registered.' : 'Please select an exam.'}
                       </td>
                     </tr>
                   ) : (
-                    assignments.map((item) => (
-                      <tr 
-                        key={item.userId} 
+                    assignments.map((item) => {
+                      // A decision made by "Recalculate" shows its note as text; editing it (or the
+                      // switch) turns the row into a manual override on save.
+                      const computedNote = item.eligibilitySource === 'Attendance' && !item.eligibilityOverridden &&
+                        !isDirty(item) && !editingNotes.has(item.userId);
+                      return (
+                      <tr
+                        key={item.userId}
                         className={`transition-colors hover:bg-slate-50/50 ${
                           !item.isEligible ? 'bg-red-50/20 hover:bg-red-50/30' : ''
                         }`}
@@ -313,28 +435,61 @@ export default function EligibilityPage() {
                           <ReadinessBadge result={readiness[item.userId]} />
                         </td>
                         <td className="px-6 py-4">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              role="switch"
-                              aria-checked={item.isEligible ? "true" : "false"}
-                              checked={item.isEligible}
-                              onChange={() => toggleEligibility(item.userId)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-10 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-500"></div>
-                          </label>
+                          <AttendanceCell item={item} min={minAttendance} />
                         </td>
                         <td className="px-6 py-4">
-                          <input
-                            type="text"
-                            placeholder="Add reason/note..."
-                            value={item.eligibilityNote || ''}
-                            onChange={(e) => handleNoteChange(item.userId, e.target.value)}
-                            className={`w-full bg-transparent border-none p-0 focus:ring-0 text-sm ${
-                              !item.isEligible ? 'text-red-700 font-semibold' : 'text-slate-500 italic'
-                            }`}
-                          />
+                          <div className="flex items-center gap-2">
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                role="switch"
+                                aria-checked={item.isEligible ? "true" : "false"}
+                                checked={item.isEligible}
+                                onChange={() => toggleEligibility(item.userId)}
+                                className="sr-only peer"
+                              />
+                              <div className="w-10 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-500"></div>
+                            </label>
+                            {item.eligibilityOverridden ? (
+                              <span data-testid="eligibility-source" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold uppercase"
+                                    title="Set manually — Recalculate leaves this student alone">
+                                Manual
+                                <button
+                                  onClick={() => handleClearOverride(item)}
+                                  title="Clear override — follow attendance again"
+                                  aria-label={`Clear override for ${item.studentName}`}
+                                  className="text-amber-500 hover:text-amber-800"
+                                >↺</button>
+                              </span>
+                            ) : item.eligibilitySource === 'Attendance' ? (
+                              <span data-testid="eligibility-source" className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold uppercase"
+                                    title="Computed from attendance">
+                                Attendance
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {computedNote ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditingNotes(prev => new Set(prev).add(item.userId))}
+                              title="Edit to override"
+                              className={`text-left text-sm ${!item.isEligible ? 'text-red-700 font-semibold' : 'text-slate-500'}`}
+                            >
+                              {item.eligibilityNote}
+                            </button>
+                          ) : (
+                            <input
+                              type="text"
+                              placeholder="Add reason/note..."
+                              value={item.eligibilityNote || ''}
+                              onChange={(e) => handleNoteChange(item.userId, e.target.value)}
+                              className={`w-full bg-transparent border-none p-0 focus:ring-0 text-sm ${
+                                !item.isEligible ? 'text-red-700 font-semibold' : 'text-slate-500 italic'
+                              }`}
+                            />
+                          )}
                         </td>
                         <td className="px-6 py-4 text-right">
                           <button
@@ -348,7 +503,8 @@ export default function EligibilityPage() {
                           </button>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -356,6 +512,61 @@ export default function EligibilityPage() {
           </div>
         )}
       </div>
+
+      {/* Attendance CSV upload dialog (Module 9) */}
+      {showImport && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="attendance-dialog-title" className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4">
+            <div>
+              <h3 id="attendance-dialog-title" className="text-lg font-bold text-slate-800">Upload attendance</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                CSV with a header row containing <span className="font-mono">email</span>, <span className="font-mono">total</span> and{' '}
+                <span className="font-mono">attended</span> (any order). Applies to every exam of section{' '}
+                <span className="font-semibold">{selectedExam?.sectionName || selectedExam?.courseName}</span>; re-uploading updates existing rows.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="attendance-file" className="text-xs font-bold tracking-wider text-slate-400 uppercase block">CSV file</label>
+              <input
+                id="attendance-file"
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportResult(null); setImportError(null); }}
+                className="block w-full text-sm text-slate-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-blue-50 file:text-primary-600 file:font-semibold"
+              />
+            </div>
+
+            {importError && <p role="alert" className="text-sm text-red-600">{importError}</p>}
+            {importResult && (
+              <div data-testid="import-result" className="text-sm bg-slate-50 border border-slate-100 rounded-lg p-3 space-y-1">
+                <p className="font-semibold text-slate-700">
+                  {importResult.imported} added, {importResult.updated} updated, {importResult.errors.length} rejected.
+                  {importResult.imported + importResult.updated > 0 && ' Click Recalculate to apply the attendance rule.'}
+                </p>
+                {importResult.errors.slice(0, 8).map(e => (
+                  <p key={`e${e.line}`} className="text-xs text-red-600">Line {e.line}: {e.email || '(no email)'} — {e.reason}</p>
+                ))}
+                {importResult.warnings.slice(0, 8).map(w => (
+                  <p key={`w${w.line}`} className="text-xs text-amber-600">Line {w.line}: {w.email} — {w.reason}</p>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setShowImport(false)} className="px-5 h-10 text-slate-500 hover:text-slate-800 text-sm font-semibold">
+                {importResult ? 'Done' : 'Cancel'}
+              </button>
+              <button
+                onClick={handleImport}
+                disabled={!importFile || busy}
+                className="px-6 h-10 bg-primary-500 text-white font-bold text-sm rounded-lg hover:bg-primary-600 disabled:opacity-40"
+              >
+                Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Save Footer */}
       {hasChanges && (
@@ -365,7 +576,7 @@ export default function EligibilityPage() {
               <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></div>
               <div className="absolute inset-0 w-3 h-3 bg-orange-400 rounded-full scale-150 opacity-20"></div>
             </div>
-            <p className="text-slate-800 text-sm font-semibold">Unsaved changes in eligibility list</p>
+            <p className="text-slate-800 text-sm font-semibold">Unsaved changes in eligibility list ({dirtyRows.length} student{dirtyRows.length === 1 ? '' : 's'})</p>
           </div>
           <div className="flex items-center gap-3">
             <button

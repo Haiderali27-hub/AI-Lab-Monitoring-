@@ -18,5 +18,8 @@ public enum MonitoringEventType
     MultiMonitor,
     RemoteSession,
     VirtualMachine,
-    LockdownDegraded
+    LockdownDegraded,
+
+    // Module 9 — recorded by the SERVER when a heartbeat comes from a seat other than the assigned one
+    SeatMismatch
 }
