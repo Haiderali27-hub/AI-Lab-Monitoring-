@@ -37,5 +37,10 @@ public enum MonitoringEventType
     // (Core/Monitoring/CameraTamperDetector): one event per episode, not per frame.
     CameraCovered,      // lens covered / image black or featureless for a few seconds
     CameraFrozen,       // identical frames for a while (virtual camera, looped still image)
-    CameraUnavailable   // the required camera stopped delivering frames (unplugged, taken by another app)
+    CameraUnavailable,  // the required camera stopped delivering frames (unplugged, taken by another app)
+
+    // Module 10 — reported by the client when a proctor's unlock (hub UnlockSession) suspended its lockdown guards,
+    // and when they came back on. Not violations; the unlock itself is audited on the server (SESSION_UNLOCKED).
+    LockdownSuspended,
+    LockdownResumed
 }

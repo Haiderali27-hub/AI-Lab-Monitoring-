@@ -386,26 +386,46 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 
 | ID | Title | Steps | Expected | Status |
 |----|-------|-------|----------|--------|
-| M10-I-01 | Incident create | POST incident | 201, audit | ⏳ |
-| M10-I-02 | Incident escalate/resolve | PATCH status | Transition stored, invalid transitions 400 | ⏳ |
-| M10-I-03 | Incident access control | Teacher of other section | 403 | ⏳ |
-| M10-I-04 | Unlock session | Hub UnlockSession 5 min | Event sent to student, audited | ⏳ |
+| M10-U-01 | Warning inbox: repeated ack | Same warning in 3 heartbeat acks | Raised once, stays current | ✅ desktop xUnit (S6) |
+| M10-U-02 | Warning inbox: order and acknowledge | Two warnings, acknowledge each | Oldest first; acknowledged ones leave the banner | ✅ (S6) |
+| M10-U-03 | Warning inbox: acknowledged offline | Acknowledged, server still resends it (mark-read failed) | Not shown again | ✅ (S6) |
+| M10-U-04 | Warning inbox: malformed entries | Null list, empty id, blank body | Ignored | ✅ (S6) |
+| M10-U-05 | Unlock deadline on a skewed PC clock | Server says until +5 min, PC clock 7 min behind | Local deadline = PC now + 5 min | ✅ (S6) |
+| M10-U-06 | Unlock deadline limits | Null / past / now / +5 h | Null, null, null, capped at 30 min | ✅ (S6) |
+| M10-U-07 | Suspend decisions | Locked→unlocked, jitter, new unlock, relock, expiry, re-unlock | Suspend / None / Reschedule / Resume / Resume / Suspend | ✅ (S6) |
+| M10-I-01 | Incident create | POST incident | 201, audit | ✅ (S6) |
+| M10-I-02 | Incident escalate/resolve | PATCH status | Transition stored, invalid transitions 400 | ✅ (S6) |
+| M10-I-03 | Incident access control | Teacher of other section | 403 | ✅ (S6) |
+| M10-I-04 | Unlock session | Hub UnlockSession 5 min | Event sent to student, audited | ✅ (S6) |
 | M10-I-05 | Extend single student | ExtendStudentTime | Only that session's end moves | ✅ (Stage S4) |
 | M10-I-06 | Hub group isolation | Student joins exam group | HubException | ✅ (existing) |
 | M10-I-07 | Teacher can't force-submit other teacher's exam | Hub call | HubException | ✅ (existing) |
 | M10-I-08 | Proctor assignment | Add ExamProctor | Invigilator can join group | ✅ (Stage S3, built with M7) |
+| M10-I-09 | Warning reaches the student (D-05) | Hub SendWarning; heartbeats; student marks it read | `ProctorWarning` to `user:{id}` + `ProctorWarningSent` to the exam group; audit `PROCTOR_WARNING_SENT`; ack `warnings` repeats it until read, then empty; audit `PROCTOR_WARNING_ACKNOWLEDGED`; other section's teacher / blank text → HubException | ✅ (S6) |
+| M10-I-10 | Unlock in the heartbeat ack, relock, limits | Unlock 31 / 0 min / blank reason / other teacher; unlock 5; relock; unlock after submit | HubException ×4; ack `unlockedUntilUtc` ≈ now+5 min; `SessionUnlocked` to the group; relock → null + `SESSION_RELOCKED` + `SessionRelocked` to the student; finished session refused | ✅ (S6) |
+| M10-I-11 | Board snapshot | Two started, one heartbeats + violation + capture + incident; GET `/exams/{id}/live` | Only the heartbeating student, with violations, tile status, last violation, apps, latest capture, open incidents; other teacher / student 403 | ✅ (S6) |
+| M10-I-12 | Incidents: list, broadcast, proctors, validation | Create; assigned / unassigned invigilator; unknown session; bad severity; empty / 2001-char notes; notes-only edit; resolve; list | `IncidentChanged` to the exam group; 201 / 403; 403; 400 `INVALID_SEVERITY`; 400 ×2; status kept + `INCIDENT_UPDATED`; `statusNote`, `resolvedByName`; `?status=Open` filters | ✅ (S6) |
+| M10-I-13 | Apps seen during the session | Heartbeats "SmartExam,chrome" then "SmartExam,code"; GET processes | `current` = code, SmartExam; `seen` keeps chrome (not running); other teacher 403 | ✅ (S6) |
+| M10-I-14 | Timeline shows incidents and proctor actions | Incident + unlock; GET session timeline | `Incident` item with the notes; `Action` item `SESSION_UNLOCKED` with the reason | ✅ (S6) |
+| M10-A-01 | Incident lifecycle over HTTP | Create, escalate, resolve, reopen, bad values, other teacher, student | 201 / 200 / 200 / 400 `INVALID_TRANSITION` / 400 / 403 / 403; one audit row per step | ✅ (S6) |
+| M10-A-02 | Board snapshot over HTTP | Heartbeat (apps, idle, camera) + violation + capture + incident | One tile with all of it; a started-but-silent student absent; other teacher 403 | ✅ (S6) |
+| M10-A-03 | Apps seen during the session | Two heartbeats with different apps | `current` latest, `seen` keeps the closed app | ✅ (S6) |
 | M10-E-01 | Live monitor loads | Teacher → Live Monitor | Page renders, no error | ✅ |
 | M10-E-02 | Student tile appears on heartbeat | Simulator starts (both `start-session` and the desktop `student/start` path) + heartbeats | Tile with student name | ✅ (desktop-path bug found & fixed) |
 | M10-E-03 | Status progression | KeyBlocked → UnauthorizedProcess → ProcessKilled | Stable → Warning → Suspicious → Critical | ✅ |
 | M10-E-04 | Send warning | Teacher sends warning to tile | Simulator's notifications contain it | ✅ |
 | M10-E-05 | Extend time | Teacher extends 10 min | Simulator `remainingSeconds` grows ~600 | ✅ |
-| M10-E-06 | Detail drawer | Click tile | Timeline + process list | ⏳ |
-| M10-E-07 | Mark incident | Drawer → Mark incident | Incident badge on tile | ⏳ |
-| M10-E-08 | Screenshot carousel | Drawer | Simulator's screenshots | ⏳ |
-| M10-E-09 | Unlock button | Drawer → Unlock 5 min | Toast + audit row | ⏳ |
+| M10-E-06 | Detail drawer | Click tile | Timeline + process list (apps seen earlier in the session too); server timeline survives a reload | ✅ (S6) |
+| M10-E-07 | Mark incident | Drawer → Mark incident | Incident badge on tile; resolving with a note clears it | ✅ (S6) |
+| M10-E-08 | Screenshot carousel | Simulator uploads a capture (the pending test never uploaded one — fixed), drawer | One rendered image; a violation capture arriving while open joins the strip | ✅ (S6) |
+| M10-E-09 | Unlock button | Drawer → Unlock 5 min | Toast + audit row; ack `unlockedUntilUtc`; "Unlocked" tile badge; "Lock again" ends it | ✅ (S6) |
 | M10-E-10 | Invigilator restricted view | Invigilator → other exam | Not listed | ✅ (also: tiles appear, no extend/end buttons, `?examId=` of another exam ignored) |
 | M10-E-11 | Exam picker | Teacher with two running exams switches exam | Header + `?examId=` follow the picker; board shows only the selected exam's students | ✅ |
 | M10-E-12 | Default exam is a supervisable one | Teacher co-proctors one of two running exams, opens Live Monitor without `?examId=` | Opens the assigned exam (tiles, no denial banner); list flags `canSupervise` false/true | ✅ |
+| M10-E-13 | Warning reaches the desktop client (D-05) | Drawer → send warning; simulator heartbeats, acknowledges | "Warning Message Sent"; ack `warnings` carries it every beat until marked read; drawer timeline shows it | ✅ (S6) |
+| M10-E-14 | Board survives a reload; readiness on the tile | Readiness passed, violation, capture; reload without a new heartbeat | Tile rebuilt from `GET /exams/{id}/live` (1 alert, Warning, thumbnail, "Ready"); drawer shows the readiness items | ✅ (S6) |
+| M10-D-01 | Warning banner on the exam window | Lab PC: proctor sends a warning during an exam | Amber banner within one heartbeat (≤ 10 s); Acknowledge removes it and marks it read | 📋 (lab PC only) |
+| M10-D-02 | Manual unlock on the exam window | Lab PC (Enforce mode): Unlock 5 min, use Alt+Tab / Task Manager, wait | Guards off and blue notice within one heartbeat; window may go behind; guards back on at the deadline (or on "Lock again"); `LockdownSuspended` / `LockdownResumed` on the timeline | 📋 (lab PC only) |
 
 ## M11 — AI-Assisted Evaluation
 
@@ -472,8 +492,8 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | D-01 | SEC-A-05 | `GET /api/exams/{id}` serialised the raw EF graph incl. every assigned student's `PasswordHash`/`Salt`, to any logged-in user; students could read any exam | **Fixed** — explicit projection + assignment check (SEC-A-06, SEC-I-05) |
 | D-02 | M10-E-02 | `POST /api/exams/student/start` (desktop path) never set the exam Active → Live Monitor showed "No Exam Currently Active" | **Fixed** |
 | D-03 | M10-E-03 | No Warning/Suspicious states; any violation turned the tile red | **Fixed** — `ViolationClassifier` (M4-I-03) |
-| D-04 | M10-E-* | Live Monitor shows only the first Active exam; no exam picker | Open (P2, Module 10) |
-| D-05 | M10-E-04 | Hub `SendWarning` only stores a notification — nothing is pushed live to the student client | Open (P2, Module 10) |
+| D-04 | M10-E-* | Live Monitor shows only the first Active exam; no exam picker | **Fixed** (S3) — exam picker (`?examId=`), invigilators only get assigned exams (M10-E-10/11/12) |
+| D-05 | M10-E-04 | Hub `SendWarning` only stores a notification — nothing is pushed live to the student client | **Fixed** (S6) — pushed as `ProctorWarning` to the student's connections and carried in every heartbeat ack until acknowledged; the exam window shows a banner with Acknowledge (M10-I-09, M10-E-13) |
 | D-06 | M5-A-02 | Heartbeat naming another student's session returns 200 (ignored, not attributed) instead of 403/404 | Open (low) |
 | D-07 | review | Live Monitor logged "Window Focus Lost" whenever the window title wasn't "Exam Browser" | **Fixed** — uses the client's foreground flag |
 | D-08 | M3-I-01 | `start-session` never checked `StartTime` — a student could start a future exam; the desktop Start button enabled early (it only looked at time-to-end) | **Fixed** — `EXAM_NOT_STARTED` on both start paths + `StartGate` on the server clock |
@@ -498,6 +518,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | D-27 | M5-U-15/16 (S5 verifier) | The webcam monitoring thread only caught OpenCV/DLL exceptions; any other camera failure, or a webcam snapshot the spool could not write (disk full), was unhandled on a raw thread and ended the exam app mid-exam | **Fixed** — every loop iteration and subscriber call is isolated (`IWebcamFrameSource` makes it testable); `AddWebcamSnapshot` reports instead of throwing; the heartbeat timer handler absorbs failures too |
 | D-28 | M5-I-19 (S5 verifier) | Timeline `?after=` compared the client's `recordedAt`, so an event replayed after an outage (old client time) was never returned to an incremental refresh | **Fixed** — `after` compares the server receive time (`ReceivedAt`, captures `UploadedAt`) |
 | D-29 | M5-I-20 (S5 verifier) | A reconnecting heartbeat that collided with a submit/force-submit reloaded the session and re-applied only `LastHeartbeatAt`: the `Reconnected` event was stored but the session stayed flagged Disconnected (and the next beat recorded a second reconnect) | **Fixed** — the retry re-applies the reconnect; the seat-mismatch event also records `ReceivedAt` |
+| D-30 | M10-E-06 (S6) | A Live Monitor page that was opened or reloaded mid-exam started empty and lost every tile's history, and the drawer timeline lived only in that browser tab | **Fixed** — `GET /api/exams/{id}/live` snapshot + server timeline in the drawer (M10-I-11, M10-E-14) |
 
 ---
 

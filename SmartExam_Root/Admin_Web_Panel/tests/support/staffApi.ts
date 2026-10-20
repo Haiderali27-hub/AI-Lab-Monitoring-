@@ -284,6 +284,25 @@ export class StaffApi {
     return res.json();
   }
 
+  // ── Module 10: proctoring (owner teacher / assigned proctor / admin) ─────
+  liveRaw(examId: string) { return this.get(`/api/exams/${examId}/live`); }
+  processesRaw(examId: string, sessionId: string) { return this.get(`/api/exams/${examId}/sessions/${sessionId}/processes`); }
+  createIncidentRaw(sessionId: string, severity: string, notes: string) { return this.post('/api/incidents', { sessionId, severity, notes }); }
+  updateIncidentRaw(incidentId: string, change: { status?: string; notes?: string }) { return this.patch(`/api/incidents/${incidentId}`, change); }
+  incidentsRaw(examId: string, status?: string) { return this.get(`/api/exams/${examId}/incidents${status ? `?status=${status}` : ''}`); }
+
+  async live(examId: string): Promise<{ examId: string; serverTimeUtc: string; students: any[] }> {
+    const res = await this.liveRaw(examId);
+    expect(res.status()).toBe(200);
+    return res.json();
+  }
+
+  async incidents(examId: string, status?: string): Promise<any[]> {
+    const res = await this.incidentsRaw(examId, status);
+    expect(res.status()).toBe(200);
+    return res.json();
+  }
+
   // ── Module 7: academic structure (reads: staff; writes: Admin) ───────────
   createDepartment(name: string) { return this.post('/api/departments', { name }); }
   createCourse(deptId: string, name: string, code: string) { return this.post('/api/courses', { deptId, name, code }); }

@@ -451,6 +451,9 @@ namespace Backend_API.Migrations
                     b.Property<DateTime?>("SubmittedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("UnlockedUntil")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
@@ -463,6 +466,61 @@ namespace Backend_API.Migrations
                     b.HasIndex("Status", "LastHeartbeatAt");
 
                     b.ToTable("ExamSessions");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.Incident", b =>
+                {
+                    b.Property<Guid>("IncidentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ExamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ResolvedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("StatusNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("IncidentId");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("ExamId", "Status");
+
+                    b.ToTable("Incidents");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Lab", b =>
@@ -1197,6 +1255,17 @@ namespace Backend_API.Migrations
                     b.Navigation("Exam");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.Incident", b =>
+                {
+                    b.HasOne("Backend_API.Models.ExamSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("Backend_API.Models.MonitoringEvent", b =>

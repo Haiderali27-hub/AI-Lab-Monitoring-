@@ -5,6 +5,7 @@ using System.Windows.Media.Animation;
 using Student_Desktop_App.Core;
 using System.Windows.Threading;
 using Student_Desktop_App.Core.Backup;
+using Student_Desktop_App.Core.Lockdown;
 using Student_Desktop_App.Services;
 using Student_Desktop_App.Services.Backup;
 using Student_Desktop_App.Services.Lockdown;
@@ -18,6 +19,10 @@ public partial class ExamWindow : Window
     private readonly LockdownCoordinator _lockdown;
     // Module 6: an automatic submit that could not reach the server is retried until it can (D-19).
     private readonly DispatcherTimer _submitRetry = new() { Interval = TimeSpan.FromSeconds(10) };
+    // Module 10: proctor warnings and manual unlock come through the monitoring service (heartbeat ack).
+    private readonly LiveMonitoringService? _monitoring;
+    private readonly DispatcherTimer _relockTimer = new();
+    private DateTime? _unlockedUntil;   // this PC's UTC clock; null = locked
     private ExamQuestionItem? _current;
     private bool _submitted;
     private bool _submitting;
@@ -32,6 +37,7 @@ public partial class ExamWindow : Window
         LiveMonitoringService? monitoring = null)
     {
         InitializeComponent();
+        _monitoring = monitoring;
         // The exam's server-side settings win; the local config only applies when the server sends none.
         var config = AppConfigProvider.Current;
         _lockdown = new LockdownCoordinator(apiClient, accessToken, sessionId,
@@ -52,6 +58,8 @@ public partial class ExamWindow : Window
             _submitRetry.Stop();
             await DoSubmit(auto: true);
         };
+        // The unlock ends on this PC's own clock too, so a network outage during the unlock never leaves it open.
+        _relockTimer.Tick += (_, _) => ApplyUnlockDeadline(null);
         // Save the answer being edited whenever the window loses focus (a crash right after still loses nothing).
         Deactivated += async (_, _) =>
         {
@@ -93,6 +101,91 @@ public partial class ExamWindow : Window
         Close();
     }
 
+    /// <summary>
+    /// Module 10 (D-05): shows the oldest unacknowledged proctor warning in the banner at the top of the exam window
+    /// (non-modal: the student keeps working). Called on the UI thread when the heartbeat ack brings new warnings.
+    /// </summary>
+    public void ShowProctorWarnings()
+    {
+        var current = _monitoring?.Warnings.Current;
+        if (current is null || _submitted)
+        {
+            WarningBanner.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var more = _monitoring!.Warnings.Pending.Count - 1;
+        WarningTitleText.Text = $"{current.Title} · {current.CreatedAt.ToLocalTime():HH:mm}";
+        WarningBodyText.Text = current.Body;
+        WarningMoreText.Text = more > 0 ? $"{more} more warning(s) after this one" : string.Empty;
+        WarningMoreText.Visibility = more > 0 ? Visibility.Visible : Visibility.Collapsed;
+        WarningBanner.Visibility = Visibility.Visible;
+        // Bring the exam to the front, except while a proctor has unlocked the PC and is using another app.
+        if (!IsActive && _unlockedUntil is null) Activate();
+    }
+
+    private async void AcknowledgeWarningButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_monitoring?.Warnings.Current is not { } current) return;
+        AcknowledgeWarningButton.IsEnabled = false;
+        try
+        {
+            await _monitoring.AcknowledgeWarningAsync(current.NotificationId);
+        }
+        finally
+        {
+            AcknowledgeWarningButton.IsEnabled = true;
+            ShowProctorWarnings();
+        }
+    }
+
+    /// <summary>
+    /// Module 10 manual unlock: the latest unlock deadline from the heartbeat ack (this PC's clock; null = locked).
+    /// Suspends the lockdown guards while a proctor works on the PC, lets the window go behind other apps, and turns
+    /// everything back on when the deadline passes or the proctor relocks. UI thread.
+    /// </summary>
+    public void ApplyUnlockDeadline(DateTime? localDeadline)
+    {
+        var now = DateTime.UtcNow;
+        switch (LockdownSuspendPolicy.Decide(_unlockedUntil, localDeadline, now))
+        {
+            case SuspendAction.Suspend:
+                _unlockedUntil = localDeadline;
+                _lockdown.Suspend();
+                Topmost = false;
+                _monitoring?.ReportEvent("LockdownSuspended", new { untilUtc = localDeadline, atUtc = now });
+                ScheduleRelock();
+                break;
+
+            case SuspendAction.Reschedule:
+                _unlockedUntil = localDeadline;
+                ScheduleRelock();
+                break;
+
+            case SuspendAction.Resume:
+                _unlockedUntil = null;
+                _relockTimer.Stop();
+                _lockdown.Resume();
+                Topmost = true;
+                if (!_submitted) Activate();
+                _monitoring?.ReportEvent("LockdownResumed", new { atUtc = now });
+                break;
+        }
+
+        UnlockBanner.Visibility = _unlockedUntil is null ? Visibility.Collapsed : Visibility.Visible;
+        if (_unlockedUntil is DateTime until)
+            UnlockText.Text = $"A proctor unlocked this PC until {until.ToLocalTime():HH:mm}. Exam lockdown is paused and resumes automatically; monitoring continues.";
+    }
+
+    private void ScheduleRelock()
+    {
+        _relockTimer.Stop();
+        if (_unlockedUntil is not DateTime until) return;
+        var wait = until - DateTime.UtcNow;
+        _relockTimer.Interval = wait > TimeSpan.Zero ? wait : TimeSpan.FromMilliseconds(1);
+        _relockTimer.Start();
+    }
+
     private static string Describe(string? status) => status switch
     {
         "ForceSubmitted" => "force-submitted by the proctor",
@@ -111,6 +204,8 @@ public partial class ExamWindow : Window
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
         _lockdown.Start(this);
+        // A warning that arrived before this window opened (e.g. while resuming) is shown now.
+        ShowProctorWarnings();
         // The window is locked down, so never leave the student staring at an empty exam: retry until loaded.
         // Stops once the window was closed meanwhile (the server force-submitted or timed out the session).
         while (!await _viewModel.LoadAsync())
@@ -304,6 +399,7 @@ public partial class ExamWindow : Window
         }
 
         _submitRetry.Stop();
+        _relockTimer.Stop();
         _lockdown.Dispose();
         _viewModel.Stop();
     }

@@ -20,7 +20,9 @@ namespace Student_Desktop_App.Services;
 /// on-disk outbox (<see cref="MonitoringSpool"/>) and sends it in batches every 5 s — at once for a violation —
 /// replaying the backlog in order after an outage, with the outage itself reported (<c>NetworkOffline</c>);</item>
 /// <item>captures all screens on a random 30–90 s schedule and on every violation, and runs webcam monitoring when
-/// the exam requires a webcam (<see cref="EvidenceCaptureService"/>, <see cref="WebcamMonitorService"/>).</item>
+/// the exam requires a webcam (<see cref="EvidenceCaptureService"/>, <see cref="WebcamMonitorService"/>);</item>
+/// <item>Module 10: hands the proctors' warnings (<see cref="WarningInbox"/>) and the lockdown unlock deadline from
+/// the ack to the exam window — the ack is this client's command channel, so both arrive within one heartbeat.</item>
 /// </list>
 /// Without a session (dashboard before the start) only the heartbeat runs.
 /// </summary>
@@ -52,11 +54,22 @@ public class LiveMonitoringService(ApiClient apiClient)
     private DateTime? _offlineSinceUtc;
     private DateTime _lastCaptureUpload = DateTime.MinValue;
     private Task? _finalising;
+    // Module 10: proctor warnings of this session, and until when (this PC's clock) a proctor unlocked the lockdown.
+    private WarningInbox _warnings = new();
+    private DateTime? _unlockedUntilLocal;
 
     public event Action<string>? StatusChanged;
     public event Action<int>? RemainingSecondsUpdated;  // authoritative clock from the server ack
     public event Action? SessionRevoked;                // server force-logout / deactivation
     public event Action<string>? SessionStatusUpdated;  // Module 6: InProgress | Submitted | ForceSubmitted | TimedOut
+    public event Action<IReadOnlyList<ProctorWarning>>? WarningsReceived;  // Module 10: warnings never shown before
+    public event Action<DateTime?>? UnlockDeadlineReceived;                // Module 10: local unlock deadline, null = locked
+
+    /// <summary>Module 10: this session's proctor warnings (the exam window shows <see cref="WarningInbox.Current"/>).</summary>
+    public WarningInbox Warnings => _warnings;
+
+    /// <summary>True while a proctor's unlock is in force (focus loss is then not reported).</summary>
+    public bool IsUnlocked => _unlockedUntilLocal is DateTime until && until > DateTime.UtcNow;
 
     /// <param name="accessToken">Fallback only — ApiClient sends the current (refreshed) session token.</param>
     /// <param name="capture">The exam's capture settings (from student/current); the heartbeat ack keeps them current.</param>
@@ -68,7 +81,12 @@ public class LiveMonitoringService(ApiClient apiClient)
         _lastProcesses = null;
         _capture = capture ?? new CaptureSettings();
 
-        if (_examSessionId != examSessionId) StopEvidence();
+        if (_examSessionId != examSessionId)
+        {
+            StopEvidence();
+            _warnings = new WarningInbox();
+            _unlockedUntilLocal = null;
+        }
         _examSessionId = examSessionId;
         if (examSessionId is Guid sid && _spool is null) StartEvidence(sid);
 
@@ -357,6 +375,7 @@ public class LiveMonitoringService(ApiClient apiClient)
                     SessionStatusUpdated?.Invoke(result.Data.SessionStatus);
                 }
                 ApplyServerCaptureSettings(result.Data);
+                ApplyProctorCommands(result.Data);
             }
             else if (result.Code == "HTTP_401" && !await _apiClient.IsSessionAliveAsync(_accessToken))
             {
@@ -375,7 +394,8 @@ public class LiveMonitoringService(ApiClient apiClient)
             // Focus-loss violation: fire only on the transition INTO focus loss
             // (not every heartbeat), rate-limited so a distracted student doesn't
             // flood the teacher's dashboard.
-            if (!isForegroundExamApp && _wasForegroundExamApp && _examSessionId.HasValue &&
+            // Not while a proctor has unlocked the PC (the invigilator is using it on purpose).
+            if (!isForegroundExamApp && _wasForegroundExamApp && _examSessionId.HasValue && !IsUnlocked &&
                 DateTime.UtcNow - _lastViolationSentUtc > ViolationCooldown)
             {
                 _lastViolationSentUtc = DateTime.UtcNow;
@@ -414,6 +434,29 @@ public class LiveMonitoringService(ApiClient apiClient)
         if (ack.ScreenshotIntervalSeconds is int screen) _captures.UpdateInterval(screen);
         if (ack.RequireWebcam is bool webcam)
             ApplyWebcamRequirement(webcam, ack.WebcamIntervalSeconds ?? _capture.WebcamIntervalSeconds);
+    }
+
+    // Module 10: warnings (each raised once; the server repeats them until acknowledged) and the unlock deadline,
+    // converted to this PC's clock with the ack's own server time.
+    private void ApplyProctorCommands(HeartbeatAck? ack)
+    {
+        if (ack is null || _examSessionId is null) return;
+
+        var fresh = _warnings.Accept(ack.Warnings);
+        if (fresh.Count > 0) WarningsReceived?.Invoke(fresh);
+
+        _unlockedUntilLocal = LockdownSuspendPolicy.LocalDeadline(ack.UnlockedUntilUtc, ack.ReceivedAtUtc, DateTime.UtcNow);
+        UnlockDeadlineReceived?.Invoke(_unlockedUntilLocal);
+    }
+
+    /// <summary>
+    /// The student pressed Acknowledge on a warning banner: it leaves the banner, and the server is told so it stops
+    /// sending it (best effort; offline, the inbox still remembers it was acknowledged).
+    /// </summary>
+    public async Task AcknowledgeWarningAsync(Guid notificationId)
+    {
+        _warnings.Acknowledge(notificationId);
+        if (_accessToken is { } token) await _apiClient.MarkNotificationReadAsync(token, notificationId);
     }
 
     // A new or closed app becomes one timeline entry ("started chrome") instead of a full list every 10 s.

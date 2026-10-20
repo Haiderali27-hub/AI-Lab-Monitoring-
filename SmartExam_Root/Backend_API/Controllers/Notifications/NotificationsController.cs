@@ -1,4 +1,6 @@
 using Backend_API.Data;
+using Backend_API.Hubs;
+using Backend_API.Services;
 using Backend_API.Services.Notifications;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,11 +16,13 @@ public class NotificationsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly NotificationService _notifications;
+    private readonly AuditService _audit;
 
-    public NotificationsController(AppDbContext db, NotificationService notifications)
+    public NotificationsController(AppDbContext db, NotificationService notifications, AuditService audit)
     {
         _db = db;
         _notifications = notifications;
+        _audit = audit;
     }
 
     private Guid Me => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
@@ -51,6 +55,10 @@ public class NotificationsController : ControllerBase
     {
         var n = await _db.Notifications.FirstOrDefaultAsync(n => n.NotificationId == id && n.RecipientId == Me);
         if (n is null) return NotFound();
+        // Module 10: a student acknowledging a proctor's warning (desktop banner) is evidence that it was seen.
+        if (!n.IsRead && n.Type == MonitoringHub.WarningType)
+            _audit.Add(Me, "PROCTOR_WARNING_ACKNOWLEDGED", "Notification", n.NotificationId.ToString(),
+                new { sessionId = n.RelatedEntityId });
         n.IsRead = true;
         await _db.SaveChangesAsync();
         return Ok();

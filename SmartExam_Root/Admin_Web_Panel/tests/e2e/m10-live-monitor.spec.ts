@@ -136,17 +136,26 @@ test.describe('M10 — Live Proctoring Dashboard', () => {
     expect((await students[0].currentExam()).remainingSeconds).toBeGreaterThan(before + 570);
   });
 
-  test.fixme('M10-E-06 Detail drawer', async ({ page, request }) => {
+  test('M10-E-06 Detail drawer', async ({ page, request }) => {
     const { students, users } = await openLiveExam(page, request);
     await students[0].heartbeat({ processListSnapshot: 'SmartExam,code,chrome' });
     const tile = await waitForTile(page, students[0], users[0].name);
+    await students[0].violation('KeyBlocked', 'SmartExam - Exam Window');
     await tile.click();
     const drawer = page.getByTestId('student-drawer');
     await expect(drawer.getByTestId('activity-timeline')).toBeVisible();
+    // chrome was in an earlier heartbeat only: the drawer lists apps seen during the session, not just the last beat.
     await expect(drawer.getByTestId('process-list')).toContainText('chrome');
+    await expect(drawer.getByTestId('process-list')).toContainText('explorer');
+    // The timeline is the server's: it has the violation and the start, and survives a reload.
+    await expect(drawer.getByTestId('activity-timeline')).toContainText('Blocked keys', { timeout: 10_000 });
+    await page.reload();
+    await page.getByTestId('student-tile').filter({ hasText: users[0].name }).click();
+    await expect(page.getByTestId('activity-timeline')).toContainText('Blocked keys');
+    await expect(page.getByTestId('activity-timeline')).toContainText('Exam started');
   });
 
-  test.fixme('M10-E-07 Mark incident', async ({ page, request }) => {
+  test('M10-E-07 Mark incident', async ({ page, request }) => {
     const { students, users } = await openLiveExam(page, request);
     const tile = await waitForTile(page, students[0], users[0].name);
     await tile.click();
@@ -154,23 +163,87 @@ test.describe('M10 — Live Proctoring Dashboard', () => {
     await page.getByLabel(/description/i).fill('Phone on desk');
     await page.getByRole('button', { name: /save incident/i }).click();
     await expect(tile.getByTestId('incident-badge')).toBeVisible();
+    await expect(page.getByTestId('incident-list')).toContainText('Phone on desk');
+
+    // Resolving it clears the badge; the change is audited.
+    await page.getByRole('button', { name: /mark resolved/i }).click();
+    await page.getByLabel(/resolution note/i).fill('Phone handed to the invigilator');
+    await page.getByRole('button', { name: /^resolve$/i }).click();
+    await expect(tile.getByTestId('incident-badge')).toHaveCount(0);
+    await expect(page.getByTestId('incident-list')).toContainText('Phone handed to the invigilator');
   });
 
-  test.fixme('M10-E-08 Screenshot carousel', async ({ page, request }) => {
+  test('M10-E-08 Screenshot carousel', async ({ page, request }) => {
     const { students, users } = await openLiveExam(page, request);
-    // Simulator uploads a screenshot: POST /api/monitoring/screenshots (multipart jpg) — planned M5-I-01
     const tile = await waitForTile(page, students[0], users[0].name);
+    // The simulator uploads one capture (POST /api/monitoring/screenshots, M5-I-01).
+    expect((await students[0].screenshot()).status()).toBe(200);
     await tile.click();
     await expect(page.getByTestId('screenshot-carousel').locator('img')).toHaveCount(1);
+    await expect.poll(() => page.getByTestId('screenshot-carousel').locator('img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth))
+      .toBeGreaterThan(0);
+    // A violation capture arriving while the drawer is open joins the strip.
+    expect((await students[0].screenshot({ trigger: 'Violation', reason: 'UnauthorizedProcess' })).status()).toBe(200);
+    await expect(page.getByTestId('screenshot-carousel').locator('img')).toHaveCount(2, { timeout: 10_000 });
   });
 
-  test.fixme('M10-E-09 Unlock button', async ({ page, request }) => {
+  test('M10-E-09 Unlock button', async ({ page, request }) => {
     const { students, users, admin } = await openLiveExam(page, request);
     const tile = await waitForTile(page, students[0], users[0].name);
     await tile.click();
     await page.getByRole('button', { name: /unlock 5 min/i }).click();
     await expect(page.getByText(/unlocked for 5 minutes/i)).toBeVisible();
     expect((await admin.auditLogs('SESSION_UNLOCKED')).length).toBeGreaterThan(0);
+
+    // The desktop client learns it from its next heartbeat ack; the tile says so; "Lock again" ends it.
+    const until = (await (await students[0].heartbeat()).json()).data.unlockedUntilUtc as string;
+    expect(new Date(until).getTime() - Date.now()).toBeGreaterThan(4 * 60_000);
+    await expect(tile.getByTestId('tile-unlocked')).toBeVisible();
+    await page.getByRole('button', { name: /lock again/i }).click();
+    await expect(tile.getByTestId('tile-unlocked')).toHaveCount(0);
+    expect((await (await students[0].heartbeat()).json()).data.unlockedUntilUtc).toBeNull();
+  });
+
+  test('M10-E-13 Warning reaches the desktop client until acknowledged (D-05)', async ({ page, request }) => {
+    const { students, users } = await openLiveExam(page, request);
+    const tile = await waitForTile(page, students[0], users[0].name);
+    const message = `Keep your eyes on your screen ${Date.now()}`;
+    await tile.click();
+    await page.getByTestId('warning-message-input').fill(message);
+    await page.getByTestId('send-warning-button').click();
+    await expect(page.getByText('Warning Message Sent')).toBeVisible();
+
+    // The WPF app has no SignalR client: its heartbeat ack carries the warning, every beat, until acknowledged.
+    const pending = async () => ((await (await students[0].heartbeat()).json()).data.warnings as any[]).filter(w => w.body === message);
+    const [warning] = await pending();
+    expect(warning.title).toBe('Proctor Warning');
+    expect(await pending()).toHaveLength(1);
+    expect((await students[0].markNotificationRead(warning.notificationId)).status()).toBe(200);
+    expect(await pending()).toHaveLength(0);
+    // The drawer's server timeline shows the warning to every proctor.
+    await expect(page.getByTestId('activity-timeline')).toContainText(message, { timeout: 10_000 });
+  });
+
+  test('M10-E-14 Board survives a reload; readiness shown on the tile', async ({ page, request }) => {
+    const { students, users, exam } = await openLiveExam(page, request);
+    const tile = await waitForTile(page, students[0], users[0].name);   // the page has joined the exam's group
+    expect((await students[0].readiness(exam.examId)).status()).toBe(200);
+    await expect(tile.getByTestId('tile-readiness')).toHaveText('Ready', { timeout: 10_000 });
+    await students[0].violation('KeyBlocked', 'Alt+Tab');
+    await expect(tile).toContainText('1 ALERTS', { timeout: 5_000 });
+    expect((await students[0].screenshot()).status()).toBe(200);
+    await expect(tile.getByTestId('tile-thumbnail')).toBeVisible({ timeout: 10_000 });
+
+    // No heartbeat after the reload: the tile comes from the server's snapshot (GET /exams/{id}/live).
+    await page.reload();
+    const again = page.getByTestId('student-tile').filter({ hasText: users[0].name });
+    await expect(again).toBeVisible();
+    await expect(again).toContainText('1 ALERTS');
+    await expect(again.getByTestId('tile-status')).toHaveText('Warning');
+    await expect(again.getByTestId('tile-readiness')).toHaveText('Ready');
+    await expect(again.getByTestId('tile-thumbnail')).toHaveAttribute('src', /^blob:/);
+    await again.click();
+    await expect(page.getByTestId('drawer-readiness')).toContainText('All checks passed');
   });
 
   test('M10-E-10 Invigilator restricted view', async ({ page, request }) => {

@@ -210,6 +210,72 @@ export interface StudentLiveStatus {
   idleSeconds?: number | null;           // seconds since the last keyboard/mouse input on the PC
   cameraStatus?: CameraStatus | null;    // on-device webcam monitoring (Off when the exam needs no webcam)
   processes?: string | null;             // apps with a visible window, comma-separated
+  unlockedUntil?: string | null;         // Module 10: a proctor suspended this PC's lockdown until then (server time)
+}
+
+/** Module 10: one student on GET /exams/{id}/live (the board a page starts from before live hub events arrive). */
+export interface LiveSnapshotStudent {
+  userId: string;
+  studentName: string;
+  workstationNumber: string;
+  machineName?: string | null;
+  windowsUsername?: string | null;
+  sessionId: string;
+  sessionStatus: SessionStatus;
+  lastHeartbeatAt?: string | null;
+  isDisconnected: boolean;
+  disconnectedAt?: string | null;
+  extraMinutes: number;
+  unlockedUntilUtc?: string | null;
+  answeredCount: number;
+  totalQuestions: number;
+  violationCount: number;
+  tileStatus: TileStatus;
+  lastViolationType?: string | null;
+  lastViolationPayload?: string | null;
+  activeWindow?: string | null;
+  isForegroundExamApp?: boolean | null;
+  processes?: string | null;
+  idleSeconds?: number | null;
+  cameraStatus?: CameraStatus | null;
+  latestScreenshot?: { screenshotId: string; capturedAt: string; trigger: string } | null;
+  openIncidents: number;
+}
+
+export interface LiveSnapshot {
+  examId: string;
+  serverTimeUtc: string;
+  students: LiveSnapshotStudent[];
+}
+
+/** Module 10: apps the PC reported during a session (GET /exams/{id}/sessions/{sid}/processes). */
+export interface SessionProcesses {
+  current: string[];
+  currentAt?: string | null;
+  seen: { name: string; firstSeenAt: string; lastSeenAt: string; running: boolean }[];
+}
+
+export type IncidentStatus = 'Open' | 'Escalated' | 'Resolved';
+export type IncidentSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
+
+/** Module 10: a proctor incident (POST/PATCH /incidents, GET /exams/{id}/incidents). */
+export interface Incident {
+  incidentId: string;
+  examId: string;
+  sessionId: string;
+  userId: string;
+  studentName: string;
+  severity: IncidentSeverity;
+  status: IncidentStatus;
+  notes: string;
+  statusNote?: string | null;
+  createdBy: string;
+  createdByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
+  resolvedByName?: string | null;
 }
 
 export type CameraStatus = 'Off' | 'Ok' | 'Covered' | 'Frozen' | 'Unavailable';
@@ -230,11 +296,11 @@ export interface ScreenshotSummary {
 /** Module 5: one entry of a session's activity timeline, newest first. */
 export interface SessionTimelineItem {
   at: string;
-  kind: 'Event' | 'Screenshot' | 'Warning' | 'Status';
+  kind: 'Event' | 'Screenshot' | 'Warning' | 'Incident' | 'Action' | 'Status';
   type: string;
   severity: 'Info' | 'Warning' | 'Suspicious' | 'Violation';
   label: string;
-  detail?: string | null;
+  detail?: string | null;                // payload JSON, violation reason of a capture, warning text, incident notes, action JSON
   screenshotId?: string | null;
   receivedAt?: string | null;            // server receive time (events, captures); later than `at` for a replayed event
 }

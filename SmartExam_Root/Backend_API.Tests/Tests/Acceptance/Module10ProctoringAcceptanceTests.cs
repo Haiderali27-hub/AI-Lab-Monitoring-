@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Backend_API.Models.Enums;
@@ -12,8 +13,9 @@ namespace Backend_API.Tests.Tests.Acceptance;
 /// <summary>
 /// M10 — Live Proctoring Dashboard (TEST_CASES.md §M10, layer I).
 /// Hub tests instantiate MonitoringHub directly with a fake caller context (no SignalR client package needed).
-/// Planned contract: IMPLEMENTATION_PLAN.md §4.3 — POST/PATCH /api/incidents, hub UnlockSession /
-/// ExtendStudentTime, ExamProctors (POST /api/exams/{id}/proctors).
+/// Contract: IMPLEMENTATION_PLAN.md §4.3 — POST/PATCH /api/incidents, GET /api/exams/{id}/incidents, hub UnlockSession /
+/// RelockSession / ExtendStudentTime / SendWarning, ExamProctors (POST /api/exams/{id}/proctors), the board snapshot
+/// GET /api/exams/{id}/live and the session's apps GET /api/exams/{id}/sessions/{sid}/processes.
 /// </summary>
 public class Module10ProctoringAcceptanceTests : IDisposable
 {
@@ -32,7 +34,7 @@ public class Module10ProctoringAcceptanceTests : IDisposable
     private static Task<HttpResponseMessage> PatchIncidentAsync(HttpClient c, Guid id, string status) =>
         c.SendAsync(new HttpRequestMessage(HttpMethod.Patch, $"/api/incidents/{id}") { Content = JsonContent.Create(new { status, notes = $"→ {status}" }) });
 
-    [Fact(Skip = "Pending: M10-I-01 — incidents")]
+    [Fact]
     public async Task M10_I_01_CreateIncident_Returns201_AndAudited()
     {
         var sid = await StudentSessionAsync();
@@ -45,7 +47,7 @@ public class Module10ProctoringAcceptanceTests : IDisposable
         logs.Should().ContainSingle().Which.GetProperty("entityId").GetString().Should().Be(id.ToString());
     }
 
-    [Fact(Skip = "Pending: M10-I-02 — incident status workflow")]
+    [Fact]
     public async Task M10_I_02_IncidentEscalateResolve_StoresTransitions_InvalidTransitions400()
     {
         var sid = await StudentSessionAsync();
@@ -64,7 +66,7 @@ public class Module10ProctoringAcceptanceTests : IDisposable
         (await _host.AuditLogsAsync()).Count(l => l.GetProperty("eventType").GetString()!.StartsWith("INCIDENT_")).Should().Be(3);
     }
 
-    [Fact(Skip = "Pending: M10-I-03 — incident access control")]
+    [Fact]
     public async Task M10_I_03_TeacherOfOtherSection_CannotCreateOrUpdateIncident_403()
     {
         var sid = await StudentSessionAsync();
@@ -82,7 +84,7 @@ public class Module10ProctoringAcceptanceTests : IDisposable
             .StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
-    [Fact(Skip = "Pending: M10-I-04 — hub UnlockSession")]
+    [Fact]
     public async Task M10_I_04_UnlockSession_SendsEventToStudent_AndIsAudited()
     {
         var sid = await StudentSessionAsync();
@@ -189,5 +191,245 @@ public class Module10ProctoringAcceptanceTests : IDisposable
 
         var otherExam = await _host.CreateExamAsync(new[] { _host.Seed.StudentId });
         await ((Func<Task>)(() => after.Hub.JoinExamGroup(otherExam))).Should().ThrowAsync<HubException>();
+    }
+
+    // ── Stage S6 additions ────────────────────────────────────────────────────────────────────────
+
+    private static Task<HttpResponseMessage> HeartbeatWithAppsAsync(HttpClient student, Guid sessionId, string apps) =>
+        student.PostAsJsonAsync("/api/monitoring/heartbeat", new
+        {
+            examSessionId = sessionId, isForegroundExamApp = true, activeWindowTitle = "SmartExam", processListSnapshot = apps
+        });
+
+    private static async Task<JsonElement> AckAsync(HttpClient student, Guid sessionId)
+    {
+        var resp = await TestHost.HeartbeatAsync(student, sessionId);
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        return await TestHost.DataAsync(resp);
+    }
+
+    private static Task<HttpResponseMessage> UploadScreenAsync(HttpClient student, Guid sessionId)
+    {
+        var jpeg = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, (byte)'J', (byte)'F', (byte)'I', (byte)'F', 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xD9 };
+        var form = new MultipartFormDataContent();
+        form.Add(new StringContent(sessionId.ToString()), "examSessionId");
+        form.Add(new StringContent("Screen"), "kind");
+        form.Add(new StringContent(DateTime.UtcNow.ToString("O")), "capturedAt");
+        var file = new ByteArrayContent(jpeg);
+        file.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        form.Add(file, "file", "screen.jpg");
+        return student.PostAsync("/api/monitoring/screenshot", form);
+    }
+
+    private async Task<HttpClient> AssignedInvigilatorAsync(Guid examId)
+    {
+        var (id, email, password) = await _host.CreateUserAsync("Invigilator");
+        (await (await _host.AsTeacher()).PostAsJsonAsync($"/api/exams/{examId}/proctors", new { userId = id }))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+        return await _host.LoginAsync(email, password);
+    }
+
+    [Fact]
+    public async Task M10_I_09_SendWarning_PushesToStudent_AndRidesHeartbeatAckUntilAcknowledged()
+    {
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+
+        using (var hub = _host.CreateHub(TestHost.Principal(_host.Seed.TeacherId, "Teacher")))
+            await hub.Hub.SendWarning(_host.Seed.StudentId.ToString(), "  Eyes on your own screen  ");
+
+        // Pushed to the student's own connections (D-05) and to the exam's other proctors.
+        _host.Hub.Messages.Should().Contain(m => m.Method == "ProctorWarning" && m.Target == $"user:{_host.Seed.StudentId}"
+                                                 && m.ArgsJson.Contains("Eyes on your own screen"));
+        _host.Hub.Messages.Should().Contain(m => m.Method == "ProctorWarningSent" && m.Target == $"exam:{_host.Seed.ExamId}");
+        var sent = await _host.AuditLogsAsync("PROCTOR_WARNING_SENT");
+        sent.Should().ContainSingle().Which.GetProperty("entityId").GetString().Should().Be(sid.ToString());
+
+        // The desktop client has no SignalR connection: the heartbeat ack carries the unread warning ...
+        var warnings = (await AckAsync(student, sid)).GetProperty("warnings");
+        warnings.GetArrayLength().Should().Be(1);
+        warnings[0].GetProperty("title").GetString().Should().Be("Proctor Warning");
+        warnings[0].GetProperty("body").GetString().Should().Be("Eyes on your own screen");
+        var notificationId = warnings[0].GetProperty("notificationId").GetGuid();
+        (await AckAsync(student, sid)).GetProperty("warnings").GetArrayLength().Should().Be(1, "it repeats until acknowledged");
+
+        // ... until the student acknowledges it on the banner (audited as evidence that it was seen).
+        (await student.PatchAsync($"/api/notifications/{notificationId}/read", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await AckAsync(student, sid)).GetProperty("warnings").GetArrayLength().Should().Be(0);
+        (await _host.AuditLogsAsync("PROCTOR_WARNING_ACKNOWLEDGED")).Should().ContainSingle();
+
+        // A teacher of another section cannot warn this student; an empty warning is refused.
+        var (outsiderId, _, _) = await _host.CreateUserAsync("Teacher");
+        using (var outsider = _host.CreateHub(TestHost.Principal(outsiderId, "Teacher")))
+            await ((Func<Task>)(() => outsider.Hub.SendWarning(_host.Seed.StudentId.ToString(), "x"))).Should().ThrowAsync<HubException>();
+        using (var teacherHub = _host.CreateHub(TestHost.Principal(_host.Seed.TeacherId, "Teacher")))
+            await ((Func<Task>)(() => teacherHub.Hub.SendWarning(_host.Seed.StudentId.ToString(), "   "))).Should().ThrowAsync<HubException>();
+        (await _host.AuditLogsAsync("PROCTOR_WARNING_SENT")).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task M10_I_10_Unlock_IsInHeartbeatAck_Relock_EndsIt_AndLimitsAreEnforced()
+    {
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        (await AckAsync(student, sid)).GetProperty("unlockedUntilUtc").ValueKind.Should().Be(JsonValueKind.Null);
+
+        using (var hub = _host.CreateHub(TestHost.Principal(_host.Seed.TeacherId, "Teacher")))
+        {
+            await ((Func<Task>)(() => hub.Hub.UnlockSession(sid, 31, "too long"))).Should().ThrowAsync<HubException>();
+            await ((Func<Task>)(() => hub.Hub.UnlockSession(sid, 0, "too short"))).Should().ThrowAsync<HubException>();
+            await ((Func<Task>)(() => hub.Hub.UnlockSession(sid, 5, "  "))).Should().ThrowAsync<HubException>("the reason is audited, so it is required");
+            await hub.Hub.UnlockSession(sid, 5, "Keyboard replaced");
+        }
+
+        var until = (await AckAsync(student, sid)).GetProperty("unlockedUntilUtc").GetDateTime().ToUniversalTime();
+        until.Should().BeCloseTo(DateTime.UtcNow.AddMinutes(5), TimeSpan.FromSeconds(30));
+        _host.Hub.Messages.Should().Contain(m => m.Method == "SessionUnlocked" && m.Target == $"exam:{_host.Seed.ExamId}");
+
+        // Only someone supervising the exam may unlock.
+        var (outsiderId, _, _) = await _host.CreateUserAsync("Teacher");
+        using (var outsider = _host.CreateHub(TestHost.Principal(outsiderId, "Teacher")))
+            await ((Func<Task>)(() => outsider.Hub.UnlockSession(sid, 5, "x"))).Should().ThrowAsync<HubException>();
+
+        // Relock ends it early; the client sees no deadline on its next beat.
+        using (var hub = _host.CreateHub(TestHost.Principal(_host.Seed.TeacherId, "Teacher")))
+            await hub.Hub.RelockSession(sid);
+        (await AckAsync(student, sid)).GetProperty("unlockedUntilUtc").ValueKind.Should().Be(JsonValueKind.Null);
+        (await _host.AuditLogsAsync("SESSION_RELOCKED")).Should().ContainSingle();
+        _host.Hub.Messages.Should().Contain(m => m.Method == "SessionRelocked" && m.Target == $"user:{_host.Seed.StudentId}");
+
+        // A finished session cannot be unlocked.
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+        using (var hub = _host.CreateHub(TestHost.Principal(_host.Seed.TeacherId, "Teacher")))
+            await ((Func<Task>)(() => hub.Hub.UnlockSession(sid, 5, "late"))).Should().ThrowAsync<HubException>();
+        (await _host.AuditLogsAsync("SESSION_UNLOCKED")).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task M10_I_11_LiveSnapshot_ListsHeartbeatingStudents_WithEvidence_AndIsScoped()
+    {
+        var s1 = await _host.AsStudent();
+        var sid1 = await _host.StartSessionAsync(s1, _host.Seed.ExamId);
+        var s2 = await _host.AsStudent2();
+        await _host.StartSessionAsync(s2, _host.Seed.ExamId);   // started, never heartbeated: not on the board yet
+
+        (await HeartbeatWithAppsAsync(s1, sid1, "SmartExam,code")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.PostEventAsync(s1, sid1, "KeyBlocked", "{\"detail\":\"Alt+Tab\"}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await UploadScreenAsync(s1, sid1)).StatusCode.Should().Be(HttpStatusCode.OK);
+        var teacher = await _host.AsTeacher();
+        await CreateIncidentAsync(teacher, sid1);
+
+        var resp = await teacher.GetAsync($"/api/exams/{_host.Seed.ExamId}/live");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var students = (await TestHost.JsonAsync(resp)).GetProperty("students");
+        students.GetArrayLength().Should().Be(1);
+        var tile = students[0];
+        tile.GetProperty("userId").GetGuid().Should().Be(_host.Seed.StudentId);
+        tile.GetProperty("sessionId").GetGuid().Should().Be(sid1);
+        tile.GetProperty("sessionStatus").GetString().Should().Be("InProgress");
+        tile.GetProperty("violationCount").GetInt32().Should().Be(1);
+        tile.GetProperty("tileStatus").GetString().Should().Be("Warning");
+        tile.GetProperty("lastViolationType").GetString().Should().Be("KeyBlocked");
+        tile.GetProperty("processes").GetString().Should().Be("SmartExam,code");
+        tile.GetProperty("totalQuestions").GetInt32().Should().Be((await _host.QuestionIdsAsync(_host.Seed.ExamId)).Count);
+        tile.GetProperty("latestScreenshot").GetProperty("screenshotId").GetGuid().Should().NotBeEmpty();
+        tile.GetProperty("openIncidents").GetInt32().Should().Be(1);
+        tile.GetProperty("isDisconnected").GetBoolean().Should().BeFalse();
+
+        // Scoped like every evidence endpoint: another section's teacher and students get nothing.
+        var (_, email, password) = await _host.CreateUserAsync("Teacher");
+        (await (await _host.LoginAsync(email, password)).GetAsync($"/api/exams/{_host.Seed.ExamId}/live"))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await s1.GetAsync($"/api/exams/{_host.Seed.ExamId}/live")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task M10_I_12_Incidents_ListedPerExam_Broadcast_ProctorsMayFile_NotesValidated()
+    {
+        var sid = await StudentSessionAsync();
+        var teacher = await _host.AsTeacher();
+        var id = await CreateIncidentAsync(teacher, sid);
+        _host.Hub.Messages.Should().Contain(m => m.Method == "IncidentChanged" && m.Target == $"exam:{_host.Seed.ExamId}"
+                                                 && m.ArgsJson.Contains(id.ToString()));
+
+        // An assigned invigilator may file one; an unassigned one may not.
+        var proctor = await AssignedInvigilatorAsync(_host.Seed.ExamId);
+        await CreateIncidentAsync(proctor, sid);
+        var (_, email, password) = await _host.CreateUserAsync("Invigilator");
+        var stranger = await _host.LoginAsync(email, password);
+        (await stranger.PostAsJsonAsync("/api/incidents", new { sessionId = sid, severity = "Low", notes = "x" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await stranger.GetAsync($"/api/exams/{_host.Seed.ExamId}/incidents")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        // Validation: unknown session (indistinguishable from a foreign one), bad severity, empty notes.
+        (await teacher.PostAsJsonAsync("/api/incidents", new { sessionId = Guid.NewGuid(), severity = "Low", notes = "x" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var bad = await teacher.PostAsJsonAsync("/api/incidents", new { sessionId = sid, severity = "Apocalyptic", notes = "x" });
+        bad.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await TestHost.ErrorCodeAsync(bad)).Should().Be("INVALID_SEVERITY");
+        (await teacher.PostAsJsonAsync("/api/incidents", new { sessionId = sid, severity = "Low", notes = "   " }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await teacher.PostAsJsonAsync("/api/incidents", new { sessionId = sid, severity = "Low", notes = new string('n', 2001) }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // Notes-only edit keeps the status and is audited as an update.
+        var edit = await teacher.SendAsync(new HttpRequestMessage(HttpMethod.Patch, $"/api/incidents/{id}")
+        { Content = JsonContent.Create(new { notes = "Phone was in the bag, not on the desk" }) });
+        edit.StatusCode.Should().Be(HttpStatusCode.OK);
+        var edited = await TestHost.JsonAsync(edit);
+        edited.GetProperty("status").GetString().Should().Be("Open");
+        edited.GetProperty("notes").GetString().Should().Be("Phone was in the bag, not on the desk");
+        (await _host.AuditLogsAsync("INCIDENT_UPDATED")).Should().ContainSingle();
+
+        // Resolve with a note; the list (newest first) shows both incidents with the student's name.
+        (await PatchIncidentAsync(teacher, id, "Resolved")).StatusCode.Should().Be(HttpStatusCode.OK);
+        var list = await TestHost.JsonAsync(await teacher.GetAsync($"/api/exams/{_host.Seed.ExamId}/incidents"));
+        list.GetArrayLength().Should().Be(2);
+        list.EnumerateArray().Should().OnlyContain(i => i.GetProperty("studentName").GetString()!.Length > 0);
+        var resolved = list.EnumerateArray().Single(i => i.GetProperty("incidentId").GetGuid() == id);
+        resolved.GetProperty("status").GetString().Should().Be("Resolved");
+        resolved.GetProperty("statusNote").GetString().Should().Be("→ Resolved");
+        resolved.GetProperty("resolvedByName").GetString().Should().NotBeNullOrEmpty();
+        (await TestHost.JsonAsync(await teacher.GetAsync($"/api/exams/{_host.Seed.ExamId}/incidents?status=Open")))
+            .GetArrayLength().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task M10_I_13_SessionProcesses_RemembersAppsSeenDuringTheSession()
+    {
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        (await HeartbeatWithAppsAsync(student, sid, "SmartExam,chrome")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await HeartbeatWithAppsAsync(student, sid, "SmartExam,code")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var teacher = await _host.AsTeacher();
+        var resp = await teacher.GetAsync($"/api/exams/{_host.Seed.ExamId}/sessions/{sid}/processes");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHost.JsonAsync(resp);
+        body.GetProperty("current").EnumerateArray().Select(e => e.GetString()).Should().Equal("code", "SmartExam");
+        var seen = body.GetProperty("seen").EnumerateArray().ToDictionary(e => e.GetProperty("name").GetString()!, e => e.GetProperty("running").GetBoolean());
+        seen.Should().ContainKey("chrome").WhoseValue.Should().BeFalse("chrome was closed again but was seen during the exam");
+        seen["code"].Should().BeTrue();
+
+        var (_, email, password) = await _host.CreateUserAsync("Teacher");
+        (await (await _host.LoginAsync(email, password)).GetAsync($"/api/exams/{_host.Seed.ExamId}/sessions/{sid}/processes"))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task M10_I_14_SessionTimeline_ShowsIncidentsAndProctorActions()
+    {
+        var sid = await StudentSessionAsync();
+        var teacher = await _host.AsTeacher();
+        await CreateIncidentAsync(teacher, sid);
+        using (var hub = _host.CreateHub(TestHost.Principal(_host.Seed.TeacherId, "Teacher")))
+            await hub.Hub.UnlockSession(sid, 5, "Mouse replaced");
+
+        var items = (await TestHost.JsonAsync(await teacher.GetAsync($"/api/exams/{_host.Seed.ExamId}/sessions/{sid}/timeline")))
+            .EnumerateArray().ToList();
+        items.Should().Contain(i => i.GetProperty("kind").GetString() == "Incident" && i.GetProperty("detail").GetString() == "Phone visible on desk"
+                                    && i.GetProperty("severity").GetString() == "Violation");
+        items.Should().Contain(i => i.GetProperty("kind").GetString() == "Action" && i.GetProperty("type").GetString() == "SESSION_UNLOCKED"
+                                    && i.GetProperty("detail").GetString()!.Contains("Mouse replaced"));
     }
 }

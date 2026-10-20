@@ -57,8 +57,11 @@ public record HeartbeatPayload(Guid? ExamSessionId, bool IsForegroundExamApp, st
 // after a teacher extends the exam or a proctor grants this student extra minutes). SessionStatus tells the
 // exam window that a proctor force-submitted the session or the server timed it out (Module 6, D-17).
 // The capture settings let a running client follow a teacher's change (Module 5).
+// Module 10: the ack is also this client's command channel (no SignalR here): the proctors' unread warnings (shown on
+// the exam window until acknowledged, D-05) and the lockdown unlock deadline in server time (null = locked).
 public record HeartbeatAck(DateTime ReceivedAtUtc, int? RemainingSeconds, string? SessionStatus = null, int? ExtraMinutes = null,
-    int? ScreenshotIntervalSeconds = null, int? WebcamIntervalSeconds = null, bool? RequireWebcam = null);
+    int? ScreenshotIntervalSeconds = null, int? WebcamIntervalSeconds = null, bool? RequireWebcam = null,
+    DateTime? UnlockedUntilUtc = null, List<Student_Desktop_App.Core.Monitoring.ProctorWarning>? Warnings = null);
 
 /// <summary>Module 5: what the capture service needs to know about the exam (StudentExamStatus / heartbeat ack).</summary>
 public record CaptureSettings(int ScreenshotIntervalSeconds = 60, int WebcamIntervalSeconds = 60, bool RequireWebcam = false);

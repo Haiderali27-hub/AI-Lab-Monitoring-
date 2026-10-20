@@ -26,9 +26,14 @@ public sealed class LockdownCoordinator : IDisposable
     private readonly ConcurrentDictionary<string, DateTime> _lastReported = new();
     private readonly Action<string, string>? _violationSink;
     private bool _active;
+    private bool _suspended;
+    private Window? _window;
 
     public LockdownPolicy Policy { get; }
     public bool IsActive => _active;
+
+    /// <summary>Module 10: a proctor unlocked the PC; the guards are off until <see cref="Resume"/>.</summary>
+    public bool IsSuspended => _suspended;
 
     /// Raised for every violation (UI thread not guaranteed) — used for the on-screen warning.
     public event Action<string>? ViolationRaised;
@@ -65,6 +70,7 @@ public sealed class LockdownCoordinator : IDisposable
     {
         if (_active || Policy.Mode == LockdownMode.Off) return;
         _active = true;
+        _window = examWindow;
 
         AppDomain.CurrentDomain.UnhandledException += OnCrash;
         AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
@@ -84,10 +90,45 @@ public sealed class LockdownCoordinator : IDisposable
         _devices.Start();
     }
 
+    /// <summary>
+    /// Module 10 manual unlock (hub UnlockSession): turns off what stops an invigilator from using the PC — the
+    /// Task Manager policy, the keyboard hook, clipboard clearing and the process guard — while the session stays
+    /// "active" (the exam window still refuses to close) and the device guard keeps reporting. Must be called on the
+    /// UI thread. Idempotent; a no-op when lockdown is not running.
+    /// </summary>
+    public void Suspend()
+    {
+        if (!_active || _suspended) return;
+        _suspended = true;
+        LockdownTeardown.RunAll(
+            ("taskmgr-policy", () => _taskManager?.Restore()),
+            ("keyboard-hook", _keyboard.Uninstall),
+            ("clipboard", _clipboard.Stop),
+            ("process-guard", _processes.Stop));
+    }
+
+    /// <summary>Turns the guards suspended by <see cref="Suspend"/> back on (unlock expired or relocked). UI thread.</summary>
+    public void Resume()
+    {
+        if (!_active || !_suspended) return;
+        _suspended = false;
+        if (_taskManager is not null)
+        {
+            var applied = _taskManager.Apply();
+            if (applied is TaskManagerApplyResult.MarkerWriteFailed or TaskManagerApplyResult.RegistryFailed)
+                Report("LockdownDegraded", $"Task Manager policy not re-applied after unlock ({applied})");
+        }
+        if (!_keyboard.Install())
+            Report("LockdownDegraded", "Keyboard hook could not be re-installed after unlock");
+        if (_window is not null) _clipboard.Start(_window);
+        _processes.Start();
+    }
+
     public void Stop()
     {
         if (!_active) return;
         _active = false;
+        _suspended = false;
 
         // Stop() also runs from the crash / process-exit handlers on non-UI threads, where a UI-bound step
         // can throw. Restore the Task Manager policy first and isolate every step, so nothing is left behind.

@@ -236,6 +236,11 @@ export class StudentClient {
     return res.json();
   }
 
+  /** What the exam window's Acknowledge button on a proctor-warning banner sends (Module 10). */
+  markNotificationRead(notificationId: string) {
+    return this.request.patch(`${API_URL}/api/notifications/${notificationId}/read`, { headers: this.headers() });
+  }
+
   async violations(): Promise<{ totalViolations: number; violations: any[] }> {
     const res = await this.request.get(`${API_URL}/api/student/violations`, { headers: this.headers() });
     expect(res.status()).toBe(200);

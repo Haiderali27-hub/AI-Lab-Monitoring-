@@ -37,6 +37,7 @@ public class AppDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ExamProctor> ExamProctors => Set<ExamProctor>();
     public DbSet<Screenshot> Screenshots => Set<Screenshot>();
+    public DbSet<Incident> Incidents => Set<Incident>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -262,5 +263,16 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Screenshot>().HasIndex(s => s.CapturedAt);
         modelBuilder.Entity<Screenshot>()
             .HasOne(s => s.Session).WithMany().HasForeignKey(s => s.SessionId).OnDelete(DeleteBehavior.Cascade);
+
+        // Module 10: proctor incidents. Rows go with their session; the drawer and the tile badges list them per exam.
+        modelBuilder.Entity<Incident>().HasKey(i => i.IncidentId);
+        modelBuilder.Entity<Incident>().Property(i => i.Status).HasConversion<string>().HasMaxLength(16);
+        modelBuilder.Entity<Incident>().Property(i => i.Severity).HasConversion<string>().HasMaxLength(16);
+        modelBuilder.Entity<Incident>().Property(i => i.Notes).HasMaxLength(Incident.MaxNotesLength);
+        modelBuilder.Entity<Incident>().Property(i => i.StatusNote).HasMaxLength(Incident.MaxNotesLength);
+        modelBuilder.Entity<Incident>().HasIndex(i => new { i.ExamId, i.Status });
+        modelBuilder.Entity<Incident>().HasIndex(i => i.SessionId);
+        modelBuilder.Entity<Incident>()
+            .HasOne(i => i.Session).WithMany().HasForeignKey(i => i.SessionId).OnDelete(DeleteBehavior.Cascade);
     }
 }

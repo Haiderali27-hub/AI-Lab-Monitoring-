@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as signalR from '@microsoft/signalr';
 import { useAuth } from '../../context/AuthContext';
@@ -6,16 +6,11 @@ import { examsApi } from '../../api/exams.api';
 import { monitoringApi } from '../../api/monitoring.api';
 import { getFreshAccessToken } from '../../api/client';
 import { SIGNALR_HUB_URL } from '../../utils/constants';
-import type { CameraStatus, Exam, StudentLiveStatus, TileStatus } from '../../types';
+import type { CameraStatus, Exam, Incident, LiveSnapshotStudent, ReadinessResult, StudentLiveStatus, TileStatus } from '../../types';
 import { severityOf, violationLabel, worseStatus } from '../../utils/violations';
 import { homePathFor } from '../../utils/roles';
-
-interface TimelineEvent {
-  title: string;
-  timestamp: string;
-  description?: string;
-  isAlert?: boolean;
-}
+import StudentDrawer from './live/StudentDrawer';
+import { READINESS_LABEL, readinessState } from './live/timeline';
 
 // Module 6: a session that is no longer in progress (graded, receipt fixed, answers locked).
 function isFinalised(status?: string | null): boolean {
@@ -25,6 +20,7 @@ function isFinalised(status?: string | null): boolean {
 // Module 5: latest screen capture per student, shown on the tile (object URL of an authorised blob fetch).
 interface Thumbnail {
   url: string;
+  screenshotId: string;
   capturedAt: string;
   trigger: string;
 }
@@ -50,12 +46,45 @@ function sessionStatusLabel(status?: string | null): string {
   }
 }
 
+function isUnlocked(until?: string | null): boolean {
+  return !!until && new Date(until).getTime() > Date.now();
+}
+
+// Module 10: a student from GET /exams/{id}/live, as a tile (the board a page starts from after a reload).
+function fromSnapshot(s: LiveSnapshotStudent): StudentLiveStatus {
+  return {
+    userId: s.userId,
+    studentName: s.studentName,
+    workstationNumber: s.workstationNumber,
+    machineName: s.machineName ?? null,
+    windowsUsername: s.windowsUsername ?? null,
+    sessionId: s.sessionId,
+    lastHeartbeat: s.lastHeartbeatAt ?? new Date().toISOString(),
+    activeWindow: s.activeWindow || 'Unknown',
+    answeredCount: s.answeredCount,
+    totalQuestions: s.totalQuestions,
+    violationCount: s.violationCount,
+    tileStatus: s.tileStatus,
+    lastViolation: s.lastViolationType ? violationLabel(s.lastViolationType, s.lastViolationPayload) : null,
+    sessionStatus: s.sessionStatus,
+    extraMinutes: s.extraMinutes,
+    isDisconnected: s.isDisconnected,
+    disconnectedAt: s.disconnectedAt ?? null,
+    idleSeconds: s.idleSeconds ?? null,
+    cameraStatus: s.cameraStatus ?? null,
+    processes: s.processes ?? null,
+    unlockedUntil: s.unlockedUntilUtc ?? null,
+  };
+}
+
 /**
  * Live proctoring dashboard. Shared by teachers (/teacher/live-monitor) and invigilators
  * (/invigilator/live-monitor, Module 7). The exam list comes from GET /api/exams, which the server
  * scopes: an invigilator only ever receives the exams they are assigned to proctor, and the hub
- * refuses to add them to any other exam's group. Invigilators supervise (watch, warn, force-submit
- * one student) but cannot extend or end the exam, edit exams or open teacher pages.
+ * refuses to add them to any other exam's group. Invigilators supervise (watch, warn, mark incidents,
+ * unlock a PC, force-submit one student) but cannot extend or end the exam, edit exams or open teacher pages.
+ * Module 10: the board starts from the server's snapshot (GET /exams/{id}/live) so a reload keeps every tile,
+ * and the student drawer reads the server timeline, captures, apps, readiness and incidents.
  */
 export default function LiveMonitorPage() {
   const navigate = useNavigate();
@@ -67,14 +96,18 @@ export default function LiveMonitorPage() {
   const [activeExam, setActiveExam] = useState<Exam | null>(null);
   const [loading, setLoading] = useState(true);
   const [studentStatuses, setStudentStatuses] = useState<Map<string, StudentLiveStatus>>(new Map());
-  const [timelines, setTimelines] = useState<Map<string, TimelineEvent[]>>(new Map());
   const [thumbnails, setThumbnails] = useState<Map<string, Thumbnail>>(new Map());
   const thumbnailUrls = useRef<Set<string>>(new Set());
+  // Module 10: incidents of the exam, latest readiness result per student, and a per-student counter bumped on every
+  // live event about them (the open drawer re-reads its server data when it changes).
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [readiness, setReadiness] = useState<Map<string, ReadinessResult>>(new Map());
+  const [activity, setActivity] = useState<Map<string, number>>(new Map());
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [messageText, setMessageText] = useState('');
   const [remainingTime, setRemainingTime] = useState('00:00:00');
 
   const connectionRef = useRef<signalR.HubConnection | null>(null);
+  const activeExamRef = useRef<string | undefined>(undefined);
 
   // 1. Fetch running exams (server-scoped per role) and pick ?examId= or the first one
   useEffect(() => {
@@ -98,16 +131,86 @@ export default function LiveMonitorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // A different exam starts from an empty board (tiles and timelines belong to one exam's group).
+  const bump = useCallback((userId?: string) => {
+    if (!userId) return;
+    setActivity(prev => new Map(prev).set(userId, (prev.get(userId) ?? 0) + 1));
+  }, []);
+
+  // Shows a capture on the student's tile (replacing and releasing the previous one).
+  const showThumbnail = useCallback((examId: string, userId: string, shot: { screenshotId: string; capturedAt: string; trigger: string }) => {
+    monitoringApi.screenshotBlob(shot.screenshotId)
+      .then(blob => {
+        if (activeExamRef.current !== examId) return;   // the proctor switched exams meanwhile
+        const url = URL.createObjectURL(blob);
+        thumbnailUrls.current.add(url);
+        setThumbnails(prev => {
+          const old = prev.get(userId);
+          // An older capture that arrives late never replaces a newer one.
+          if (old && new Date(old.capturedAt).getTime() > new Date(shot.capturedAt).getTime()) {
+            URL.revokeObjectURL(url);
+            thumbnailUrls.current.delete(url);
+            return prev;
+          }
+          if (old) {
+            URL.revokeObjectURL(old.url);
+            thumbnailUrls.current.delete(old.url);
+          }
+          return new Map(prev).set(userId, { url, ...shot });
+        });
+      })
+      .catch(err => console.error('Failed to load screen capture', err));
+  }, []);
+
+  const loadReadiness = useCallback((examId: string) => {
+    examsApi.getReadiness(examId)
+      .then(list => {
+        if (activeExamRef.current !== examId) return;
+        setReadiness(new Map(list.map(r => [r.userId, r])));
+      })
+      .catch(() => { /* 403 when not supervising: the join banner already says so */ });
+  }, []);
+
+  // A different exam starts from an empty board (tiles belong to one exam's group), then loads the server's
+  // snapshot: every student who has heartbeated, incidents and readiness. Live events win over the snapshot.
   const activeExamId = activeExam?.examId;
   const [joinError, setJoinError] = useState<string | null>(null);
   useEffect(() => {
+    activeExamRef.current = activeExamId;
     setStudentStatuses(new Map());
-    setTimelines(new Map());
-    setThumbnails(new Map());
+    setThumbnails(prev => {
+      prev.forEach(t => { URL.revokeObjectURL(t.url); thumbnailUrls.current.delete(t.url); });
+      return new Map();
+    });
+    setIncidents([]);
+    setReadiness(new Map());
+    setActivity(new Map());
     setSelectedStudentId(null);
     setJoinError(null);
-  }, [activeExamId]);
+    if (!activeExamId) return;
+
+    monitoringApi.live(activeExamId)
+      .then(snapshot => {
+        if (activeExamRef.current !== activeExamId) return;
+        setStudentStatuses(prev => {
+          const next = new Map(prev);
+          for (const s of snapshot.students) {
+            if (!next.has(s.userId)) next.set(s.userId, fromSnapshot(s));
+          }
+          return next;
+        });
+        for (const s of snapshot.students) {
+          if (s.latestScreenshot) showThumbnail(activeExamId, s.userId, s.latestScreenshot);
+        }
+      })
+      .catch(() => { /* 403 when not supervising: the join banner already says so */ });
+    monitoringApi.incidents(activeExamId)
+      .then(list => {
+        if (activeExamRef.current !== activeExamId) return;
+        setIncidents(prev => mergeIncidents(list, prev));
+      })
+      .catch(() => { /* as above */ });
+    loadReadiness(activeExamId);
+  }, [activeExamId, showThumbnail, loadReadiness]);
 
   // Object URLs hold the image in memory until revoked: release them all when the page goes away.
   useEffect(() => {
@@ -124,6 +227,12 @@ export default function LiveMonitorPage() {
     setActiveExam(next);
     setSearchParams({ examId }, { replace: true });
   };
+
+  const upsertIncident = useCallback((incident: Incident) => {
+    if (incident.examId !== activeExamRef.current) return;
+    setIncidents(prev => mergeIncidents([incident], prev));
+    bump(incident.userId);
+  }, [bump]);
 
   // 2. Timer countdown logic
   useEffect(() => {
@@ -163,6 +272,14 @@ export default function LiveMonitorPage() {
       .withAutomaticReconnect()
       .build();
 
+    const forThisExam = (data: any) => !data?.examId || data.examId === activeExam.examId;
+    const patchStudent = (userId: string, patch: Partial<StudentLiveStatus>) =>
+      setStudentStatuses(prev => {
+        const existing = prev.get(userId);
+        if (!existing) return prev;
+        return new Map(prev).set(userId, { ...existing, ...patch });
+      });
+
     connection.on('StudentHeartbeat', (data: any) => {
       // Map properties from SignalR event
       const updatedStatus: StudentLiveStatus = {
@@ -201,40 +318,15 @@ export default function LiveMonitorPage() {
           ...updatedStatus,
           lastViolation,
           sessionStatus: updatedStatus.sessionStatus ?? previous?.sessionStatus ?? null,
-          extraMinutes: previous?.extraMinutes ?? null
+          // The server reports both on every beat; older servers did not, so keep what we knew.
+          extraMinutes: data.extraMinutes ?? previous?.extraMinutes ?? null,
+          unlockedUntil: data.unlockedUntilUtc !== undefined ? data.unlockedUntilUtc : previous?.unlockedUntil ?? null
         });
         return next;
       });
-
-      // Log a focus change only when the client says the exam (or an allowed app) is NOT in front.
-      // Older clients don't send the flag — fall back to the previous title heuristic.
-      const lostFocus = data.isForegroundExamApp === undefined
-        ? data.activeWindow && data.activeWindow !== 'Exam Browser'
-        : data.isForegroundExamApp === false;
-      if (lostFocus) {
-        const timeStr = new Date().toLocaleTimeString();
-        setTimelines(prev => {
-          const next = new Map(prev);
-          const currentTimeline = next.get(data.userId) || [];
-          // Avoid duplicate windows log consecutively
-          if (currentTimeline[0]?.description !== `Window switched to '${data.activeWindow}'`) {
-            next.set(data.userId, [
-              {
-                title: 'Window Focus Lost',
-                timestamp: timeStr,
-                description: `Window switched to '${data.activeWindow}'`,
-                isAlert: true
-              },
-              ...currentTimeline
-            ]);
-          }
-          return next;
-        });
-      }
     });
 
     connection.on('ViolationEvent', (data: any) => {
-      const timeStr = new Date().toLocaleTimeString();
       const label = violationLabel(data.violationType, data.payload);
 
       // Show the new severity immediately; the next heartbeat brings the server's
@@ -252,85 +344,29 @@ export default function LiveMonitorPage() {
         }
         return next;
       });
-
-      setTimelines(prev => {
-        const next = new Map(prev);
-        const currentTimeline = next.get(data.userId) || [];
-        next.set(data.userId, [
-          {
-            title: label,
-            timestamp: timeStr,
-            description: data.payload || 'Unauthorized activity detected.',
-            isAlert: true
-          },
-          ...currentTimeline
-        ]);
-        return next;
-      });
+      bump(data.userId);
     });
 
     // Module 5: the server's watchdog saw no heartbeat for 30 s — the PC is off the network, crashed or was closed.
     connection.on('StudentDisconnected', (data: any) => {
-      if (data?.examId && data.examId !== activeExam.examId) return;
-      setStudentStatuses(prev => {
-        const existing = prev.get(data.userId);
-        if (!existing) return prev;
-        const next = new Map(prev);
-        next.set(data.userId, { ...existing, isDisconnected: true, disconnectedAt: data.disconnectedAt ?? new Date().toISOString() });
-        return next;
-      });
-      addTimeline(data.userId, {
-        title: 'Disconnected',
-        timestamp: new Date().toLocaleTimeString(),
-        description: 'No heartbeat from the student PC for 30 seconds.',
-        isAlert: true
-      });
+      if (!forThisExam(data)) return;
+      patchStudent(data.userId, { isDisconnected: true, disconnectedAt: data.disconnectedAt ?? new Date().toISOString() });
+      bump(data.userId);
     });
 
     connection.on('StudentReconnected', (data: any) => {
-      if (data?.examId && data.examId !== activeExam.examId) return;
-      setStudentStatuses(prev => {
-        const existing = prev.get(data.userId);
-        if (!existing) return prev;
-        const next = new Map(prev);
-        next.set(data.userId, { ...existing, isDisconnected: false, disconnectedAt: null });
-        return next;
-      });
-      addTimeline(data.userId, {
-        title: 'Reconnected',
-        timestamp: new Date().toLocaleTimeString(),
-        description: `Back after ${data.offlineSeconds ?? '?'} s offline. Events from the gap are replayed with their original times.`
-      });
+      if (!forThisExam(data)) return;
+      patchStudent(data.userId, { isDisconnected: false, disconnectedAt: null });
+      bump(data.userId);
     });
 
     // Module 5: a new capture was stored — show the latest screen capture on the student's tile.
     connection.on('ScreenshotUploaded', (data: any) => {
-      if (data?.examId && data.examId !== activeExam.examId) return;
+      if (!forThisExam(data)) return;
       if (data.kind === 'Screen') {
-        monitoringApi.screenshotBlob(data.screenshotId)
-          .then(blob => {
-            const url = URL.createObjectURL(blob);
-            thumbnailUrls.current.add(url);
-            setThumbnails(prev => {
-              const next = new Map(prev);
-              const old = prev.get(data.userId);
-              if (old) {
-                URL.revokeObjectURL(old.url);
-                thumbnailUrls.current.delete(old.url);
-              }
-              next.set(data.userId, { url, capturedAt: data.capturedAt, trigger: data.trigger });
-              return next;
-            });
-          })
-          .catch(err => console.error('Failed to load screen capture', err));
+        showThumbnail(activeExam.examId, data.userId, { screenshotId: data.screenshotId, capturedAt: data.capturedAt, trigger: data.trigger });
       }
-      if (data.trigger === 'Violation') {
-        addTimeline(data.userId, {
-          title: data.kind === 'Webcam' ? 'Webcam Snapshot' : 'Screen Captured',
-          timestamp: new Date().toLocaleTimeString(),
-          description: `Evidence captured for: ${violationLabel(data.triggerReason)}`
-        });
-      }
+      bump(data.userId);
     });
 
     // Teacher extended time (possibly from another proctor's session) — resync countdown
@@ -342,38 +378,39 @@ export default function LiveMonitorPage() {
 
     // Module 6: a session was finalised (student submit, force-submit, server timeout) — the tile says so.
     connection.on('SessionFinalized', (data: any) => {
-      if (data?.examId && data.examId !== activeExam.examId) return;
-      setStudentStatuses(prev => {
-        const existing = prev.get(data.userId);
-        if (!existing) return prev;
-        const next = new Map(prev);
-        next.set(data.userId, { ...existing, sessionStatus: data.status });
-        return next;
-      });
-      addTimeline(data.userId, {
-        title: sessionStatusLabel(data.status),
-        timestamp: new Date().toLocaleTimeString(),
-        description: data.answerCount !== undefined
-          ? `${data.answerCount} answer(s) locked. Receipt ${String(data.receiptSha256 ?? '').slice(0, 12)}…`
-          : undefined
-      });
+      if (!forThisExam(data)) return;
+      patchStudent(data.userId, { sessionStatus: data.status, unlockedUntil: null });
+      bump(data.userId);
     });
 
     // Module 6: a proctor gave one student extra minutes (possibly from another proctor's session).
     connection.on('StudentTimeExtended', (data: any) => {
-      if (data?.examId && data.examId !== activeExam.examId) return;
-      setStudentStatuses(prev => {
-        const existing = prev.get(data.userId);
-        if (!existing) return prev;
-        const next = new Map(prev);
-        next.set(data.userId, { ...existing, extraMinutes: data.extraMinutes });
-        return next;
-      });
-      addTimeline(data.userId, {
-        title: 'Extra Time Granted',
-        timestamp: new Date().toLocaleTimeString(),
-        description: `+${data.additionalMinutes} min (total extra ${data.extraMinutes} min).`
-      });
+      if (!forThisExam(data)) return;
+      patchStudent(data.userId, { extraMinutes: data.extraMinutes });
+      bump(data.userId);
+    });
+
+    // Module 10: incidents, manual unlock, warnings and readiness — from this or another proctor's screen.
+    connection.on('IncidentChanged', (data: any) => {
+      if (data?.incident) upsertIncident(data.incident as Incident);
+    });
+    connection.on('SessionUnlocked', (data: any) => {
+      if (!forThisExam(data)) return;
+      patchStudent(data.userId, { unlockedUntil: data.unlockedUntilUtc });
+      bump(data.userId);
+    });
+    connection.on('SessionRelocked', (data: any) => {
+      if (!forThisExam(data)) return;
+      patchStudent(data.userId, { unlockedUntil: null });
+      bump(data.userId);
+    });
+    connection.on('ProctorWarningSent', (data: any) => {
+      if (!forThisExam(data)) return;
+      bump(data.userId);
+    });
+    connection.on('ReadinessUpdated', (data: any) => {
+      if (!forThisExam(data)) return;
+      loadReadiness(activeExam.examId);
     });
 
     // The server took this connection out of the exam's group (proctor unassigned, account changed):
@@ -381,7 +418,8 @@ export default function LiveMonitorPage() {
     connection.on('ExamAccessRevoked', (data: any) => {
       if (data?.examId !== activeExam.examId) return;
       setStudentStatuses(new Map());
-      setTimelines(new Map());
+      setIncidents([]);
+      setReadiness(new Map());
       setSelectedStudentId(null);
       setJoinError('Your access to this exam was withdrawn, so live data has stopped. Ask the exam\'s teacher if this is unexpected.');
     });
@@ -406,42 +444,28 @@ export default function LiveMonitorPage() {
       disposed = true;
       connection.stop().then(() => console.log('SignalR stopped.'));
     };
-  }, [activeExam, token]);
+  }, [activeExam, token, bump, showThumbnail, upsertIncident, loadReadiness]);
 
-  const addTimeline = (userId: string, item: TimelineEvent) => {
-    setTimelines(prev => {
-      const next = new Map(prev);
-      next.set(userId, [item, ...(next.get(userId) || [])]);
-      return next;
-    });
+  const invoke = async (method: string, ...args: unknown[]) => {
+    if (!connectionRef.current) throw new Error('The live connection is not ready yet.');
+    await connectionRef.current.invoke(method, ...args);
   };
 
-  const handleSendMessage = () => {
-    if (!messageText.trim() || !selectedStudentId || !connectionRef.current) return;
+  const handleSendWarning = async (studentId: string, message: string) => {
+    await invoke('SendWarning', studentId, message);
+    bump(studentId);
+  };
 
-    // Send Warning/Message via SignalR Hub if there's a connection
-    connectionRef.current.invoke('SendWarning', selectedStudentId, messageText)
-      .then(() => {
-        const timeStr = new Date().toLocaleTimeString();
-        setTimelines(prev => {
-          const next = new Map(prev);
-          const currentTimeline = next.get(selectedStudentId) || [];
-          next.set(selectedStudentId, [
-            {
-              title: 'Warning Message Sent',
-              timestamp: timeStr,
-              description: `${isInvigilator ? 'Invigilator' : 'Teacher'}: "${messageText}"`
-            },
-            ...currentTimeline
-          ]);
-          return next;
-        });
-        setMessageText('');
-      })
-      .catch(err => {
-        console.error('Failed to send SignalR warning', err);
-        alert('Could not send warning message. SignalR disconnected.');
-      });
+  const handleUnlock = async (studentId: string, minutes: number, reason: string) => {
+    const student = studentStatuses.get(studentId);
+    if (!student?.sessionId) return;
+    await invoke('UnlockSession', student.sessionId, minutes, reason);
+  };
+
+  const handleRelock = async (studentId: string) => {
+    const student = studentStatuses.get(studentId);
+    if (!student?.sessionId) return;
+    await invoke('RelockSession', student.sessionId);
   };
 
   const handleForceSubmitStudent = async (studentId: string) => {
@@ -466,21 +490,7 @@ export default function LiveMonitorPage() {
           next.set(studentId, { ...existing, sessionStatus: 'ForceSubmitted' });
           return next;
         });
-        
-        const timeStr = new Date().toLocaleTimeString();
-        setTimelines(prev => {
-          const next = new Map(prev);
-          const currentTimeline = next.get(studentId) || [];
-          next.set(studentId, [
-            {
-              title: 'Force Submitted',
-              timestamp: timeStr,
-              description: 'Instructor terminated student session.'
-            },
-            ...currentTimeline
-          ]);
-          return next;
-        });
+        bump(studentId);
 
         alert(`Session force-submitted for ${student.studentName}.`);
       } catch (err) {
@@ -542,7 +552,8 @@ export default function LiveMonitorPage() {
   };
 
   const selectedStudent = selectedStudentId ? studentStatuses.get(selectedStudentId) : null;
-  const selectedStudentTimeline = selectedStudentId ? (timelines.get(selectedStudentId) || []) : [];
+  const openIncidentCount = (userId: string) =>
+    incidents.filter(i => i.userId === userId && i.status !== 'Resolved').length;
 
   return (
     <div className="bg-[#F8FAFC] text-slate-800 font-sans min-h-screen flex overflow-hidden">
@@ -704,7 +715,7 @@ export default function LiveMonitorPage() {
         </div>
 
         {/* Main Content Area */}
-        <main className={`flex-grow p-8 overflow-y-auto ${selectedStudentId ? 'mr-[320px]' : ''} transition-all duration-300`}>
+        <main className={`flex-grow p-8 overflow-y-auto ${selectedStudentId ? 'mr-[360px]' : ''} transition-all duration-300`}>
           {joinError && activeExam && (
             <div role="alert" data-testid="join-denied" className="mb-4 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm">
               {joinError}
@@ -777,6 +788,9 @@ export default function LiveMonitorPage() {
                 }
                 const thumbnail = thumbnails.get(s.userId);
                 const idle = formatIdle(s.idleSeconds);
+                const rState = readinessState(readiness.get(s.userId));
+                const openCount = openIncidentCount(s.userId);
+                const unlocked = !finalised && isUnlocked(s.unlockedUntil);
                 const cameraLabel = s.cameraStatus ? CAMERA_LABEL[s.cameraStatus] : undefined;
 
                 return (
@@ -804,6 +818,28 @@ export default function LiveMonitorPage() {
                             Wrong seat
                           </span>
                         )}
+                        {/* Module 10: pre-exam readiness result, open incidents, proctor unlock */}
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <span
+                            data-testid="tile-readiness"
+                            data-state={rState}
+                            title="Pre-exam system check (Module 2)"
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${rState === 'passed' ? 'bg-green-50 text-green-700' : rState === 'failed' ? 'bg-red-50 text-red-700' : 'bg-slate-50 text-slate-400'}`}
+                          >
+                            {READINESS_LABEL[rState]}
+                          </span>
+                          {openCount > 0 && (
+                            <span data-testid="incident-badge" className="px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 text-[9px] font-bold uppercase tracking-wider">
+                              {openCount} incident{openCount === 1 ? '' : 's'}
+                            </span>
+                          )}
+                          {unlocked && (
+                            <span data-testid="tile-unlocked" className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[9px] font-bold uppercase tracking-wider"
+                              title={`Lockdown suspended until ${new Date(s.unlockedUntil!).toLocaleTimeString()}`}>
+                              Unlocked
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex flex-col items-end">
                         <span className={`material-symbols-outlined ${heartColor}`} style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
@@ -878,128 +914,37 @@ export default function LiveMonitorPage() {
         </main>
       </div>
 
-      {/* Side Detail Drawer (Michael Chen details mockup transformed to dynamic state) */}
-      {selectedStudent && (
-        <aside data-testid="student-drawer" className="fixed right-0 top-[56px] bottom-0 w-[320px] bg-white border-l border-slate-200 shadow-2xl flex flex-col z-50 animate-in slide-in-from-right duration-200">
-          
-          {/* Drawer Header */}
-          <div className="p-6 border-b border-slate-100 shrink-0">
-            <div className="flex justify-between items-start mb-4">
-              {/* Profile Initials Placeholder */}
-              <div className="w-12 h-12 rounded-2xl bg-blue-100 text-primary-600 font-bold flex items-center justify-center text-lg">
-                {selectedStudent.studentName.split(' ').map((n: string) => n[0]).join('')}
-              </div>
-              <button 
-                onClick={() => setSelectedStudentId(null)}
-                className="p-1 hover:bg-slate-100 rounded-lg transition-colors text-slate-400"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <h3 className="font-bold text-slate-800 text-lg leading-tight">{selectedStudent.studentName}</h3>
-            <p className="text-xs text-slate-400">
-              Seat {selectedStudent.workstationNumber}
-              {selectedStudent.machineName ? ` · ${selectedStudent.machineName}` : ''}
-              {selectedStudent.windowsUsername ? ` · Windows user: ${selectedStudent.windowsUsername}` : ''}
-            </p>
-
-            <div className="flex items-center gap-2 mt-4">
-              <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[9px] font-bold text-slate-600 uppercase">
-                Seat {selectedStudent.workstationNumber}
-              </span>
-              {selectedStudent.machineName && (
-                <span className="px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-[9px] font-bold text-primary-600 uppercase">
-                  {selectedStudent.machineName}
-                </span>
-              )}
-              {selectedStudent.violationCount > 0 ? (
-                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-[9px] font-bold uppercase">
-                  {selectedStudent.violationCount} Alert(s) Active
-                </span>
-              ) : (
-                <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-[9px] font-bold uppercase">
-                  Stable Connection
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Activity Timeline */}
-          <div className="flex-grow overflow-y-auto p-6 scrollbar-thin">
-            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">Activity Timeline</h4>
-            
-            {selectedStudentTimeline.length === 0 ? (
-              <div className="text-center text-xs text-slate-400 italic py-12">
-                No major telemetry alerts or focus switches recorded yet. Session is running normally.
-              </div>
-            ) : (
-              <div className="relative border-l-2 border-slate-200 ml-2 space-y-6">
-                {selectedStudentTimeline.map((item, idx) => (
-                  <div key={idx} className="relative pl-6">
-                    <span className={`absolute -left-[7px] top-1.5 w-3.5 h-3.5 rounded-full border-4 border-white shadow-sm ${item.isAlert ? 'bg-orange-400' : 'bg-green-500'}`}></span>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-slate-800">{item.title}</span>
-                      <span className="text-[10px] text-slate-400">{item.timestamp}</span>
-                      {item.description && (
-                        <div className={`mt-1.5 text-[11px] p-2 rounded border ${item.isAlert ? 'bg-orange-50/50 border-orange-100 text-orange-800' : 'bg-slate-50 border-slate-100 text-slate-600'}`}>
-                          {item.description}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Drawer Actions */}
-          <div className="p-6 bg-slate-50 border-t border-slate-200 mt-auto shrink-0">
-            <div className="relative mb-3 flex items-center gap-1.5">
-              <input 
-                type="text"
-                data-testid="warning-message-input"
-                value={messageText}
-                onChange={e => setMessageText(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-slate-800 bg-white"
-                placeholder="Send warning message..."
-                onKeyDown={e => { if (e.key === 'Enter') handleSendMessage(); }}
-              />
-              <button 
-                data-testid="send-warning-button"
-                onClick={handleSendMessage}
-                className="p-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center justify-center shrink-0"
-              >
-                <span className="material-symbols-outlined text-[16px]">send</span>
-              </button>
-            </div>
-            {isFinalised(selectedStudent.sessionStatus) ? (
-              <p data-testid="drawer-finalised" className="text-center text-xs font-semibold text-slate-500 py-2">
-                {sessionStatusLabel(selectedStudent.sessionStatus)} — the session is locked.
-              </p>
-            ) : (
-              <>
-                <button
-                  data-testid="extend-student-time"
-                  onClick={() => handleExtendStudentTime(selectedStudent.userId)}
-                  className="w-full mb-2 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[16px]">more_time</span>
-                  Extra Time for Student{(selectedStudent.extraMinutes ?? 0) > 0 ? ` (+${selectedStudent.extraMinutes} min)` : ''}
-                </button>
-                <button
-                  onClick={() => handleForceSubmitStudent(selectedStudent.userId)}
-                  className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[16px]">output</span>
-                  Force Submit Student
-                </button>
-              </>
-            )}
-          </div>
-
-        </aside>
+      {/* Student detail drawer (Module 10) */}
+      {selectedStudent && activeExam && (
+        <StudentDrawer
+          key={selectedStudent.sessionId}
+          exam={activeExam}
+          student={selectedStudent}
+          readiness={readiness.get(selectedStudent.userId)}
+          incidents={incidents.filter(i => i.userId === selectedStudent.userId)}
+          refreshKey={activity.get(selectedStudent.userId) ?? 0}
+          isInvigilator={isInvigilator}
+          onClose={() => setSelectedStudentId(null)}
+          onSendWarning={message => handleSendWarning(selectedStudent.userId, message)}
+          onForceSubmit={() => handleForceSubmitStudent(selectedStudent.userId)}
+          onExtendTime={() => handleExtendStudentTime(selectedStudent.userId)}
+          onUnlock={(minutes, reason) => handleUnlock(selectedStudent.userId, minutes, reason)}
+          onRelock={() => handleRelock(selectedStudent.userId)}
+          onIncidentSaved={upsertIncident}
+        />
       )}
 
     </div>
   );
+}
+
+// Incidents by id, the most recently updated copy wins (a PATCH response and its IncidentChanged echo can arrive in
+// either order); newest first.
+function mergeIncidents(incoming: Incident[], current: Incident[]): Incident[] {
+  const byId = new Map(current.map(i => [i.incidentId, i]));
+  for (const i of incoming) {
+    const known = byId.get(i.incidentId);
+    if (!known || new Date(i.updatedAt).getTime() >= new Date(known.updatedAt).getTime()) byId.set(i.incidentId, i);
+  }
+  return Array.from(byId.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }

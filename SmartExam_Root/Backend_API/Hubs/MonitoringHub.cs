@@ -14,6 +14,12 @@ public class MonitoringHub(AppDbContext db, SubmissionService submissions, ExamA
     // Upper bounds for per-student extra time: one grant, and all grants of a session together.
     public const int MaxExtraMinutesPerGrant = 180;
     public const int MaxExtraMinutesTotal = 600;
+    // Longest single lockdown unlock (hub UnlockSession), and the text limits for its reason and for warnings.
+    public const int MaxUnlockMinutes = 30;
+    public const int MaxUnlockReasonLength = 500;
+    public const int MaxWarningLength = 500;
+    public const string WarningTitle = "Proctor Warning";
+    public const string WarningType = "Warning";
 
     private readonly AppDbContext _db = db;
     private readonly SubmissionService _submissions = submissions;
@@ -78,38 +84,71 @@ public class MonitoringHub(AppDbContext db, SubmissionService submissions, ExamA
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"institution:{institutionId}");
     }
 
+    /// <summary>
+    /// Module 10 (D-05) — a proctor's warning to one student. Only someone supervising an exam the student is sitting
+    /// right now may send it. It is stored as a notification (so it is in the student's inbox and in the session
+    /// timeline), pushed at once to every connection of that student (<c>ProctorWarning</c>), and returned in the
+    /// desktop client's next heartbeat ack until the student acknowledges it — the WPF app has no SignalR client, so
+    /// the ack is its delivery channel (within one heartbeat, 10 s). Audited PROCTOR_WARNING_SENT.
+    /// </summary>
     public async Task SendWarning(string studentId, string message)
     {
         if (!IsStaff)
             throw new HubException("Only staff can send warnings.");
         if (!Guid.TryParse(studentId, out var studentGuid))
             throw new HubException("Unknown student.");
+        var body = message?.Trim() ?? string.Empty;
+        if (body.Length == 0)
+            throw new HubException("Write the warning first.");
+        if (body.Length > MaxWarningLength)
+            throw new HubException($"A warning is limited to {MaxWarningLength} characters.");
 
         // Only someone supervising an exam the student is currently sitting may warn them.
-        var examIds = await _db.ExamSessions.AsNoTracking()
+        var sessions = await _db.ExamSessions.AsNoTracking()
             .Where(s => s.UserId == studentGuid && s.Status == SessionStatus.InProgress)
-            .Select(s => s.ExamId)
-            .Distinct()
+            .OrderByDescending(s => s.StartedAt)
+            .Select(s => new { s.SessionId, s.ExamId })
             .ToListAsync();
-        var allowed = false;
-        foreach (var examId in examIds)
+        Guid? sessionId = null, examId = null;
+        foreach (var s in sessions)
         {
-            if (await _access.GetAsync(Context.User!, examId) != ExamAccess.None) { allowed = true; break; }
+            if (await _access.GetAsync(Context.User!, s.ExamId) == ExamAccess.None) continue;
+            sessionId = s.SessionId;
+            examId = s.ExamId;
+            break;
         }
-        if (!allowed)
+        if (sessionId is null || examId is null)
             throw new HubException("You can only warn students sitting an exam you supervise.");
 
-        _db.Notifications.Add(new Models.Notifications.Notification
+        var notification = new Models.Notifications.Notification
         {
             NotificationId = Guid.NewGuid(),
             RecipientId = studentGuid,
-            Title = "Proctor Warning",
-            Body = message,
-            Type = "Warning",
+            Title = WarningTitle,
+            Body = body,
+            Type = WarningType,
             IsRead = false,
+            RelatedEntityId = sessionId.ToString(),
             CreatedAt = DateTime.UtcNow
-        });
+        };
+        _db.Notifications.Add(notification);
+        _audit.Add(ExamAccessService.UserIdOf(Context.User!), "PROCTOR_WARNING_SENT", "ExamSession", sessionId.ToString(),
+            new { examId, studentId = studentGuid, notificationId = notification.NotificationId, message = body });
         await _db.SaveChangesAsync();
+
+        var payload = new
+        {
+            notificationId = notification.NotificationId,
+            sessionId,
+            examId,
+            userId = studentGuid,
+            title = notification.Title,
+            body,
+            createdAt = notification.CreatedAt
+        };
+        await Clients.User(studentGuid.ToString()).SendAsync("ProctorWarning", payload);
+        // Every proctor of the exam sees it in the student's timeline, not only the sender.
+        await Clients.Group(ExamGroupTracker.GroupName(examId.Value)).SendAsync("ProctorWarningSent", payload);
     }
 
     public async Task ForceSubmitSession(string studentId)
@@ -225,5 +264,100 @@ public class MonitoringHub(AppDbContext db, SubmissionService submissions, ExamA
         // heartbeat ack within one beat, so this push is only a fast path).
         await Clients.Group(ExamGroupTracker.GroupName(session.ExamId)).SendAsync("StudentTimeExtended", payload);
         await Clients.User(session.UserId.ToString()).SendAsync("StudentTimeExtended", payload);
+    }
+
+    /// <summary>
+    /// Module 10 — suspends one student's lockdown for <paramref name="minutes"/> (1..30), e.g. while an invigilator
+    /// fixes the keyboard or has to open Settings on the PC. The reason is mandatory and audited (SESSION_UNLOCKED);
+    /// a new unlock replaces the previous deadline. The student's client is told at once (<c>SessionUnlocked</c>) and
+    /// also reads <c>unlockedUntilUtc</c> from every heartbeat ack, so it re-locks on time on its own even if the
+    /// network drops in between. Monitoring (heartbeats, captures, violation reports) carries on while unlocked.
+    /// </summary>
+    public async Task UnlockSession(Guid sessionId, int minutes, string reason)
+    {
+        if (!IsStaff)
+            throw new HubException("Only staff can unlock a student's PC.");
+        if (minutes is < 1 or > MaxUnlockMinutes)
+            throw new HubException($"An unlock lasts between 1 and {MaxUnlockMinutes} minutes.");
+        var why = reason?.Trim() ?? string.Empty;
+        if (why.Length == 0)
+            throw new HubException("Give a reason for the unlock (it is recorded in the audit log).");
+        if (why.Length > MaxUnlockReasonLength)
+            throw new HubException($"The reason is limited to {MaxUnlockReasonLength} characters.");
+
+        var session = await LoadRunningSessionAsync(sessionId, "unlock");
+        session.UnlockedUntil = DateTime.UtcNow.AddMinutes(minutes);
+        _audit.Add(ExamAccessService.UserIdOf(Context.User!), "SESSION_UNLOCKED", "ExamSession", session.SessionId.ToString(), new
+        {
+            examId = session.ExamId,
+            studentId = session.UserId,
+            minutes,
+            reason = why,
+            until = session.UnlockedUntil
+        });
+        await SaveSessionAsync();
+
+        await NotifyUnlockAsync(session, "SessionUnlocked", new
+        {
+            examId = session.ExamId,
+            sessionId = session.SessionId,
+            userId = session.UserId,
+            minutes,
+            reason = why,
+            unlockedUntilUtc = session.UnlockedUntil
+        });
+    }
+
+    /// <summary>Ends an unlock early (the invigilator is done). Audited SESSION_RELOCKED; a no-op when not unlocked.</summary>
+    public async Task RelockSession(Guid sessionId)
+    {
+        if (!IsStaff)
+            throw new HubException("Only staff can lock a student's PC again.");
+
+        var session = await LoadRunningSessionAsync(sessionId, "lock");
+        if (session.UnlockedUntil is not DateTime until || until <= DateTime.UtcNow)
+            return;
+
+        session.UnlockedUntil = null;
+        _audit.Add(ExamAccessService.UserIdOf(Context.User!), "SESSION_RELOCKED", "ExamSession", session.SessionId.ToString(),
+            new { examId = session.ExamId, studentId = session.UserId, unlockedUntil = until });
+        await SaveSessionAsync();
+
+        await NotifyUnlockAsync(session, "SessionRelocked", new
+        {
+            examId = session.ExamId,
+            sessionId = session.SessionId,
+            userId = session.UserId
+        });
+    }
+
+    // A running session of an exam the caller supervises (otherwise HubException).
+    private async Task<Models.ExamSession> LoadRunningSessionAsync(Guid sessionId, string action)
+    {
+        var session = await _db.ExamSessions.Include(s => s.Exam).FirstOrDefaultAsync(s => s.SessionId == sessionId);
+        if (session is null || await _access.GetAsync(Context.User!, session.ExamId) == ExamAccess.None)
+            throw new HubException($"You can only {action} PCs in exams you supervise.");
+        if (session.Status != SessionStatus.InProgress || session.Exam.Status == ExamStatus.Ended)
+            throw new HubException("This session is no longer in progress.");
+        return session;
+    }
+
+    private async Task SaveSessionAsync()
+    {
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new HubException("This session was submitted in the meantime.");
+        }
+    }
+
+    // The student (fast path for any connected client) and every proctor watching the exam.
+    private async Task NotifyUnlockAsync(Models.ExamSession session, string method, object payload)
+    {
+        await Clients.User(session.UserId.ToString()).SendAsync(method, payload);
+        await Clients.Group(ExamGroupTracker.GroupName(session.ExamId)).SendAsync(method, payload);
     }
 }

@@ -28,6 +28,11 @@ public class ExamSession
     public bool IsDisconnected { get; set; }
     public DateTime? DisconnectedAt { get; set; }
 
+    // Module 10: a proctor suspended this student's lockdown until this instant (hub UnlockSession, e.g. while an
+    // invigilator fixes the PC). The desktop client reads it from the heartbeat ack and resumes lockdown on its own
+    // when it passes; null or in the past = locked as usual.
+    public DateTime? UnlockedUntil { get; set; }
+
     // Navigation
     public Exam Exam { get; set; } = null!;
     public User Student { get; set; } = null!;

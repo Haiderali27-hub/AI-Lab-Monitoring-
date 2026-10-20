@@ -57,6 +57,9 @@ public class MonitoringController(
     public const int DefaultMaxScreenshotsPerMinute = 30;
     private const long MultipartLimit = 16L * 1024 * 1024;
 
+    // Module 10: at most this many unread proctor warnings ride on one heartbeat ack.
+    public const int MaxWarningsPerAck = 5;
+
     private static readonly string[] CameraStatuses = ["Ok", "Covered", "Frozen", "Unavailable", "Off"];
     private const int MaxProcessSnapshotChars = 4000;
     private const int MaxWindowTitleChars = 512;
@@ -238,8 +241,22 @@ public class MonitoringController(
                     idleSeconds,
                     cameraStatus,
                     lastHeartbeatAt = now,
-                    isDisconnected = false
+                    isDisconnected = false,
+                    // Module 6 / 10: per-student extra time and a proctor's lockdown unlock, so every board agrees
+                    extraMinutes = session.ExtraMinutes,
+                    unlockedUntilUtc = session.UnlockedUntil > now ? session.UnlockedUntil : null
                 });
+        }
+
+        // Module 10: the ack is the desktop client's command channel (it has no SignalR connection). A running
+        // session gets the proctors' unread warnings (D-05; shown until the student acknowledges them) and the
+        // lockdown unlock deadline, if a proctor unlocked the PC (the client re-locks on its own when it passes).
+        DateTime? unlockedUntilUtc = null;
+        var warnings = new List<ProctorWarningAck>();
+        if (session is { Status: SessionStatus.InProgress })
+        {
+            if (session.UnlockedUntil is DateTime until && until > now) unlockedUntilUtc = until;
+            warnings = await PendingWarningsAsync(session);
         }
 
         // sessionStatus lets the desktop client close the exam window when a proctor force-submitted the
@@ -253,9 +270,24 @@ public class MonitoringController(
             extraMinutes = session?.ExtraMinutes,
             screenshotIntervalSeconds = session?.Exam.ScreenshotIntervalSeconds,
             webcamIntervalSeconds = session?.Exam.WebcamIntervalSeconds,
-            requireWebcam = session?.Exam.RequireWebcam
+            requireWebcam = session?.Exam.RequireWebcam,
+            unlockedUntilUtc,
+            warnings
         }));
     }
+
+    // Unread proctor warnings sent to this student since the session started, oldest first (the client shows them in
+    // order and acknowledges each with PATCH /api/notifications/{id}/read, after which they stop coming).
+    private Task<List<ProctorWarningAck>> PendingWarningsAsync(ExamSession session) =>
+        _db.Notifications.AsNoTracking()
+            .Where(n => n.RecipientId == session.UserId && n.Type == MonitoringHub.WarningType && !n.IsRead &&
+                        n.CreatedAt >= session.StartedAt)
+            .OrderBy(n => n.CreatedAt)
+            .Take(MaxWarningsPerAck)
+            .Select(n => new ProctorWarningAck(n.NotificationId, n.Title, n.Body, n.CreatedAt))
+            .ToListAsync();
+
+    public sealed record ProctorWarningAck(Guid NotificationId, string Title, string Body, DateTime CreatedAt);
 
     // Stamps liveness; returns the offline time when the session had been flagged disconnected.
     private int? MarkAlive(ExamSession session, DateTime now)

@@ -37,6 +37,9 @@ public partial class ExamDashboard : Window
         });
         // Proctor force-submit / server timeout: release the student from the locked exam window (D-17)
         _monitoringService.SessionStatusUpdated += status => Dispatcher.Invoke(() => _examWindow?.OnServerSessionStatus(status));
+        // Module 10: proctor warnings (D-05) and manual unlock, both from the heartbeat ack
+        _monitoringService.WarningsReceived += _ => Dispatcher.Invoke(() => _examWindow?.ShowProctorWarnings());
+        _monitoringService.UnlockDeadlineReceived += until => Dispatcher.Invoke(() => _examWindow?.ApplyUnlockDeadline(until));
         // Server revoked the session mid-exam (force-logout / deactivation)
         _monitoringService.SessionRevoked += () => Dispatcher.Invoke(() => KickToLogin("Your session was ended by an administrator."));
 
