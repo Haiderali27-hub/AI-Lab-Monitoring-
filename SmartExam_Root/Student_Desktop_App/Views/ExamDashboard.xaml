@@ -164,6 +164,11 @@
                                 <TextBlock Text="YOUR EXAM" FontSize="10.5" FontWeight="Bold" Foreground="#C7DBFF" />
                                 <TextBlock Text="{Binding ExamName}" FontSize="24" FontWeight="Bold" Foreground="White"
                                            TextWrapping="Wrap" Margin="0,4,0,0" />
+                                <!-- Module 6: crash recovery hint (exam still running / answers saved on this PC) -->
+                                <TextBlock x:Name="ResumeNoticeText" AutomationProperties.AutomationId="ResumeNotice"
+                                           Text="{Binding ResumeNotice}" FontSize="12" FontWeight="SemiBold" Foreground="#FDE68A"
+                                           TextWrapping="Wrap" Margin="0,6,0,0"
+                                           Visibility="{Binding HasResumeNotice, Converter={StaticResource BoolToVis}}" />
                                 <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                                     <Border Background="#33FFFFFF" CornerRadius="999" Padding="10,4" Margin="0,0,8,0">
                                         <StackPanel Orientation="Horizontal">
@@ -297,7 +302,7 @@
                                 Visibility="{Binding HasPracticeExams, Converter={StaticResource BoolToVis}}" />
                         <Button x:Name="RefreshButton" Style="{StaticResource SecondaryButton}" Content="Refresh"
                                 Width="120" Margin="0,0,10,0" Click="RefreshButton_OnClick" />
-                        <Button x:Name="StartExamButton" Style="{StaticResource PrimaryButton}" Content="Start Exam"
+                        <Button x:Name="StartExamButton" Style="{StaticResource PrimaryButton}" Content="{Binding StartButtonLabel}"
                                 Width="180" Height="46" Margin="0,0,10,0" Click="StartExamButton_OnClick" />
                         <Button x:Name="LogoutButton" Style="{StaticResource DangerButton}" Content="Logout"
                                 Width="110" Click="LogoutButton_OnClick" />

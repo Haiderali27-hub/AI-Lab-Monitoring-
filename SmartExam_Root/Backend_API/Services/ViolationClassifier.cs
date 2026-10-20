@@ -28,7 +28,8 @@ public static class ViolationClassifier
         MonitoringEventType.RemoteSession,
         MonitoringEventType.VirtualMachine,
         MonitoringEventType.LockdownDegraded,
-        MonitoringEventType.SeatMismatch
+        MonitoringEventType.SeatMismatch,
+        MonitoringEventType.BackupTampered
     };
 
     private enum Severity { Warning = 1, Suspicious = 2, Violation = 3 }
@@ -39,6 +40,8 @@ public static class ViolationClassifier
             => Severity.Warning,
         MonitoringEventType.UnauthorizedProcess or MonitoringEventType.MultiMonitor
             or MonitoringEventType.VirtualMachine or MonitoringEventType.LockdownDegraded
+            // Someone edited the encrypted answer backup on the PC: suspicious, but the server copy is authoritative.
+            or MonitoringEventType.BackupTampered
             => Severity.Suspicious,
         // ProcessKilled = the student actually launched a forbidden app; USB/RDP = evidence risk;
         // SeatMismatch = someone sitting at the wrong workstation (possible impersonation);

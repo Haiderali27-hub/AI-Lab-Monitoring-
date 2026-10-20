@@ -9,6 +9,7 @@ const SEVERITY: Record<string, TileStatus> = {
   MultiMonitor: 'Suspicious',
   VirtualMachine: 'Suspicious',
   LockdownDegraded: 'Suspicious',
+  BackupTampered: 'Suspicious',
   ProcessKilled: 'Violation',
   UsbInserted: 'Violation',
   RemoteSession: 'Violation',
@@ -27,6 +28,7 @@ const LABELS: Record<string, string> = {
   RemoteSession: 'Remote desktop session',
   VirtualMachine: 'Virtual machine',
   LockdownDegraded: 'Lockdown degraded',
+  BackupTampered: 'Local answer backup altered',
   SeatMismatch: 'Seat mismatch',
   Violation: 'Security violation',
 };

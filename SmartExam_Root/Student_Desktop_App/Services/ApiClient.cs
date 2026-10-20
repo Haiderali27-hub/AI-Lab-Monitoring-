@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Student_Desktop_App.Core;
 using Student_Desktop_App.Core.Auth;
+using Student_Desktop_App.Core.Submission;
 
 namespace Student_Desktop_App.Services;
 
@@ -190,30 +191,40 @@ public class ApiClient
         }
     }
 
-    // These two endpoints return a plain JSON object (no ApiEnvelope), so success is
-    // determined by the HTTP status directly.
-    public async Task<bool> SaveAnswerAsync(
+    // Module 6: one revisioned answer save (plain JSON body, no ApiEnvelope). Never throws: the outcome tells the
+    // exam window whether the server has the answer (Accepted / Stale), should be retried (Offline) or refused it
+    // for good (Rejected — time over, session finished); Message is the server's reason for a rejection.
+    public async Task<(SaveOutcome Outcome, string Message)> SaveAnswerAsync(
         string accessToken,
         Guid sessionId,
-        Guid questionId,
-        string answerText,
+        PendingSave save,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            var payload = new { questionId, answerText };
+            var payload = new
+            {
+                questionId = save.QuestionId,
+                answerText = save.Text,
+                revision = save.Revision,
+                clientSavedAt = save.ClientSavedAtUtc
+            };
             using var response = await SendAuthorizedAsync(
                 token => CreateAuthorizedJsonRequest(HttpMethod.Post, $"api/exams/sessions/{sessionId}/save-answer", token, payload),
                 accessToken, cancellationToken);
-            return response.IsSuccessStatusCode;
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            var (code, message) = ReadCodeAndMessage(body);
+            return (OfflineSaveQueue.Classify((int)response.StatusCode, code), message ?? $"HTTP {(int)response.StatusCode}");
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            // Network down, timeout, or an unreadable reply: keep the answer and retry later.
+            return (SaveOutcome.Offline, ex.Message);
         }
     }
 
-    public async Task<(bool ok, string message)> SubmitExamAsync(
+    // Plain JSON body: { message, sessionId, submittedAt, answerCount, sha256 } on success, { message, status } when refused.
+    public async Task<SubmitResult> SubmitExamAsync(
         string accessToken,
         Guid sessionId,
         CancellationToken cancellationToken = default)
@@ -224,11 +235,59 @@ public class ApiClient
                 token => CreateAuthorizedJsonRequest(HttpMethod.Post, $"api/exams/sessions/{sessionId}/submit", token, new { }),
                 accessToken, cancellationToken);
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            return (response.IsSuccessStatusCode, body);
+            var (_, message) = ReadCodeAndMessage(body);
+            var status = (int)response.StatusCode;
+
+            if (response.IsSuccessStatusCode)
+            {
+                var receipt = JsonSerializer.Deserialize<SubmitReceipt>(body, _jsonSerializerOptions);
+                return new SubmitResult(SubmitStatus.Submitted, message ?? "Exam submitted.", receipt);
+            }
+            if (status is 401 or 408 or 429 || status >= 500)
+                return new SubmitResult(SubmitStatus.Offline, message ?? $"HTTP {status}");
+            return new SubmitResult(SubmitStatus.Failed, message ?? $"HTTP {status}");
         }
         catch (Exception ex)
         {
-            return (false, ex.Message);
+            // A retry is safe: if the server did lock the session, the next attempt reports it as finalised.
+            return new SubmitResult(SubmitStatus.Offline, ex.Message);
+        }
+    }
+
+    // Module 6 crash recovery: the server's copy of this session's answers (null when unreachable).
+    public async Task<SessionAnswersDto?> GetSessionAnswersAsync(
+        string accessToken,
+        Guid sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var response = await SendAuthorizedAsync(
+                token => CreateAuthorizedRequest(HttpMethod.Get, $"api/exams/sessions/{sessionId}/answers", token), accessToken, cancellationToken);
+            if (!response.IsSuccessStatusCode) return null;
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            return JsonSerializer.Deserialize<SessionAnswersDto>(body, _jsonSerializerOptions);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static (string? Code, string? Message) ReadCodeAndMessage(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return (null, null);
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return (null, null);
+            var code = doc.RootElement.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null;
+            var message = doc.RootElement.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : null;
+            return (code, message);
+        }
+        catch (JsonException)
+        {
+            return (null, null);
         }
     }
 

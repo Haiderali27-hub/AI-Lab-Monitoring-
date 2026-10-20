@@ -44,8 +44,14 @@ interface StudentSubmission {
   sessionId: string;
   status: string;
   submittedAt: string | null;
+  receiptSha256?: string | null;     // Module 6: SHA-256 receipt the student got on submit
+  receiptAnswerCount?: number | null;
+  extraMinutes?: number;
   answers: Answer[];
 }
+
+// Finalised sessions (graded, receipt fixed); TimedOut = the server closed it at the deadline.
+const FINALISED = ['Submitted', 'ForceSubmitted', 'TimedOut'];
 
 export default function ResultsPage() {
   const { examId } = useParams<{ examId: string }>();
@@ -124,7 +130,7 @@ export default function ResultsPage() {
   };
 
   // Calculate statistics
-  const submissionCount = results.filter(r => r.status === 'Submitted' || r.status === 'ForceSubmitted').length;
+  const submissionCount = results.filter(r => FINALISED.includes(r.status)).length;
   
   const getStudentTotalScore = (student: StudentSubmission) => {
     return student.answers.reduce((sum, a) => {
@@ -264,6 +270,7 @@ export default function ResultsPage() {
                         <th className="px-6 py-4">Student Name</th>
                         <th className="px-6 py-4">Status</th>
                         <th className="px-6 py-4 text-center">Score</th>
+                        <th className="px-6 py-4">Receipt</th>
                         <th className="px-6 py-4 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -282,7 +289,7 @@ export default function ResultsPage() {
                               </td>
                               <td className="px-6 py-4">
                                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                  student.status === 'Submitted' || student.status === 'ForceSubmitted'
+                                  FINALISED.includes(student.status)
                                     ? 'bg-green-50 text-green-700 border border-green-200'
                                     : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
                                 }`}>
@@ -291,6 +298,18 @@ export default function ResultsPage() {
                               </td>
                               <td className="px-6 py-4 text-center font-bold text-slate-800">
                                 {score}/{maxScore}
+                              </td>
+                              <td className="px-6 py-4 max-w-[10rem]">
+                                {student.receiptSha256 ? (
+                                  // Full hash in the DOM (CSS truncation only) so it can be compared with the student's copy.
+                                  <code
+                                    data-testid="receipt-hash"
+                                    title={`SHA-256 over ${student.receiptAnswerCount ?? 0} answer(s): ${student.receiptSha256}`}
+                                    className="block truncate font-mono text-[11px] text-slate-500"
+                                  >{student.receiptSha256}</code>
+                                ) : (
+                                  <span className="text-xs text-slate-300">—</span>
+                                )}
                               </td>
                               <td className="px-6 py-4 text-right">
                                 <button 
@@ -305,7 +324,7 @@ export default function ResultsPage() {
                             {/* EXPANDED REVIEW PANEL */}
                             {isExpanded && (
                               <tr className="bg-slate-50/50">
-                                <td colSpan={4} className="px-8 py-6">
+                                <td colSpan={5} className="px-8 py-6">
                                   {student.answers.length === 0 ? (
                                     <div className="text-center text-xs text-slate-400 italic py-4">No answers submitted by this student.</div>
                                   ) : (

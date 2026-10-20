@@ -102,7 +102,7 @@ public class Module10ProctoringAcceptanceTests : IDisposable
         await act.Should().ThrowAsync<HubException>();
     }
 
-    [Fact(Skip = "Pending: M10-I-05 — hub ExtendStudentTime")]
+    [Fact]
     public async Task M10_I_05_ExtendSingleStudent_OnlyThatSessionsEndMoves()
     {
         var s1 = await _host.AsStudent();

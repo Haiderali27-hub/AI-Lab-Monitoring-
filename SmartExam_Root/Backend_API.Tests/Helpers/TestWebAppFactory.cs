@@ -49,6 +49,10 @@ public class TestWebAppFactory : WebApplicationFactory<Program>
         builder.UseSetting("Labs:AutoRegister", "false");
         builder.UseSetting("Exams:RequireDesktopClientForStart", "false");
 
+        // Module 6: the timeout sweeper is off by default so tests that move an exam's window into the past
+        // (late save / late submit) are not raced by it; the sweeper tests turn it on with their own interval.
+        builder.UseSetting("Submission:TimeoutSweepSeconds", "0");
+
         // Disable real email in tests
         builder.UseSetting("Email:SenderEmail", "test@test.com");
         builder.UseSetting("Email:AppPassword", "fake_password");

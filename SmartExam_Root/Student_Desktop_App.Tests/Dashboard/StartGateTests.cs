@@ -80,4 +80,21 @@ public class StartGateTests
         StartGate.Format(TimeSpan.FromSeconds(3725)).Should().Be("01:02:05");
         StartGate.Format(TimeSpan.FromHours(26)).Should().Be("1.02:00:00");
     }
+
+    // M6-U-09 (TEST_CASES.md §M6, D-18): a session still running on the server is offered as "Resume" —
+    // no new check-in — until the student's own end (which includes extra minutes) on the server clock.
+    [Fact]
+    public void M6_U_09_RunningSession_CanBeResumed_UntilTheStudentsEnd()
+    {
+        var running = Exam(Now.AddMinutes(-30), status: "InProgress");
+        StartGate.CanStart(running, TimeSpan.Zero, Now).Should().BeFalse("it is not a new start");
+        StartGate.CanResume(running, TimeSpan.Zero, Now).Should().BeTrue();
+        StartGate.CanResume(running, TimeSpan.Zero, Now.AddMinutes(31)).Should().BeFalse("the student's time is over");
+        StartGate.CanResume(running, TimeSpan.FromMinutes(31), Now).Should().BeFalse("server clock, not the PC clock");
+
+        StartGate.CanResume(Exam(Now.AddMinutes(-30)), TimeSpan.Zero, Now).Should().BeFalse("nothing to resume");
+        StartGate.CanResume(Exam(Now.AddMinutes(-30), status: "Submitted"), TimeSpan.Zero, Now).Should().BeFalse();
+        StartGate.CanResume(Exam(Now.AddMinutes(-30), status: "InProgress", seat: "Mismatch"), TimeSpan.Zero, Now).Should().BeFalse();
+        StartGate.CanResume(Exam(Now.AddMinutes(-30), status: "InProgress", eligible: false), TimeSpan.Zero, Now).Should().BeFalse();
+    }
 }

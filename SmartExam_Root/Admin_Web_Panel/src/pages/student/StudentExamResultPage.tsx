@@ -100,6 +100,12 @@ export default function StudentExamResultPage() {
                   <span>120 Minutes Session</span>
                 </div>
               </div>
+              {result.receiptSha256 && (
+                <p className="mt-2 text-[11px] text-slate-500 flex items-center gap-1.5 max-w-full" title="SHA-256 of your answers as submitted. It matches the receipt the desktop app showed you.">
+                  <span className="font-semibold uppercase tracking-wider text-slate-400">Submission receipt</span>
+                  <code data-testid="student-receipt-hash" className="font-mono text-slate-600 truncate max-w-[18rem]">{result.receiptSha256}</code>
+                </p>
+              )}
             </div>
 
             {/* Score block */}

@@ -16,6 +16,20 @@ interface TimelineEvent {
   isAlert?: boolean;
 }
 
+// Module 6: a session that is no longer in progress (graded, receipt fixed, answers locked).
+function isFinalised(status?: string | null): boolean {
+  return !!status && status !== 'InProgress';
+}
+
+function sessionStatusLabel(status?: string | null): string {
+  switch (status) {
+    case 'Submitted': return 'Submitted';
+    case 'ForceSubmitted': return 'Force submitted';
+    case 'TimedOut': return 'Timed out';
+    default: return 'In progress';
+  }
+}
+
 /**
  * Live proctoring dashboard. Shared by teachers (/teacher/live-monitor) and invigilators
  * (/invigilator/live-monitor, Module 7). The exam list comes from GET /api/exams, which the server
@@ -133,17 +147,24 @@ export default function LiveMonitorPage() {
         violationCount: data.violationCount ?? 0,
         tileStatus: (data.tileStatus || 'Normal') as TileStatus,
         seatStatus: data.seatStatus ?? null,
-        seatDetail: data.seatDetail ?? null
+        seatDetail: data.seatDetail ?? null,
+        sessionStatus: data.sessionStatus ?? null
       };
 
       setStudentStatuses(prev => {
         const next = new Map(prev);
+        const previous = prev.get(data.userId);
         // Keep the last violation label across heartbeats (heartbeats don't carry it) — except a
         // wrong seat (Module 9), which the server re-checks on every heartbeat and reports itself.
         const lastViolation = data.seatStatus === 'Mismatch'
           ? `Seat mismatch: ${data.seatDetail || 'not at the assigned workstation'}`
-          : prev.get(data.userId)?.lastViolation ?? null;
-        next.set(data.userId, { ...updatedStatus, lastViolation });
+          : previous?.lastViolation ?? null;
+        next.set(data.userId, {
+          ...updatedStatus,
+          lastViolation,
+          sessionStatus: updatedStatus.sessionStatus ?? previous?.sessionStatus ?? null,
+          extraMinutes: previous?.extraMinutes ?? null
+        });
         return next;
       });
 
@@ -217,6 +238,42 @@ export default function LiveMonitorPage() {
         : prev);
     });
 
+    // Module 6: a session was finalised (student submit, force-submit, server timeout) — the tile says so.
+    connection.on('SessionFinalized', (data: any) => {
+      if (data?.examId && data.examId !== activeExam.examId) return;
+      setStudentStatuses(prev => {
+        const existing = prev.get(data.userId);
+        if (!existing) return prev;
+        const next = new Map(prev);
+        next.set(data.userId, { ...existing, sessionStatus: data.status });
+        return next;
+      });
+      addTimeline(data.userId, {
+        title: sessionStatusLabel(data.status),
+        timestamp: new Date().toLocaleTimeString(),
+        description: data.answerCount !== undefined
+          ? `${data.answerCount} answer(s) locked. Receipt ${String(data.receiptSha256 ?? '').slice(0, 12)}…`
+          : undefined
+      });
+    });
+
+    // Module 6: a proctor gave one student extra minutes (possibly from another proctor's session).
+    connection.on('StudentTimeExtended', (data: any) => {
+      if (data?.examId && data.examId !== activeExam.examId) return;
+      setStudentStatuses(prev => {
+        const existing = prev.get(data.userId);
+        if (!existing) return prev;
+        const next = new Map(prev);
+        next.set(data.userId, { ...existing, extraMinutes: data.extraMinutes });
+        return next;
+      });
+      addTimeline(data.userId, {
+        title: 'Extra Time Granted',
+        timestamp: new Date().toLocaleTimeString(),
+        description: `+${data.additionalMinutes} min (total extra ${data.extraMinutes} min).`
+      });
+    });
+
     // The server took this connection out of the exam's group (proctor unassigned, account changed):
     // no more live data will arrive, so say so instead of showing a silently frozen board.
     connection.on('ExamAccessRevoked', (data: any) => {
@@ -248,6 +305,14 @@ export default function LiveMonitorPage() {
       connection.stop().then(() => console.log('SignalR stopped.'));
     };
   }, [activeExam, token]);
+
+  const addTimeline = (userId: string, item: TimelineEvent) => {
+    setTimelines(prev => {
+      const next = new Map(prev);
+      next.set(userId, [item, ...(next.get(userId) || [])]);
+      return next;
+    });
+  };
 
   const handleSendMessage = () => {
     if (!messageText.trim() || !selectedStudentId || !connectionRef.current) return;
@@ -284,8 +349,21 @@ export default function LiveMonitorPage() {
     if (confirm(`Are you sure you want to force-submit ${student.studentName}'s exam session immediately?`)) {
       try {
         if (connectionRef.current) {
-          await connectionRef.current.invoke('ForceSubmitSession', student.userId);
+          // By session id (unambiguous when the student also has a practice session open, D-20).
+          if (student.sessionId) {
+            await connectionRef.current.invoke('ForceSubmitSessionById', student.sessionId);
+          } else {
+            await connectionRef.current.invoke('ForceSubmitSession', student.userId);
+          }
         }
+        // SessionFinalized normally arrives first; set it here too so the tile never lags.
+        setStudentStatuses(prev => {
+          const existing = prev.get(studentId);
+          if (!existing) return prev;
+          const next = new Map(prev);
+          next.set(studentId, { ...existing, sessionStatus: 'ForceSubmitted' });
+          return next;
+        });
         
         const timeStr = new Date().toLocaleTimeString();
         setTimelines(prev => {
@@ -307,6 +385,25 @@ export default function LiveMonitorPage() {
         console.error('Failed to force submit student session', err);
         alert('Could not force submit. Connection error.');
       }
+    }
+  };
+
+  // Module 6/10: extra minutes for ONE student (their deadline only; the exam's duration is unchanged).
+  const handleExtendStudentTime = async (studentId: string) => {
+    const student = studentStatuses.get(studentId);
+    if (!student?.sessionId || !connectionRef.current) return;
+    const input = prompt(`Give ${student.studentName} how many extra minutes? (1–180)`, '10');
+    if (!input) return;
+    const minutes = parseInt(input, 10);
+    if (isNaN(minutes) || minutes <= 0 || minutes > 180) {
+      alert('Enter a number of minutes between 1 and 180.');
+      return;
+    }
+    try {
+      await connectionRef.current.invoke('ExtendStudentTime', student.sessionId, minutes);
+    } catch (err: any) {
+      console.error('Failed to extend student time', err);
+      alert(err?.message?.replace(/^.*HubException: /, '') || 'Could not extend the student\'s time.');
     }
   };
 
@@ -565,6 +662,12 @@ export default function LiveMonitorPage() {
                   heartColor = 'text-red-500';
                   statusText = 'Critical';
                 }
+                const finalised = isFinalised(s.sessionStatus);
+                if (finalised) {
+                  statusColor = 'border-slate-300 ring-transparent opacity-80';
+                  heartColor = 'text-slate-400';
+                  statusText = sessionStatusLabel(s.sessionStatus);
+                }
 
                 return (
                   <div 
@@ -595,6 +698,9 @@ export default function LiveMonitorPage() {
                       <div className="flex flex-col items-end">
                         <span className={`material-symbols-outlined ${heartColor}`} style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
                         <span data-testid="tile-status" className={`text-[8px] font-bold uppercase tracking-wider mt-0.5 ${heartColor}`}>{statusText}</span>
+                        {!finalised && (s.extraMinutes ?? 0) > 0 && (
+                          <span data-testid="tile-extra-time" className="text-[8px] font-bold text-primary-600 mt-0.5">+{s.extraMinutes} min</span>
+                        )}
                       </div>
                     </div>
 
@@ -731,13 +837,29 @@ export default function LiveMonitorPage() {
                 <span className="material-symbols-outlined text-[16px]">send</span>
               </button>
             </div>
-            <button 
-              onClick={() => handleForceSubmitStudent(selectedStudent.userId)}
-              className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
-            >
-              <span className="material-symbols-outlined text-[16px]">output</span>
-              Force Submit Student
-            </button>
+            {isFinalised(selectedStudent.sessionStatus) ? (
+              <p data-testid="drawer-finalised" className="text-center text-xs font-semibold text-slate-500 py-2">
+                {sessionStatusLabel(selectedStudent.sessionStatus)} — the session is locked.
+              </p>
+            ) : (
+              <>
+                <button
+                  data-testid="extend-student-time"
+                  onClick={() => handleExtendStudentTime(selectedStudent.userId)}
+                  className="w-full mb-2 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">more_time</span>
+                  Extra Time for Student{(selectedStudent.extraMinutes ?? 0) > 0 ? ` (+${selectedStudent.extraMinutes} min)` : ''}
+                </button>
+                <button
+                  onClick={() => handleForceSubmitStudent(selectedStudent.userId)}
+                  className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">output</span>
+                  Force Submit Student
+                </button>
+              </>
+            )}
           </div>
 
         </aside>

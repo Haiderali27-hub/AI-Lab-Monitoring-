@@ -9,6 +9,14 @@ public class Answer
     public DateTime? SubmittedAt { get; set; }
     public DateTime LastSavedAt { get; set; } = DateTime.UtcNow;
 
+    // Module 6: client-side revision of this answer (incremented by the desktop app on every edit).
+    // A save carrying a lower revision than the stored one is refused (409 STALE_REVISION), so an
+    // offline queue replayed late can never overwrite a newer answer. 0 = only legacy (unrevisioned) saves.
+    public int Revision { get; set; }
+
+    // When the client says it saved the answer (diagnostics only: never trusted for the deadline).
+    public DateTime? ClientSavedAt { get; set; }
+
     // Navigation
     public ExamSession ExamSession { get; set; } = null!;
     public Question Question { get; set; } = null!;

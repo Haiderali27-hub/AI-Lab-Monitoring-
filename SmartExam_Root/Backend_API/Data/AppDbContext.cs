@@ -225,5 +225,14 @@ public class AppDbContext : DbContext
             .HasOne(p => p.Exam).WithMany().HasForeignKey(p => p.ExamId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<ExamProctor>()
             .HasOne(p => p.User).WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        // Module 6: one answer row per (session, question) — the upsert in save-answer relies on it
+        // (it also checks in code: the InMemory provider used by the tests does not enforce unique indexes).
+        // Revision is a concurrency token so two racing revisioned saves cannot both win; Status on the
+        // session is one so a student submit and the timeout sweeper (or a proctor) cannot both finalise it.
+        modelBuilder.Entity<Answer>().HasIndex(a => new { a.SessionId, a.QuestionId }).IsUnique();
+        modelBuilder.Entity<Answer>().Property(a => a.Revision).IsConcurrencyToken();
+        modelBuilder.Entity<ExamSession>().Property(s => s.Status).IsConcurrencyToken();
+        modelBuilder.Entity<ExamSession>().Property(s => s.ReceiptSha256).HasMaxLength(64);
     }
 }

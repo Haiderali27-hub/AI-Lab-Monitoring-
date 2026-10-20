@@ -47,6 +47,19 @@ public static class StartGate
         return s.EndUtc is { } end && ServerNow(clockOffset, localUtcNow) < AsUtc(end);
     }
 
+    /// <summary>
+    /// Module 6 crash recovery: a session that is still <c>InProgress</c> on the server can be resumed (no new
+    /// check-in or readiness check — the server returns the same session from student/start) while the
+    /// student's own deadline, which includes any extra minutes, is still ahead on the server clock.
+    /// </summary>
+    public static bool CanResume(StartGateInput s, TimeSpan clockOffset, DateTime localUtcNow)
+    {
+        if (!s.IsEligible) return false;
+        if (string.Equals(s.SeatStatus, "Mismatch", StringComparison.OrdinalIgnoreCase)) return false;
+        if (!string.Equals(s.Status, "InProgress", StringComparison.OrdinalIgnoreCase)) return false;
+        return s.EndUtc is { } end && ServerNow(clockOffset, localUtcNow) < AsUtc(end);
+    }
+
     /// <summary>"hh:mm:ss", or "d.hh:mm:ss" past a day (an exam scheduled next week).</summary>
     public static string Format(TimeSpan t) =>
         t.TotalDays >= 1 ? t.ToString(@"d\.hh\:mm\:ss") : t.ToString(@"hh\:mm\:ss");

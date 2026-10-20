@@ -202,6 +202,8 @@ export interface StudentLiveStatus {
   lastViolation?: string | null;    // human label of the most recent violation, e.g. "Blocked keys: Alt+Tab"
   seatStatus?: 'Ok' | 'Mismatch' | 'Unassigned' | 'NotEnforced' | 'NotChecked' | null;  // Module 9
   seatDetail?: string | null;       // "logged in from R1C2 (assigned R1C1)" while mismatched
+  sessionStatus?: SessionStatus | null;  // Module 6: InProgress until submitted / force-submitted / timed out
+  extraMinutes?: number | null;          // Module 6: per-student extra time granted by a proctor
 }
 
 export type TileStatus = 'Normal' | 'Warning' | 'Suspicious' | 'Violation';
@@ -311,6 +313,8 @@ export interface StudentExamResult {
   startedAt: string;
   submittedAt: string | null;
   status: string;
+  receiptSha256?: string | null;      // Module 6: SHA-256 submission receipt (same as on submit)
+  receiptAnswerCount?: number | null;
   totalMarks: number;
   earnedMarks: number;
   scorePercent: number;

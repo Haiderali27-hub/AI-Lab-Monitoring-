@@ -9,10 +9,11 @@ import { API_URL, uniqueTag } from './env';
  *   GET  /api/exams/student/current                       (ApiEnvelope<StudentExamStatus>)
  *   POST /api/exams/student/start                         (desktop start path, ApiEnvelope<StartExamResult>)
  *   POST /api/exams/{id}/start-session                    (start path that also activates the exam)
- *   POST /api/exams/sessions/{sessionId}/save-answer      { questionId, answerText }
+ *   POST /api/exams/sessions/{sessionId}/save-answer      { questionId, answerText, revision?, clientSavedAt? }
+ *   GET  /api/exams/sessions/{sessionId}/answers          (Module 6 crash recovery: saved answers + receipt)
  *   POST /api/monitoring/heartbeat  { examSessionId, isForegroundExamApp, activeWindowTitle, processListSnapshot }
  *   POST /api/monitoring/event      { eventType, examSessionId, payloadJson }   (focus loss → "Violation")
- *   POST /api/exams/sessions/{sessionId}/submit
+ *   POST /api/exams/sessions/{sessionId}/submit           → { message, sessionId, submittedAt, answerCount, sha256 }
  *   GET  /api/notifications                               (teacher warnings / announcements)
  */
 export class StudentClient {
@@ -134,11 +135,18 @@ export class StudentClient {
   }
 
   // ── answering / submission ──────────────────────────────────────────────
-  saveAnswer(questionId: string, answerText: string, sessionId = this.sessionId) {
+  /** `revision` / `clientSavedAt` are what the desktop app sends (Module 6); omitted = an older client. */
+  saveAnswer(questionId: string, answerText: string, sessionId = this.sessionId,
+    opts: { revision?: number; clientSavedAt?: string } = {}) {
     return this.request.post(`${API_URL}/api/exams/sessions/${sessionId}/save-answer`, {
       headers: this.headers(),
-      data: { questionId, answerText },
+      data: { questionId, answerText, ...opts },
     });
+  }
+
+  /** GET /api/exams/sessions/{id}/answers — the server copy the desktop app merges with its local backup. */
+  answers(sessionId = this.sessionId) {
+    return this.request.get(`${API_URL}/api/exams/sessions/${sessionId}/answers`, { headers: this.headers() });
   }
 
   submit(sessionId = this.sessionId) {

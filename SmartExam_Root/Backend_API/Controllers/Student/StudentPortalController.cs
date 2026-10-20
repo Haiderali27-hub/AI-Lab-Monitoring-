@@ -161,6 +161,9 @@ public class StudentPortalController : ControllerBase
             session.StartedAt,
             session.SubmittedAt,
             session.Status,
+            // Module 6: the receipt the student was given on submit — they can compare it with their copy.
+            session.ReceiptSha256,
+            session.ReceiptAnswerCount,
             TotalMarks = totalMarks,
             EarnedMarks = Math.Round(totalEarned, 1),
             ScorePercent = totalMarks > 0 ? Math.Round((totalEarned / totalMarks) * 100, 1) : 0,

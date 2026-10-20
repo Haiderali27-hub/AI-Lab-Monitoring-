@@ -15,7 +15,7 @@
 | 3 | Student Exam Dashboard | S4 | **Start gate done** (see §3.4 status) | 95% |
 | 4 | Secure Exam Environment (lockdown) | S4 | **Implemented incl. Task Manager policy, lab validation pending** (see §3.1 status) | 85% |
 | 5 | Live Monitoring Client Service | S5 | Barely started | 20% |
-| 6 | Submission & Backup | S6 | Partial | 50% |
+| 6 | Submission & Backup | S6 | **Implemented, lab validation pending** — revisions, receipts, timeout sweeper, per-student extra time, encrypted local backup + offline queue + resume (see §4.2 status) | 85% |
 | 7 | User & Role Management | S2 | **Complete** — SuperAdmin-only admin management, Invigilator UI + ExamProctors, Departments/Courses (see §6 status) | 95% |
 | 8 | Exam Creation & Configuration | S3 | **Complete** — capture intervals + allowed-apps picker (see §6 status) | 95% |
 | 9 | Eligibility & Access Control | S3 | **Implemented, lab validation pending** (see §3.3 status) | 90% |
@@ -209,6 +209,18 @@ Backend: `MonitoringController` new endpoints `POST screenshot`, `POST events/ba
 
 **Acceptance:** M6-U-01…05, M6-I-01…09, M6-E-01…04, M6-D-01…04. **Effort:** 5 dev-days.
 
+**Status — Module 6 (Stage S4)**
+- ✅ Per-student deadline: `ExamSession.ExtraMinutes`; `SubmissionService.EffectiveEnd(session)` (exam end + extra minutes) and `IsClosed(session, now)` are used by save-answer, the heartbeat `remainingSeconds`, `student/current` (`remainingSeconds`, `examEndUtc`) and both start paths (a running session can be **resumed** inside the student's own time; nobody can start a new one after the exam window). Ending the exam (force-submit-all) still closes everyone, extra time included. Hub `ExtendStudentTime(sessionId, minutes)` (1–180 per grant, ≤ 600 in total; anyone supervising the exam — owner teacher, assigned invigilator, admin; the whole exam stays owner/admin-only), audited `SESSION_TIME_EXTENDED`, pushed as `StudentTimeExtended` to `exam:{id}` and to the student.
+- ✅ Revisions: `Answer.Revision` (concurrency token) + `ClientSavedAt`; save-answer `{questionId, answerText, revision?, clientSavedAt?}` → `{message, lastSavedAt, revision}`. Lower revision, or the same revision with different text → **409 `{code: STALE_REVISION, currentRevision}`**; same revision + same text → 200 no-op (offline replay); no revision → last write wins as before. A session the sweeper timed out answers "Exam time is over…". New checks: the question must belong to the session's exam (D-21), text ≤ 100 000 chars. Unique `Answers(SessionId, QuestionId)` (also enforced in code + retry for the InMemory provider).
+- ✅ Receipt: `Services/ReceiptHasher` (canonical `SMARTEXAM-RECEIPT-v1`, SHA-256 hex) fixed in `FinalizeAsync` → `ExamSession.ReceiptSha256/ReceiptAnswerCount`. Submit returns flat `{message, sessionId, submittedAt, answerCount, sha256}`; teacher results and the student result endpoint return `receiptSha256`/`receiptAnswerCount`. `FinalizeAsync` broadcasts `SessionFinalized` (all paths: submit, force-submit, force-submit-all, timeout); `ExamSession.Status` is a concurrency token so two finalisations cannot both win (the loser gets 400 / HubException / is skipped).
+- ✅ `Services/SessionTimeoutService` (BackgroundService, `Submission:TimeoutSweepSeconds`, default 30, 0 = off; the xUnit factory turns it off except in the sweeper tests): times out sessions past `EffectiveEnd + 2 min` (or of an Ended exam) through `FinalizeAsync(TimedOut)` — graded, receipt — audited `SESSION_TIMED_OUT`; one scope per session, concurrent submits are skipped.
+- ✅ `GET /api/exams/sessions/{id}/answers` (student, own session; 404 otherwise): `{sessionId, status, remainingSeconds, extraMinutes, receipt, answers:[{questionId, answerText, revision, lastSavedAt}]}`. Heartbeat ack adds `sessionStatus` and `extraMinutes`. Hub `ForceSubmitSessionById(sessionId)` (D-20) audited `SESSION_FORCE_SUBMITTED` (also the old `ForceSubmitSession`). New event type `BackupTampered` (Suspicious).
+- ✅ Desktop (pure, unit-tested): `Core/Submission/AutosaveScheduler` (10 s after the first unsaved edit), `OfflineSaveQueue` (in-order replay, newest revision per answer, response classification), `AnswerMerge` (server vs backup, higher revision wins), `ReceiptHasher` (same vectors as the server); `Core/Backup/AnswerBackupCodec` (AES-256-GCM, session id as associated data) + `AnswerBackupStore` (`%LOCALAPPDATA%\SmartExam\backup\{sessionId}.seb`, per-session key wrapped by DPAPI CurrentUser with the session id as entropy — `Services/Backup/DpapiKeyProtector`; atomic `.tmp` + replace; 7-day / 30-day cleanup at app start). A DPAPI key is tied to the Windows profile: a backup cannot be restored on another PC (by design; the server copy is authoritative).
+- ✅ Desktop wiring: every edit bumps the answer's revision; the exam window saves on question change and on focus loss, autosaves every 10 s, writes the backup within ~1 s, shows "Offline — saved on this PC, will sync" and replays when the network returns. On (re)open it merges the server answers with the backup and replays unsent ones; a tampered backup is ignored and reported. Submit flushes everything first and **never closes while answers exist only on this PC** (D-19; auto-submit retries every 10 s); success shows the receipt with "Verified" / "Mismatch" and marks the backup submitted. The exam window resyncs its countdown from every heartbeat (D-16) and closes when the heartbeat reports a force-submit / timeout (D-17). Dashboard: "Resume Exam" for an `InProgress` session without a new check-in (`StartGate.CanResume`, D-18) and a notice when unsent answers are saved on this PC.
+- ✅ Web: results page "Receipt" column (`data-testid="receipt-hash"`, full hash in the DOM); student result page receipt; Live Monitor tiles show Submitted / Force submitted / Timed out from `SessionFinalized` (M6-E-03), force-submit by session id, per-student "Extra Time for Student" in the drawer (`+N min` on the tile).
+- Tests: M6-U-01…09, M6-I-01…03, M6-I-07, M6-I-10…18, M10-I-05, M6-A-05…08, M6-E-03…06. Manual/FlaUI on a lab PC only: M6-D-01…04.
+- Not in this stage: replaying offline answers after the deadline (`Submission:OfflineReplayGraceMinutes`, design §4.6 — rejected today, kept in the encrypted backup); a SignalR client in the desktop app (warnings/extra time still arrive with the next heartbeat, ≤ 10 s).
+
 ### 4.3 Module 10 — Live Proctoring Dashboard (thesis FR10)
 
 - Screenshot thumbnail per tile (latest), click → student detail drawer: event timeline, screenshots carousel, process list, readiness result.
@@ -297,7 +309,7 @@ Backend: `MonitoringController` new endpoints `POST screenshot`, `POST events/ba
 2. `AddReadinessChecks` — ReadinessChecks table; Exam.RequireReadiness/RequireWebcam/RequireMic/IsMock/EarlyJoinMinutes
 3. ✅ `AddAttendanceSeatAndEarlyJoin` — AttendanceRecords; Exam.MinAttendancePercent/EnforceSeat/EarlyJoinMinutes (EarlyJoinMinutes was not in #2 after all); ExamAssignment.EligibilityOverridden/EligibilitySource; Workstation.HostName
 4. `AddScreenshotsAndClientEventId` — Screenshots; MonitoringEvent.ClientEventId (unique); ExamSession.LastHeartbeatAt/ExtraMinutes (Exam.ScreenshotIntervalSeconds/WebcamIntervalSeconds already added by ✅ `AddCaptureIntervals`, Stage S2)
-5. `AddAnswerRevision` — Answer.Revision, ClientSavedAt
+5. ✅ `AddSubmissionReceiptAndRevision` (Stage S4) — Answer.Revision, ClientSavedAt; unique Answers(SessionId, QuestionId) (replaces the SessionId index — check for duplicates first, query in the migration header); ExamSession.ExtraMinutes (moved here from #4), ReceiptSha256 (64), ReceiptAnswerCount
 6. `AddIncidents` — Incidents (ExamProctors already added by ✅ `AddAcademicsAndExamProctors`, Stage S3)
 7. `AddGradingPipeline` — AiGradingResult.Status, TestCaseResultsJson; Question.ModelAnswer, RubricKeywords; TestCase.Weight
 8. `AddAuditHashChain` — AuditLog.Sequence/PrevHash/Hash (backfill job computes chain for existing rows)
@@ -323,7 +335,10 @@ Every migration: tested on a copy of the Neon DB first (`pg_dump` → local dock
 | `POST /api/monitoring/events/batch` | Student | 5 |
 | `GET /api/exams/{id}/sessions/{sid}/screenshots` | Staff (owner/proctor) | 5/10 |
 | `POST/PATCH /api/incidents` | Teacher/Invigilator | 10 |
-| hub `UnlockSession`, `ExtendStudentTime` | Staff | 10 |
+| hub `UnlockSession`, ✅ `ExtendStudentTime`, ✅ `ForceSubmitSessionById` | Staff (supervising the exam) | 10 / 6 |
+| ✅ `POST /api/exams/sessions/{sid}/save-answer` (+ `revision`, `clientSavedAt`) | Student | 6 |
+| ✅ `POST /api/exams/sessions/{sid}/submit` → receipt `{submittedAt, answerCount, sha256}` | Student | 6 |
+| ✅ `GET /api/exams/sessions/{sid}/answers` | Student (own) | 6 |
 | `GET /api/exams/{id}/plagiarism/matrix` | Teacher | 11 |
 | `GET /api/audit-logs/verify` | Admin | 12 |
 | `POST /api/analytics/reports/{type}` (`attendance|violations|scores|evidence-zip|excel`) | Staff | 12 |

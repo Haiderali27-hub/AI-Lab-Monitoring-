@@ -95,11 +95,18 @@ namespace Backend_API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("ClientSavedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("LastSavedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("QuestionId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("SessionId")
                         .HasColumnType("uuid");
@@ -111,7 +118,8 @@ namespace Backend_API.Migrations
 
                     b.HasIndex("QuestionId");
 
-                    b.HasIndex("SessionId");
+                    b.HasIndex("SessionId", "QuestionId")
+                        .IsUnique();
 
                     b.ToTable("Answers");
                 });
@@ -413,10 +421,21 @@ namespace Backend_API.Migrations
                     b.Property<Guid>("ExamId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("ExtraMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ReceiptAnswerCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReceiptSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasColumnType("text");
 

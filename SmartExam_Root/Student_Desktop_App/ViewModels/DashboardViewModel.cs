@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Windows.Threading;
 using Student_Desktop_App.Core;
+using Student_Desktop_App.Core.Backup;
 using Student_Desktop_App.Core.Dashboard;
 using Student_Desktop_App.Core.Readiness;
 using Student_Desktop_App.Services;
@@ -9,9 +10,10 @@ using Student_Desktop_App.Services.Readiness;
 
 namespace Student_Desktop_App.ViewModels;
 
-public class DashboardViewModel(ApiClient apiClient) : BindableBase
+public class DashboardViewModel(ApiClient apiClient, AnswerBackupStore? backupStore = null) : BindableBase
 {
     private readonly ApiClient _apiClient = apiClient;
+    private readonly AnswerBackupStore? _backupStore = backupStore;
     private readonly ReadinessCheckService _readiness = new(apiClient);
     private readonly DispatcherTimer _countdownTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
@@ -36,6 +38,8 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
     private bool _requireReadiness;
     private ReadinessRequirements _requirements = new(false, false, true, Core.Lockdown.LockdownMode.Report);
     private bool _canStartExam;
+    private bool _canResumeExam;
+    private string _resumeNotice = "";
     private bool _examInProgress;
     private bool _lowTime;
     private string _countdownLabel = "TIME REMAINING";
@@ -214,6 +218,24 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         set => SetProperty(ref _canStartExam, value);
     }
 
+    // Module 6: the exam is already running on the server (crash, power cut, relaunch) → "Resume exam".
+    public bool CanResumeExam
+    {
+        get => _canResumeExam;
+        private set { if (SetProperty(ref _canResumeExam, value)) OnPropertyChanged(nameof(StartButtonLabel)); }
+    }
+
+    public string StartButtonLabel => CanResumeExam ? "Resume Exam" : "Start Exam";
+
+    /// <summary>Shown when answers from an unfinished exam are saved on this PC (encrypted backup).</summary>
+    public string ResumeNotice
+    {
+        get => _resumeNotice;
+        private set { if (SetProperty(ref _resumeNotice, value)) OnPropertyChanged(nameof(HasResumeNotice)); }
+    }
+
+    public bool HasResumeNotice => !string.IsNullOrEmpty(_resumeNotice);
+
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         var token = SessionStore.CurrentToken;
@@ -239,6 +261,7 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         IsConnected = true;
         ConnectionStatus = "Connected to exam server";
         ApplyExamStatus(result.Data);
+        RefreshResumeNotice(token.User.Id);
         await RefreshNotificationsAsync(cancellationToken);
         await RefreshPracticeExamsAsync(cancellationToken);
     }
@@ -284,6 +307,32 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
 
     public bool HasNotifications => Notifications.Count > 0;
 
+    // Crash recovery hint: an unsubmitted local backup of this student's running exam.
+    private void RefreshResumeNotice(Guid userId)
+    {
+        if (_backupStore is null || !ExamInProgress)
+        {
+            ResumeNotice = ExamInProgress ? "Your exam is still running. Press Resume Exam to continue where you left off." : "";
+            return;
+        }
+
+        IReadOnlyList<BackupState> pending;
+        try
+        {
+            pending = _backupStore.FindResumable(userId);
+        }
+        catch (Exception)
+        {
+            pending = Array.Empty<BackupState>();
+        }
+        var match = pending.FirstOrDefault(b => b.ExamId == _currentExamId);
+        ResumeNotice = match is null
+            ? "Your exam is still running. Press Resume Exam to continue where you left off."
+            : $"Your exam is still running. {match.Answers.Count} answer(s) are saved on this PC" +
+              (match.UnsentCount > 0 ? $" ({match.UnsentCount} not yet on the server — they are sent when you resume)." : ".") +
+              " Press Resume Exam to continue.";
+    }
+
     public async Task<bool> StartExamAsync(CancellationToken cancellationToken = default)
     {
         var token = SessionStore.CurrentToken;
@@ -293,7 +342,8 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
             return false;
         }
 
-        if (!AttendanceConfirmed || (RequireReadiness && !ReadinessPassed))
+        // Resuming a running session needs no new check-in or readiness check (the server returns the same session).
+        if (!CanResumeExam && (!AttendanceConfirmed || (RequireReadiness && !ReadinessPassed)))
         {
             Message = RequireReadiness
                 ? "Check in and pass the system check before starting the exam."
@@ -325,7 +375,7 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
         ExamSessionId = result.Data.Id;
         ExamStatus = result.Data.Status;
         CanStartExam = false;
-        Message = "Exam session started.";
+        Message = CanResumeExam ? "Exam session resumed." : "Exam session started.";
         return true;
     }
 
@@ -571,8 +621,9 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
 
     private void UpdateStartEligibility()
     {
+        CanResumeExam = _gate is not null && StartGate.CanResume(_gate, _clockOffset, DateTime.UtcNow);
         var gateOpen = _gate is not null && StartGate.CanStart(_gate, _clockOffset, DateTime.UtcNow);
-        CanStartExam = gateOpen && AttendanceConfirmed && (!RequireReadiness || ReadinessPassed);
+        CanStartExam = CanResumeExam || (gateOpen && AttendanceConfirmed && (!RequireReadiness || ReadinessPassed));
     }
 }
 

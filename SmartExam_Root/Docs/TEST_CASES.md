@@ -213,32 +213,51 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 
 | ID | Title | Steps | Expected | Status |
 |----|-------|-------|----------|--------|
-| M6-U-01 | Autosave timer only when dirty | No edits 30 s | 0 saves | 📋 desktop |
-| M6-U-02 | Autosave fires at 10 s | Edit, wait 10 s | 1 save | 📋 |
-| M6-U-03 | Local backup round-trip | Write, read | Same answers | 📋 |
-| M6-U-04 | Backup tamper detected | Flip byte | HMAC fails, backup ignored + reported | 📋 |
-| M6-U-05 | Submit receipt hash | Same answers | Same SHA-256 as server | 📋 |
+| M6-U-01 | Autosave timer only when dirty | No edits 30 s | 0 saves | ✅ `AutosaveSchedulerTests` (fake clock) |
+| M6-U-02 | Autosave fires at 10 s | Edit, wait 10 s | 1 save (not at 9 s; continuous typing → every ~10 s) | ✅ `AutosaveSchedulerTests` |
+| M6-U-03 | Local backup round-trip | Write, read | Same answers; file encrypted (AES-256-GCM, DPAPI-wrapped key); atomic write | ✅ `AnswerBackupCodecTests`, `AnswerBackupStoreTests` |
+| M6-U-04 | Backup tamper detected | Flip byte (payload, nonce, tag, wrapped key), wrong key, file from another session | GCM tag / DPAPI fails → `Tampered`, backup ignored, `BackupTampered` event reported | ✅ `AnswerBackupCodecTests`, `AnswerBackupStoreTests` |
+| M6-U-05 | Submit receipt hash | Same answers | Same SHA-256 as server (identical fixed vectors in both test projects) | ✅ `ReceiptHasherTests` (desktop + backend) |
+| M6-U-06 | Offline save queue | 3 saves offline, then online | Replayed in order; newest revision per answer; stops at first offline; 401/5xx/timeout = retry, 400/404 = drop | ✅ `OfflineSaveQueueTests` |
+| M6-U-07 | Resume merge | Server answers + local backup | Higher revision wins; unsent local edits replayed; server wins ties | ✅ `AnswerMergeTests` |
+| M6-U-08 | Backup housekeeping | Old submitted / abandoned / recent backups | 7 d submitted, 30 d abandoned deleted; resumable = this student's unsubmitted only | ✅ `AnswerBackupStoreTests` |
+| M6-U-09 | Resume gate | Session InProgress on the server | "Resume Exam" (no new check-in) until the student's own end, on the server clock | ✅ `StartGateTests` |
 | M6-A-01 | Save answer in window | save-answer | 200 | ✅ |
 | M6-A-02 | Save after deadline rejected | Exam past end + grace | 400 | ✅ |
 | M6-A-03 | Save after submit rejected | Submit then save | 400 | ✅ |
 | M6-A-04 | Double submit rejected | Submit twice | 2nd → 400 | ✅ |
-| M6-I-01 | Stale revision ignored | Save rev 3 then rev 2 | Answer = rev 3, 409 `STALE_REVISION` | ⏳ |
-| M6-I-02 | Submit receipt returned | Submit | `{submittedAt, answerCount, sha256}` | ⏳ |
-| M6-I-03 | Timeout job | Session InProgress 2 min after end | Status TimedOut, graded | ⏳ |
+| M6-A-05 | Stale revision over HTTP | rev 3, then rev 2, then rev 3 again | 409 `STALE_REVISION` (`currentRevision` 3), replay 200, answer = rev 3 | ✅ |
+| M6-A-06 | Receipt + saved answers endpoint | Save, GET answers, submit, GET answers | Answers with revision; submit `{submittedAt, answerCount, sha256}`; same receipt afterwards | ✅ |
+| M6-A-07 | Other student's session | GET answers / save into peer's session | 404 / 404 | ✅ |
+| M6-A-08 | Foreign question | Save an answer to another exam's question | 400 | ✅ |
+| M6-I-01 | Stale revision ignored | Save rev 3 then rev 2 | Answer = rev 3, 409 `STALE_REVISION` | ✅ |
+| M6-I-02 | Submit receipt returned | Submit | `{submittedAt, answerCount, sha256}` | ✅ |
+| M6-I-03 | Timeout job | Session InProgress 2 min after end | Status TimedOut, graded | ✅ (`SessionTimeoutService`) |
 | M6-I-04 | Force-submit-all grades | Teacher force-submit-all | AiGradingResults created | ✅ (since `768df71`) |
 | M6-I-05 | Hub force-submit one student grades | Hub `ForceSubmitSession` | Graded | ✅ |
 | M6-I-06 | Late submit still locks | Submit after deadline | 200, status Submitted, no new answers | ✅ |
-| M6-I-07 | Per-student extra time | ExtraMinutes=10 | Save allowed until end+10 | ⏳ |
+| M6-I-07 | Per-student extra time | ExtraMinutes=10 | Save allowed until end+10 | ✅ |
 | M6-I-08 | Answers immutable after submit | Teacher views answers | Unchanged | ✅ |
 | M6-I-09 | Restore resumes session | Start, kill client, start again | start-session returns same session | ✅ |
+| M6-I-10 | Revision replay rules | Same rev same text / same rev other text / no revision | 200 no-op / 409 / last-write-wins, revision kept | ✅ |
+| M6-I-11 | Save validation | Question of another exam; 100 001 chars | 400, nothing stored | ✅ |
+| M6-I-12 | Saved answers endpoint | GET own / peer / staff; after submit | 200 with revisions / 404 / 403; receipt equals submit's | ✅ |
+| M6-I-13 | Receipt is canonical | Submit two answers | `sha256` = `ReceiptHasher` over stored answers; stored on session; `SessionFinalized` to `exam:{id}` | ✅ |
+| M6-I-14 | ExtendStudentTime guarded | Student / other teacher / 0 / 181 min; 10 + 5 | HubException ×4; ExtraMinutes 15, 2× `SESSION_TIME_EXTENDED`, pushed to group + student; heartbeat + `student/current` include it | ✅ |
+| M6-I-15 | Sweeper respects extra time | Exam ended 5 min ago, one student +10 min | Only the other session TimedOut (receipt, audit `SESSION_TIMED_OUT`, `SessionFinalized`); the extended one later | ✅ |
+| M6-I-16 | After timeout | Save, submit, heartbeat | 400 "time is over", 400, `sessionStatus: TimedOut` | ✅ |
+| M6-I-17 | Resume inside extra time | Exam ended 5 min ago, +10 min | `student/start` + `start-session` return the same session; without extra time `EXAM_CLOSED` | ✅ |
+| M6-I-18 | Force-submit by session id | Unassigned invigilator; owner; twice | HubException; ForceSubmitted + receipt + audit `SESSION_FORCE_SUBMITTED`; second → HubException; heartbeat reports it | ✅ |
 | M6-E-01 | Results show submitted student | Simulator submits → teacher results page | Student row with score | ✅ |
 | M6-E-02 | Force submit all from UI | Teacher clicks Force Submit All | Simulator's next save → 400 | ✅ |
-| M6-E-03 | Per-student force submit button | Drawer → Force submit | Tile shows Submitted | ⏳ |
-| M6-E-04 | Receipt hash on results page | | Matches simulator receipt | ⏳ |
-| M6-D-01 | Crash recovery | Kill WPF mid-exam, relaunch | Answers restored | 📋 |
-| M6-D-02 | Offline answering | Pull LAN, answer 3 Qs, reconnect | All 3 on server | 📋 |
-| M6-D-03 | Auto-submit at 0 | Short exam | Submits automatically | 📋 |
-| M6-D-04 | Receipt dialog | Submit | Shows hash | 📋 |
+| M6-E-03 | Per-student force submit button | Drawer → Force submit | Tile shows Submitted | ✅ |
+| M6-E-04 | Receipt hash on results page | | Matches simulator receipt | ✅ |
+| M6-E-05 | Receipt on the student's result page | Submit, exam ended, student portal | Same hash | ✅ |
+| M6-E-06 | Per-student extra time from the drawer | Drawer → Extra Time (10) | Tile "+10 min"; that student's heartbeat clock +10 min | ✅ |
+| M6-D-01 | Crash recovery | Kill WPF mid-exam, relaunch | "Resume Exam" + notice; answers restored (unsent ones replayed) | 📋 FlaUI (logic ✅ M6-U-07/08/09) |
+| M6-D-02 | Offline answering | Pull LAN, answer 3 Qs, reconnect | "Offline — saved on this PC"; all 3 on server after reconnect | 📋 FlaUI (logic ✅ M6-U-06) |
+| M6-D-03 | Auto-submit at 0 | Short exam | Submits automatically; offline → window stays, retries every 10 s | 📋 |
+| M6-D-04 | Receipt dialog | Submit | Shows hash + "Verified" (or "Mismatch") | 📋 |
 
 ## M7 — User & Role Management
 
@@ -342,7 +361,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M10-I-02 | Incident escalate/resolve | PATCH status | Transition stored, invalid transitions 400 | ⏳ |
 | M10-I-03 | Incident access control | Teacher of other section | 403 | ⏳ |
 | M10-I-04 | Unlock session | Hub UnlockSession 5 min | Event sent to student, audited | ⏳ |
-| M10-I-05 | Extend single student | ExtendStudentTime | Only that session's end moves | ⏳ |
+| M10-I-05 | Extend single student | ExtendStudentTime | Only that session's end moves | ✅ (Stage S4) |
 | M10-I-06 | Hub group isolation | Student joins exam group | HubException | ✅ (existing) |
 | M10-I-07 | Teacher can't force-submit other teacher's exam | Hub call | HubException | ✅ (existing) |
 | M10-I-08 | Proctor assignment | Add ExamProctor | Invigilator can join group | ✅ (Stage S3, built with M7) |
@@ -436,6 +455,13 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | D-13 | M1-E-07 | Web logout after an idle spell was sent with the expired access token (proactive refresh skipped for `/auth/logout`) → 401, and the refresh-token family stayed valid for up to 12 h | **Fixed** — logout is refreshed proactively; refresh calls time out after 10 s |
 | D-14 | M1-I-13 | Password change / admin password reset left every other refresh token (12 h) and access token alive; logout left the family's earlier access tokens alive | **Fixed** — `RefreshTokenService.RevokeOtherSessionsAsync`, logout revokes the family's sessions |
 | D-15 | M4-U-18 | `LockdownCoordinator.Stop()` restored the Task Manager policy last; from the crash / ProcessExit handlers (non-UI thread) the clipboard step can throw first, leaving `DisableTaskMgr=1` until the next app start | **Fixed** — `Core/Lockdown/LockdownTeardown` runs isolated steps, Task Manager restore first |
+| D-16 | review (S4) | The exam window's own countdown ignored teacher extensions (only the dashboard resynced from the heartbeat) and auto-submitted at the original end | **Fixed** — `ExamWindow.ResyncRemaining` from every heartbeat ack (exam extension + per-student extra time) |
+| D-17 | M6-I-18 | After a proctor force-submit the exam window stayed open and locked (saves 400, Submit "not active") until the timer ran out | **Fixed** — heartbeat ack carries `sessionStatus`; the window closes with a message |
+| D-18 | M6-U-09 | After a crash and relaunch the Start button was disabled for the `InProgress` session — no resume path in the UI | **Fixed** — "Resume Exam" (`StartGate.CanResume`) + backup notice |
+| D-19 | review (S4) | A failed auto-submit at time-out (offline) still closed the window; answers not yet saved were lost | **Fixed** — submit flushes the offline queue first; offline → window stays, answers kept encrypted on disk, retry every 10 s |
+| D-20 | review (S4) | Hub `ForceSubmitSession(studentId)` picks the student's first in-progress session — ambiguous with a practice session open | **Fixed** — `ForceSubmitSessionById(sessionId)`, used by the Live Monitor |
+| D-21 | M6-I-11 | `save-answer` accepted any question id, so a student could store answers to another exam's questions in their session | **Fixed** — question must belong to the session's exam; text ≤ 100 000 chars |
+| D-22 | review (S4) | The desktop app only saved answered questions, so clearing an answer never reached the server | **Fixed** — revisioned saves send every edit, including a cleared answer |
 
 ---
 

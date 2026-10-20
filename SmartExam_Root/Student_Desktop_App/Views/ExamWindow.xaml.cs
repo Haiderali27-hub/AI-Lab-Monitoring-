@@ -3,7 +3,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
 using Student_Desktop_App.Core;
+using System.Windows.Threading;
+using Student_Desktop_App.Core.Backup;
 using Student_Desktop_App.Services;
+using Student_Desktop_App.Services.Backup;
 using Student_Desktop_App.Services.Lockdown;
 using Student_Desktop_App.ViewModels;
 
@@ -13,27 +16,82 @@ public partial class ExamWindow : Window
 {
     private readonly ExamSessionViewModel _viewModel;
     private readonly LockdownCoordinator _lockdown;
-    private readonly Guid _examId;
+    // Module 6: an automatic submit that could not reach the server is retried until it can (D-19).
+    private readonly DispatcherTimer _submitRetry = new() { Interval = TimeSpan.FromSeconds(10) };
     private ExamQuestionItem? _current;
     private bool _submitted;
+    private bool _submitting;
     private bool _suppressTextEvents;
 
     public bool Submitted => _submitted;
 
-    public ExamWindow(ApiClient apiClient, string accessToken, Guid examId, Guid sessionId, int remainingSeconds,
+    public ExamWindow(ApiClient apiClient, string accessToken, Guid examId, Guid sessionId, Guid userId, int remainingSeconds,
         IEnumerable<string> allowedApps, string? examLockdownMode = null, bool? examBlockMultiMonitor = null)
     {
         InitializeComponent();
-        _examId = examId;
         // The exam's server-side settings win; the local config only applies when the server sends none.
         var config = AppConfigProvider.Current;
         _lockdown = new LockdownCoordinator(apiClient, accessToken, sessionId,
             AppConfigProvider.ParseLockdownMode(examLockdownMode ?? config.LockdownMode), allowedApps,
             examBlockMultiMonitor ?? config.BlockMultiMonitor, config.DisableTaskManager);
-        _viewModel = new ExamSessionViewModel(apiClient, accessToken, sessionId, remainingSeconds);
+        _viewModel = new ExamSessionViewModel(apiClient, accessToken, sessionId, examId, userId, remainingSeconds, OpenBackupStore());
         _viewModel.TimeExpired += () => Dispatcher.Invoke(async () => await AutoSubmitOnExpiry());
+        // An edited local backup is ignored (server copy wins) and reported to the proctors.
+        _viewModel.BackupTampered += reason => _ = apiClient.SendMonitoringEventAsync(accessToken, "BackupTampered", sessionId,
+            new { reason, detail = "Local answer backup failed its integrity check", atUtc = DateTime.UtcNow });
+        _submitRetry.Tick += async (_, _) =>
+        {
+            _submitRetry.Stop();
+            await DoSubmit(auto: true);
+        };
+        // Save the answer being edited whenever the window loses focus (a crash right after still loses nothing).
+        Deactivated += async (_, _) =>
+        {
+            if (_current is not null && !_submitted) await _viewModel.SaveAnswerAsync(_current);
+        };
         DataContext = _viewModel;
     }
+
+    // DPAPI-protected local backup; without one (profile problem) the exam still runs on server saves alone.
+    private static AnswerBackupStore? OpenBackupStore()
+    {
+        try
+        {
+            return DpapiKeyProtector.CreateDefaultStore();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Server clock from the heartbeat ack: exam extensions and this student's extra time (D-16).</summary>
+    public void ResyncRemaining(int seconds) => _viewModel.ResyncRemaining(seconds);
+
+    /// <summary>
+    /// The heartbeat reports the session's server status. Anything but InProgress means a proctor force-submitted
+    /// it or the server timed it out: the answers are locked, so release the student instead of leaving them in
+    /// lockdown until the timer runs out (D-17).
+    /// </summary>
+    public void OnServerSessionStatus(string status)
+    {
+        if (_submitted || _submitting || string.Equals(status, "InProgress", StringComparison.OrdinalIgnoreCase)) return;
+
+        _submitted = true;
+        _submitRetry.Stop();
+        _viewModel.MarkFinalisedByServer();
+        MessageBox.Show(this, $"Your exam was {Describe(status)}. Answers saved before that point are kept.",
+            "Exam Ended", MessageBoxButton.OK, MessageBoxImage.Information);
+        Close();
+    }
+
+    private static string Describe(string? status) => status switch
+    {
+        "ForceSubmitted" => "force-submitted by the proctor",
+        "TimedOut" => "closed by the server at the deadline",
+        "Submitted" => "submitted",
+        _ => "closed"
+    };
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
@@ -45,7 +103,12 @@ public partial class ExamWindow : Window
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
         _lockdown.Start(this);
-        await _viewModel.LoadAsync(_examId);
+        // The window is locked down, so never leave the student staring at an empty exam: retry until loaded.
+        while (!await _viewModel.LoadAsync())
+        {
+            _viewModel.SaveStatus = "Could not load the questions — retrying…";
+            await Task.Delay(TimeSpan.FromSeconds(5));
+        }
         if (_viewModel.Questions.Count > 0)
         {
             ShowQuestion(_viewModel.Questions[0]);
@@ -98,14 +161,14 @@ public partial class ExamWindow : Window
     {
         if (_current is null || sender is not Button { Tag: ExamOptionItem opt }) return;
         _current.SelectOption(opt.Index);
-        _viewModel.RecomputeAnswered();
+        _viewModel.OnAnswerEdited(_current);
     }
 
     private void AnswerBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_suppressTextEvents || _current is null) return;
         _current.AnswerText = AnswerBox.Text;
-        _viewModel.RecomputeAnswered();
+        _viewModel.OnAnswerEdited(_current);
     }
 
     private async void NavButton_Click(object sender, RoutedEventArgs e)
@@ -151,21 +214,72 @@ public partial class ExamWindow : Window
 
     private async Task DoSubmit(bool auto)
     {
-        if (_submitted) return;
+        if (_submitted || _submitting) return;
+        _submitting = true;
         SubmitButton.IsEnabled = false;
-        if (_current is not null) await _viewModel.SaveAnswerAsync(_current);
-
-        var (ok, message) = await _viewModel.SubmitAsync();
-        if (!ok && !auto)
+        try
         {
-            SubmitButton.IsEnabled = true;
-            MessageBox.Show(this, $"Could not submit: {message}", "Submit Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (_current is not null) await _viewModel.SaveAnswerAsync(_current);
+
+            var (result, receipt) = await _viewModel.SubmitAsync();
+            switch (result.Status)
+            {
+                case SubmitStatus.Submitted:
+                    _submitted = true;
+                    _submitRetry.Stop();
+                    ShowReceipt(receipt);
+                    Close();
+                    return;
+
+                case SubmitStatus.AlreadyFinalised:
+                    _submitted = true;
+                    _submitRetry.Stop();
+                    MessageBox.Show(this, $"Your exam was already {Describe(result.FinalStatus)}. Answers saved before that point are kept.",
+                        "Exam Ended", MessageBoxButton.OK, MessageBoxImage.Information);
+                    Close();
+                    return;
+
+                case SubmitStatus.Offline:
+                    // Never close while answers may exist only on this PC (D-19): keep them, keep trying.
+                    _viewModel.SaveStatus = result.Message;
+                    if (auto) _submitRetry.Start();
+                    else MessageBox.Show(this,
+                        "The exam server cannot be reached. Your answers are saved on this PC and will be sent when the network is back. Press Submit again then.",
+                        "Waiting for Network", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    break;
+
+                default:
+                    if (auto) _submitRetry.Start();
+                    else MessageBox.Show(this, $"Could not submit: {result.Message}", "Submit Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    break;
+            }
+        }
+        finally
+        {
+            _submitting = false;
+            if (!_submitted) SubmitButton.IsEnabled = true;
+        }
+    }
+
+    // Module 6 receipt dialog (M6-D-04): the server's hash, and whether it matches the answers on this PC.
+    private void ShowReceipt(ReceiptView? receipt)
+    {
+        if (receipt is null)
+        {
+            MessageBox.Show(this, "Your exam has been submitted successfully.", "Submitted", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
-        _submitted = true;
-        MessageBox.Show(this, "Your exam has been submitted successfully.", "Submitted", MessageBoxButton.OK, MessageBoxImage.Information);
-        Close();
+        var check = receipt.Verified
+            ? "Verified: the server stored exactly the answers on this PC."
+            : "Mismatch: the server copy differs from this PC. Tell the invigilator now and keep this receipt.";
+        MessageBox.Show(this,
+            "Your exam has been submitted." + Environment.NewLine + Environment.NewLine +
+            $"Submission receipt (SHA-256 of {receipt.AnswerCount} answer(s)):{Environment.NewLine}{receipt.ServerSha256}" +
+            Environment.NewLine + Environment.NewLine +
+            $"Submitted at {receipt.SubmittedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}" + Environment.NewLine + Environment.NewLine + check,
+            receipt.Verified ? "Submitted: Receipt" : "Submitted: Receipt Mismatch",
+            MessageBoxButton.OK, receipt.Verified ? MessageBoxImage.Information : MessageBoxImage.Warning);
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)
@@ -178,6 +292,7 @@ public partial class ExamWindow : Window
             return;
         }
 
+        _submitRetry.Stop();
         _lockdown.Dispose();
         _viewModel.Stop();
     }

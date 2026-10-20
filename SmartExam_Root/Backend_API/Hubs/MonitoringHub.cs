@@ -9,12 +9,17 @@ namespace Backend_API.Hubs;
 
 [Authorize]
 public class MonitoringHub(AppDbContext db, SubmissionService submissions, ExamAccessService access,
-    ExamGroupTracker tracker) : Hub
+    ExamGroupTracker tracker, AuditService audit) : Hub
 {
+    // Upper bounds for per-student extra time: one grant, and all grants of a session together.
+    public const int MaxExtraMinutesPerGrant = 180;
+    public const int MaxExtraMinutesTotal = 600;
+
     private readonly AppDbContext _db = db;
     private readonly SubmissionService _submissions = submissions;
     private readonly ExamAccessService _access = access;
     private readonly ExamGroupTracker _tracker = tracker;
+    private readonly AuditService _audit = audit;
 
     private bool IsStaff =>
         Context.User is not null &&
@@ -126,8 +131,99 @@ public class MonitoringHub(AppDbContext db, SubmissionService submissions, ExamA
                 if (await _access.GetAsync(Context.User!, session.ExamId) == ExamAccess.None)
                     throw new HubException("You can only force-submit sessions for exams you supervise.");
 
-                await _submissions.FinalizeAsync(session, SessionStatus.ForceSubmitted);
+                await ForceSubmitAsync(session);
             }
         }
+    }
+
+    /// <summary>
+    /// Force-submits one session by id. Preferred over <see cref="ForceSubmitSession"/> (which picks the
+    /// student's first in-progress session and is ambiguous when a practice session is also open, D-20).
+    /// </summary>
+    public async Task ForceSubmitSessionById(Guid sessionId)
+    {
+        if (!IsStaff)
+            throw new HubException("Only staff can force-submit sessions.");
+
+        var session = await _db.ExamSessions.Include(s => s.Exam).FirstOrDefaultAsync(s => s.SessionId == sessionId);
+        if (session is null || await _access.GetAsync(Context.User!, session.ExamId) == ExamAccess.None)
+            throw new HubException("You can only force-submit sessions for exams you supervise.");
+        if (session.Status != SessionStatus.InProgress)
+            throw new HubException("This session has already been submitted.");
+
+        await ForceSubmitAsync(session);
+    }
+
+    private async Task ForceSubmitAsync(Models.ExamSession session)
+    {
+        _audit.Add(ExamAccessService.UserIdOf(Context.User!), "SESSION_FORCE_SUBMITTED", "ExamSession", session.SessionId.ToString(),
+            new { examId = session.ExamId, studentId = session.UserId });
+        try
+        {
+            await _submissions.FinalizeAsync(session, SessionStatus.ForceSubmitted);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new HubException("This session was submitted in the meantime.");
+        }
+    }
+
+    /// <summary>
+    /// Module 6 / 10 — gives one student extra minutes (a crashed PC, a late start the student was not to
+    /// blame for). Only that session's deadline moves: <c>ExamSession.ExtraMinutes</c> is added to the exam
+    /// end by every server-side check (save-answer, heartbeat remainingSeconds, student/current, the timeout
+    /// sweeper); the exam's duration and every other student are unchanged. Anyone supervising the exam may
+    /// grant it (owner teacher, assigned invigilator, admin) — the whole exam can only be extended by its
+    /// teacher or an admin (POST /api/exams/{id}/extend-time). Audited SESSION_TIME_EXTENDED. Ending the exam
+    /// (force-submit-all) still closes the session.
+    /// </summary>
+    public async Task ExtendStudentTime(Guid sessionId, int minutes)
+    {
+        if (!IsStaff)
+            throw new HubException("Only staff can extend a student's time.");
+        if (minutes is < 1 or > MaxExtraMinutesPerGrant)
+            throw new HubException($"Extra time must be between 1 and {MaxExtraMinutesPerGrant} minutes.");
+
+        var session = await _db.ExamSessions.Include(s => s.Exam).FirstOrDefaultAsync(s => s.SessionId == sessionId);
+        if (session is null || await _access.GetAsync(Context.User!, session.ExamId) == ExamAccess.None)
+            throw new HubException("You can only extend time for exams you supervise.");
+        if (session.Status != SessionStatus.InProgress || session.Exam.Status == ExamStatus.Ended)
+            throw new HubException("Only a session that is still in progress can be given extra time.");
+        if (session.ExtraMinutes + minutes > MaxExtraMinutesTotal)
+            throw new HubException($"A session can be given at most {MaxExtraMinutesTotal} extra minutes in total.");
+
+        session.ExtraMinutes += minutes;
+        var effectiveEnd = SubmissionService.EffectiveEnd(session);
+        _audit.Add(ExamAccessService.UserIdOf(Context.User!), "SESSION_TIME_EXTENDED", "ExamSession", session.SessionId.ToString(), new
+        {
+            examId = session.ExamId,
+            studentId = session.UserId,
+            additionalMinutes = minutes,
+            extraMinutes = session.ExtraMinutes,
+            effectiveEndUtc = effectiveEnd
+        });
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new HubException("This session was submitted in the meantime.");
+        }
+
+        var payload = new
+        {
+            examId = session.ExamId,
+            sessionId = session.SessionId,
+            userId = session.UserId,
+            additionalMinutes = minutes,
+            extraMinutes = session.ExtraMinutes,
+            effectiveEndUtc = effectiveEnd,
+            remainingSeconds = SubmissionService.RemainingSeconds(session, DateTime.UtcNow)
+        };
+        // Every proctor watching the exam, and the student (the desktop client also resyncs from the
+        // heartbeat ack within one beat, so this push is only a fast path).
+        await Clients.Group(ExamGroupTracker.GroupName(session.ExamId)).SendAsync("StudentTimeExtended", payload);
+        await Clients.User(session.UserId.ToString()).SendAsync("StudentTimeExtended", payload);
     }
 }

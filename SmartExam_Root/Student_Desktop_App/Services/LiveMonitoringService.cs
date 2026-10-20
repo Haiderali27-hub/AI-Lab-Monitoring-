@@ -23,6 +23,7 @@ public class LiveMonitoringService(ApiClient apiClient)
     public event Action<string>? StatusChanged;
     public event Action<int>? RemainingSecondsUpdated;  // authoritative clock from the server ack
     public event Action? SessionRevoked;                // server force-logout / deactivation
+    public event Action<string>? SessionStatusUpdated;  // Module 6: InProgress | Submitted | ForceSubmitted | TimedOut
 
     public void Start(string accessToken, Guid? examSessionId, IEnumerable<string>? allowedApps = null)
     {
@@ -82,6 +83,10 @@ public class LiveMonitoringService(ApiClient apiClient)
                 if (result.Data?.RemainingSeconds is int remaining)
                 {
                     RemainingSecondsUpdated?.Invoke(remaining);
+                }
+                if (!string.IsNullOrEmpty(result.Data?.SessionStatus))
+                {
+                    SessionStatusUpdated?.Invoke(result.Data.SessionStatus);
                 }
             }
             else if (result.Code == "HTTP_401" && !await _apiClient.IsSessionAliveAsync(_accessToken))

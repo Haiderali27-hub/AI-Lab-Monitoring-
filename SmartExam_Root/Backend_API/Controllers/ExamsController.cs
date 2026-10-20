@@ -884,6 +884,10 @@ public class ExamsController : ControllerBase
             SessionId = s.SessionId,
             Status = s.Status.ToString(),
             SubmittedAt = s.SubmittedAt,
+            // Module 6: the receipt the student was given on submit (same hash on both sides).
+            ReceiptSha256 = s.ReceiptSha256,
+            ReceiptAnswerCount = s.ReceiptAnswerCount,
+            ExtraMinutes = s.ExtraMinutes,
             Answers = s.Answers.Select(a => new
             {
                 a.AnswerId,
@@ -980,18 +984,33 @@ public class ExamsController : ControllerBase
         var exam = await _db.Exams.FindAsync(examId);
         if (exam is null) return NotFound();
 
+        // End the exam first: from here on no save is accepted from anyone (extra time included).
         exam.Status = ExamStatus.Ended;
+        await _db.SaveChangesAsync();
 
-        var sessions = await _db.ExamSessions
-            .Include(s => s.Exam)
+        var sessionIds = await _db.ExamSessions
             .Where(s => s.ExamId == examId && s.Status == SessionStatus.InProgress)
+            .Select(s => s.SessionId)
             .ToListAsync();
 
-        foreach (var s in sessions)
-            await _submissions.FinalizeAsync(s, SessionStatus.ForceSubmitted);
+        var finalised = 0;
+        foreach (var sessionId in sessionIds)
+        {
+            var s = await _db.ExamSessions.Include(x => x.Exam).FirstAsync(x => x.SessionId == sessionId);
+            if (s.Status != SessionStatus.InProgress) continue;
+            try
+            {
+                await _submissions.FinalizeAsync(s, SessionStatus.ForceSubmitted);
+                finalised++;
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // The student submitted (or the sweeper timed it out) in the same instant: already final.
+                _db.ChangeTracker.Clear();
+            }
+        }
 
-        await _db.SaveChangesAsync();
-        return Ok(new { message = $"Exam ended. Force-submitted {sessions.Count} session(s)." });
+        return Ok(new { message = $"Exam ended. Force-submitted {finalised} session(s)." });
     }
 
     // POST /api/exams/{id}/start-session  — Student starts the exam
@@ -1011,7 +1030,9 @@ public class ExamsController : ControllerBase
         if (assignment is null) return Forbid();
         if (!assignment.IsEligible)
             return BadRequest(new { message = "You are not eligible for this exam." });
-        if (SubmissionService.IsClosed(assignment.Exam, now))
+        // A student with per-student extra time can still resume their running session after the exam's
+        // own window closed; nobody can start a new one.
+        if (SubmissionService.IsClosed(assignment.Exam, now) && await OpenSessionAsync(id, userId, now, withGrace: true) is null)
             return BadRequest(new { message = "This exam has already ended." });
 
         // Module 3: server-side start gate — the client's clock and Start button are never trusted.
@@ -1074,53 +1095,159 @@ public class ExamsController : ControllerBase
 
         if (session is null) return NotFound();
         if (session.Status != SessionStatus.InProgress)
-            return BadRequest(new { message = "Session is not active." });
+            return BadRequest(new { message = "Session is not active.", status = session.Status.ToString() });
 
         // A late submit is still accepted so the session gets locked and graded — answers
         // themselves were already frozen at the deadline by save-answer.
-        await _submissions.FinalizeAsync(session, SessionStatus.Submitted);
+        SubmissionReceipt receipt;
+        try
+        {
+            receipt = await _submissions.FinalizeAsync(session, SessionStatus.Submitted);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Finalised in the same instant by the timeout sweeper or a proctor (Status is a concurrency token).
+            return BadRequest(new { message = "Session is not active." });
+        }
 
-        return Ok(new { message = "Exam submitted successfully.", submittedAt = session.SubmittedAt });
+        // Module 6 receipt, flat: { message, submittedAt, answerCount, sha256 }. The desktop app recomputes the
+        // hash over the answers it sent (Core/Submission/ReceiptHasher) and shows "Verified" or a mismatch.
+        return Ok(new
+        {
+            message = "Exam submitted successfully.",
+            sessionId = receipt.SessionId,
+            submittedAt = receipt.SubmittedAt,
+            answerCount = receipt.AnswerCount,
+            sha256 = receipt.Sha256
+        });
     }
 
+    // Longest answer text accepted (a long program is a few thousand characters).
+    public const int MaxAnswerLength = 100_000;
+
+    private const string TimeOverMessage = "Exam time is over. Answers can no longer be changed.";
+
     // POST /api/exams/sessions/{sessionId}/save-answer  — Auto-save
+    // Module 6: an optional `revision` (the client's edit counter for this answer) makes saves idempotent and
+    // order-safe: a lower revision than the stored one is refused with 409 STALE_REVISION (an offline queue
+    // replayed late cannot overwrite a newer answer); the same revision with the same text is a no-op 200
+    // (replay); the same revision with different text is a 409 as well. Saves without a revision (older
+    // clients, the web simulator) behave as before: last write wins, the stored revision is left unchanged.
+    // `clientSavedAt` is stored for diagnostics only — the deadline is always the server's clock.
     [HttpPost("sessions/{sessionId:guid}/save-answer")]
     [Authorize(Roles = "Student")]
     public async Task<IActionResult> SaveAnswer(Guid sessionId, [FromBody] SaveAnswerRequest req)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        var userId = CurrentUserId;
         var session = await _db.ExamSessions.Include(s => s.Exam).FirstOrDefaultAsync(s => s.SessionId == sessionId);
         // Ownership check: a student may only write to their own session (prevents IDOR).
         if (session is null || session.UserId != userId)
             return NotFound(new { message = "Session not found." });
+        // A session the timeout sweeper closed reports the deadline, not a generic "inactive", so a late
+        // save racing the sweeper gets the same answer either way.
+        if (session.Status == SessionStatus.TimedOut)
+            return BadRequest(new { message = TimeOverMessage });
         if (session.Status != SessionStatus.InProgress)
             return BadRequest(new { message = "Invalid or inactive session." });
-        // Server-side deadline: the client timer alone can be bypassed.
-        if (SubmissionService.IsClosed(session.Exam, DateTime.UtcNow))
-            return BadRequest(new { message = "Exam time is over. Answers can no longer be changed." });
+        // Server-side deadline (this student's: exam end + extra minutes + grace): the client timer alone can be bypassed.
+        if (SubmissionService.IsClosed(session, DateTime.UtcNow))
+            return BadRequest(new { message = TimeOverMessage });
 
-        var answer = await _db.Answers
-            .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.QuestionId == req.QuestionId);
+        if (req.Revision is < 0)
+            return BadRequest(new { message = "Revision must not be negative." });
+        var text = req.AnswerText ?? string.Empty;
+        if (text.Length > MaxAnswerLength)
+            return BadRequest(new { message = $"Answer is too long (maximum {MaxAnswerLength:N0} characters)." });
+        // The question must belong to this session's exam: a client cannot plant answers to another exam's questions.
+        if (!await _db.Questions.AnyAsync(q => q.QuestionId == req.QuestionId && q.ExamId == session.ExamId))
+            return BadRequest(new { message = "Question does not belong to this exam." });
 
-        if (answer is null)
+        // Two attempts: a racing save of the same answer (unique (SessionId, QuestionId) on insert, the
+        // Revision concurrency token on update) is re-evaluated against the row that won.
+        for (var attempt = 1; ; attempt++)
         {
-            answer = new Answer
+            var answer = await _db.Answers
+                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.QuestionId == req.QuestionId);
+
+            if (answer is not null && req.Revision is int revision)
             {
-                SessionId = sessionId,
-                QuestionId = req.QuestionId,
-                AnswerText = req.AnswerText,
-                LastSavedAt = DateTime.UtcNow
-            };
-            _db.Answers.Add(answer);
-        }
-        else
-        {
-            answer.AnswerText = req.AnswerText;
-            answer.LastSavedAt = DateTime.UtcNow;
-        }
+                if (answer.Revision > revision || (answer.Revision == revision && answer.AnswerText != text))
+                    return Conflict(new
+                    {
+                        code = "STALE_REVISION",
+                        message = "A newer version of this answer is already saved.",
+                        currentRevision = answer.Revision,
+                        lastSavedAt = answer.LastSavedAt
+                    });
+                if (answer.Revision == revision)
+                    return Ok(new { message = "Answer already saved.", answer.LastSavedAt, revision = answer.Revision });
+            }
 
-        await _db.SaveChangesAsync();
-        return Ok(new { message = "Answer saved.", answer.LastSavedAt });
+            var now = DateTime.UtcNow;
+            if (answer is null)
+            {
+                answer = new Answer
+                {
+                    SessionId = sessionId,
+                    QuestionId = req.QuestionId,
+                    AnswerText = text,
+                    Revision = req.Revision ?? 0,
+                    ClientSavedAt = req.ClientSavedAt,
+                    LastSavedAt = now
+                };
+                _db.Answers.Add(answer);
+            }
+            else
+            {
+                answer.AnswerText = text;
+                if (req.Revision is int newRevision) answer.Revision = newRevision;
+                answer.ClientSavedAt = req.ClientSavedAt;
+                answer.LastSavedAt = now;
+            }
+
+            try
+            {
+                await _db.SaveChangesAsync();
+                return Ok(new { message = "Answer saved.", answer.LastSavedAt, revision = answer.Revision });
+            }
+            catch (DbUpdateException) when (attempt < 2)
+            {
+                _db.Entry(answer).State = EntityState.Detached;
+            }
+        }
+    }
+
+    // GET /api/exams/sessions/{sessionId}/answers  — the student's own saved answers. Module 6 crash recovery:
+    // on resume the desktop app merges these with its encrypted local backup (higher revision wins).
+    [HttpGet("sessions/{sessionId:guid}/answers")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetSessionAnswers(Guid sessionId)
+    {
+        var session = await _db.ExamSessions.AsNoTracking().Include(s => s.Exam)
+            .FirstOrDefaultAsync(s => s.SessionId == sessionId && s.UserId == CurrentUserId);
+        // 404 (not 403) for someone else's session, as save-answer does.
+        if (session is null) return NotFound(new { message = "Session not found." });
+
+        var answers = await _db.Answers.AsNoTracking()
+            .Where(a => a.SessionId == sessionId)
+            .OrderBy(a => a.LastSavedAt)
+            .Select(a => new { a.QuestionId, a.AnswerText, a.Revision, a.LastSavedAt })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            session.SessionId,
+            Status = session.Status.ToString(),
+            RemainingSeconds = session.Status == SessionStatus.InProgress ? SubmissionService.RemainingSeconds(session, DateTime.UtcNow) : 0,
+            session.ExtraMinutes,
+            Receipt = session.ReceiptSha256 is null ? null : new
+            {
+                submittedAt = session.SubmittedAt,
+                answerCount = session.ReceiptAnswerCount ?? 0,
+                sha256 = session.ReceiptSha256
+            },
+            Answers = answers
+        });
     }
 
     // POST /api/exams/sessions/{sessionId}/monitoring-event
@@ -1201,8 +1328,14 @@ public class ExamsController : ControllerBase
             .OrderByDescending(s => s.StartedAt)
             .FirstOrDefaultAsync();
 
+        // Module 6: once a session exists the clock is this student's own (exam end + extra minutes).
         var examEnd = assignment.Exam.StartTime.AddMinutes(assignment.Exam.DurationMinutes);
-        var remainingSeconds = Math.Max(0, (int)(examEnd - now).TotalSeconds);
+        if (session is { Status: SessionStatus.InProgress })
+        {
+            session.Exam = assignment.Exam;
+            examEnd = SubmissionService.EffectiveEnd(session);
+        }
+        var remainingSeconds = assignment.Exam.Status == ExamStatus.Ended ? 0 : Math.Max(0, (int)(examEnd - now).TotalSeconds);
         var status = session?.Status.ToString() ?? "NotStarted";
 
         var opensAt = OpensAt(assignment.Exam);
@@ -1289,7 +1422,9 @@ public class ExamsController : ControllerBase
         }
 
         var examEnd = assignment.Exam.StartTime.AddMinutes(assignment.Exam.DurationMinutes);
-        if (assignment.Exam.Status == ExamStatus.Ended || examEnd < now)
+        // Resume (crash recovery) stays possible until this student's own deadline (extra minutes included).
+        if ((assignment.Exam.Status == ExamStatus.Ended || examEnd < now) &&
+            await OpenSessionAsync(assignment.ExamId, studentId, now, withGrace: false) is null)
             return BadRequest(new ApiEnvelope<object>(false, "EXAM_CLOSED", "This exam has already ended.", null));
 
         var opensAt = OpensAt(assignment.Exam);
@@ -1334,6 +1469,19 @@ public class ExamsController : ControllerBase
     }
 
     // ── Module 3 / 9: start gates shared by start-session and student/start ────
+
+    /// The student's in-progress session of this exam while it can still be resumed: the exam was not
+    /// ended and the student's own deadline (exam end + extra minutes, plus the grace when asked) is ahead.
+    private async Task<ExamSession?> OpenSessionAsync(Guid examId, Guid userId, DateTime now, bool withGrace)
+    {
+        var session = await _db.ExamSessions.AsNoTracking().Include(s => s.Exam)
+            .Where(s => s.ExamId == examId && s.UserId == userId && s.Status == SessionStatus.InProgress)
+            .OrderByDescending(s => s.StartedAt)
+            .FirstOrDefaultAsync();
+        if (session is null || session.Exam.Status == ExamStatus.Ended) return null;
+        var deadline = SubmissionService.EffectiveEnd(session) + (withGrace ? SubmissionService.DeadlineGrace : TimeSpan.Zero);
+        return now <= deadline ? session : null;
+    }
 
     /// When start-session starts accepting: StartTime minus the exam's early-join window.
     public static DateTime OpensAt(Exam exam) => exam.StartTime.AddMinutes(-Math.Max(0, exam.EarlyJoinMinutes));
@@ -1569,7 +1717,7 @@ public class OverrideGradeRequest
     public string Note { get; set; } = string.Empty;
 }
 
-public record SaveAnswerRequest(Guid QuestionId, string AnswerText);
+public record SaveAnswerRequest(Guid QuestionId, string? AnswerText, int? Revision = null, DateTime? ClientSavedAt = null);
 public record MonitoringEventRequest(MonitoringEventType EventType, string Payload);
 public record AddAssignmentRequest(Guid UserId);
 public record AssignWorkstationRequest(Guid? WorkstationId);

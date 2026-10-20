@@ -34,6 +34,8 @@ builder.Services.AddScoped<Backend_API.Services.AuditService>();
 // Module 1 — rotating refresh tokens (hashed at rest, reuse detection)
 builder.Services.AddScoped<Backend_API.Services.RefreshTokenService>();
 builder.Services.AddScoped<Backend_API.Services.SubmissionService>();
+// Module 6 — times out sessions still in progress past their deadline + grace (config: Submission:TimeoutSweepSeconds)
+builder.Services.AddHostedService<Backend_API.Services.SessionTimeoutService>();
 // Module 9 — seat enforcement (config: SeatMatch = MachineName | Ip | Either)
 builder.Services.AddScoped<Backend_API.Services.SeatGuard>();
 // Module 7/10 — who may supervise which exam (owner teacher, assigned proctor, admin)

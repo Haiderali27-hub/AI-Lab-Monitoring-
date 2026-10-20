@@ -1,7 +1,9 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Threading;
+using Student_Desktop_App.Core.Backup;
 using Student_Desktop_App.Services;
+using Student_Desktop_App.Services.Backup;
 using Student_Desktop_App.ViewModels;
 
 namespace Student_Desktop_App.Views;
@@ -11,6 +13,8 @@ public partial class ExamDashboard : Window
     private readonly ApiClient _apiClient;
     private readonly DashboardViewModel _viewModel;
     private readonly LiveMonitoringService _monitoringService;
+    // The exam window while it is open: heartbeat clock resyncs and server status changes go to it too (D-16, D-17).
+    private ExamWindow? _examWindow;
 
     // Watches the session while the student sits on the dashboard (before the exam's
     // heartbeat loop starts): polls session validity + proctor messages every 15s so a
@@ -22,11 +26,17 @@ public partial class ExamDashboard : Window
     {
         InitializeComponent();
         _apiClient = apiClient;
-        _viewModel = new DashboardViewModel(_apiClient);
+        _viewModel = new DashboardViewModel(_apiClient, OpenBackupStore());
         _monitoringService = new LiveMonitoringService(_apiClient);
         _monitoringService.StatusChanged += status => Dispatcher.Invoke(() => _viewModel.UpdateMonitoringStatus(status));
-        // Resync the countdown from the server's heartbeat ack (covers teacher time extensions)
-        _monitoringService.RemainingSecondsUpdated += seconds => Dispatcher.Invoke(() => _viewModel.UpdateRemainingSeconds(seconds));
+        // Resync the countdowns from the server's heartbeat ack (teacher extensions, per-student extra time)
+        _monitoringService.RemainingSecondsUpdated += seconds => Dispatcher.Invoke(() =>
+        {
+            _viewModel.UpdateRemainingSeconds(seconds);
+            _examWindow?.ResyncRemaining(seconds);
+        });
+        // Proctor force-submit / server timeout: release the student from the locked exam window (D-17)
+        _monitoringService.SessionStatusUpdated += status => Dispatcher.Invoke(() => _examWindow?.OnServerSessionStatus(status));
         // Server revoked the session mid-exam (force-logout / deactivation)
         _monitoringService.SessionRevoked += () => Dispatcher.Invoke(() => KickToLogin("Your session was ended by an administrator."));
 
@@ -38,6 +48,34 @@ public partial class ExamDashboard : Window
                 StartExamButton.IsEnabled = _viewModel.CanStartExam;
         };
         DataContext = _viewModel;
+    }
+
+    private static AnswerBackupStore? OpenBackupStore()
+    {
+        try
+        {
+            return DpapiKeyProtector.CreateDefaultStore();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    // Shows the exam window modally; while it is open, heartbeat updates are forwarded to it.
+    private void RunExamWindow(ExamWindow examWindow)
+    {
+        _examWindow = examWindow;
+        try
+        {
+            Hide();
+            examWindow.ShowDialog();
+        }
+        finally
+        {
+            _examWindow = null;
+            Show();
+        }
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -158,14 +196,12 @@ public partial class ExamDashboard : Window
             }
 
             _monitoringService.Start(token.AccessToken, sid, Array.Empty<string>().ToList());
-            var examWindow = new ExamWindow(_apiClient, token.AccessToken, practice.ExamId, sid, practice.DurationMinutes * 60,
+            var examWindow = new ExamWindow(_apiClient, token.AccessToken, practice.ExamId, sid, token.User.Id, practice.DurationMinutes * 60,
                 new List<string>(), "Report", false)
             {
                 Owner = this
             };
-            Hide();
-            examWindow.ShowDialog();
-            Show();
+            RunExamWindow(examWindow);
             _monitoringService.Stop();
             await _viewModel.InitializeAsync();
             StartExamButton.IsEnabled = _viewModel.CanStartExam;
@@ -194,14 +230,12 @@ public partial class ExamDashboard : Window
             // Open the exam-taking window with the real questions.
             if (_viewModel.CurrentExamId is Guid examId && _viewModel.ExamSessionId is Guid sessionId)
             {
-                var examWindow = new ExamWindow(_apiClient, token.AccessToken, examId, sessionId, _viewModel.RemainingSecondsSnapshot, _viewModel.AllowedAppNames,
-                    _viewModel.ExamLockdownMode, _viewModel.ExamBlockMultiMonitor)
+                var examWindow = new ExamWindow(_apiClient, token.AccessToken, examId, sessionId, token.User.Id, _viewModel.RemainingSecondsSnapshot,
+                    _viewModel.AllowedAppNames, _viewModel.ExamLockdownMode, _viewModel.ExamBlockMultiMonitor)
                 {
                     Owner = this
                 };
-                Hide();
-                examWindow.ShowDialog();
-                Show();
+                RunExamWindow(examWindow);
 
                 // Exam finished (submitted or window closed) — stop monitoring and refresh.
                 _monitoringService.Stop();

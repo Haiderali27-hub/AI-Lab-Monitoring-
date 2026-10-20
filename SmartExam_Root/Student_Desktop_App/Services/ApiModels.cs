@@ -50,9 +50,26 @@ public record StartExamResult(Guid Id, string Status, DateTime? StartedAtUtc);
 
 public record HeartbeatPayload(Guid? ExamSessionId, bool IsForegroundExamApp, string? ActiveWindowTitle, string? ProcessListSnapshot);
 
-// Server ack for a heartbeat; RemainingSeconds is the authoritative exam clock
-// (lets the countdown resync after a teacher grants a time extension).
-public record HeartbeatAck(DateTime ReceivedAtUtc, int? RemainingSeconds);
+// Server ack for a heartbeat; RemainingSeconds is the authoritative exam clock (lets the countdown resync
+// after a teacher extends the exam or a proctor grants this student extra minutes). SessionStatus tells the
+// exam window that a proctor force-submitted the session or the server timed it out (Module 6, D-17).
+public record HeartbeatAck(DateTime ReceivedAtUtc, int? RemainingSeconds, string? SessionStatus = null, int? ExtraMinutes = null);
+
+// Module 6: the receipt returned by POST /api/exams/sessions/{id}/submit (flat body).
+public record SubmitReceipt(Guid SessionId, DateTime SubmittedAt, int AnswerCount, string Sha256);
+
+public enum SubmitStatus { Submitted, Offline, AlreadyFinalised, Failed }
+
+/// <summary>Result of a submit attempt. AlreadyFinalised = the server had already locked the session
+/// (proctor force-submit / timeout); FinalStatus then carries the server's status.</summary>
+public record SubmitResult(SubmitStatus Status, string Message, SubmitReceipt? Receipt = null, string? FinalStatus = null);
+
+// Module 6: GET /api/exams/sessions/{id}/answers (crash recovery).
+public record SessionAnswerDto(Guid QuestionId, string AnswerText, int Revision, DateTime LastSavedAt);
+
+public record SessionReceiptDto(DateTime? SubmittedAt, int AnswerCount, string Sha256);
+
+public record SessionAnswersDto(Guid SessionId, string Status, int RemainingSeconds, int ExtraMinutes, SessionReceiptDto? Receipt, List<SessionAnswerDto> Answers);
 
 public record MonitoringEventPayload(string EventType, Guid? ExamSessionId, string PayloadJson);
 

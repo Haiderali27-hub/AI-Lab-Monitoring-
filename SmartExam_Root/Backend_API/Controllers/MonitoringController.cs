@@ -132,10 +132,9 @@ public class MonitoringController(
                 .ToListAsync();
             violationCount = violationTypes.Count;
 
-            // Authoritative remaining time — lets the client resync its countdown
-            // (e.g. after the teacher grants a time extension).
-            var examEnd = session.Exam.StartTime.AddMinutes(session.Exam.DurationMinutes);
-            remainingSeconds = Math.Max(0, (int)(examEnd - now).TotalSeconds);
+            // Authoritative remaining time — lets the client resync its countdown after a teacher extends
+            // the exam or a proctor grants this student extra minutes (Module 6: per-student deadline).
+            remainingSeconds = SubmissionService.RemainingSeconds(session, now);
 
             if (assignment?.Workstation is not null)
             {
@@ -168,11 +167,20 @@ public class MonitoringController(
                     seatStatus = seat?.Status.ToString() ?? nameof(SeatStatus.Unassigned),
                     expectedSeat = seat?.ExpectedSeat,
                     actualMachine = seat?.ActualMachine,
-                    seatDetail = seat is { IsMismatch: true } ? seat.Detail : null
+                    seatDetail = seat is { IsMismatch: true } ? seat.Detail : null,
+                    sessionStatus = session.Status.ToString()
                 });
         }
 
-        return Ok(new ApiEnvelope<object>(true, "SUCCESS", "Success", new { receivedAtUtc = now, remainingSeconds }));
+        // sessionStatus lets the desktop client close the exam window when a proctor force-submitted the
+        // session or the timeout sweeper ended it (otherwise the student would sit locked down until the timer).
+        return Ok(new ApiEnvelope<object>(true, "SUCCESS", "Success", new
+        {
+            receivedAtUtc = now,
+            remainingSeconds,
+            sessionStatus = session?.Status.ToString(),
+            extraMinutes = session?.ExtraMinutes
+        }));
     }
 
     [HttpPost("event")]

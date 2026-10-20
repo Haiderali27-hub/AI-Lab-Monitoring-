@@ -21,5 +21,9 @@ public enum MonitoringEventType
     LockdownDegraded,
 
     // Module 9 — recorded by the SERVER when a heartbeat comes from a seat other than the assigned one
-    SeatMismatch
+    SeatMismatch,
+
+    // Module 6 — the desktop app found its encrypted local answer backup altered (AES-GCM tag failure)
+    // and fell back to the server's copy
+    BackupTampered
 }
