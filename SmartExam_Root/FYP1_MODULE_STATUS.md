@@ -14,7 +14,7 @@
 
 **Paths:**
 - Backend: `SmartExam_Root/Backend_API` (ASP.NET Core 9, Neon PostgreSQL, JWT, SignalR)
-- Web panel: `SmartExam_Root/Admin_Web_Panel` (React 19 + TS, port 5173) — v2_redesign is UI-only playground, do functional work HERE
+- Web panel: `SmartExam_Root/Admin_Web_Panel` (React 19 + TS, port 5173) — the only web panel (the stale v2_redesign copy was removed)
 - Desktop: `SmartExam_Root/Student_Desktop_App` (WPF .NET 9)
 - Backend tests: `SmartExam_Root/Backend_API.Tests` (xUnit, in-memory DB)
 

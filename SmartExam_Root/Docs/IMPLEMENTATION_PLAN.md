@@ -55,7 +55,7 @@ Definition of Done for every task: code + tests listed in its row passing in CI,
 | P0.6 Scripts | `test:e2e`, `test:api`, `test:all`, `test:report`. | `package.json` |
 | P0.7 CI | GitHub Actions: `dotnet test` + Playwright (Linux, headless, chromium) on every PR; upload HTML report artifact. | `.github/workflows/ci.yml` |
 | P0.8 Desktop test project | `Student_Desktop_App.Tests` (xUnit, net9.0-windows) for pure logic classes introduced in P1/P2. | new project |
-| P0.9 Security leftovers | Rotate Neon password (owner action); optionally purge history; delete `Admin_Web_Panel_v2_redesign`. | — |
+| P0.9 Hygiene leftovers | ✅ Deleted `Admin_Web_Panel_v2_redesign` (stale copy of v1); ✅ MailKit 4.7.1 → 4.18.1 (GHSA-9j88-vvj5-vhgr). Neon credential rotation: owner decided not needed. | — |
 
 ---
 
