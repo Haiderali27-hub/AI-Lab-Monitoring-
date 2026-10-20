@@ -71,10 +71,10 @@ test('Eligibility toggle changes student eligibility', async ({ page }) => {
   await page.locator('table tbody tr').first().waitFor();
 
   const toggle = page.locator('[role="switch"]').first();
-  const initialState = await toggle.getAttribute('aria-checked');
+  const initialState = (await toggle.getAttribute('aria-checked')) ?? 'false';
   await toggle.click({ force: true });
-  const newState = await toggle.getAttribute('aria-checked');
-  expect(newState).not.toBe(initialState);
+  // Web-first assertion: retries until React re-renders (reading the attribute once raced the update).
+  await expect(toggle).not.toHaveAttribute('aria-checked', initialState);
   await expect(page.getByText(/unsaved changes/i)).toBeVisible();
 });
 
