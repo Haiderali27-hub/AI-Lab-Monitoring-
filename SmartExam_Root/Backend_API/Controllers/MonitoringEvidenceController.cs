@@ -39,7 +39,8 @@ public class MonitoringEvidenceController(AppDbContext db, ExamAccessService acc
     [HttpGet("exams/{examId:guid}/sessions/{sessionId:guid}/screenshots")]
     public async Task<IActionResult> ListScreenshots(Guid examId, Guid sessionId, [FromQuery] string? kind = null)
     {
-        if (await _access.GetAsync(User, examId) == ExamAccess.None) return Forbid();
+        var denied = await DenyUnlessSupervisorAsync(examId);
+        if (denied is not null) return denied;
         if (!await _db.ExamSessions.AnyAsync(s => s.SessionId == sessionId && s.ExamId == examId)) return NotFound();
 
         var query = _db.Screenshots.AsNoTracking().Where(s => s.SessionId == sessionId);
@@ -90,7 +91,8 @@ public class MonitoringEvidenceController(AppDbContext db, ExamAccessService acc
     [HttpGet("exams/{examId:guid}/sessions/{sessionId:guid}/timeline")]
     public async Task<IActionResult> SessionTimeline(Guid examId, Guid sessionId, [FromQuery] DateTime? after = null, [FromQuery] int? limit = null)
     {
-        if (await _access.GetAsync(User, examId) == ExamAccess.None) return Forbid();
+        var denied = await DenyUnlessSupervisorAsync(examId);
+        if (denied is not null) return denied;
         var session = await _db.ExamSessions.AsNoTracking().FirstOrDefaultAsync(s => s.SessionId == sessionId && s.ExamId == examId);
         if (session is null) return NotFound();
 
@@ -172,7 +174,8 @@ public class MonitoringEvidenceController(AppDbContext db, ExamAccessService acc
     [HttpGet("exams/{examId:guid}/live")]
     public async Task<IActionResult> LiveSnapshot(Guid examId)
     {
-        if (await _access.GetAsync(User, examId) == ExamAccess.None) return Forbid();
+        var denied = await DenyUnlessSupervisorAsync(examId);
+        if (denied is not null) return denied;
 
         var sessions = (await _db.ExamSessions.AsNoTracking()
                 .Where(s => s.ExamId == examId && s.LastHeartbeatAt != null)
@@ -271,7 +274,8 @@ public class MonitoringEvidenceController(AppDbContext db, ExamAccessService acc
     [HttpGet("exams/{examId:guid}/sessions/{sessionId:guid}/processes")]
     public async Task<IActionResult> SessionProcesses(Guid examId, Guid sessionId)
     {
-        if (await _access.GetAsync(User, examId) == ExamAccess.None) return Forbid();
+        var denied = await DenyUnlessSupervisorAsync(examId);
+        if (denied is not null) return denied;
         if (!await _db.ExamSessions.AnyAsync(s => s.SessionId == sessionId && s.ExamId == examId)) return NotFound();
 
         var beats = await _db.MonitoringEvents.AsNoTracking()
@@ -308,6 +312,10 @@ public class MonitoringEvidenceController(AppDbContext db, ExamAccessService acc
                 .Select(v => new { name = v.Name, firstSeenAt = v.First, lastSeenAt = v.Last, running = running.Contains(v.Name) })
         });
     }
+
+    // D-39: 404 for an unknown exam, 403 unless the caller supervises it (owner, assigned proctor, admin).
+    private Task<IActionResult?> DenyUnlessSupervisorAsync(Guid examId) =>
+        _access.DenyUnlessAsync(User, examId, ExamAccess.Proctor, "You are not assigned to supervise this exam.");
 
     private static string IncidentSeverityName(IncidentSeverity severity) => severity switch
     {

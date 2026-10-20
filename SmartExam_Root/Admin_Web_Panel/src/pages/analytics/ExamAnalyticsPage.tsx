@@ -22,8 +22,9 @@ export default function ExamAnalyticsPage() {
 
   // Load exam list for dropdown
   useEffect(() => {
+    // Analytics are the exam owner's (or an admin's): other teachers' exams would only answer 403.
     examsApi.getAll()
-      .then(setExams)
+      .then(all => setExams(all.filter(e => e.canManage !== false)))
       .catch(err => console.error('Error fetching exams:', err));
   }, []);
 

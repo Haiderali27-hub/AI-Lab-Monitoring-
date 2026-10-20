@@ -93,8 +93,8 @@ public class Module4LockdownAcceptanceTests : IDisposable
         // Legacy per-session endpoint
         (await attacker.PostAsJsonAsync($"/api/exams/sessions/{victimSession}/monitoring-event",
             new { eventType = "Violation", payload = "{\"framed\":true}" })).StatusCode.Should().Be(HttpStatusCode.NotFound);
-        // Heartbeats into a foreign session are not attributed to it
-        (await TestHost.HeartbeatAsync(attacker, victimSession)).StatusCode.Should().Be(HttpStatusCode.OK);
+        // Heartbeats naming a foreign session are refused (D-06) and not attributed to it
+        (await TestHost.HeartbeatAsync(attacker, victimSession)).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var events = await _host.WithDbAsync(db => db.MonitoringEvents.Where(e => e.ExamSessionId == victimSession).ToListAsync());
         events.Should().BeEmpty();

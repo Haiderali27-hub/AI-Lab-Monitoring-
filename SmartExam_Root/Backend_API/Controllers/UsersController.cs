@@ -343,14 +343,27 @@ public class UsersController : ControllerBase
     {
         var denied = await GuardExistingAsync("reset-device-binding", id);
         if (denied is not null) return denied;
-        var binding = await _db.DeviceBindings.FirstOrDefaultAsync(d => d.UserId == id);
-        if (binding is null) return NotFound(new { message = "No device binding found." });
+        if (!await _db.DeviceBindings.AnyAsync(d => d.UserId == id))
+            return NotFound(new { message = "No device binding found." });
 
-        _db.DeviceBindings.Remove(binding);
-        _audit.Add(CurrentUserId, "DEVICE_BINDING_RESET", "DeviceBinding", id.ToString());
+        // The binding is what ties the student's sign-in to one PC. Tokens issued on the old PC must not outlive it:
+        // every refresh-token family and every live access token of the student is revoked, so the next request from
+        // anywhere signs in again and binds afresh (revocation saves first; it can clear the change tracker).
+        var (revokedRefreshTokens, revokedSessions) =
+            await _refreshTokens.RevokeOtherSessionsAsync(id, null, RefreshTokenRevocation.DeviceReset);
+
+        var binding = await _db.DeviceBindings.FirstOrDefaultAsync(d => d.UserId == id);
+        if (binding is not null) _db.DeviceBindings.Remove(binding);
+        _audit.Add(CurrentUserId, "DEVICE_BINDING_RESET", "DeviceBinding", id.ToString(),
+            new { revokedRefreshTokens, revokedSessions });
         await _db.SaveChangesAsync();
 
-        return Ok(new { message = "Device binding reset. Student can re-register on next login." });
+        return Ok(new
+        {
+            message = "Device binding reset. The student has been signed out and can re-register on next login.",
+            revokedRefreshTokens,
+            revokedSessions
+        });
     }
 
     // POST /api/users/{id}/force-logout  — Revoke all active sessions

@@ -37,8 +37,9 @@ public class IncidentsController(AppDbContext db, ExamAccessService access, Audi
     public async Task<IActionResult> Create([FromBody] CreateIncidentRequest req)
     {
         var session = await _db.ExamSessions.AsNoTracking().FirstOrDefaultAsync(s => s.SessionId == req.SessionId);
-        // Unknown and foreign sessions look the same: the caller learns nothing about sessions they do not supervise.
-        if (session is null || await _access.GetAsync(User, session.ExamId) == ExamAccess.None)
+        // D-39: unknown session 404, a session of an exam the caller does not supervise 403 — nothing stored or audited.
+        if (session is null) return NotFound(new { message = "Session not found." });
+        if (await _access.GetAsync(User, session.ExamId) == ExamAccess.None)
             return Forbidden();
 
         if (!TryParseSeverity(req.Severity, out var severity))
@@ -150,7 +151,9 @@ public class IncidentsController(AppDbContext db, ExamAccessService access, Audi
     [HttpGet("exams/{examId:guid}/incidents")]
     public async Task<IActionResult> ListForExam(Guid examId, [FromQuery] string? status = null, [FromQuery] Guid? sessionId = null)
     {
-        if (await _access.GetAsync(User, examId) == ExamAccess.None) return Forbidden();
+        var access = await _access.FindAsync(User, examId);
+        if (access is null) return NotFound(new { message = "Exam not found." });
+        if (access == ExamAccess.None) return Forbidden();
 
         var query = _db.Incidents.AsNoTracking().Where(i => i.ExamId == examId);
         if (!string.IsNullOrWhiteSpace(status))

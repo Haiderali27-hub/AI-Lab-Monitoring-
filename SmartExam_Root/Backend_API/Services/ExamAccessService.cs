@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Backend_API.Data;
 using Backend_API.Models;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend_API.Services;
@@ -37,16 +38,24 @@ public class ExamAccessService
         Guid.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : null;
 
     /// <summary>Access level for <paramref name="examId"/>; <see cref="ExamAccess.None"/> when the exam does not exist.</summary>
-    public async Task<ExamAccess> GetAsync(ClaimsPrincipal user, Guid examId)
+    public async Task<ExamAccess> GetAsync(ClaimsPrincipal user, Guid examId) =>
+        await FindAsync(user, examId) ?? ExamAccess.None;
+
+    /// <summary>
+    /// Like <see cref="GetAsync"/>, but <c>null</c> when the exam does not exist, so an endpoint can answer an unknown
+    /// exam with 404 and a known exam the caller may not touch with 403 (D-39: one rule for every per-exam endpoint).
+    /// </summary>
+    public async Task<ExamAccess?> FindAsync(ClaimsPrincipal user, Guid examId)
     {
+        var exam = await _db.Exams.AsNoTracking()
+            .Where(e => e.ExamId == examId)
+            .Select(e => new { e.Section.TeacherId })
+            .FirstOrDefaultAsync();
+        if (exam is null) return null;
+
         var userId = UserIdOf(user);
         if (userId is null) return ExamAccess.None;
-
-        var teacherId = await _db.Exams.AsNoTracking()
-            .Where(e => e.ExamId == examId)
-            .Select(e => (Guid?)e.Section.TeacherId)
-            .FirstOrDefaultAsync();
-        if (teacherId is null) return ExamAccess.None;
+        var teacherId = exam.TeacherId;
 
         if (IsAdmin(user)) return ExamAccess.Admin;
         if (user.IsInRole("Teacher") && teacherId == userId) return ExamAccess.Owner;
@@ -65,6 +74,21 @@ public class ExamAccessService
             .Select(s => (Guid?)s.ExamId)
             .FirstOrDefaultAsync();
         return examId is null ? ExamAccess.None : await GetAsync(user, examId.Value);
+    }
+
+    /// <summary>
+    /// The usual answer for a per-exam endpoint: 404 for an unknown exam, 403 below <paramref name="required"/>, null when
+    /// the caller may go ahead. Endpoints check this before they change or audit anything.
+    /// </summary>
+    public async Task<IActionResult?> DenyUnlessAsync(ClaimsPrincipal user, Guid examId, ExamAccess required,
+        string forbiddenMessage = "You do not have access to this exam.")
+    {
+        var access = await FindAsync(user, examId);
+        if (access is null)
+            return new NotFoundObjectResult(new { message = "Exam not found." });
+        return access < required
+            ? new ObjectResult(new { message = forbiddenMessage }) { StatusCode = StatusCodes.Status403Forbidden }
+            : null;
     }
 
     /// <summary>Ids of the exams an invigilator has been assigned to (the only exams they may list).</summary>

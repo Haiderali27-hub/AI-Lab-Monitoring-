@@ -73,15 +73,21 @@ test.describe('M5 — Live Monitoring Client Service', () => {
     expect(body.data?.remainingSeconds ?? null).toBeNull();
   });
 
-  // Catalog expects an explicit 403/404; the server currently answers 200 and silently drops the
-  // session reference (treated like a pre-session heartbeat). Safe, but not what M5-A-02 specifies.
+  // D-06 (fixed): a heartbeat, event, batch or capture naming another student's session (or an unknown one) is
+  // refused with 404 and nothing is recorded against the victim.
   test('M5-A-02 Heartbeat for foreign session rejected with 403/404', async ({ request }) => {
-    test.fail(true, 'Server returns 200 (silently ignores foreign session) instead of 403/404');
-    const { students, exam } = await examWithStudents(request, 2);
+    const { students, exam, teacher } = await examWithStudents(request, 2);
     const [victim, attacker] = students;
     const victimSession = await victim.start(exam.examId);
-    const res = await attacker.heartbeat({ sessionId: victimSession });
-    expect([403, 404]).toContain(res.status());
+    for (const target of [victimSession, randomUUID()]) {
+      expect((await attacker.heartbeat({ sessionId: target })).status()).toBe(404);
+      expect((await attacker.violation('FocusLoss', 'chrome', target)).status()).toBe(404);
+      expect((await attacker.eventBatch([{ clientEventId: randomUUID(), eventType: 'FocusLost' }], target)).status()).toBe(404);
+      expect((await attacker.screenshot({ sessionId: target })).status()).toBe(404);
+    }
+    const timeline = await teacher.timeline(exam.examId, victimSession);
+    expect(timeline.filter((i: any) => i.kind !== 'Status')).toEqual([]);
+    expect((await teacher.live(exam.examId)).students).toEqual([]);   // the victim never heartbeated
   });
 
   test('M5-A-03 Screenshot upload is stored and only staff of the exam can read it', async ({ request }) => {

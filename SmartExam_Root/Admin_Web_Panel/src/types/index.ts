@@ -70,6 +70,7 @@ export interface Exam {
   minAttendancePercent?: number;    // Module 9: threshold for "Recalculate from attendance"
   enforceSeat?: boolean;            // Module 9: only the assigned workstation may start/continue
   canSupervise?: boolean;           // Module 7: staff list — the caller may join this exam's live monitor
+  canManage?: boolean;              // D-39: section teacher or admin — results, analytics, reports, edit
 }
 
 /** Module 7 — a staff member assigned to supervise an exam (GET /exams/{id}/proctors). */

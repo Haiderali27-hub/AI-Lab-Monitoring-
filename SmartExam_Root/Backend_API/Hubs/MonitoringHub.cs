@@ -158,20 +158,23 @@ public class MonitoringHub(AppDbContext db, SubmissionService submissions, ExamA
 
         if (Guid.TryParse(studentId, out var studentGuid))
         {
-            var session = await _db.ExamSessions
-                .Include(s => s.Exam).ThenInclude(e => e.Section)
+            var sessions = await _db.ExamSessions
+                .Include(s => s.Exam)
                 .Where(s => s.UserId == studentGuid && s.Status == SessionStatus.InProgress)
-                .FirstOrDefaultAsync();
+                .OrderByDescending(s => s.StartedAt)
+                .ToListAsync();
+            if (sessions.Count == 0) return;
 
-            if (session is not null)
+            // Teachers may only act on sessions of exams in their own sections, invigilators only on exams they are
+            // assigned to; Admin/SuperAdmin on any. Only a session of an exam the caller supervises is ever chosen (the
+            // student may also have a practice session open in an exam someone else supervises).
+            foreach (var session in sessions)
             {
-                // Teachers may only act on sessions of exams in their own sections, invigilators only
-                // on exams they are assigned to; Admin/SuperAdmin can act on any.
-                if (await _access.GetAsync(Context.User!, session.ExamId) == ExamAccess.None)
-                    throw new HubException("You can only force-submit sessions for exams you supervise.");
-
+                if (await _access.GetAsync(Context.User!, session.ExamId) == ExamAccess.None) continue;
                 await ForceSubmitAsync(session);
+                return;
             }
+            throw new HubException("You can only force-submit sessions for exams you supervise.");
         }
     }
 

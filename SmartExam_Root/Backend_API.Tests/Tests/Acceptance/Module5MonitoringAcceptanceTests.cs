@@ -315,7 +315,7 @@ public class Module5MonitoringAcceptanceTests : IDisposable
 
         // A session of another exam cannot be read through this exam's URL.
         var admin = await _host.AsAdmin();
-        (await admin.GetAsync($"/api/exams/{Guid.NewGuid()}/sessions/{sid}/screenshots")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await admin.GetAsync($"/api/exams/{Guid.NewGuid()}/sessions/{sid}/screenshots")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         var otherExam = await _host.CreateExamAsync(new[] { _host.Seed.StudentId });
         (await admin.GetAsync($"/api/exams/{otherExam}/sessions/{sid}/screenshots")).StatusCode.Should().Be(HttpStatusCode.NotFound);
     }

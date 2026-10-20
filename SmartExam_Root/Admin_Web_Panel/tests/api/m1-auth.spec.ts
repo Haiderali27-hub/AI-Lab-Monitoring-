@@ -72,6 +72,26 @@ test.describe('M1 — Authentication & Device Binding', () => {
     expect((await client.login('HWID-X')).status()).toBe(401);
   });
 
+  test('M1-A-11 Resetting the binding signs the student out everywhere', async ({ request }) => {
+    const admin = await StaffApi.admin(request);
+    const user = await admin.createStudent();
+    const oldPc = new StudentClient(request, user.email, user.password, 'HWID-OLD');
+    await oldPc.signIn();
+    const oldRefresh = oldPc.refreshToken;
+    expect((await oldPc.me()).status()).toBe(200);
+
+    const reset = await admin.resetDeviceBinding(user.userId);
+    expect(reset.status()).toBe(200);
+    expect((await reset.json()).revokedRefreshTokens).toBeGreaterThanOrEqual(1);
+    // The old PC's access token is dead at once and its refresh token cannot mint a new one.
+    expect((await oldPc.me()).status()).toBe(401);
+    expect((await oldPc.refresh(oldRefresh)).status()).toBe(401);
+    // The student signs in again (binding the new PC).
+    const newPc = new StudentClient(request, user.email, user.password, 'HWID-NEW');
+    await newPc.signIn();
+    expect((await newPc.me()).status()).toBe(200);
+  });
+
   test('M1-A-06 Missing HWID rejected', async ({ request }) => {
     const admin = await StaffApi.admin(request);
     const user = await admin.createStudent();

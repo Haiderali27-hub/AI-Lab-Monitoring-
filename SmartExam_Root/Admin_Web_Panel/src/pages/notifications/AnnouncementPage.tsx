@@ -22,7 +22,9 @@ export default function AnnouncementPage() {
 
   useEffect(() => {
     examsApi.getAll()
-      .then(res => {
+      .then(all => {
+        // Announcements go to the exam owner's (or an admin's) students only; other exams would answer 403.
+        const res = all.filter(e => e.canManage !== false);
         setExams(res);
         if (res.length > 0) {
           setSelectedExamId(res[0].examId);

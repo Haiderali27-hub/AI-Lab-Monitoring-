@@ -89,17 +89,19 @@ public class MonitoringController(
             IdleSeconds = idleSeconds
         });
 
-        // Only persist a MonitoringEvent when it can be attributed to a real exam
-        // session; otherwise the ExamSessionId FK would be violated (heartbeats can
-        // legitimately arrive before/without an active session — those still update
-        // liveness, just aren't stored as session events).
-        // Ownership-scoped: only accept a session that belongs to the caller (prevents a
-        // student from writing telemetry into another student's session).
-        var session = request.ExamSessionId.HasValue && request.ExamSessionId.Value != Guid.Empty
-            ? await _db.ExamSessions
+        // Heartbeats can legitimately arrive before/without an active session (no session id): those still update
+        // the device's liveness, just aren't stored as session events. A heartbeat that NAMES a session must name one
+        // of the caller's own (D-06): an unknown or another student's session is refused with 404 — the same answer
+        // for both, so session ids cannot be probed — and nothing is recorded (no event, no liveness, no broadcast).
+        ExamSession? session = null;
+        if (request.ExamSessionId is Guid namedSession && namedSession != Guid.Empty)
+        {
+            session = await _db.ExamSessions
                 .Include(s => s.Exam)
-                .FirstOrDefaultAsync(s => s.SessionId == request.ExamSessionId.Value && s.UserId == studentId)
-            : null;
+                .FirstOrDefaultAsync(s => s.SessionId == namedSession && s.UserId == studentId);
+            if (session is null)
+                return NotFound(new ApiEnvelope<object>(false, "NOT_FOUND", "Session not found.", null));
+        }
 
         int? reconnectedAfterSeconds = null;
         if (session is not null)

@@ -361,9 +361,9 @@ public class Module10ProctoringAcceptanceTests : IDisposable
             .StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await stranger.GetAsync($"/api/exams/{_host.Seed.ExamId}/incidents")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-        // Validation: unknown session (indistinguishable from a foreign one), bad severity, empty notes.
+        // Validation: unknown session (404, D-39), bad severity, empty notes.
         (await teacher.PostAsJsonAsync("/api/incidents", new { sessionId = Guid.NewGuid(), severity = "Low", notes = "x" }))
-            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
         var bad = await teacher.PostAsJsonAsync("/api/incidents", new { sessionId = sid, severity = "Apocalyptic", notes = "x" });
         bad.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await TestHost.ErrorCodeAsync(bad)).Should().Be("INVALID_SEVERITY");
@@ -501,12 +501,20 @@ public class Module10ProctoringAcceptanceTests : IDisposable
     }
 
     [Fact]
-    public async Task M10_I_16_OtherTeachers_SeeTheExam_ButNotItsAnswerKey()
+    public async Task M10_I_16_OtherTeachers_AreRefused_CoProctorsSeeTheExam_ButNotItsAnswerKey()
     {
+        // D-39: an unrelated teacher may no longer open another section's exam at all; a co-proctoring teacher gets
+        // the proctor view (no answer key); the owner gets everything.
         var (_, email, password) = await _host.CreateUserAsync("Teacher");
         var outsider = await _host.LoginAsync(email, password);
+        (await outsider.GetAsync($"/api/exams/{_host.Seed.ExamId}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await outsider.GetAsync($"/api/exams/{Guid.NewGuid()}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
-        var foreign = await TestHost.JsonAsync(await outsider.GetAsync($"/api/exams/{_host.Seed.ExamId}"));
+        var (coId, coEmail, coPassword) = await _host.CreateUserAsync("Teacher");
+        (await (await _host.AsTeacher()).PostAsJsonAsync($"/api/exams/{_host.Seed.ExamId}/proctors", new { userId = coId }))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+        var coProctor = await _host.LoginAsync(coEmail, coPassword);
+        var foreign = await TestHost.JsonAsync(await coProctor.GetAsync($"/api/exams/{_host.Seed.ExamId}"));
         foreign.GetProperty("questions").EnumerateArray().Should().OnlyContain(q =>
             q.GetProperty("referenceAnswer").ValueKind == JsonValueKind.Null &&
             q.GetProperty("correctOptionIndex").ValueKind == JsonValueKind.Null &&

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import { examWithStudents } from '../support/scenario';
 import { StaffApi } from '../support/staffApi';
@@ -101,14 +102,87 @@ test.describe('M10 — Live Proctoring API', () => {
     expect((await other.extendTime(exam.examId, 30)).status()).toBe(403);
     expect((await other.forceSubmitAll(exam.examId)).status()).toBe(403);
     expect((await other.delete(`/api/exams/${exam.examId}`)).status()).toBe(403);
-    // Another teacher still sees the exam, but not its answer key.
-    const seen = await other.examDetail(exam.examId);
-    expect(seen.questions.every((q: any) => q.referenceAnswer == null && q.correctOptionIndex == null)).toBe(true);
+    // D-39: another teacher cannot open the exam at all any more (a co-proctor gets the view without the key, M10-A-05).
+    expect((await other.get(`/api/exams/${exam.examId}`)).status()).toBe(403);
     const after = await teacher.examDetail(exam.examId);
     expect(after.durationMinutes).toBe(before.durationMinutes);
     expect(after.status).toBe(before.status);
 
     expect((await teacher.extendTime(exam.examId, 30)).status()).toBe(200);
     expect((await teacher.forceSubmitAll(exam.examId)).status()).toBe(200);
+  });
+
+  test('M10-A-05 Per-exam endpoints: owner/admin, proctors read-only, others 403, unknown 404 (D-39)', async ({ request }) => {
+    const { students, exam, teacher, admin } = await examWithStudents(request, 1);
+    const theory = exam.questions.find(q => q.type === 'Theory')!;
+    const sessionId = await students[0].start(exam.examId);
+    await students[0].saveAnswer(theory.questionId, 'A stack is LIFO, a queue is FIFO.');
+    expect((await students[0].heartbeat()).status()).toBe(200);
+    expect((await students[0].submit()).status()).toBe(200);
+    const [row] = await teacher.results(exam.examId);
+    const answerId = row.answers[0].answerId;
+    const gen = await teacher.post(`/api/analytics/exams/${exam.examId}/report`);
+    expect(gen.status()).toBe(200);
+    const { downloadUrl } = await gen.json();
+
+    const otherUser = await admin.createUser('Teacher', 'Other');
+    const other = await StaffApi.login(request, otherUser.email, otherUser.password);
+    const coUser = await admin.createUser('Teacher', 'CoProctor');
+    expect((await teacher.assignProctor(exam.examId, coUser.userId)).status()).toBe(201);
+    const coProctor = await StaffApi.login(request, coUser.email, coUser.password);
+
+    const id = exam.examId;
+    // Read / proctoring requests: owner, co-proctor 200; other teacher 403.
+    const supervise = [
+      `/api/exams/${id}`, `/api/exams/${id}/readiness`, `/api/exams/${id}/live`, `/api/exams/${id}/incidents`,
+      `/api/exams/${id}/sessions/${sessionId}/timeline`, `/api/exams/${id}/sessions/${sessionId}/screenshots`,
+    ];
+    for (const path of supervise) {
+      expect((await teacher.get(path)).status(), `owner ${path}`).toBe(200);
+      expect((await coProctor.get(path)).status(), `co-proctor ${path}`).toBe(200);
+      expect((await other.get(path)).status(), `other ${path}`).toBe(403);
+    }
+    const coView = await coProctor.examDetail(id);
+    expect(coView.questions.every((q: any) => q.referenceAnswer == null && q.correctOptionIndex == null)).toBe(true);
+
+    // Grades, analytics, reports, messaging and management: owner / admin only.
+    const ownerOnly: [string, (api: StaffApi) => Promise<{ status(): number }>][] = [
+      ['results', api => api.get(`/api/exams/${id}/results`)],
+      ['plagiarism', api => api.get(`/api/exams/${id}/plagiarism`)],
+      ['plagiarism matrix', api => api.get(`/api/exams/${id}/plagiarism/matrix`)],
+      ['analytics summary', api => api.get(`/api/analytics/exams/${id}/summary`)],
+      ['report history', api => api.get(`/api/analytics/exams/${id}/reports`)],
+      ['report file', api => api.get(downloadUrl)],
+      ['generate report', api => api.post(`/api/analytics/exams/${id}/report`)],
+      ['override', api => api.post(`/api/answers/${answerId}/override`, { finalMarks: 1, note: 'hijack' })],
+      ['regrade', api => api.post(`/api/answers/${answerId}/regrade`)],
+      ['accept-ai', api => api.post(`/api/exams/${id}/grading/accept-ai`)],
+      ['announce', api => api.post(`/api/notifications/exam/${id}/announce`, { title: 'Fake', message: 'Cancelled', sendEmail: false })],
+      ['notify-grades', api => api.post(`/api/notifications/exam/${id}/notify-grades`)],
+      ['assignments', api => api.get(`/api/exams/${id}/assignments`)],
+      ['proctors', api => api.get(`/api/exams/${id}/proctors`)],
+      ['extend-time', api => api.extendTime(id, 30)],
+    ];
+    for (const [name, call] of ownerOnly) {
+      expect((await call(other)).status(), `other: ${name}`).toBe(403);
+      expect((await call(coProctor)).status(), `co-proctor: ${name}`).toBe(403);
+    }
+    // Nothing happened on their behalf: no override, duration unchanged, no announcement reached the student.
+    const [after] = await teacher.results(id);
+    expect(after.answers[0].teacherOverride).toBeNull();
+    expect((await teacher.examDetail(id)).durationMinutes).toBe(60);
+    expect((await students[0].notifications()).notifications.filter((n: any) => n.type === 'Announcement')).toEqual([]);
+
+    // Unknown exam / answer: 404, not 403.
+    const unknown = randomUUID();
+    for (const path of [`/api/exams/${unknown}`, `/api/exams/${unknown}/results`, `/api/exams/${unknown}/live`,
+      `/api/analytics/exams/${unknown}/summary`, `/api/exams/${unknown}/incidents`]) {
+      expect((await other.get(path)).status(), `unknown ${path}`).toBe(404);
+    }
+    expect((await other.post(`/api/answers/${unknown}/override`, { finalMarks: 1 })).status()).toBe(404);
+
+    // The owner and an admin still can.
+    expect((await teacher.get(downloadUrl)).status()).toBe(200);
+    expect((await admin.get(`/api/analytics/exams/${id}/summary`)).status()).toBe(200);
   });
 });

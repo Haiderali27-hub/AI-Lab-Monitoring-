@@ -17,15 +17,22 @@ public class NotificationsController : ControllerBase
     private readonly AppDbContext _db;
     private readonly NotificationService _notifications;
     private readonly AuditService _audit;
+    private readonly ExamAccessService _access;
 
-    public NotificationsController(AppDbContext db, NotificationService notifications, AuditService audit)
+    public NotificationsController(AppDbContext db, NotificationService notifications, AuditService audit, ExamAccessService access)
     {
         _db = db;
         _notifications = notifications;
         _audit = audit;
+        _access = access;
     }
 
     private Guid Me => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+    // D-39: messaging an exam's students (announcement, schedule, grades) is the exam owner's or an admin's call —
+    // 404 for an unknown exam, 403 for another teacher; nothing is sent then.
+    private Task<IActionResult?> DenyUnlessOwnerAsync(Guid examId) =>
+        _access.DenyUnlessAsync(User, examId, ExamAccess.Owner, "Only the exam's teacher or an admin can message its students.");
 
     // GET /api/notifications
     // Returns logged-in user's notifications
@@ -88,6 +95,9 @@ public class NotificationsController : ControllerBase
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> AnnounceToExam(Guid examId, [FromBody] AnnounceRequest req)
     {
+        var denied = await DenyUnlessOwnerAsync(examId);
+        if (denied is not null) return denied;
+
         var assignments = await _db.ExamAssignments
             .Where(a => a.ExamId == examId && a.IsEligible)
             .Select(a => a.UserId)
@@ -114,6 +124,9 @@ public class NotificationsController : ControllerBase
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> NotifyScheduled(Guid examId)
     {
+        var denied = await DenyUnlessOwnerAsync(examId);
+        if (denied is not null) return denied;
+
         await _notifications.NotifyExamScheduledAsync(examId);
         return Ok(new { message = "Students notified of exam schedule." });
     }
@@ -124,6 +137,9 @@ public class NotificationsController : ControllerBase
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> NotifyGrades(Guid examId)
     {
+        var denied = await DenyUnlessOwnerAsync(examId);
+        if (denied is not null) return denied;
+
         await _notifications.NotifyGradesReleasedAsync(examId);
         return Ok(new { message = "Students notified of grade release." });
     }

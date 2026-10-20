@@ -93,7 +93,9 @@ public class ExamsController : ControllerBase
                 CourseName = e.Section.Course.Name,
                 SectionName = e.Section.Name,
                 QuestionCount = e.Questions.Count,
-                CanSupervise = isAdmin || (isTeacher && e.Section.TeacherId == userId) || proctored.Contains(e.ExamId)
+                CanSupervise = isAdmin || (isTeacher && e.Section.TeacherId == userId) || proctored.Contains(e.ExamId),
+                // D-39: the section's teacher or an admin — results, grading, analytics, reports, edit (ExamAccess.Owner+)
+                CanManage = isAdmin || (isTeacher && e.Section.TeacherId == userId)
             })
             .ToListAsync();
         return Ok(allExams);
@@ -122,9 +124,16 @@ public class ExamsController : ControllerBase
         var isInvigilator = role == "Invigilator";
         if (isInvigilator && await _access.GetAsync(User, id) == ExamAccess.None)
             return NotFound();
-        // Module 10 hardening: teachers still see every exam (GET /api/exams), but the answer key only of their own
-        // sections' exams; a co-proctoring or unrelated teacher gets the proctor view, like an invigilator.
-        var isForeignTeacher = role == "Teacher" && exam.Section?.TeacherId != CurrentUserId;
+        // Module 10 hardening (D-39): teachers still list every exam (GET /api/exams), but open only their own sections'
+        // exams (with the answer key) and the ones they co-proctor (proctor view, no key); any other exam is 403.
+        var isForeignTeacher = false;
+        if (role == "Teacher")
+        {
+            var access = await _access.GetAsync(User, id);
+            if (access == ExamAccess.None)
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only open exams of your own sections or exams you supervise." });
+            isForeignTeacher = access < ExamAccess.Owner;
+        }
         var hideAnswerKey = isStudent || isInvigilator || isForeignTeacher;
 
         // Explicit projection — the raw EF graph included every assigned student's PasswordHash/Salt.
@@ -497,6 +506,12 @@ public class ExamsController : ControllerBase
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> GetSectionStudents(Guid sectionId)
     {
+        // D-39: a teacher reads the roster of the sections they teach only (the exam wizard offers no other section).
+        var section = await _db.Sections.AsNoTracking().FirstOrDefaultAsync(s => s.SectionId == sectionId);
+        if (section is null) return NotFound(new { message = "Section not found." });
+        if (!CanManage(section))
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only see the students of your own sections." });
+
         var students = await _db.SectionEnrollments
             .Where(se => se.SectionId == sectionId)
             .Include(se => se.Student)
@@ -912,7 +927,7 @@ public class ExamsController : ControllerBase
         return Ok(new { exam.ExamId, exam.DurationMinutes, message = $"Exam extended by {req.AdditionalMinutes} minutes." });
     }
 
-    // ── Module 11: results, plagiarism and overrides are the exam owner's (or an admin's) — D-13 ──────────
+    // ── Module 11: results, plagiarism and overrides are the exam owner's (or an admin's) — D-34 ──────────
     // Proctors supervise but never see or change grades; another section's teacher gets 403.
 
     private async Task<IActionResult?> DenyUnlessGraderAsync(Guid examId)

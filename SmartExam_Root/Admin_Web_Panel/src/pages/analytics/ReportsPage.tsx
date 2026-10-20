@@ -16,7 +16,8 @@ export default function ReportsPage() {
   const [genLoading, setGenLoading] = useState(false);
 
   useEffect(() => {
-    examsApi.getAll().then(setExams).catch(err => console.error(err));
+    // Reports are the exam owner's (or an admin's): other teachers' exams would only answer 403.
+    examsApi.getAll().then(all => setExams(all.filter(e => e.canManage !== false))).catch(err => console.error(err));
   }, []);
 
   const loadReportHistory = (examId: string) => {
