@@ -18,12 +18,14 @@ public class UsersController : ControllerBase
     private readonly AppDbContext _db;
     private readonly AuditService _audit;
     private readonly RefreshTokenService _refreshTokens;
+    private readonly ExamGroupTracker _examGroups;
 
-    public UsersController(AppDbContext db, AuditService audit, RefreshTokenService refreshTokens)
+    public UsersController(AppDbContext db, AuditService audit, RefreshTokenService refreshTokens, ExamGroupTracker examGroups)
     {
         _db = db;
         _audit = audit;
         _refreshTokens = refreshTokens;
+        _examGroups = examGroups;
     }
 
     private const int MaxRollNumberLength = 32;
@@ -196,9 +198,11 @@ public class UsersController : ControllerBase
             user.RollNumber = rollNumber;
         }
 
+        var previousRole = user.Role;
         user.Name = req.Name;
         user.Email = req.Email;
         user.Role = req.Role;
+        var roleChanged = previousRole != req.Role;
 
         var passwordReset = false;
         if (!string.IsNullOrWhiteSpace(req.Password))
@@ -210,12 +214,21 @@ public class UsersController : ControllerBase
             passwordReset = true;
         }
 
-        _audit.Add(CurrentUserId, "USER_UPDATED", "User", id.ToString(), new { user.Email, user.RollNumber, role = user.Role.ToString(), passwordReset });
+        _audit.Add(CurrentUserId, "USER_UPDATED", "User", id.ToString(),
+            new { user.Email, user.RollNumber, role = user.Role.ToString(), previousRole = roleChanged ? previousRole.ToString() : null, passwordReset });
         await _db.SaveChangesAsync();
 
+        if (roleChanged)
+        {
+            // Access tokens carry the role, so a demoted Admin (or a former Teacher / Invigilator) would keep
+            // the old permissions until the token expired. End every session (own-role changes are refused
+            // above) and drop any live-monitor group memberships; the next sign-in gets the new role.
+            await _refreshTokens.RevokeOtherSessionsAsync(id, null, RefreshTokenRevocation.RoleChanged);
+            await _examGroups.RevokeAsync(id);
+        }
         // An admin password reset signs the user out everywhere (refresh tokens + live access tokens),
         // except the admin's own current session when they reset their own password here.
-        if (passwordReset)
+        else if (passwordReset)
         {
             var keepJti = id == CurrentUserId
                 ? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value
@@ -264,6 +277,7 @@ public class UsersController : ControllerBase
         _db.Users.Remove(user);
         _audit.Add(CurrentUserId, "USER_DELETED", "User", id.ToString(), new { user.Email, role = user.Role.ToString() });
         await _db.SaveChangesAsync();
+        await _examGroups.RevokeAsync(id);
 
         return Ok(new { message = "User deleted." });
     }
@@ -356,6 +370,7 @@ public class UsersController : ControllerBase
         sessions.ForEach(s => s.IsRevoked = true);
         _audit.Add(CurrentUserId, "FORCE_LOGOUT", "User", id.ToString(), new { revokedCount = sessions.Count, revokedRefreshTokens });
         await _db.SaveChangesAsync();
+        await _examGroups.RevokeAsync(id);
 
         return Ok(new { message = $"Revoked {sessions.Count} active session(s)." });
     }
@@ -383,6 +398,7 @@ public class UsersController : ControllerBase
         sessions.ForEach(s => s.IsRevoked = true);
         _audit.Add(CurrentUserId, "USER_DEACTIVATED", "User", id.ToString());
         await _db.SaveChangesAsync();
+        await _examGroups.RevokeAsync(id); // an open live monitor stops receiving exam telemetry too
 
         return Ok(new { message = "User deactivated." });
     }

@@ -4,9 +4,11 @@ using System.Text.Json;
 using Backend_API.Helpers;
 using Backend_API.Models;
 using Backend_API.Models.Enums;
+using Backend_API.Services;
 using Backend_API.Tests.Helpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Backend_API.Tests.Tests.Acceptance;
 
@@ -392,5 +394,96 @@ public class Module7UserMgmtAcceptanceTests : IDisposable
         (await teacher.PutAsJsonAsync($"/api/courses/{id}", new { deptId, name = "Nope", code = "NO1" })).StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         (await _host.AuditLogsAsync("COURSE_CREATED")).Should().HaveCount(2);
+    }
+
+    // ── Verifier additions: withdrawn access also applies to pages that are already open ──
+
+    private ExamGroupTracker Tracker => _host.Services.GetRequiredService<ExamGroupTracker>();
+
+    [Fact]
+    public async Task M7_I_13_Unassign_RemovesOpenLiveConnection_FromThatExamGroupOnly()
+    {
+        var (invigilatorId, _, _) = await _host.CreateUserAsync("Invigilator");
+        var teacher = await _host.AsTeacher();
+        var examA = _host.Seed.ExamId;
+        var examB = await _host.CreateExamAsync(new[] { _host.Seed.StudentId });
+        await AssignAsync(teacher, examA, invigilatorId);
+        await AssignAsync(teacher, examB, invigilatorId);
+
+        using var hub = _host.CreateHub(TestHost.Principal(invigilatorId, "Invigilator"));
+        var connectionId = hub.Hub.Context.ConnectionId;
+        await hub.Hub.JoinExamGroup(examA);
+        await hub.Hub.JoinExamGroup(examB);
+        Tracker.MembershipsOf(invigilatorId).Should().HaveCount(2);
+
+        (await teacher.DeleteAsync($"/api/exams/{examA}/proctors/{invigilatorId}")).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // The open connection leaves exam A's group at once and is told why; exam B is untouched.
+        _host.Hub.Groups.Removed.Should().ContainSingle().Which.Should().Be((connectionId, $"exam:{examA}"));
+        _host.Hub.Named(ExamGroupTracker.RevokedMethod).Should().ContainSingle()
+            .Which.Target.Should().Be($"conn:{connectionId}");
+        Tracker.MembershipsOf(invigilatorId).Should().ContainSingle().Which.ExamId.Should().Be(examB);
+
+        // Disconnecting forgets the connection entirely.
+        await hub.Hub.OnDisconnectedAsync(null);
+        Tracker.MembershipsOf(invigilatorId).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task M7_I_14_RoleChangeEndsSessions_DeactivationDropsLiveGroups()
+    {
+        var (super, _) = await SeedSuperAdminAsync();
+        var (adminId, adminEmail, adminPassword) = await _host.CreateUserAsync("Teacher", "Soon Admin");
+        (await super.PutAsJsonAsync($"/api/users/{adminId}", new { name = "Soon Admin", email = adminEmail, role = "Admin" }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        var demoted = await _host.LoginAsync(adminEmail, adminPassword);
+        (await demoted.GetAsync("/api/audit-logs")).StatusCode.Should().Be(HttpStatusCode.OK, "signed in as Admin");
+
+        // Demotion: the Admin access token must not outlive the role it carries.
+        (await super.PutAsJsonAsync($"/api/users/{adminId}", new { name = "Soon Admin", email = adminEmail, role = "Teacher" }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await demoted.GetAsync("/api/audit-logs")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await _host.AuditLogsAsync("USER_UPDATED")).Select(l => l.GetProperty("details").GetString())
+            .Should().Contain(d => d!.Contains("\"previousRole\":\"Admin\""));
+        var relogin = await _host.LoginAsync(adminEmail, adminPassword);
+        (await relogin.GetAsync("/api/audit-logs")).StatusCode.Should().Be(HttpStatusCode.Forbidden, "the new token carries the Teacher role");
+
+        // A name-only edit does not sign anyone out.
+        (await super.PutAsJsonAsync($"/api/users/{adminId}", new { name = "Renamed Teacher", email = adminEmail, role = "Teacher" }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await relogin.GetAsync("/api/exams")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Deactivating a proctor also takes their open live monitor out of the exam group.
+        var (invigilatorId, _, _) = await _host.CreateUserAsync("Invigilator");
+        await AssignAsync(await _host.AsTeacher(), _host.Seed.ExamId, invigilatorId);
+        using var hub = _host.CreateHub(TestHost.Principal(invigilatorId, "Invigilator"));
+        await hub.Hub.JoinExamGroup(_host.Seed.ExamId);
+        (await (await _host.AsAdmin()).PatchAsync($"/api/users/{invigilatorId}/deactivate", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+        _host.Hub.Groups.Removed.Should().Contain((hub.Hub.Context.ConnectionId, $"exam:{_host.Seed.ExamId}"));
+        Tracker.MembershipsOf(invigilatorId).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task M7_I_15_ExamList_FlagsWhichExamsTheCallerMaySupervise()
+    {
+        var otherExam = await _host.CreateExamAsync(new[] { _host.Seed.StudentId });
+        var (otherTeacherId, otherEmail, otherPassword) = await _host.CreateUserAsync("Teacher");
+        var other = await _host.LoginAsync(otherEmail, otherPassword);
+
+        async Task<Dictionary<Guid, bool>> FlagsAsync(HttpClient c) =>
+            (await (await c.GetAsync("/api/exams")).Content.ReadFromJsonAsync<List<JsonElement>>())!
+                .ToDictionary(e => e.GetProperty("examId").GetGuid(), e => e.GetProperty("canSupervise").GetBoolean());
+
+        var owner = await FlagsAsync(await _host.AsTeacher());
+        owner[_host.Seed.ExamId].Should().BeTrue();
+        owner[otherExam].Should().BeTrue();
+
+        var outsider = await FlagsAsync(other);
+        outsider.Should().ContainKey(_host.Seed.ExamId, "teachers still list every exam");
+        outsider.Values.Should().OnlyContain(v => !v, "but supervise none of another section's exams");
+
+        await AssignAsync(await _host.AsTeacher(), otherExam, otherTeacherId);
+        (await FlagsAsync(other))[otherExam].Should().BeTrue("a co-proctor assignment allows supervising");
+        (await FlagsAsync(await _host.AsAdmin())).Values.Should().OnlyContain(v => v);
     }
 }

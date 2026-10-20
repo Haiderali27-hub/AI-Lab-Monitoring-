@@ -44,7 +44,11 @@ export default function LiveMonitorPage() {
   useEffect(() => {
     examsApi.getAll()
       .then(exams => {
-        const running = exams.filter(e => e.status === 'Active');
+        // Exams the caller may supervise first (a teacher lists every exam but the hub only admits
+        // them to their own sections' and assigned ones), so the default is one that shows live data.
+        const running = exams
+          .filter(e => e.status === 'Active')
+          .sort((a, b) => Number(b.canSupervise !== false) - Number(a.canSupervise !== false));
         setRunningExams(running);
         const requested = searchParams.get('examId');
         const initial = running.find(e => e.examId === requested) ?? running[0];
@@ -211,6 +215,16 @@ export default function LiveMonitorPage() {
       setActiveExam(prev => prev && prev.examId === data.examId
         ? { ...prev, durationMinutes: data.newDurationMinutes }
         : prev);
+    });
+
+    // The server took this connection out of the exam's group (proctor unassigned, account changed):
+    // no more live data will arrive, so say so instead of showing a silently frozen board.
+    connection.on('ExamAccessRevoked', (data: any) => {
+      if (data?.examId !== activeExam.examId) return;
+      setStudentStatuses(new Map());
+      setTimelines(new Map());
+      setSelectedStudentId(null);
+      setJoinError('Your access to this exam was withdrawn, so live data has stopped. Ask the exam\'s teacher if this is unexpected.');
     });
 
     connection.start()

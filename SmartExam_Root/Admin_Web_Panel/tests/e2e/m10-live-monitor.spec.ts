@@ -222,6 +222,29 @@ test.describe('M10 — Live Proctoring Dashboard', () => {
     await waitForTile(page, first.students[0], first.users[0].name);
     await expect(page.getByTestId('student-tile').filter({ hasText: second.users[0].name })).toHaveCount(0);
   });
+
+  test('M10-E-12 Live monitor opens an exam the teacher may supervise by default', async ({ page, request }) => {
+    const teacher = await StaffApi.teacher(request);
+    await teacher.endAllActiveExams();
+    // Two running exams of the seeded teacher's section; another teacher co-proctors only the second.
+    const notMine = await examWithStudents(request, 1);
+    const assigned = await examWithStudents(request, 1);
+    await notMine.students[0].start(notMine.exam.examId);
+    await assigned.students[0].start(assigned.exam.examId);
+    const coUser = await notMine.admin.createUser('Teacher', 'CoProctor');
+    expect((await teacher.assignProctor(assigned.exam.examId, coUser.userId)).status()).toBe(201);
+    const coProctor = await StaffApi.login(request, coUser.email, coUser.password);
+    const flags = new Map((await coProctor.exams()).map(e => [e.examId, e.canSupervise]));
+    expect(flags.get(notMine.exam.examId)).toBe(false);
+    expect(flags.get(assigned.exam.examId)).toBe(true);
+
+    // No ?examId=: the board opens on the exam they supervise, not on one the hub would refuse.
+    await signInWeb(page, coProctor);
+    await page.goto('/teacher/live-monitor');
+    await expect(page.getByText(`Live Monitor — ${assigned.exam.title}`)).toBeVisible();
+    await waitForTile(page, assigned.students[0], assigned.users[0].name);
+    await expect(page.getByTestId('join-denied')).toHaveCount(0);
+  });
 });
 
 test.describe('M5 — Live Monitoring Client Service (dashboard side)', () => {

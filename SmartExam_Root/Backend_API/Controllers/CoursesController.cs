@@ -91,7 +91,7 @@ public class CoursesController : ControllerBase
         _db.Courses.Add(course);
         _audit.Add(CurrentUserId, "COURSE_CREATED", "Course", course.CourseId.ToString(),
             new { course.Code, course.Name, course.DeptId });
-        await _db.SaveChangesAsync();
+        if (!await TrySaveAsync()) return DuplicateCode(fields.Code);
 
         return CreatedAtAction(nameof(GetById), new { id = course.CourseId },
             new { course.CourseId, course.DeptId, course.Name, course.Code, SectionCount = 0 });
@@ -114,7 +114,7 @@ public class CoursesController : ControllerBase
         course.Code = fields.Code;
         _audit.Add(CurrentUserId, "COURSE_UPDATED", "Course", id.ToString(),
             new { before, after = new { course.DeptId, course.Name, course.Code } });
-        await _db.SaveChangesAsync();
+        if (!await TrySaveAsync()) return DuplicateCode(fields.Code);
 
         return Ok(new { course.CourseId, course.DeptId, course.Name, course.Code });
     }
@@ -163,9 +163,27 @@ public class CoursesController : ControllerBase
 
         // Existing rows may predate normalisation, so compare upper-cased on both sides.
         if (await _db.Courses.AnyAsync(c => c.DeptId == req.DeptId && c.CourseId != exceptId && c.Code.ToUpper() == code))
-            return (fields, Conflict(new { code = "DUPLICATE_COURSE_CODE", message = $"Course code {code} already exists in this department." }));
+            return (fields, DuplicateCode(code));
 
         return (fields, null);
+    }
+
+    private ObjectResult DuplicateCode(string code) =>
+        Conflict(new { code = "DUPLICATE_COURSE_CODE", message = $"Course code {code} already exists in this department." });
+
+    // False when the unique (DeptId, Code) index rejected the save: two concurrent requests both passed the check.
+    private async Task<bool> TrySaveAsync()
+    {
+        try
+        {
+            await _db.SaveChangesAsync();
+            return true;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
+        {
+            _db.ChangeTracker.Clear();
+            return false;
+        }
     }
 }
 

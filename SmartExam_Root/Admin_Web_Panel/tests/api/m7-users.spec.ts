@@ -112,4 +112,20 @@ test.describe('M7 — User & Role Management', () => {
     expect(await invigilator.exams()).toEqual([]);
     expect((await admin.auditLogs('PROCTOR_ASSIGNED')).some(l => l.entityId === assigned.examId)).toBe(true);
   });
+
+  test('M7-A-08 Demoting an admin ends their sessions', async ({ request }) => {
+    const superAdmin = await StaffApi.superAdmin(request);
+    const adminUser = await superAdmin.createUser('Admin', 'Demoted');
+    const asAdmin = await StaffApi.login(request, adminUser.email, adminUser.password);
+    expect((await asAdmin.get('/api/audit-logs?take=1')).status()).toBe(200);
+
+    const demote = await superAdmin.put(`/api/users/${adminUser.userId}`, { name: adminUser.name, email: adminUser.email, role: 'Teacher' });
+    expect(demote.status()).toBe(200);
+    // The old token carried the Admin role: it must stop working now, not when it expires.
+    expect((await asAdmin.get('/api/audit-logs?take=1')).status()).toBe(401);
+
+    const relogin = await StaffApi.login(request, adminUser.email, adminUser.password);
+    expect(relogin.role).toBe('Teacher');
+    expect((await relogin.get('/api/audit-logs?take=1')).status()).toBe(403);
+  });
 });

@@ -256,9 +256,11 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M7-E-06 | Admin roles only for SuperAdmin | Add-user role list as Admin vs SuperAdmin | Admin: Student/Teacher/Invigilator, admin rows locked; SuperAdmin: + Administrator, Super Administrator | ✅ |
 | M7-E-07 | Teacher assigns an invigilator | Eligibility page → Invigilators → Assign / Remove | Chip appears; invigilator's exam list = that exam; removal empties it | ✅ |
 | M7-E-08 | Unassigned teacher gets no live data | Other section's teacher opens Live Monitor on a running exam; then is assigned as co-proctor | "not assigned to supervise" banner, no tiles; after assignment tiles appear | ✅ |
+| M7-E-09 | Unassign stops an open live monitor | Invigilator watching a tile; teacher unassigns them | "access … withdrawn" banner, board cleared, later heartbeats never reach the page | ✅ |
 | M7-A-05 | Only a SuperAdmin creates admins | Admin POST role Admin; SuperAdmin POST; Admin deactivates new admin | 403 `SUPERADMIN_REQUIRED`; 201; 403 (SuperAdmin 200) | ✅ |
 | M7-A-06 | Departments & courses CRUD (HTTP) | Create/dup/list/update/delete | 201/409/filtered list/200/204; non-empty dept 409; teacher write 403 | ✅ |
 | M7-A-07 | Proctor assignment scopes invigilator | Assign to exam A (repeat), invigilator lists/opens, unassign | 201 then 200; list = [A]; other exam 404; no answer key; after unassign [] | ✅ |
+| M7-A-08 | Demoting an admin ends their sessions | SuperAdmin creates Admin, Admin signs in, SuperAdmin demotes to Teacher | Old token 401; re-login role Teacher, admin API 403 | ✅ |
 | M7-I-01 | CSV import | POST import 3 rows | 3 created, bad rows reported | ✅ |
 | M7-I-02 | Departments CRUD | POST/GET/PUT/DELETE departments | Works | ✅ |
 | M7-I-03 | Courses CRUD | Same for courses | Works | ✅ |
@@ -273,6 +275,10 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M7-I-12 | Course validation | Code normalised, dup code (create/rename), unknown dept, blanks, same code other dept, delete with sections | `CS505`; 409; `UNKNOWN_DEPARTMENT`; 400; 201; `COURSE_HAS_SECTIONS` 409 | ✅ |
 | M7-U-01 | SuperAdmin bootstrap | `SuperAdminBootstrap.EnsureAsync` with no config / short password / new email / existing admin / existing SuperAdmin | NotConfigured / InvalidPassword / Created (audited) / Promoted (password kept, reactivated) / AlreadyPresent | ✅ |
 | M7-U-02 | Demo seed roles + course FK | `DbSeeder.SeedAsync` | One SuperAdmin; invigilator proctors the open demo exam; course `DeptId` = its department | ✅ |
+| M7-U-03 | Live group revocation bookkeeping | `ExamGroupTracker` joins/leaves/disconnects, revoke one exam vs all | Only that user's connections in that group removed + notified; left/disconnected ones never revoked | ✅ |
+| M7-I-13 | Unassign removes open live connection | Invigilator joined exams A and B; teacher unassigns A; hub disconnect | Removed from `exam:A` only, `ExamAccessRevoked` to that connection; B kept; disconnect forgets it | ✅ |
+| M7-I-14 | Role change / deactivation take effect now | SuperAdmin demotes Admin → Teacher; name-only edit; Admin deactivates a joined invigilator | Old token 401, `previousRole` audited, re-login is Teacher (403 on admin API); rename keeps session; invigilator dropped from the group | ✅ |
+| M7-I-15 | Exam list `canSupervise` | Owner, other-section teacher (before/after co-proctor assignment), admin | true / false → true / all true | ✅ |
 
 ## M8 — Exam Creation & Configuration
 
@@ -351,6 +357,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M10-E-09 | Unlock button | Drawer → Unlock 5 min | Toast + audit row | ⏳ |
 | M10-E-10 | Invigilator restricted view | Invigilator → other exam | Not listed | ✅ (also: tiles appear, no extend/end buttons, `?examId=` of another exam ignored) |
 | M10-E-11 | Exam picker | Teacher with two running exams switches exam | Header + `?examId=` follow the picker; board shows only the selected exam's students | ✅ |
+| M10-E-12 | Default exam is a supervisable one | Teacher co-proctors one of two running exams, opens Live Monitor without `?examId=` | Opens the assigned exam (tiles, no denial banner); list flags `canSupervise` false/true | ✅ |
 
 ## M11 — AI-Assisted Evaluation
 

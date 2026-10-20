@@ -53,4 +53,28 @@ test.describe('M7 — Invigilator assignment (teacher UI)', () => {
       await expect(page.getByTestId('student-tile').filter({ hasText: users[0].name })).toBeVisible({ timeout: 1_000 });
     }).toPass({ timeout: 20_000 });
   });
+
+  test('M7-E-09 Unassigning an invigilator stops their open live monitor', async ({ page, request }) => {
+    const { admin, teacher, exam, students, users } = await examWithStudents(request, 1);
+    await students[0].start(exam.examId);
+    const invigilatorUser = await admin.createInvigilator('Removed');
+    expect((await teacher.assignProctor(exam.examId, invigilatorUser.userId)).status()).toBe(201);
+    const invigilator = await StaffApi.login(request, invigilatorUser.email, invigilatorUser.password);
+
+    await signInWeb(page, invigilator);
+    await page.goto(`/invigilator/live-monitor?examId=${exam.examId}`);
+    const tile = page.getByTestId('student-tile').filter({ hasText: users[0].name });
+    await expect(async () => {
+      await students[0].heartbeat();
+      await expect(tile).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 20_000 });
+
+    // Removed while the page is open: the server drops the connection from the exam's group at once.
+    expect((await teacher.unassignProctor(exam.examId, invigilatorUser.userId)).status()).toBe(204);
+    await expect(page.getByTestId('join-denied')).toContainText(/access to this exam was withdrawn/i);
+    await expect(tile).toHaveCount(0);
+    expect((await students[0].heartbeat()).status()).toBe(200);
+    await page.waitForTimeout(1_500); // a broadcast would have arrived by now
+    await expect(tile).toHaveCount(0);
+  });
 });

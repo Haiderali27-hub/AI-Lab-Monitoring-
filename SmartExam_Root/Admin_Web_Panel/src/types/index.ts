@@ -69,6 +69,7 @@ export interface Exam {
   earlyJoinMinutes?: number;        // Module 3: start-session opens this many minutes early
   minAttendancePercent?: number;    // Module 9: threshold for "Recalculate from attendance"
   enforceSeat?: boolean;            // Module 9: only the assigned workstation may start/continue
+  canSupervise?: boolean;           // Module 7: staff list — the caller may join this exam's live monitor
 }
 
 /** Module 7 — a staff member assigned to supervise an exam (GET /exams/{id}/proctors). */

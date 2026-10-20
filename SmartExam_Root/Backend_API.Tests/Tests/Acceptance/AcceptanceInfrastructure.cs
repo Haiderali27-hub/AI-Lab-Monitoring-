@@ -344,7 +344,8 @@ public sealed class HubRecorder : IHubContext<MonitoringHub>
 {
     public ConcurrentQueue<HubMessage> Messages { get; } = new();
     public IHubClients Clients { get; }
-    public IGroupManager Groups { get; } = new RecordingGroupManager();
+    public RecordingGroupManager Groups { get; } = new();
+    IGroupManager IHubContext<MonitoringHub>.Groups => Groups;
 
     public HubRecorder() => Clients = new RecordingHubClients(this);
 
@@ -406,8 +407,13 @@ public sealed class RecordingGroupManager : IGroupManager
         return Task.CompletedTask;
     }
 
-    public Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
+    public ConcurrentBag<(string ConnectionId, string Group)> Removed { get; } = new();
+
+    public Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default)
+    {
+        Removed.Add((connectionId, groupName));
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class FakeHubCallerContext(ClaimsPrincipal user) : HubCallerContext

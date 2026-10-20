@@ -76,7 +76,7 @@ public class DepartmentsController : ControllerBase
         var department = new Department { Name = name };
         _db.Departments.Add(department);
         _audit.Add(CurrentUserId, "DEPARTMENT_CREATED", "Department", department.DeptId.ToString(), new { department.Name });
-        await _db.SaveChangesAsync();
+        if (!await TrySaveAsync()) return DuplicateName(name);
 
         return CreatedAtAction(nameof(GetById), new { id = department.DeptId },
             new { department.DeptId, department.Name, CourseCount = 0 });
@@ -96,7 +96,7 @@ public class DepartmentsController : ControllerBase
         var before = department.Name;
         department.Name = name;
         _audit.Add(CurrentUserId, "DEPARTMENT_UPDATED", "Department", id.ToString(), new { before, after = name });
-        await _db.SaveChangesAsync();
+        if (!await TrySaveAsync()) return DuplicateName(name);
 
         return Ok(new { department.DeptId, department.Name });
     }
@@ -130,8 +130,26 @@ public class DepartmentsController : ControllerBase
 
         var lower = name.ToLower();
         if (await _db.Departments.AnyAsync(d => d.DeptId != exceptId && d.Name.ToLower() == lower))
-            return (name, Conflict(new { code = "DUPLICATE_DEPARTMENT", message = $"A department named \"{name}\" already exists." }));
+            return (name, DuplicateName(name));
         return (name, null);
+    }
+
+    private ObjectResult DuplicateName(string name) =>
+        Conflict(new { code = "DUPLICATE_DEPARTMENT", message = $"A department named \"{name}\" already exists." });
+
+    // False when the unique name index rejected the save: two concurrent requests both passed the check.
+    private async Task<bool> TrySaveAsync()
+    {
+        try
+        {
+            await _db.SaveChangesAsync();
+            return true;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
+        {
+            _db.ChangeTracker.Clear();
+            return false;
+        }
     }
 }
 

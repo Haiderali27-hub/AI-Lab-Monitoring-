@@ -22,9 +22,10 @@ public class ExamsController : ControllerBase
     private readonly SubmissionService _submissions;
     private readonly SeatGuard _seats;
     private readonly ExamAccessService _access;
+    private readonly ExamGroupTracker _groups;
 
     public ExamsController(AppDbContext db, AuditService audit, IHubContext<MonitoringHub> hub, SubmissionService submissions,
-        SeatGuard seats, ExamAccessService access)
+        SeatGuard seats, ExamAccessService access, ExamGroupTracker groups)
     {
         _db = db;
         _audit = audit;
@@ -32,6 +33,7 @@ public class ExamsController : ControllerBase
         _submissions = submissions;
         _seats = seats;
         _access = access;
+        _groups = groups;
     }
 
     private Guid CurrentUserId =>
@@ -68,11 +70,13 @@ public class ExamsController : ControllerBase
         // Teacher / Admin — see all exams. Invigilator (Module 7) — only exams with an ExamProctors row
         // for them, so the live-monitor picker never offers an exam they are not supervising.
         IQueryable<Exam> visible = _db.Exams;
+        var proctored = _access.ProctoredExamIds(userId);
         if (role == "Invigilator")
-        {
-            var proctored = _access.ProctoredExamIds(userId);
             visible = visible.Where(e => proctored.Contains(e.ExamId));
-        }
+        // Same rule as the hub's JoinExamGroup, so the live monitor can open an exam the caller may
+        // actually watch (a teacher lists every exam but supervises only their own and assigned ones).
+        var isAdmin = ExamAccessService.IsAdmin(User);
+        var isTeacher = role == "Teacher";
 
         var allExams = await visible
             .Include(e => e.Section).ThenInclude(s => s.Course)
@@ -87,7 +91,8 @@ public class ExamsController : ControllerBase
                 e.EnforceSeat,
                 CourseName = e.Section.Course.Name,
                 SectionName = e.Section.Name,
-                QuestionCount = e.Questions.Count
+                QuestionCount = e.Questions.Count,
+                CanSupervise = isAdmin || (isTeacher && e.Section.TeacherId == userId) || proctored.Contains(e.ExamId)
             })
             .ToListAsync();
         return Ok(allExams);
@@ -564,6 +569,12 @@ public class ExamsController : ControllerBase
         _db.ExamProctors.Remove(row);
         _audit.Add(CurrentUserId, "PROCTOR_UNASSIGNED", "Exam", examId.ToString(), new { proctorId = userId, row.User.Email });
         await _db.SaveChangesAsync();
+
+        // A live monitor the proctor already has open stops receiving this exam's telemetry now,
+        // not at its next reconnect (the hub only checks access on join). Not for the section's own
+        // teacher, who still supervises the exam without the row.
+        if (!await _db.Exams.AnyAsync(e => e.ExamId == examId && e.Section.TeacherId == userId))
+            await _groups.RevokeAsync(userId, examId);
         return NoContent();
     }
 

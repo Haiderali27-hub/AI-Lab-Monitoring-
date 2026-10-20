@@ -8,11 +8,13 @@ using Backend_API.Services;
 namespace Backend_API.Hubs;
 
 [Authorize]
-public class MonitoringHub(AppDbContext db, SubmissionService submissions, ExamAccessService access) : Hub
+public class MonitoringHub(AppDbContext db, SubmissionService submissions, ExamAccessService access,
+    ExamGroupTracker tracker) : Hub
 {
     private readonly AppDbContext _db = db;
     private readonly SubmissionService _submissions = submissions;
     private readonly ExamAccessService _access = access;
+    private readonly ExamGroupTracker _tracker = tracker;
 
     private bool IsStaff =>
         Context.User is not null &&
@@ -32,12 +34,32 @@ public class MonitoringHub(AppDbContext db, SubmissionService submissions, ExamA
         if (await _access.GetAsync(Context.User!, examId) == ExamAccess.None)
             throw new HubException("You are not assigned to supervise this exam.");
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"exam:{examId}");
+        // Tracked so withdrawing access later (unassign, deactivate, role change) also removes this
+        // live connection from the group (ExamGroupTracker.RevokeAsync).
+        var group = ExamGroupTracker.GroupName(examId);
+        _tracker.Joined(Context.ConnectionId, ExamAccessService.UserIdOf(Context.User!)!.Value, examId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, group);
+
+        // Re-check after joining: an unassignment that committed between the first check and the
+        // registration above would otherwise have found nothing to revoke.
+        if (await _access.GetAsync(Context.User!, examId) == ExamAccess.None)
+        {
+            _tracker.Left(Context.ConnectionId, examId);
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, group);
+            throw new HubException("You are not assigned to supervise this exam.");
+        }
     }
 
     public async Task LeaveExamGroup(Guid examId)
     {
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"exam:{examId}");
+        _tracker.Left(Context.ConnectionId, examId);
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, ExamGroupTracker.GroupName(examId));
+    }
+
+    public override Task OnDisconnectedAsync(Exception? exception)
+    {
+        _tracker.Disconnected(Context.ConnectionId);
+        return base.OnDisconnectedAsync(exception);
     }
 
     // Legacy institution grouping kept for backward compatibility

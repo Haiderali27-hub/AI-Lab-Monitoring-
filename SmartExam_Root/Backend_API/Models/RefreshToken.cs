@@ -41,4 +41,5 @@ public static class RefreshTokenRevocation
     public const string Deactivated = "deactivated";
     public const string PasswordChanged = "password_changed";
     public const string PasswordReset = "password_reset";
+    public const string RoleChanged = "role_changed";
 }

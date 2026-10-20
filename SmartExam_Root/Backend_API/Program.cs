@@ -38,6 +38,8 @@ builder.Services.AddScoped<Backend_API.Services.SubmissionService>();
 builder.Services.AddScoped<Backend_API.Services.SeatGuard>();
 // Module 7/10 — who may supervise which exam (owner teacher, assigned proctor, admin)
 builder.Services.AddScoped<Backend_API.Services.ExamAccessService>();
+// …and which live connections joined which exam group, so withdrawn access is enforced on open pages too
+builder.Services.AddSingleton<Backend_API.Services.ExamGroupTracker>();
 
 // Module 4 — Analytics
 builder.Services.AddScoped<Backend_API.Services.Analytics.AnalyticsService>();
