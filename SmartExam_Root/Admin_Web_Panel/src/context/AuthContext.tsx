@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { AuthUser } from '../types';
 import { TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY, clearStoredSession } from '../api/client';
 import { authApi } from '../api/auth.api';
+import { isKnownRole } from '../utils/roles';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -25,8 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (t && u) {
       try {
         const parsedUser = JSON.parse(u);
-        const validRoles = ['SuperAdmin', 'Admin', 'Teacher', 'Student'];
-        if (parsedUser && typeof parsedUser.role === 'string' && validRoles.includes(parsedUser.role)) {
+        if (parsedUser && isKnownRole(parsedUser.role)) {
           setToken(t);
           setUser(parsedUser);
         } else {

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import { examsApi } from '../../api/exams.api';
 import { labsApi } from '../../api/labs.api';
+import ExamProctorsPanel from '../../components/exam/ExamProctorsPanel';
 import type { AttendanceImportResult, Exam, ExamAssignment, LabInfo, ReadinessResult } from '../../types';
 
 /** ✓ fresh pass · ✗ failed · ⌛ passed but older than 30 min · — never run */
@@ -361,6 +362,9 @@ export default function EligibilityPage() {
             <button onClick={() => setNotice(null)} className="text-blue-400 hover:text-blue-700 text-xs font-bold" aria-label="Dismiss">✕</button>
           </div>
         )}
+
+        {/* Who supervises this exam (Module 7) */}
+        {selectedExamId && <ExamProctorsPanel examId={selectedExamId} />}
 
         {/* Table View */}
         {loading && assignments.length === 0 ? (

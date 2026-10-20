@@ -2,8 +2,22 @@ import { useState, useEffect, useRef } from 'react';
 import AppLayout from '../../components/layout/AppLayout';
 import { usersApi } from '../../api/users.api';
 import type { User, UserRole } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { assignableRoles, canManageAccount } from '../../utils/roles';
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  Student: 'Student',
+  Teacher: 'Teacher',
+  Invigilator: 'Invigilator',
+  Admin: 'Administrator',
+  SuperAdmin: 'Super Administrator',
+};
 
 export default function UsersPage() {
+  // Module 7: only a SuperAdmin creates or manages Admin / SuperAdmin accounts (the API enforces it;
+  // the page just doesn't offer what would be refused).
+  const { user: currentUser } = useAuth();
+  const roleOptions = assignableRoles(currentUser?.role);
   const [users, setUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<UserRole | 'All'>('All');
   const [search, setSearch] = useState('');
@@ -207,7 +221,7 @@ export default function UsersPage() {
 
   // Filter logic
   const filteredUsers = users.filter((u) => {
-    const matchesTab = activeTab === 'All' || u.role === activeTab;
+    const matchesTab = activeTab === 'All' || u.role === activeTab || (activeTab === 'Admin' && u.role === 'SuperAdmin');
     const matchesSearch = 
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -217,14 +231,16 @@ export default function UsersPage() {
 
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
+      case 'SuperAdmin':
+        return <span data-testid="role-badge" className="px-2 py-1 rounded-full bg-purple-100 text-purple-800 text-[11px] font-bold uppercase tracking-wider border border-purple-200">Super Admin</span>;
       case 'Student':
-        return <span className="px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-[11px] font-bold uppercase tracking-wider border border-blue-100">Student</span>;
+        return <span data-testid="role-badge" className="px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-[11px] font-bold uppercase tracking-wider border border-blue-100">Student</span>;
       case 'Teacher':
-        return <span className="px-2 py-1 rounded-full bg-purple-50 text-purple-700 text-[11px] font-bold uppercase tracking-wider border border-purple-100">Teacher</span>;
+        return <span data-testid="role-badge" className="px-2 py-1 rounded-full bg-purple-50 text-purple-700 text-[11px] font-bold uppercase tracking-wider border border-purple-100">Teacher</span>;
       case 'Invigilator':
-        return <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold uppercase tracking-wider border border-amber-100">Invigilator</span>;
+        return <span data-testid="role-badge" className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold uppercase tracking-wider border border-amber-100">Invigilator</span>;
       default:
-        return <span className="px-2 py-1 rounded-full bg-slate-50 text-slate-700 text-[11px] font-bold uppercase tracking-wider border border-slate-100">Admin</span>;
+        return <span data-testid="role-badge" className="px-2 py-1 rounded-full bg-slate-50 text-slate-700 text-[11px] font-bold uppercase tracking-wider border border-slate-100">Admin</span>;
     }
   };
 
@@ -388,6 +404,10 @@ export default function UsersPage() {
                           })}
                         </td>
                         <td className="p-4 relative">
+                          {!canManageAccount(currentUser?.role, user.role) && user.userId !== currentUser?.userId ? (
+                            <span data-testid="superadmin-only" title="Only a SuperAdmin can manage administrator accounts"
+                                  className="material-symbols-outlined text-[18px] text-slate-300">lock</span>
+                          ) : (
                           <button
                             onClick={() => setActiveMenuId(activeMenuId === user.userId ? null : user.userId)}
                             className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
@@ -396,6 +416,7 @@ export default function UsersPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                             </svg>
                           </button>
+                          )}
 
                           {activeMenuId === user.userId && (
                             <div
@@ -551,11 +572,15 @@ export default function UsersPage() {
                   value={formRole}
                   onChange={(e) => setFormRole(e.target.value as UserRole)}
                 >
-                  <option value="Student">Student</option>
-                  <option value="Teacher">Teacher</option>
-                  <option value="Invigilator">Invigilator</option>
-                  <option value="Admin">Administrator</option>
+                  {roleOptions.map((r) => (
+                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                  ))}
+                  {/* Own account: the current role is shown even when it isn't assignable (it can't be changed). */}
+                  {!roleOptions.includes(formRole) && <option value={formRole}>{ROLE_LABELS[formRole]}</option>}
                 </select>
+                {currentUser?.role !== 'SuperAdmin' && (
+                  <p className="text-xs text-slate-400 mt-1.5">Administrator accounts are created and managed by a Super Administrator.</p>
+                )}
               </div>
             </div>
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">

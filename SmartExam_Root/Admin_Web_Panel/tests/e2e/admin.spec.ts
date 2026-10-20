@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, ADMIN } from './helpers';
-import { API_URL } from '../support/env';
+import { SEED, uniqueTag } from '../support/env';
 import { StaffApi } from '../support/staffApi';
 import { StudentClient } from '../support/studentClient';
 
@@ -90,18 +90,85 @@ test('M7-E-03 Audit log shows login', async ({ page }) => {
   await expect(loginRows.first()).toBeVisible({ timeout: 8_000 });
 });
 
-test.fixme('M7-E-04 Invigilator UI route', async ({ page, request }) => {
-  // Invigilator role has no web UI yet (App.tsx only routes Admin/Teacher/Student).
-  const tag = Date.now();
-  const adminLogin = await (await request.post(`${API_URL}/api/auth/login`, { data: ADMIN })).json();
-  await request.post(`${API_URL}/api/users`, {
-    headers: { Authorization: `Bearer ${adminLogin.token}` },
-    data: { name: `Invigilator ${tag}`, email: `inv_${tag}@test.com`, password: 'Invig@123', role: 'Invigilator' },
-  });
-  await page.context().clearCookies();
+test('M7-E-04 Invigilator UI route', async ({ page, request }) => {
+  const invigilator = await (await StaffApi.admin(request)).createInvigilator();
   await page.evaluate(() => localStorage.clear());
-  await loginAs(page, `inv_${tag}@test.com`, 'Invig@123');
+  await loginAs(page, invigilator.email, invigilator.password);
   await expect(page).toHaveURL(/\/invigilator\/live-monitor/);
+
+  // Proctor view: no exam assigned yet, no teacher navigation or exam-wide controls.
+  await expect(page.getByTestId('proctor-mode-badge')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No Exam Currently Active' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /create scheduled exam/i })).toHaveCount(0);
+  await expect(page.getByTestId('live-monitor-nav').getByTitle('Eligibility')).toHaveCount(0);
+
+  // Teacher / admin pages bounce back to the invigilator's own page, also after a reload.
+  await page.goto('/teacher/dashboard');
+  await expect(page).toHaveURL(/\/invigilator\/live-monitor/);
+  await page.goto('/admin/users');
+  await expect(page).toHaveURL(/\/invigilator\/live-monitor/);
+  await page.reload();
+  await expect(page.getByTestId('proctor-mode-badge')).toBeVisible();
+});
+
+test('M7-E-05 Departments & courses page', async ({ page }) => {
+  const tag = uniqueTag('ac').toUpperCase();
+  await page.getByRole('link', { name: /departments & courses/i }).click();
+  await expect(page).toHaveURL(/\/admin\/academics/);
+  const departments = page.getByTestId('departments-panel');
+  await expect(departments.getByTestId('department-row').filter({ hasText: 'Computer Science' })).toBeVisible();
+
+  // Add a department, then a course in it (code is normalised to upper-case).
+  await page.getByLabel('Department name').fill(`Robotics ${tag}`);
+  await page.getByRole('button', { name: 'Add Department' }).click();
+  const deptRow = departments.getByTestId('department-row').filter({ hasText: `Robotics ${tag}` });
+  await expect(deptRow).toBeVisible();
+  await expect(deptRow.getByTestId('department-course-count')).toHaveText('0');
+
+  await page.locator('#course-dept').selectOption({ label: `Robotics ${tag}` });
+  await page.getByLabel('Course code').fill(`rb-${tag}`);
+  await page.getByLabel('Course name').fill('Kinematics');
+  await page.getByRole('button', { name: 'Add Course' }).click();
+  const courseRow = page.getByTestId('course-row').filter({ hasText: `RB-${tag}` });
+  await expect(courseRow).toContainText('Kinematics');
+  await expect(deptRow.getByTestId('department-course-count')).toHaveText('1');
+
+  // The server refuses to delete a department that still has courses; its message is shown.
+  page.once('dialog', d => d.accept());
+  await deptRow.getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByRole('alert')).toContainText(/still has 1 course/i);
+
+  // Rename the course, delete it, then the (now empty) department.
+  await courseRow.getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('textbox', { name: 'Course name' }).last().fill('Robot Kinematics');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByTestId('course-row').filter({ hasText: `RB-${tag}` })).toContainText('Robot Kinematics');
+  page.once('dialog', d => d.accept());
+  await page.getByTestId('course-row').filter({ hasText: `RB-${tag}` }).getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByTestId('course-row').filter({ hasText: `RB-${tag}` })).toHaveCount(0);
+  page.once('dialog', d => d.accept());
+  await deptRow.getByRole('button', { name: 'Delete' }).click();
+  await expect(departments.getByTestId('department-row').filter({ hasText: `Robotics ${tag}` })).toHaveCount(0);
+});
+
+test('M7-E-06 Only a SuperAdmin is offered administrator roles', async ({ page }) => {
+  await page.goto('/admin/users');
+  await page.getByRole('button', { name: /add user/i }).click();
+  const roleSelect = page.getByLabel(/role/i);
+  await expect(roleSelect.locator('option')).toHaveText(['Student', 'Teacher', 'Invigilator']);
+  // Administrator rows are locked for an ordinary admin.
+  await page.keyboard.press('Escape');
+  await page.goto('/admin/users');
+  const superRow = page.locator('table tbody tr').filter({ hasText: SEED.superAdmin.email });
+  await expect(superRow.getByTestId('superadmin-only')).toBeVisible();
+
+  await page.evaluate(() => localStorage.clear());
+  await loginAs(page, SEED.superAdmin.email, SEED.superAdmin.password);
+  await expect(page.getByTestId('superadmin-badge')).toBeVisible();
+  await page.goto('/admin/users');
+  await page.getByRole('button', { name: /add user/i }).click();
+  await expect(page.getByLabel(/role/i).locator('option'))
+    .toHaveText(['Student', 'Teacher', 'Invigilator', 'Administrator', 'Super Administrator']);
 });
 
 test('Tab filter shows only students when Students tab clicked', async ({ page }) => {

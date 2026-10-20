@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { AttendanceImportResult, Exam, ExamAssignment, ReadinessResult, RecalculateResult } from '../types';
+import type { AttendanceImportResult, Exam, ExamAssignment, ExamProctor, ReadinessResult, RecalculateResult } from '../types';
 
 export const examsApi = {
   getAll: () =>
@@ -69,5 +69,15 @@ export const examsApi = {
   // Module 10 — proctor time extension
   extendTime: (examId: string, additionalMinutes: number) =>
     apiClient.post(`/exams/${examId}/extend-time`, { additionalMinutes }).then(r => r.data),
+
+  // Module 7 — who supervises the exam besides its teacher (section teacher / admin manage this)
+  getProctors: (examId: string) =>
+    apiClient.get<ExamProctor[]>(`/exams/${examId}/proctors`).then(r => r.data),
+
+  assignProctor: (examId: string, userId: string) =>
+    apiClient.post<ExamProctor>(`/exams/${examId}/proctors`, { userId }).then(r => r.data),
+
+  unassignProctor: (examId: string, userId: string) =>
+    apiClient.delete(`/exams/${examId}/proctors/${userId}`),
 };
 

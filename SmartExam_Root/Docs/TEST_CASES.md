@@ -15,7 +15,7 @@ Companion to [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md). Paste-ready for
 
 **Status:** ✅ automated & passing · ⏳ automated as pending (feature not built; `test.fixme` / `Skip`) · 📋 specified only
 
-Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@smartexam.com / Teacher@123`, `ali@smartexam.com / Student@123`, `sara@smartexam.com / Student@123`.
+Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@smartexam.com / Teacher@123`, `ali@smartexam.com / Student@123`, `sara@smartexam.com / Student@123`, `root@smartexam.com / Super@123` (SuperAdmin), `invigilator@smartexam.com / Invig@123` (proctors the open demo exam).
 
 ---
 
@@ -251,12 +251,28 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M7-E-01 | Users page lists users | Admin → Users | Table with seeded users | ✅ |
 | M7-E-02 | Create user via UI | Fill dialog | Row appears | ✅ |
 | M7-E-03 | Audit log shows login | Admin → Audit Logs | `LOGIN_SUCCESS` row | ✅ |
-| M7-E-04 | Invigilator UI route | Login as invigilator | Lands on `/invigilator/live-monitor` | ⏳ |
+| M7-E-04 | Invigilator UI route | Login as invigilator | Lands on `/invigilator/live-monitor`; proctor badge, no teacher nav / create-exam; teacher & admin URLs bounce back | ✅ |
+| M7-E-05 | Departments & courses page | Admin → Departments & Courses: add dept + course, delete non-empty dept, rename + delete course, delete dept | Rows/counts update; 409 message shown | ✅ |
+| M7-E-06 | Admin roles only for SuperAdmin | Add-user role list as Admin vs SuperAdmin | Admin: Student/Teacher/Invigilator, admin rows locked; SuperAdmin: + Administrator, Super Administrator | ✅ |
+| M7-E-07 | Teacher assigns an invigilator | Eligibility page → Invigilators → Assign / Remove | Chip appears; invigilator's exam list = that exam; removal empties it | ✅ |
+| M7-E-08 | Unassigned teacher gets no live data | Other section's teacher opens Live Monitor on a running exam; then is assigned as co-proctor | "not assigned to supervise" banner, no tiles; after assignment tiles appear | ✅ |
+| M7-A-05 | Only a SuperAdmin creates admins | Admin POST role Admin; SuperAdmin POST; Admin deactivates new admin | 403 `SUPERADMIN_REQUIRED`; 201; 403 (SuperAdmin 200) | ✅ |
+| M7-A-06 | Departments & courses CRUD (HTTP) | Create/dup/list/update/delete | 201/409/filtered list/200/204; non-empty dept 409; teacher write 403 | ✅ |
+| M7-A-07 | Proctor assignment scopes invigilator | Assign to exam A (repeat), invigilator lists/opens, unassign | 201 then 200; list = [A]; other exam 404; no answer key; after unassign [] | ✅ |
 | M7-I-01 | CSV import | POST import 3 rows | 3 created, bad rows reported | ✅ |
-| M7-I-02 | Departments CRUD | POST/GET/PUT/DELETE departments | Works | ⏳ |
-| M7-I-03 | Courses CRUD | Same for courses | Works | ⏳ |
-| M7-I-04 | SuperAdmin manages admins | SuperAdmin creates Admin | 201; Admin cannot create SuperAdmin | ⏳ |
-| M7-I-05 | Invigilator sees only assigned exams | Invigilator GET exams | Only ExamProctors rows | ⏳ |
+| M7-I-02 | Departments CRUD | POST/GET/PUT/DELETE departments | Works | ✅ |
+| M7-I-03 | Courses CRUD | Same for courses | Works | ✅ |
+| M7-I-04 | SuperAdmin manages admins | SuperAdmin creates Admin | 201; Admin cannot create SuperAdmin | ✅ |
+| M7-I-05 | Invigilator sees only assigned exams | Invigilator GET exams | Only ExamProctors rows | ✅ |
+| M7-I-06 | Proctor assignment contract | POST twice, GET, bad targets, other teacher/student/invigilator, admin DELETE | 201 → 200; `INVALID_PROCTOR_ROLE` / `ALREADY_OWNER` 400; 404s; 403s; 204 then 404; one `PROCTOR_ASSIGNED` + one `PROCTOR_UNASSIGNED` | ✅ |
+| M7-I-07 | Invigilator scoping end-to-end | Before/after assignment and after unassignment | List/detail/readiness 404/403 → 200 (no reference answer, MCQ key or hidden test case) → revoked incl. hub join | ✅ |
+| M7-I-08 | Hub group = owner, admin, assigned | Other-section teacher, admin, unknown exam, co-proctor teacher | HubException; joined; HubException; joined after assignment | ✅ |
+| M7-I-09 | Invigilator warns / force-submits only supervised exams | Hub `SendWarning`, `ForceSubmitSession` before/after assignment | HubException + session untouched; then warning stored + `ForceSubmitted` | ✅ |
+| M7-I-10 | Privileged accounts need a SuperAdmin | Admin creates/edits/demotes/deactivates/signs out/deletes an Admin or SuperAdmin, promotes teacher; CSV row role Admin | 403 ×7 (`PRIVILEGED_ACCOUNT_DENIED` audited), import row skipped; own profile 200, own role 400; SuperAdmin 200 | ✅ |
+| M7-I-11 | Department validation | Blank, 129 chars, case-insensitive dup, rename to dup, unknown id, roles | 400/400/409/409/404; invigilator GET 200, student 403, teacher DELETE 403; audit `DEPARTMENT_CREATED` | ✅ |
+| M7-I-12 | Course validation | Code normalised, dup code (create/rename), unknown dept, blanks, same code other dept, delete with sections | `CS505`; 409; `UNKNOWN_DEPARTMENT`; 400; 201; `COURSE_HAS_SECTIONS` 409 | ✅ |
+| M7-U-01 | SuperAdmin bootstrap | `SuperAdminBootstrap.EnsureAsync` with no config / short password / new email / existing admin / existing SuperAdmin | NotConfigured / InvalidPassword / Created (audited) / Promoted (password kept, reactivated) / AlreadyPresent | ✅ |
+| M7-U-02 | Demo seed roles + course FK | `DbSeeder.SeedAsync` | One SuperAdmin; invigilator proctors the open demo exam; course `DeptId` = its department | ✅ |
 
 ## M8 — Exam Creation & Configuration
 
@@ -323,7 +339,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M10-I-05 | Extend single student | ExtendStudentTime | Only that session's end moves | ⏳ |
 | M10-I-06 | Hub group isolation | Student joins exam group | HubException | ✅ (existing) |
 | M10-I-07 | Teacher can't force-submit other teacher's exam | Hub call | HubException | ✅ (existing) |
-| M10-I-08 | Proctor assignment | Add ExamProctor | Invigilator can join group | ⏳ |
+| M10-I-08 | Proctor assignment | Add ExamProctor | Invigilator can join group | ✅ (Stage S3, built with M7) |
 | M10-E-01 | Live monitor loads | Teacher → Live Monitor | Page renders, no error | ✅ |
 | M10-E-02 | Student tile appears on heartbeat | Simulator starts (both `start-session` and the desktop `student/start` path) + heartbeats | Tile with student name | ✅ (desktop-path bug found & fixed) |
 | M10-E-03 | Status progression | KeyBlocked → UnauthorizedProcess → ProcessKilled | Stable → Warning → Suspicious → Critical | ✅ |
@@ -333,7 +349,8 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M10-E-07 | Mark incident | Drawer → Mark incident | Incident badge on tile | ⏳ |
 | M10-E-08 | Screenshot carousel | Drawer | Simulator's screenshots | ⏳ |
 | M10-E-09 | Unlock button | Drawer → Unlock 5 min | Toast + audit row | ⏳ |
-| M10-E-10 | Invigilator restricted view | Invigilator → other exam | Not listed | ⏳ |
+| M10-E-10 | Invigilator restricted view | Invigilator → other exam | Not listed | ✅ (also: tiles appear, no extend/end buttons, `?examId=` of another exam ignored) |
+| M10-E-11 | Exam picker | Teacher with two running exams switches exam | Header + `?examId=` follow the picker; board shows only the selected exam's students | ✅ |
 
 ## M11 — AI-Assisted Evaluation
 

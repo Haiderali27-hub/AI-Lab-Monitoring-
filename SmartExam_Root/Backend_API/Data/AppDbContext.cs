@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<ReadinessCheck> ReadinessChecks => Set<ReadinessCheck>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<ExamProctor> ExamProctors => Set<ExamProctor>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -203,5 +204,26 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<RefreshToken>().HasIndex(t => new { t.UserId, t.RevokedAt });
         modelBuilder.Entity<RefreshToken>()
             .HasOne(t => t.User).WithMany(u => u.RefreshTokens).HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        // Module 7: academic structure. Names/codes are unique (the API also checks, case-insensitively,
+        // because the InMemory provider used by the tests does not enforce unique indexes).
+        modelBuilder.Entity<Department>().HasIndex(d => d.Name).IsUnique();
+        modelBuilder.Entity<Course>().HasIndex(c => new { c.DeptId, c.Code }).IsUnique();
+        // Course → Department: the scalar FK is DeptId. Without this, EF convention bound the navigation to a
+        // shadow column (DepartmentDeptId) and left DeptId disconnected (it stayed all-zero for seeded rows) —
+        // the same class of bug as Answer.SessionId. Restrict: a department with courses is never deleted.
+        modelBuilder.Entity<Course>()
+            .HasOne(c => c.Department)
+            .WithMany(d => d.Courses)
+            .HasForeignKey(c => c.DeptId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Module 7/10: proctor assignments — who may supervise which exam (invigilator scoping).
+        modelBuilder.Entity<ExamProctor>().HasKey(p => new { p.ExamId, p.UserId });
+        modelBuilder.Entity<ExamProctor>().HasIndex(p => p.UserId);
+        modelBuilder.Entity<ExamProctor>()
+            .HasOne(p => p.Exam).WithMany().HasForeignKey(p => p.ExamId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ExamProctor>()
+            .HasOne(p => p.User).WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }

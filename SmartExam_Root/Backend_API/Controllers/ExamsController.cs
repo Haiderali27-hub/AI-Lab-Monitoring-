@@ -21,21 +21,23 @@ public class ExamsController : ControllerBase
     private readonly IHubContext<MonitoringHub> _hub;
     private readonly SubmissionService _submissions;
     private readonly SeatGuard _seats;
+    private readonly ExamAccessService _access;
 
     public ExamsController(AppDbContext db, AuditService audit, IHubContext<MonitoringHub> hub, SubmissionService submissions,
-        SeatGuard seats)
+        SeatGuard seats, ExamAccessService access)
     {
         _db = db;
         _audit = audit;
         _hub = hub;
         _submissions = submissions;
         _seats = seats;
+        _access = access;
     }
 
     private Guid CurrentUserId =>
         Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
 
-    // GET /api/exams  — Teacher sees their exams; Student sees assigned exams
+    // GET /api/exams  — Student sees assigned exams; Invigilator only the exams they proctor; Teacher / Admin all
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -63,8 +65,16 @@ public class ExamsController : ControllerBase
             return Ok(exams);
         }
 
-        // Teacher / Admin — see all exams
-        var allExams = await _db.Exams
+        // Teacher / Admin — see all exams. Invigilator (Module 7) — only exams with an ExamProctors row
+        // for them, so the live-monitor picker never offers an exam they are not supervising.
+        IQueryable<Exam> visible = _db.Exams;
+        if (role == "Invigilator")
+        {
+            var proctored = _access.ProctoredExamIds(userId);
+            visible = visible.Where(e => proctored.Contains(e.ExamId));
+        }
+
+        var allExams = await visible
             .Include(e => e.Section).ThenInclude(s => s.Course)
             .Include(e => e.Questions)
             .Select(e => new
@@ -100,6 +110,13 @@ public class ExamsController : ControllerBase
         var isStudent = role == "Student";
         if (isStudent && exam.Assignments.All(a => a.UserId != CurrentUserId))
             return NotFound();
+
+        // Invigilators (Module 7): only exams they are assigned to proctor — 404, so exam ids can't be probed.
+        // They supervise but never grade, so they get the student view of the questions (no answer key).
+        var isInvigilator = role == "Invigilator";
+        if (isInvigilator && await _access.GetAsync(User, id) == ExamAccess.None)
+            return NotFound();
+        var hideAnswerKey = isStudent || isInvigilator;
 
         // Explicit projection — the raw EF graph included every assigned student's PasswordHash/Salt.
         return Ok(new
@@ -141,10 +158,10 @@ public class ExamsController : ControllerBase
                 q.Marks,
                 q.OrderIndex,
                 q.OptionsJson,
-                ExpectedOutput = isStudent ? null : q.ExpectedOutput,
-                CorrectOptionIndex = isStudent ? null : q.CorrectOptionIndex,
-                ReferenceAnswer = isStudent ? null : q.ReferenceAnswer,
-                TestCases = q.TestCases.Where(tc => !isStudent || !tc.IsHidden)
+                ExpectedOutput = hideAnswerKey ? null : q.ExpectedOutput,
+                CorrectOptionIndex = hideAnswerKey ? null : q.CorrectOptionIndex,
+                ReferenceAnswer = hideAnswerKey ? null : q.ReferenceAnswer,
+                TestCases = q.TestCases.Where(tc => !hideAnswerKey || !tc.IsHidden)
                     .Select(tc => new { tc.TestCaseId, tc.QuestionId, tc.Input, tc.ExpectedOutput, tc.IsHidden })
             }),
             Assignments = isStudent
@@ -286,6 +303,8 @@ public class ExamsController : ControllerBase
         if (exam.Status != ExamStatus.Scheduled)
             return Conflict(new { message = "Only scheduled exams can be deleted. This exam is already " + exam.Status + "." });
 
+        // Proctor rows cascade in Postgres; removed explicitly so the InMemory provider leaves no orphans.
+        _db.ExamProctors.RemoveRange(_db.ExamProctors.Where(p => p.ExamId == id));
         _db.Exams.Remove(exam);
         await _db.SaveChangesAsync();
         return Ok(new { message = "Exam deleted successfully." });
@@ -454,6 +473,98 @@ public class ExamsController : ControllerBase
         if (!CanManage(exam.Section))
             return (null, StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only manage exams of your own sections." }));
         return (exam, null);
+    }
+
+    // ── Module 7 / 10: proctor assignment (ExamProctors) ─────────────────────
+    // The section's teacher (or an admin) assigns invigilators — or other teachers — to supervise an
+    // exam. Only an assignment lets an invigilator list the exam, open it, read its readiness results
+    // and join its live-monitor hub group (see ExamAccessService).
+
+    private static object ProctorView(ExamProctor p, User u) => new
+    {
+        p.ExamId,
+        u.UserId,
+        u.Name,
+        u.Email,
+        Role = u.Role.ToString(),
+        u.IsActive,
+        p.AssignedAt,
+        p.AssignedBy
+    };
+
+    // GET /api/exams/{examId}/proctors
+    [HttpGet("{examId:guid}/proctors")]
+    [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
+    public async Task<IActionResult> GetProctors(Guid examId)
+    {
+        var (_, denied) = await LoadManagedExamAsync(examId);
+        if (denied is not null) return denied;
+
+        var rows = await _db.ExamProctors
+            .Where(p => p.ExamId == examId)
+            .Include(p => p.User)
+            .OrderBy(p => p.User.Name)
+            .ToListAsync();
+        return Ok(rows.Select(p => ProctorView(p, p.User)));
+    }
+
+    // POST /api/exams/{examId}/proctors  {userId} — 201 for a new assignment, 200 when it already exists (idempotent)
+    [HttpPost("{examId:guid}/proctors")]
+    [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
+    public async Task<IActionResult> AssignProctor(Guid examId, [FromBody] AssignProctorRequest req)
+    {
+        var (exam, denied) = await LoadManagedExamAsync(examId);
+        if (denied is not null) return denied;
+
+        var target = await _db.Users.FindAsync(req.UserId);
+        if (target is null) return NotFound(new { message = "User not found." });
+        if (target.Role is not (UserRole.Invigilator or UserRole.Teacher))
+            return BadRequest(new { code = "INVALID_PROCTOR_ROLE", message = "Only invigilators and teachers can be assigned to supervise an exam." });
+        if (!target.IsActive)
+            return BadRequest(new { code = "USER_INACTIVE", message = "This account is deactivated." });
+        if (target.UserId == exam!.Section.TeacherId)
+            return BadRequest(new { code = "ALREADY_OWNER", message = "This teacher already supervises the exam as the section's teacher." });
+
+        var existing = await _db.ExamProctors.FindAsync(examId, target.UserId);
+        if (existing is not null) return Ok(ProctorView(existing, target));
+
+        var row = new ExamProctor { ExamId = examId, UserId = target.UserId, AssignedBy = CurrentUserId, AssignedAt = DateTime.UtcNow };
+        _db.ExamProctors.Add(row);
+        _audit.Add(CurrentUserId, "PROCTOR_ASSIGNED", "Exam", examId.ToString(),
+            new { proctorId = target.UserId, target.Email, role = target.Role.ToString() });
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // Two concurrent assigns of the same person: the composite key let only one insert through.
+            _db.ChangeTracker.Clear();
+            var winner = await _db.ExamProctors.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.ExamId == examId && p.UserId == target.UserId);
+            if (winner is null) throw;
+            return Ok(ProctorView(winner, target));
+        }
+
+        return CreatedAtAction(nameof(GetProctors), new { examId }, ProctorView(row, target));
+    }
+
+    // DELETE /api/exams/{examId}/proctors/{userId}
+    [HttpDelete("{examId:guid}/proctors/{userId:guid}")]
+    [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
+    public async Task<IActionResult> UnassignProctor(Guid examId, Guid userId)
+    {
+        var (_, denied) = await LoadManagedExamAsync(examId);
+        if (denied is not null) return denied;
+
+        var row = await _db.ExamProctors.Include(p => p.User)
+            .FirstOrDefaultAsync(p => p.ExamId == examId && p.UserId == userId);
+        if (row is null) return NotFound(new { message = "This user is not assigned to the exam." });
+
+        _db.ExamProctors.Remove(row);
+        _audit.Add(CurrentUserId, "PROCTOR_UNASSIGNED", "Exam", examId.ToString(), new { proctorId = userId, row.User.Email });
+        await _db.SaveChangesAsync();
+        return NoContent();
     }
 
     // GET /api/exams/{examId}/assignments  — Get exam assignments for eligibility/workstation tracking
@@ -1315,6 +1426,9 @@ public class ExamsController : ControllerBase
     public async Task<IActionResult> GetReadiness(Guid id)
     {
         if (!await _db.Exams.AnyAsync(e => e.ExamId == id)) return NotFound(new { message = "Exam not found." });
+        // Section teacher, assigned proctor or admin only (Module 7 scoping).
+        if (await _access.GetAsync(User, id) == ExamAccess.None)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "You are not assigned to supervise this exam." });
 
         var checks = await _db.ReadinessChecks
             .Where(r => r.ExamId == id)
@@ -1448,6 +1562,7 @@ public record SaveAnswerRequest(Guid QuestionId, string AnswerText);
 public record MonitoringEventRequest(MonitoringEventType EventType, string Payload);
 public record AddAssignmentRequest(Guid UserId);
 public record AssignWorkstationRequest(Guid? WorkstationId);
+public record AssignProctorRequest(Guid UserId);
 public record ExtendTimeRequest(int AdditionalMinutes);
 
 public class ReadinessSubmitRequest

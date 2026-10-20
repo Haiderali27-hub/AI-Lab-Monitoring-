@@ -44,4 +44,72 @@ test.describe('M7 — User & Role Management', () => {
     // ...and cannot simply log in again
     expect((await student.login()).status()).toBe(401);
   });
+
+  test('M7-A-05 Only a SuperAdmin creates administrators', async ({ request }) => {
+    const admin = await StaffApi.admin(request);
+    const tag = uniqueTag('a');
+    const denied = await admin.createUserRaw({ name: `Admin ${tag}`, email: `${tag}@e2e.smartexam.test`, password: 'Passw0rd!', role: 'Admin' });
+    expect(denied.status()).toBe(403);
+    expect((await denied.json()).code).toBe('SUPERADMIN_REQUIRED');
+
+    const superAdmin = await StaffApi.superAdmin(request);
+    const created = await superAdmin.createUserRaw({ name: `Admin ${tag}`, email: `${tag}@e2e.smartexam.test`, password: 'Passw0rd!', role: 'Admin' });
+    expect(created.status()).toBe(201);
+    // ...and that new Admin is now out of reach for the ordinary admin.
+    const { userId } = await created.json();
+    expect((await admin.deactivate(userId)).status()).toBe(403);
+    expect((await superAdmin.deactivate(userId)).status()).toBe(200);
+  });
+
+  test('M7-A-06 Departments and courses CRUD', async ({ request }) => {
+    const admin = await StaffApi.admin(request);
+    const tag = uniqueTag('d');
+    const dept = await admin.createDepartment(`Dept ${tag}`);
+    expect(dept.status()).toBe(201);
+    const { deptId } = await dept.json();
+    expect((await admin.createDepartment(`DEPT ${tag}`)).status()).toBe(409); // names are case-insensitive unique
+
+    const course = await admin.createCourse(deptId, 'Operating Systems', `os-${tag}`);
+    expect(course.status()).toBe(201);
+    const { courseId, code } = await course.json();
+    expect(code).toBe(`OS-${tag}`.toUpperCase());
+    expect((await admin.createCourse(deptId, 'Duplicate', `OS-${tag}`)).status()).toBe(409);
+
+    const listed: any[] = await (await admin.get(`/api/courses?deptId=${deptId}`)).json();
+    expect(listed.map(c => c.courseId)).toEqual([courseId]);
+    expect((await admin.delete(`/api/departments/${deptId}`)).status()).toBe(409); // still has a course
+
+    // Teachers read, never write.
+    const teacher = await StaffApi.teacher(request);
+    expect((await teacher.get('/api/departments')).status()).toBe(200);
+    expect((await teacher.createCourse(deptId, 'Nope', `NO-${tag}`)).status()).toBe(403);
+
+    expect((await admin.put(`/api/courses/${courseId}`, { deptId, name: 'Operating Systems II', code: `OS2-${tag}` })).status()).toBe(200);
+    expect((await admin.delete(`/api/courses/${courseId}`)).status()).toBe(204);
+    expect((await admin.delete(`/api/departments/${deptId}`)).status()).toBe(204);
+    expect((await admin.get(`/api/departments/${deptId}`)).status()).toBe(404);
+  });
+
+  test('M7-A-07 Proctor assignment scopes what an invigilator can see', async ({ request }) => {
+    const admin = await StaffApi.admin(request);
+    const teacher = await StaffApi.teacher(request);
+    const invigilatorUser = await admin.createInvigilator();
+    const assigned = await teacher.createExam({ title: `Proctored ${uniqueTag('x')}` });
+    const other = await teacher.createExam({ title: `Unassigned ${uniqueTag('x')}` });
+
+    expect((await teacher.assignProctor(assigned.examId, invigilatorUser.userId)).status()).toBe(201);
+    expect((await teacher.assignProctor(assigned.examId, invigilatorUser.userId)).status()).toBe(200); // idempotent
+    expect((await teacher.proctors(assigned.examId)).map(p => p.userId)).toEqual([invigilatorUser.userId]);
+
+    const invigilator = await StaffApi.login(request, invigilatorUser.email, invigilatorUser.password);
+    expect((await invigilator.exams()).map(e => e.examId)).toEqual([assigned.examId]);
+    expect((await invigilator.get(`/api/exams/${other.examId}`)).status()).toBe(404);
+    const detail = await invigilator.examDetail(assigned.examId);
+    expect(JSON.stringify(detail)).not.toContain('secret reference solution'); // no answer key for proctors
+    expect((await invigilator.assignProctor(assigned.examId, invigilatorUser.userId)).status()).toBe(403);
+
+    expect((await teacher.unassignProctor(assigned.examId, invigilatorUser.userId)).status()).toBe(204);
+    expect(await invigilator.exams()).toEqual([]);
+    expect((await admin.auditLogs('PROCTOR_ASSIGNED')).some(l => l.entityId === assigned.examId)).toBe(true);
+  });
 });

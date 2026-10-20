@@ -194,9 +194,6 @@ namespace Backend_API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("DepartmentDeptId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid>("DeptId")
                         .HasColumnType("uuid");
 
@@ -206,7 +203,8 @@ namespace Backend_API.Migrations
 
                     b.HasKey("CourseId");
 
-                    b.HasIndex("DepartmentDeptId");
+                    b.HasIndex("DeptId", "Code")
+                        .IsUnique();
 
                     b.ToTable("Courses");
                 });
@@ -222,6 +220,9 @@ namespace Backend_API.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("DeptId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
 
                     b.ToTable("Departments");
                 });
@@ -380,6 +381,27 @@ namespace Backend_API.Migrations
                     b.HasIndex("WorkstationId");
 
                     b.ToTable("ExamAssignments");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.ExamProctor", b =>
+                {
+                    b.Property<Guid>("ExamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("AssignedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ExamId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ExamProctors");
                 });
 
             modelBuilder.Entity("Backend_API.Models.ExamSession", b =>
@@ -984,8 +1006,8 @@ namespace Backend_API.Migrations
                 {
                     b.HasOne("Backend_API.Models.Department", "Department")
                         .WithMany("Courses")
-                        .HasForeignKey("DepartmentDeptId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("DeptId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Department");
@@ -1036,6 +1058,25 @@ namespace Backend_API.Migrations
                     b.Navigation("Student");
 
                     b.Navigation("Workstation");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.ExamProctor", b =>
+                {
+                    b.HasOne("Backend_API.Models.Exam", "Exam")
+                        .WithMany()
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend_API.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Exam");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Backend_API.Models.ExamSession", b =>

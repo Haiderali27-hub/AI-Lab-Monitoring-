@@ -64,7 +64,29 @@ public static class DbSeeder
         };
         student2.PasswordHash = PasswordHelper.HashPassword("Student@123", student2.Salt);
 
-        await db.Users.AddRangeAsync(admin, teacher, student1, student2);
+        // Module 7: the only role that may create / manage Admin accounts, and a proctor-only account
+        // (assigned to the open demo exam below) for the invigilator view.
+        var superAdmin = new User
+        {
+            UserId = Guid.NewGuid(),
+            Name = "Super Admin",
+            Email = "root@smartexam.com",
+            Role = UserRole.SuperAdmin,
+            Salt = PasswordHelper.GenerateSalt()
+        };
+        superAdmin.PasswordHash = PasswordHelper.HashPassword("Super@123", superAdmin.Salt);
+
+        var invigilator = new User
+        {
+            UserId = Guid.NewGuid(),
+            Name = "Mr. Bilal (Invigilator)",
+            Email = "invigilator@smartexam.com",
+            Role = UserRole.Invigilator,
+            Salt = PasswordHelper.GenerateSalt()
+        };
+        invigilator.PasswordHash = PasswordHelper.HashPassword("Invig@123", invigilator.Salt);
+
+        await db.Users.AddRangeAsync(admin, superAdmin, teacher, invigilator, student1, student2);
 
         // NOTE: no pre-made device binding — students bind their REAL machine
         // on first login through the desktop client (Module 1).
@@ -156,6 +178,9 @@ public static class DbSeeder
             new ExamAssignment { Exam = exam, Student = student1, IsEligible = true },
             new ExamAssignment { Exam = exam, Student = student2, IsEligible = true }
         );
+
+        // The demo invigilator supervises this exam only (Module 7 scoping).
+        await db.ExamProctors.AddAsync(new ExamProctor { Exam = exam, User = invigilator, AssignedBy = teacher.UserId });
 
         // --- Practice exam (Module 2): open for a week, unlimited attempts, never graded into stats ---
         var practice = new Exam

@@ -71,6 +71,34 @@ export interface Exam {
   enforceSeat?: boolean;            // Module 9: only the assigned workstation may start/continue
 }
 
+/** Module 7 — a staff member assigned to supervise an exam (GET /exams/{id}/proctors). */
+export interface ExamProctor {
+  examId: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+  assignedAt: string;
+  assignedBy: string;
+}
+
+// ── Academic structure (Module 7) ─────────────────────────────
+export interface Department {
+  deptId: string;
+  name: string;
+  courseCount: number;
+}
+
+export interface Course {
+  courseId: string;
+  deptId: string;
+  departmentName: string;
+  name: string;
+  code: string;
+  sectionCount: number;
+}
+
 /** Module 2 — latest pre-exam system check of one student (GET /exams/{id}/readiness). */
 export interface ReadinessResult {
   userId: string;

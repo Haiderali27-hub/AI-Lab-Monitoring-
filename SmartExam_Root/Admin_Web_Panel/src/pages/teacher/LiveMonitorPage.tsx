@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as signalR from '@microsoft/signalr';
 import { useAuth } from '../../context/AuthContext';
 import { examsApi } from '../../api/exams.api';
@@ -7,6 +7,7 @@ import { getFreshAccessToken } from '../../api/client';
 import { SIGNALR_HUB_URL } from '../../utils/constants';
 import type { Exam, StudentLiveStatus, TileStatus } from '../../types';
 import { severityOf, violationLabel, worseStatus } from '../../utils/violations';
+import { homePathFor } from '../../utils/roles';
 
 interface TimelineEvent {
   title: string;
@@ -15,9 +16,20 @@ interface TimelineEvent {
   isAlert?: boolean;
 }
 
+/**
+ * Live proctoring dashboard. Shared by teachers (/teacher/live-monitor) and invigilators
+ * (/invigilator/live-monitor, Module 7). The exam list comes from GET /api/exams, which the server
+ * scopes: an invigilator only ever receives the exams they are assigned to proctor, and the hub
+ * refuses to add them to any other exam's group. Invigilators supervise (watch, warn, force-submit
+ * one student) but cannot extend or end the exam, edit exams or open teacher pages.
+ */
 export default function LiveMonitorPage() {
   const navigate = useNavigate();
   const { token, logout, user } = useAuth();
+  const isInvigilator = user?.role === 'Invigilator';
+  const homePath = user ? homePathFor(user.role) : '/login';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [runningExams, setRunningExams] = useState<Exam[]>([]);
   const [activeExam, setActiveExam] = useState<Exam | null>(null);
   const [loading, setLoading] = useState(true);
   const [studentStatuses, setStudentStatuses] = useState<Map<string, StudentLiveStatus>>(new Map());
@@ -28,18 +40,40 @@ export default function LiveMonitorPage() {
 
   const connectionRef = useRef<signalR.HubConnection | null>(null);
 
-  // 1. Fetch active exam
+  // 1. Fetch running exams (server-scoped per role) and pick ?examId= or the first one
   useEffect(() => {
     examsApi.getAll()
       .then(exams => {
-        const active = exams.find(e => e.status === 'Active');
-        if (active) {
-          setActiveExam(active);
+        const running = exams.filter(e => e.status === 'Active');
+        setRunningExams(running);
+        const requested = searchParams.get('examId');
+        const initial = running.find(e => e.examId === requested) ?? running[0];
+        if (initial) {
+          setActiveExam(initial);
         }
       })
       .catch(err => console.error('Failed to get active exams', err))
       .finally(() => setLoading(false));
+    // Loaded once; switching exams below updates ?examId= without refetching.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // A different exam starts from an empty board (tiles and timelines belong to one exam's group).
+  const activeExamId = activeExam?.examId;
+  const [joinError, setJoinError] = useState<string | null>(null);
+  useEffect(() => {
+    setStudentStatuses(new Map());
+    setTimelines(new Map());
+    setSelectedStudentId(null);
+    setJoinError(null);
+  }, [activeExamId]);
+
+  const handleSelectExam = (examId: string) => {
+    const next = runningExams.find(e => e.examId === examId);
+    if (!next || next.examId === activeExam?.examId) return;
+    setActiveExam(next);
+    setSearchParams({ examId }, { replace: true });
+  };
 
   // 2. Timer countdown logic
   useEffect(() => {
@@ -70,6 +104,7 @@ export default function LiveMonitorPage() {
   useEffect(() => {
     if (!activeExam || !token) return;
 
+    let disposed = false; // a stopped connection's cancelled join is not a refusal
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(SIGNALR_HUB_URL, {
         // Read at (re)connect time and refreshed when near expiry: access tokens live 30 minutes.
@@ -184,14 +219,18 @@ export default function LiveMonitorPage() {
         // Broadcasts are scoped per exam — join this exam's proctoring group
         try {
           await connection.invoke('JoinExamGroup', activeExam.examId);
+          setJoinError(null);
         } catch (err) {
+          // The hub only admits the section's teacher, an assigned proctor or an admin (Module 7).
           console.error('Failed to join exam group', err);
+          if (!disposed) setJoinError('You are not assigned to supervise this exam, so no live data will appear. Ask the exam\'s teacher to assign you.');
         }
         console.log('SignalR connected successfully.');
       })
       .catch(err => console.error('SignalR Connection Error: ', err));
 
     return () => {
+      disposed = true;
       connection.stop().then(() => console.log('SignalR stopped.'));
     };
   }, [activeExam, token]);
@@ -210,7 +249,7 @@ export default function LiveMonitorPage() {
             {
               title: 'Warning Message Sent',
               timestamp: timeStr,
-              description: `Teacher: "${messageText}"`
+              description: `${isInvigilator ? 'Invigilator' : 'Teacher'}: "${messageText}"`
             },
             ...currentTimeline
           ]);
@@ -281,7 +320,7 @@ export default function LiveMonitorPage() {
       try {
         await examsApi.forceSubmitAll(activeExam.examId);
         alert('All active sessions have been force-submitted.');
-        navigate('/teacher/dashboard');
+        navigate(homePath);
       } catch (err) {
         console.error('Failed to force submit all sessions', err);
         alert('An error occurred while ending the exam.');
@@ -296,10 +335,11 @@ export default function LiveMonitorPage() {
     <div className="bg-[#F8FAFC] text-slate-800 font-sans min-h-screen flex overflow-hidden">
       {/* 64px Collapsed Sidebar */}
       <aside className="w-[64px] h-screen bg-white border-r border-slate-200 flex flex-col items-center py-6 shrink-0 z-50">
-        <div className="mb-8 cursor-pointer" onClick={() => navigate('/teacher/dashboard')}>
+        <div className="mb-8 cursor-pointer" onClick={() => navigate(homePath)}>
           <span className="material-symbols-outlined text-primary-500 text-[32px] font-bold">shield</span>
         </div>
-        <nav className="flex flex-col gap-4 flex-grow">
+        <nav data-testid="live-monitor-nav" className="flex flex-col gap-4 flex-grow">
+          {!isInvigilator && (<>
           <button 
             onClick={() => navigate('/teacher/dashboard')} 
             className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors" 
@@ -321,12 +361,14 @@ export default function LiveMonitorPage() {
           >
             <span className="material-symbols-outlined text-[22px]">add_circle</span>
           </button>
+          </>)}
           <button 
             className="w-10 h-10 flex items-center justify-center rounded-lg text-primary-500 bg-blue-50 border border-blue-100 font-bold shadow-sm" 
             title="Live Monitor"
           >
             <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>sensors</span>
           </button>
+          {!isInvigilator && (
           <button 
             onClick={() => navigate('/teacher/eligibility')} 
             className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors" 
@@ -334,6 +376,7 @@ export default function LiveMonitorPage() {
           >
             <span className="material-symbols-outlined text-[22px]">check_circle</span>
           </button>
+          )}
         </nav>
         <div className="mt-auto flex flex-col gap-4">
           <div className="w-10 h-10 rounded-full bg-blue-50 text-primary-600 font-bold flex items-center justify-center text-xs" title={user?.name}>
@@ -354,15 +397,22 @@ export default function LiveMonitorPage() {
         {/* Top Navbar */}
         <header className="h-[56px] bg-white border-b border-slate-200 flex justify-between items-center px-6 shrink-0 z-40">
           <div className="flex items-center gap-2">
+            {!isInvigilator && (
             <button 
               onClick={() => navigate('/teacher/dashboard')}
               className="text-slate-400 hover:text-slate-600 transition-colors mr-2 flex items-center"
             >
               <span className="material-symbols-outlined">arrow_back</span>
             </button>
+            )}
             <span className="text-sm font-semibold text-slate-800">
               Live Monitor {activeExam ? `— ${activeExam.title}` : ''}
             </span>
+            {isInvigilator && (
+              <span data-testid="proctor-mode-badge" className="ml-2 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold rounded uppercase tracking-wider">
+                Invigilator · assigned exams only
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <button className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 transition-colors relative">
@@ -388,6 +438,20 @@ export default function LiveMonitorPage() {
                   {activeExam.courseName}
                 </span>
               )}
+              {runningExams.length > 0 && (
+                <select
+                  data-testid="exam-picker"
+                  aria-label="Exam"
+                  value={activeExam?.examId ?? ''}
+                  onChange={e => handleSelectExam(e.target.value)}
+                  className="ml-2 h-8 max-w-[260px] border border-slate-200 bg-white rounded-lg px-2 text-xs text-slate-700 focus:ring-2 focus:ring-primary-500 outline-none cursor-pointer"
+                  title={isInvigilator ? 'Exams you are assigned to supervise' : 'Running exams'}
+                >
+                  {runningExams.map(e => (
+                    <option key={e.examId} value={e.examId}>{e.title} ({e.courseName})</option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 
@@ -403,6 +467,8 @@ export default function LiveMonitorPage() {
                   <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                   <span>{studentStatuses.size} Student(s) Active</span>
                 </div>
+                {/* Extending or ending the whole exam is the teacher's / admin's call, not a proctor's. */}
+                {!isInvigilator && (<>
                 <button
                   onClick={handleExtendTime}
                   className="px-4 py-2 bg-blue-50 text-primary-600 border border-blue-200 font-bold text-xs rounded-xl hover:bg-blue-100 transition-all active:scale-95 flex items-center gap-1.5"
@@ -418,6 +484,7 @@ export default function LiveMonitorPage() {
                   <span className="material-symbols-outlined text-[16px]">power_settings_new</span>
                   Force End Exam
                 </button>
+                </>)}
               </div>
             </>
           )}
@@ -425,6 +492,11 @@ export default function LiveMonitorPage() {
 
         {/* Main Content Area */}
         <main className={`flex-grow p-8 overflow-y-auto ${selectedStudentId ? 'mr-[320px]' : ''} transition-all duration-300`}>
+          {joinError && activeExam && (
+            <div role="alert" data-testid="join-denied" className="mb-4 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm">
+              {joinError}
+            </div>
+          )}
           {loading ? (
             <div className="h-full flex items-center justify-center flex-col">
               <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-2" />
@@ -434,6 +506,11 @@ export default function LiveMonitorPage() {
             <div className="h-full flex items-center justify-center flex-col text-center p-12 bg-white rounded-2xl border border-slate-200 border-dashed">
               <span className="material-symbols-outlined text-[64px] text-slate-300 mb-3">sensors_off</span>
               <h3 className="text-lg font-bold text-slate-700">No Exam Currently Active</h3>
+              {isInvigilator ? (
+                <p className="text-sm text-slate-400 max-w-sm mt-1">
+                  None of the exams you are assigned to supervise is running. Exams appear here once a teacher assigns you and the first student starts.
+                </p>
+              ) : (<>
               <p className="text-sm text-slate-400 max-w-sm mt-1 mb-6">
                 Live proctoring dashboard activates when a scheduled exam starts. Build an exam or start one to begin tracking workstation metrics.
               </p>
@@ -443,6 +520,7 @@ export default function LiveMonitorPage() {
               >
                 Create Scheduled Exam
               </button>
+              </>)}
             </div>
           ) : studentStatuses.size === 0 ? (
             <div className="h-full flex items-center justify-center flex-col text-center p-12 bg-white rounded-2xl border border-slate-100">

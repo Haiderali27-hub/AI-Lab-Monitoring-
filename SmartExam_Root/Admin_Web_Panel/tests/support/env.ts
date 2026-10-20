@@ -10,6 +10,9 @@ export const SEED = {
   teacher: { email: 'teacher@smartexam.com', password: 'Teacher@123' },
   ali:     { email: 'ali@smartexam.com',     password: 'Student@123', name: 'Ali Hassan' },
   sara:    { email: 'sara@smartexam.com',    password: 'Student@123', name: 'Sara Khan' },
+  // Module 7: the only role that manages Admin accounts, and an invigilator proctoring the open demo exam
+  superAdmin:  { email: 'root@smartexam.com', password: 'Super@123' },
+  invigilator: { email: 'invigilator@smartexam.com', password: 'Invig@123' },
 } as const;
 
 /** Short unique tag so every test can create its own users/exams without collisions. */

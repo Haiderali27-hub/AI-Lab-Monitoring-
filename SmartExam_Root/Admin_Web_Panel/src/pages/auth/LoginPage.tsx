@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authApi } from '../../api/auth.api';
+import { homePathFor } from '../../utils/roles';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -30,14 +31,8 @@ export default function LoginPage() {
         email: data.email,
         role: data.role,
       }, data.refreshToken);
-      // Redirect based on role
-      if (data.role === 'Teacher') {
-        navigate('/teacher/dashboard');
-      } else if (data.role === 'Student') {
-        navigate('/student/dashboard');
-      } else {
-        navigate('/admin/dashboard');
-      }
+      // Redirect based on role (Invigilator → their live monitor, Module 7)
+      navigate(homePathFor(data.role));
     } catch (err: any) {
       console.error(err);
       setError(err.response?.data?.message || 'Invalid email or password');

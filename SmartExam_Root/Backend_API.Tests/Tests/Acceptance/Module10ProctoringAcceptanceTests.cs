@@ -170,7 +170,7 @@ public class Module10ProctoringAcceptanceTests : IDisposable
             .Should().Be(SessionStatus.ForceSubmitted);
     }
 
-    [Fact(Skip = "Pending: M10-I-08 — ExamProctors gate the invigilator's hub group")]
+    [Fact]
     public async Task M10_I_08_ProctorAssignment_LetsInvigilatorJoinGroup_OnlyForThatExam()
     {
         var (invigilatorId, _, _) = await _host.CreateUserAsync("Invigilator");

@@ -46,6 +46,7 @@ public class AdminMaintenanceController : ControllerBase
         _db.MonitoringEvents.RemoveRange(_db.MonitoringEvents);
         _db.ExamSessions.RemoveRange(_db.ExamSessions);
         _db.ExamAssignments.RemoveRange(_db.ExamAssignments);
+        _db.ExamProctors.RemoveRange(_db.ExamProctors);
         _db.TestCases.RemoveRange(_db.TestCases);
         _db.Questions.RemoveRange(_db.Questions);
         _db.Exams.RemoveRange(_db.Exams);

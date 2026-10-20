@@ -172,15 +172,55 @@ test.describe('M10 — Live Proctoring Dashboard', () => {
     expect((await admin.auditLogs('SESSION_UNLOCKED')).length).toBeGreaterThan(0);
   });
 
-  test.fixme('M10-E-10 Invigilator restricted view', async ({ page, request }) => {
-    // Invigilator UI (M7-E-04) + ExamProctors (M10-I-08) not built.
-    // 1. Admin creates an invigilator and assigns them as proctor to exam A only.
-    // 2. Invigilator opens /invigilator/live-monitor.
-    // 3. Exam B (other teacher's) is not listed in the exam picker.
-    const admin = await StaffApi.admin(request);
-    expect(admin).toBeTruthy();
+  test('M10-E-10 Invigilator restricted view', async ({ page, request }) => {
+    // Two running exams; the invigilator is assigned to exam A only.
+    const tag = Date.now().toString(36);
+    const a = await examWithStudents(request, 1, { title: `Exam A ${tag}` });
+    const b = await examWithStudents(request, 1, { title: `Exam B ${tag}` });
+    await a.students[0].start(a.exam.examId);
+    await b.students[0].start(b.exam.examId);
+    const invigilatorUser = await a.admin.createInvigilator();
+    expect((await a.teacher.assignProctor(a.exam.examId, invigilatorUser.userId)).status()).toBe(201);
+
+    const invigilator = await StaffApi.login(request, invigilatorUser.email, invigilatorUser.password);
+    await signInWeb(page, invigilator);
     await page.goto('/invigilator/live-monitor');
+    await expect(page.getByText(`Live Monitor — ${a.exam.title}`)).toBeVisible();
+
+    // Only the assigned exam is offered; exam B never reaches this browser.
+    const picker = page.getByTestId('exam-picker');
+    await expect(picker.getByRole('option')).toHaveText([new RegExp(`Exam A ${tag}`)]);
     await expect(page.getByRole('option', { name: /exam b/i })).toHaveCount(0);
+
+    // Supervising works (hub group joined → tiles), exam-wide controls are the teacher's.
+    await waitForTile(page, a.students[0], a.users[0].name);
+    await expect(page.getByRole('button', { name: /extend time/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /force end exam/i })).toHaveCount(0);
+
+    // Asking for exam B by URL does not switch to it.
+    await page.goto(`/invigilator/live-monitor?examId=${b.exam.examId}`);
+    await expect(page.getByText(`Live Monitor — ${a.exam.title}`)).toBeVisible();
+  });
+
+  test('M10-E-11 Teacher picks between running exams', async ({ page, request }) => {
+    const teacher = await StaffApi.teacher(request);
+    await teacher.endAllActiveExams();
+    const first = await examWithStudents(request, 1);
+    const second = await examWithStudents(request, 1);
+    await first.students[0].start(first.exam.examId);
+    await second.students[0].start(second.exam.examId);
+
+    await signInWeb(page, teacher);
+    await page.goto(`/teacher/live-monitor?examId=${second.exam.examId}`);
+    await expect(page.getByText(`Live Monitor — ${second.exam.title}`)).toBeVisible();
+    await waitForTile(page, second.students[0], second.users[0].name);
+
+    await page.getByTestId('exam-picker').selectOption(first.exam.examId);
+    await expect(page.getByText(`Live Monitor — ${first.exam.title}`)).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`examId=${first.exam.examId}`));
+    // The board belongs to the selected exam only.
+    await waitForTile(page, first.students[0], first.users[0].name);
+    await expect(page.getByTestId('student-tile').filter({ hasText: second.users[0].name })).toHaveCount(0);
   });
 });
 

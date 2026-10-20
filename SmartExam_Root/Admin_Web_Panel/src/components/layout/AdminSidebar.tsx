@@ -54,6 +54,13 @@ export default function AdminSidebar() {
           </svg>
           <span className="text-xs font-semibold tracking-wider uppercase">Labs & Workstations</span>
         </NavLink>
+
+        <NavLink to="/admin/academics" className={getLinkClass}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422A12.083 12.083 0 0118.82 17.5 11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.82-2.555 12.083 12.083 0 01.66-6.922L12 14zm-4 6v-7.5l4-2.222" />
+          </svg>
+          <span className="text-xs font-semibold tracking-wider uppercase">Departments & Courses</span>
+        </NavLink>
         
         <NavLink to="/admin/device-bindings" className={getLinkClass}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,6 +107,11 @@ export default function AdminSidebar() {
           <div className="overflow-hidden">
             <h4 className="text-sm font-semibold text-slate-800 truncate">{user?.name || 'Admin User'}</h4>
             <p className="text-xs text-slate-400 truncate">{user?.email || 'admin@university.edu'}</p>
+            {user?.role === 'SuperAdmin' && (
+              <span data-testid="superadmin-badge" className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100 text-[9px] font-bold uppercase tracking-wider">
+                Super Admin
+              </span>
+            )}
           </div>
         </div>
         

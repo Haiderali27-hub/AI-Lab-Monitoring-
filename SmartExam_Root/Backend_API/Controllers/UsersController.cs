@@ -44,6 +44,36 @@ public class UsersController : ControllerBase
     private Guid CurrentUserId =>
         Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
 
+    // ── Module 7: SuperAdmin-only management of privileged accounts ──────────
+    // An Admin manages students, teachers and invigilators. Creating, promoting to, editing, deleting,
+    // (de)activating or signing out an Admin or SuperAdmin account needs a SuperAdmin, so an Admin can
+    // never raise their own (or anyone's) privileges. Acting on one's own account is governed by the
+    // existing self-checks (no own role change / delete / deactivate) instead.
+
+    private static bool IsPrivileged(UserRole role) => role is UserRole.Admin or UserRole.SuperAdmin;
+
+    private const string SuperAdminRequiredMessage = "Only a SuperAdmin can create or manage Admin and SuperAdmin accounts.";
+
+    // Null when allowed; otherwise an audited 403. existingRole/requestedRole: the account's role now / after the change.
+    private async Task<IActionResult?> GuardPrivilegedAsync(string action, Guid? targetId, UserRole? existingRole, UserRole? requestedRole)
+    {
+        if (User.IsInRole("SuperAdmin")) return null;
+        if (targetId is not null && targetId == CurrentUserId) return null; // self: the endpoint's own checks apply
+        var touchesPrivileged = (existingRole is { } e && IsPrivileged(e)) || (requestedRole is { } r && IsPrivileged(r));
+        if (!touchesPrivileged) return null;
+
+        await _audit.LogAsync(CurrentUserId, "PRIVILEGED_ACCOUNT_DENIED", "User", targetId?.ToString(),
+            new { action, existingRole = existingRole?.ToString(), requestedRole = requestedRole?.ToString() });
+        return StatusCode(StatusCodes.Status403Forbidden, new { code = "SUPERADMIN_REQUIRED", message = SuperAdminRequiredMessage });
+    }
+
+    // Same guard for actions on an existing account (delete, deactivate, force-logout, …).
+    private async Task<IActionResult?> GuardExistingAsync(string action, Guid id)
+    {
+        var role = await _db.Users.Where(u => u.UserId == id).Select(u => (UserRole?)u.Role).FirstOrDefaultAsync();
+        return role is null ? null : await GuardPrivilegedAsync(action, id, role, role);
+    }
+
     // GET /api/users?role=Student
     [HttpGet]
     [Authorize(Roles = "Admin,SuperAdmin,Teacher")]
@@ -100,6 +130,11 @@ public class UsersController : ControllerBase
     [Authorize(Roles = "Admin,SuperAdmin")]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest req)
     {
+        if (!Enum.IsDefined(req.Role))
+            return BadRequest(new { message = "Unknown role." });
+        var denied = await GuardPrivilegedAsync("create", null, null, req.Role);
+        if (denied is not null) return denied;
+
         if (await _db.Users.AnyAsync(u => u.Email == req.Email))
             return Conflict(new { message = "Email already in use." });
 
@@ -133,6 +168,11 @@ public class UsersController : ControllerBase
     {
         var user = await _db.Users.FindAsync(id);
         if (user is null) return NotFound(new { message = "User not found." });
+
+        if (!Enum.IsDefined(req.Role))
+            return BadRequest(new { message = "Unknown role." });
+        var denied = await GuardPrivilegedAsync("update", id, user.Role, req.Role);
+        if (denied is not null) return denied;
 
         if (string.IsNullOrWhiteSpace(req.Name))
             return BadRequest(new { message = "Name is required." });
@@ -193,6 +233,8 @@ public class UsersController : ControllerBase
     {
         var user = await _db.Users.FindAsync(id);
         if (user is null) return NotFound(new { message = "User not found." });
+        var denied = await GuardExistingAsync("delete", id);
+        if (denied is not null) return denied;
 
         if (id == CurrentUserId)
             return BadRequest(new { message = "You cannot delete your own account." });
@@ -216,6 +258,8 @@ public class UsersController : ControllerBase
         _db.ExamAssignments.RemoveRange(assignments);
         var enrollments = await _db.SectionEnrollments.Where(e => e.UserId == id).ToListAsync();
         _db.SectionEnrollments.RemoveRange(enrollments);
+        var proctorRows = await _db.ExamProctors.Where(p => p.UserId == id).ToListAsync();
+        _db.ExamProctors.RemoveRange(proctorRows);
 
         _db.Users.Remove(user);
         _audit.Add(CurrentUserId, "USER_DELETED", "User", id.ToString(), new { user.Email, role = user.Role.ToString() });
@@ -239,6 +283,7 @@ public class UsersController : ControllerBase
         var created = 0;
         var skipped = new List<object>();
         var seenInBatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var callerIsSuperAdmin = User.IsInRole("SuperAdmin");
 
         for (int i = 0; i < req.Users.Count; i++)
         {
@@ -246,6 +291,10 @@ public class UsersController : ControllerBase
             var line = i + 1;
             if (string.IsNullOrWhiteSpace(row.Name) || string.IsNullOrWhiteSpace(row.Email) || string.IsNullOrWhiteSpace(row.Password))
             { skipped.Add(new { line, email = row.Email, reason = "missing name/email/password" }); continue; }
+            if (!Enum.IsDefined(row.Role))
+            { skipped.Add(new { line, email = row.Email, reason = "unknown role" }); continue; }
+            if (IsPrivileged(row.Role) && !callerIsSuperAdmin)
+            { skipped.Add(new { line, email = row.Email, reason = "only a SuperAdmin can create Admin/SuperAdmin accounts" }); continue; }
             if (existingEmails.Contains(row.Email) || !seenInBatch.Add(row.Email))
             { skipped.Add(new { line, email = row.Email, reason = "duplicate email" }); continue; }
             var rollNumber = AuthController.NormalizeRollNumber(row.RollNumber);
@@ -278,6 +327,8 @@ public class UsersController : ControllerBase
     [Authorize(Roles = "Admin,SuperAdmin")]
     public async Task<IActionResult> ResetDeviceBinding(Guid id)
     {
+        var denied = await GuardExistingAsync("reset-device-binding", id);
+        if (denied is not null) return denied;
         var binding = await _db.DeviceBindings.FirstOrDefaultAsync(d => d.UserId == id);
         if (binding is null) return NotFound(new { message = "No device binding found." });
 
@@ -293,6 +344,8 @@ public class UsersController : ControllerBase
     [Authorize(Roles = "Admin,SuperAdmin")]
     public async Task<IActionResult> ForceLogout(Guid id)
     {
+        var denied = await GuardExistingAsync("force-logout", id);
+        if (denied is not null) return denied;
         // Refresh tokens first: otherwise the client would simply mint a new access token.
         var revokedRefreshTokens = await _refreshTokens.RevokeAllForUserAsync(id, RefreshTokenRevocation.ForceLogout);
 
@@ -314,6 +367,8 @@ public class UsersController : ControllerBase
     {
         var user = await _db.Users.FindAsync(id);
         if (user is null) return NotFound();
+        var denied = await GuardExistingAsync("deactivate", id);
+        if (denied is not null) return denied;
 
         if (id == CurrentUserId)
             return BadRequest(new { message = "You cannot deactivate your own account." });
@@ -339,6 +394,8 @@ public class UsersController : ControllerBase
     {
         var user = await _db.Users.FindAsync(id);
         if (user is null) return NotFound();
+        var denied = await GuardExistingAsync("activate", id);
+        if (denied is not null) return denied;
 
         user.IsActive = true;
         _audit.Add(CurrentUserId, "USER_ACTIVATED", "User", id.ToString());

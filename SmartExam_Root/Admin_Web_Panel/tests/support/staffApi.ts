@@ -102,6 +102,7 @@ export class StaffApi {
 
   static admin(request: APIRequestContext) { return StaffApi.login(request, SEED.admin.email, SEED.admin.password); }
   static teacher(request: APIRequestContext) { return StaffApi.login(request, SEED.teacher.email, SEED.teacher.password); }
+  static superAdmin(request: APIRequestContext) { return StaffApi.login(request, SEED.superAdmin.email, SEED.superAdmin.password); }
 
   /** The login payload the web panel stores in localStorage (see AuthContext). */
   get webUser() {
@@ -122,13 +123,20 @@ export class StaffApi {
   }
 
   async createStudent(label = 'Student'): Promise<CreatedUser> {
-    const tag = uniqueTag('s');
-    const user = { name: `E2E ${label} ${tag}`, email: `${tag}@e2e.smartexam.test`, password: 'Student@123', role: 'Student' };
+    return this.createUser('Student', label);
+  }
+
+  /** Any role an Admin may create (Student / Teacher / Invigilator); Admin roles need a SuperAdmin caller. */
+  async createUser(role: string, label: string = role): Promise<CreatedUser> {
+    const tag = uniqueTag(role.slice(0, 1).toLowerCase());
+    const user = { name: `E2E ${label} ${tag}`, email: `${tag}@e2e.smartexam.test`, password: `${role}@123`, role };
     const res = await this.createUserRaw(user);
     expect(res.status(), await res.text()).toBe(201);
     const body = await res.json();
     return { ...user, userId: body.userId };
   }
+
+  createInvigilator(label = 'Invigilator') { return this.createUser('Invigilator', label); }
 
   resetDeviceBinding(userId: string) { return this.delete(`/api/users/${userId}/device-binding`); }
   deactivate(userId: string) { return this.patch(`/api/users/${userId}/deactivate`); }
@@ -243,6 +251,20 @@ export class StaffApi {
   }
 
   forceSubmitAll(examId: string) { return this.post(`/api/exams/${examId}/force-submit-all`); }
+
+  // ── Module 7: proctor assignment (section teacher / admin) ───────────────
+  assignProctor(examId: string, userId: string) { return this.post(`/api/exams/${examId}/proctors`, { userId }); }
+  unassignProctor(examId: string, userId: string) { return this.delete(`/api/exams/${examId}/proctors/${userId}`); }
+
+  async proctors(examId: string): Promise<{ userId: string; name: string; role: string }[]> {
+    const res = await this.get(`/api/exams/${examId}/proctors`);
+    expect(res.status()).toBe(200);
+    return res.json();
+  }
+
+  // ── Module 7: academic structure (reads: staff; writes: Admin) ───────────
+  createDepartment(name: string) { return this.post('/api/departments', { name }); }
+  createCourse(deptId: string, name: string, code: string) { return this.post('/api/courses', { deptId, name, code }); }
 
   async results(examId: string): Promise<any[]> {
     const res = await this.get(`/api/exams/${examId}/results`);

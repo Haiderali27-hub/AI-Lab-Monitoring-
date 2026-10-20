@@ -36,6 +36,8 @@ builder.Services.AddScoped<Backend_API.Services.RefreshTokenService>();
 builder.Services.AddScoped<Backend_API.Services.SubmissionService>();
 // Module 9 — seat enforcement (config: SeatMatch = MachineName | Ip | Either)
 builder.Services.AddScoped<Backend_API.Services.SeatGuard>();
+// Module 7/10 — who may supervise which exam (owner teacher, assigned proctor, admin)
+builder.Services.AddScoped<Backend_API.Services.ExamAccessService>();
 
 // Module 4 — Analytics
 builder.Services.AddScoped<Backend_API.Services.Analytics.AnalyticsService>();
@@ -186,6 +188,16 @@ if (e2eInMemory || (seedDemoData && app.Configuration["UseInMemoryDatabase"] != 
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await DbSeeder.SeedAsync(db);
     }
+}
+
+// Module 7: first SuperAdmin for a database that has none (configured via environment, see SuperAdminBootstrap).
+var bootstrapEmail = app.Configuration["Bootstrap:SuperAdminEmail"];
+if (!string.IsNullOrWhiteSpace(bootstrapEmail))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var outcome = await SuperAdminBootstrap.EnsureAsync(db, bootstrapEmail, app.Configuration["Bootstrap:SuperAdminPassword"]);
+    app.Logger.LogInformation("SuperAdmin bootstrap: {Outcome}", outcome);
 }
 
 // ── Middleware Pipeline ───────────────────────────────────────────────────────

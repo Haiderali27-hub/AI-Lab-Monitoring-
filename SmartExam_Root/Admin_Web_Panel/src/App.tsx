@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import type { UserRole } from './types';
+import { homePathFor } from './utils/roles';
 
 // Pages
 import LoginPage from './pages/auth/LoginPage';
@@ -9,6 +10,7 @@ import UsersPage from './pages/admin/UsersPage';
 import DeviceBindingsPage from './pages/admin/DeviceBindingsPage';
 import LabsPage from './pages/admin/LabsPage';
 import AuditLogsPage from './pages/admin/AuditLogsPage';
+import AcademicsPage from './pages/admin/AcademicsPage';
 import TeacherDashboardPage from './pages/teacher/TeacherDashboardPage';
 import CreateExamPage from './pages/teacher/CreateExamPage';
 import LiveMonitorPage from './pages/teacher/LiveMonitorPage';
@@ -61,14 +63,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={
         user ? (
-          <Navigate 
-            to={
-              user.role === 'Teacher' ? '/teacher/dashboard' :
-              user.role === 'Student' ? '/student/dashboard' :
-              '/admin/dashboard'
-            } 
-            replace 
-          />
+          <Navigate to={homePathFor(user.role)} replace />
         ) : (
           <LoginPage />
         )
@@ -79,6 +74,7 @@ function AppRoutes() {
       <Route path="/admin/users"          element={<PrivateRoute roles={['Admin','SuperAdmin']}><UsersPage /></PrivateRoute>} />
       <Route path="/admin/device-bindings" element={<PrivateRoute roles={['Admin','SuperAdmin']}><DeviceBindingsPage /></PrivateRoute>} />
       <Route path="/admin/labs"           element={<PrivateRoute roles={['Admin','SuperAdmin']}><LabsPage /></PrivateRoute>} />
+      <Route path="/admin/academics"      element={<PrivateRoute roles={['Admin','SuperAdmin']}><AcademicsPage /></PrivateRoute>} />
       <Route path="/admin/audit-logs"     element={<PrivateRoute roles={['Admin','SuperAdmin']}><AuditLogsPage /></PrivateRoute>} />
       <Route path="/admin/analytics"      element={<PrivateRoute roles={['Admin','SuperAdmin']}><SystemAnalyticsPage /></PrivateRoute>} />
       <Route path="/admin/notifications"  element={<PrivateRoute roles={['Admin','SuperAdmin']}><NotificationsPage /></PrivateRoute>} />
@@ -96,6 +92,9 @@ function AppRoutes() {
       <Route path="/teacher/reports"      element={<PrivateRoute roles={['Teacher','Admin','SuperAdmin']}><ReportsPage /></PrivateRoute>} />
       <Route path="/teacher/notifications" element={<PrivateRoute roles={['Teacher']}><NotificationsPage /></PrivateRoute>} />
       <Route path="/teacher/announce"     element={<PrivateRoute roles={['Teacher']}><AnnouncementPage /></PrivateRoute>} />
+
+      {/* Invigilator (Module 7): live monitoring of assigned exams only — the API scopes the exam list */}
+      <Route path="/invigilator/live-monitor" element={<PrivateRoute roles={['Invigilator']}><LiveMonitorPage /></PrivateRoute>} />
 
       {/* Student Portal */}
       <Route path="/student/dashboard"    element={<PrivateRoute roles={['Student']}><StudentDashboardPage /></PrivateRoute>} />
