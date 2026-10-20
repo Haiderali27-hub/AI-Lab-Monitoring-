@@ -1,5 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
 import { loginAs, TEACHER } from './helpers';
+import { StaffApi } from '../support/staffApi';
 
 // Eligibility dropdown label for the seeded demo exam: "<title> (<course>)"
 const SEEDED_EXAM_OPTION = 'Mid-Term Lab Exam (Demo) (Data Structures)';
@@ -120,19 +121,83 @@ test('M8-E-01 Create exam wizard end-to-end', async ({ page }) => {
   await expect(card).toBeVisible();
 });
 
-test.fixme('M8-E-02 Monitoring settings step', async ({ page }) => {
+// Fills wizard steps 1–2 (details + one theory question) and stops on step 3.
+async function wizardToRulesStep(page: Page, title: string) {
   await page.goto('/teacher/create-exam');
-  // ...fill steps 1–2, then on step 3:
+  await page.getByLabel(/exam title/i).fill(title);
+  await page.getByLabel(/section/i).selectOption({ index: 1 });
+  const tomorrow = new Date(Date.now() + 24 * 3600_000).toISOString().split('T')[0];
+  await page.getByLabel(/date/i).fill(tomorrow);
+  await page.getByLabel(/time/i).fill('10:00');
+  await page.getByRole('button', { name: /next step/i }).click();
+
+  await page.getByRole('button', { name: /add question/i }).first().click();
+  const typeSelects = page.locator('select').filter({ has: page.locator('option[value="Mcq"]') });
+  await typeSelects.nth(0).selectOption('Theory');
+  await page.getByPlaceholder(/question prompt|coding task/i).first().fill('Explain recursion.');
+  await page.getByRole('button', { name: /next step/i }).click();
+  await expect(page.getByText(/rules & integrity settings/i)).toBeVisible();
+}
+
+// Step 3 → 4 → Create; returns the new exam (looked up by title over the API).
+async function finishWizard(page: Page, request: APIRequestContext, title: string): Promise<any> {
+  await page.getByRole('button', { name: /next step/i }).click();
+  await expect(page.getByText(/assign enrolled students/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Create Exam' }).click();
+  await expect(page).toHaveURL(/\/teacher\/dashboard/);
+
+  const teacher = await StaffApi.teacher(request);
+  const list: any[] = await (await teacher.get('/api/exams')).json();
+  const summary = list.find(e => e.title === title);
+  expect(summary, `exam "${title}" was created`).toBeTruthy();
+  return (await teacher.get(`/api/exams/${summary.examId}`)).json();
+}
+
+test('M8-E-02 Monitoring settings step', async ({ page, request }) => {
+  const title = `Interval Exam ${Date.now()}`;
+  await wizardToRulesStep(page, title);
+
+  await expect(page.getByLabel(/screenshot interval/i)).toHaveValue('60'); // default: random 30–90 s
+  await page.getByLabel(/screenshot interval/i).fill('5');
+  await page.getByRole('button', { name: /next step/i }).click();
+  await expect(page.getByText(/screenshot interval must be between 10 and 600/i)).toBeVisible();
+
   await page.getByLabel(/screenshot interval/i).fill('30');
-  // ...create, reopen /teacher/exams/:id/edit → step 3 shows 30
+  await page.getByLabel(/webcam interval/i).fill('120');
+  const exam = await finishWizard(page, request, title);
+  expect(exam.screenshotIntervalSeconds).toBe(30);
+  expect(exam.webcamIntervalSeconds).toBe(120);
+
+  // Reopen in the editor: step 3 is prefilled.
+  await page.goto(`/teacher/exams/${exam.examId}/edit`);
+  await expect(page.getByLabel(/exam title/i)).toHaveValue(title);
+  await page.getByRole('button', { name: /next step/i }).click();
+  await page.getByRole('button', { name: /next step/i }).click();
   await expect(page.getByLabel(/screenshot interval/i)).toHaveValue('30');
+  await expect(page.getByLabel(/webcam interval/i)).toHaveValue('120');
 });
 
-test.fixme('M8-E-03 Allowed apps picker', async ({ page }) => {
-  await page.goto('/teacher/create-exam');
-  // ...fill steps 1–2, then on step 3 pick from the catalogue instead of free text:
+test('M8-E-03 Allowed apps picker', async ({ page, request }) => {
+  const title = `Apps Exam ${Date.now()}`;
+  await wizardToRulesStep(page, title);
+
+  // Pick from the catalogue instead of typing exe names.
   await page.getByRole('button', { name: /add allowed app/i }).click();
   await page.getByRole('option', { name: /visual studio code/i }).click();
-  // ...create → GET /api/exams/{id}: JSON.parse(allowedApps) contains "code.exe"
   await expect(page.getByTestId('allowed-app-chip')).toContainText('code.exe');
+
+  // Free-text fallback, normalised to an .exe name; duplicates are ignored.
+  await page.getByLabel(/other executable/i).fill('sublime_text');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('button', { name: /add allowed app/i }).click();
+  await expect(page.getByRole('option', { name: /visual studio code/i })).toHaveCount(0); // already picked
+  await page.getByRole('option', { name: /code::blocks/i }).click();
+  await expect(page.getByTestId('allowed-app-chip')).toHaveCount(3);
+
+  // Remove a chip.
+  await page.getByRole('button', { name: 'Remove codeblocks.exe' }).click();
+  await expect(page.getByTestId('allowed-app-chip')).toHaveCount(2);
+
+  const exam = await finishWizard(page, request, title);
+  expect(JSON.parse(exam.allowedApps)).toEqual(['code.exe', 'sublime_text.exe']);
 });

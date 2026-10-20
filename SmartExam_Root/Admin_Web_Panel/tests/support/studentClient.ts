@@ -5,6 +5,7 @@ import { API_URL, uniqueTag } from './env';
  * Simulates the WPF Student_Desktop_App over HTTP, mirroring exactly what
  * Student_Desktop_App/Services/ApiClient.cs and LiveMonitoringService.cs send:
  *   POST /api/auth/student-login   { usernameOrEmail, password, hardwareFingerprint, machineName, windowsUsername }
+ *   POST /api/auth/refresh         { refreshToken }   (rotating refresh token; ApiClient.SendAuthorizedAsync)
  *   GET  /api/exams/student/current                       (ApiEnvelope<StudentExamStatus>)
  *   POST /api/exams/student/start                         (desktop start path, ApiEnvelope<StartExamResult>)
  *   POST /api/exams/{id}/start-session                    (start path that also activates the exam)
@@ -16,6 +17,7 @@ import { API_URL, uniqueTag } from './env';
  */
 export class StudentClient {
   token = '';
+  refreshToken = '';
   userId = '';
   sessionId = '';
   examId = '';
@@ -48,6 +50,7 @@ export class StudentClient {
     if (res.status() === 200) {
       const body = await res.json();
       this.token = body.data.accessToken;
+      this.refreshToken = body.data.refreshToken;
       this.userId = body.data.user.id;
     }
     return res;
@@ -58,6 +61,17 @@ export class StudentClient {
     const res = await this.login();
     expect(res.status(), await res.text()).toBe(200);
     return this;
+  }
+
+  /** POST /api/auth/refresh with the given (default: current) refresh token. On 200 keeps the new pair. */
+  async refresh(refreshToken = this.refreshToken): Promise<APIResponse> {
+    const res = await this.request.post(`${API_URL}/api/auth/refresh`, { data: { refreshToken } });
+    if (res.status() === 200) {
+      const body = await res.json();
+      this.token = body.data.accessToken;
+      this.refreshToken = body.data.refreshToken;
+    }
+    return res;
   }
 
   me() { return this.request.get(`${API_URL}/api/auth/me`, { headers: this.headers() }); }

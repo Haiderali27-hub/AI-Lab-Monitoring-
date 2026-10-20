@@ -47,6 +47,7 @@ public static class DbSeeder
             UserId = Guid.NewGuid(),
             Name = "Ali Hassan",
             Email = "ali@smartexam.com",
+            RollNumber = "BSCS-21-001", // Module 1: demo roll-number login
             Role = UserRole.Student,
             Salt = PasswordHelper.GenerateSalt()
         };
@@ -57,6 +58,7 @@ public static class DbSeeder
             UserId = Guid.NewGuid(),
             Name = "Sara Khan",
             Email = "sara@smartexam.com",
+            RollNumber = "BSCS-21-002", // Module 1: demo roll-number login
             Role = UserRole.Student,
             Salt = PasswordHelper.GenerateSalt()
         };

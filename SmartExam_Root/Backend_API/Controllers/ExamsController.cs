@@ -122,6 +122,8 @@ public class ExamsController : ControllerBase
             exam.EarlyJoinMinutes,
             exam.MinAttendancePercent,
             exam.EnforceSeat,
+            exam.ScreenshotIntervalSeconds,
+            exam.WebcamIntervalSeconds,
             exam.Status,
             exam.CreatedAt,
             Section = exam.Section is null ? null : new
@@ -188,6 +190,8 @@ public class ExamsController : ControllerBase
             EarlyJoinMinutes = req.EarlyJoinMinutes,
             MinAttendancePercent = req.MinAttendancePercent,
             EnforceSeat = req.EnforceSeat,
+            ScreenshotIntervalSeconds = req.ScreenshotIntervalSeconds,
+            WebcamIntervalSeconds = req.WebcamIntervalSeconds,
             Status = ExamStatus.Scheduled,
             CreatedAt = DateTime.UtcNow
         };
@@ -243,6 +247,8 @@ public class ExamsController : ControllerBase
         exam.EarlyJoinMinutes = req.EarlyJoinMinutes;
         exam.MinAttendancePercent = req.MinAttendancePercent;
         exam.EnforceSeat = req.EnforceSeat;
+        exam.ScreenshotIntervalSeconds = req.ScreenshotIntervalSeconds;
+        exam.WebcamIntervalSeconds = req.WebcamIntervalSeconds;
 
         // Replace questions (safe: Scheduled exams have no sessions/answers yet).
         // Materialize first — RemoveRange triggers EF fixup that mutates the live nav collections mid-iteration.
@@ -300,6 +306,10 @@ public class ExamsController : ControllerBase
             return BadRequest(new { message = $"Early join must be between 0 and {MaxEarlyJoinMinutes} minutes." });
         if (double.IsNaN(req.MinAttendancePercent) || req.MinAttendancePercent is < 0 or > 100)
             return BadRequest(new { message = "Minimum attendance must be between 0 and 100 percent." });
+        if (req.ScreenshotIntervalSeconds is < Exam.MinCaptureIntervalSeconds or > Exam.MaxCaptureIntervalSeconds)
+            return BadRequest(new { message = $"Screenshot interval must be between {Exam.MinCaptureIntervalSeconds} and {Exam.MaxCaptureIntervalSeconds} seconds." });
+        if (req.WebcamIntervalSeconds is < Exam.MinCaptureIntervalSeconds or > Exam.MaxCaptureIntervalSeconds)
+            return BadRequest(new { message = $"Webcam interval must be between {Exam.MinCaptureIntervalSeconds} and {Exam.MaxCaptureIntervalSeconds} seconds." });
         if (!await _db.Sections.AnyAsync(s => s.SectionId == req.SectionId))
             return NotFound(new { message = "Section not found." });
         if (req.Questions.Count == 0)
@@ -1120,7 +1130,9 @@ public class ExamsController : ControllerBase
             opensAt,
             assignment.Exam.EarlyJoinMinutes,
             canStartNow,
-            seat.Status.ToString()
+            seat.Status.ToString(),
+            assignment.Exam.ScreenshotIntervalSeconds,
+            assignment.Exam.WebcamIntervalSeconds
         );
 
         return Ok(new ApiEnvelope<StudentExamStatus>(true, "SUCCESS", "Success", response));
@@ -1387,6 +1399,9 @@ public class CreateExamDto
     // Module 9: attendance threshold for "Recalculate from attendance", and seat enforcement.
     public double MinAttendancePercent { get; set; } = 75;
     public bool EnforceSeat { get; set; } = true;
+    // Module 8: mean capture intervals (10–600 s) read by the desktop client from /student/current.
+    public int ScreenshotIntervalSeconds { get; set; } = Exam.DefaultScreenshotIntervalSeconds;
+    public int WebcamIntervalSeconds { get; set; } = Exam.DefaultWebcamIntervalSeconds;
     public List<CreateQuestionDto> Questions { get; set; } = new();
     public List<Guid> StudentIds { get; set; } = new();
 }

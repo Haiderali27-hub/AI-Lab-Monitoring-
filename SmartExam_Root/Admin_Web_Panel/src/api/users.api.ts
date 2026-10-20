@@ -6,6 +6,7 @@ export interface UpdateUserRequest {
   email: string;
   role: UserRole;
   password?: string;
+  rollNumber?: string;   // omitted = unchanged, '' = clear
 }
 
 export interface ImportUserRow {
@@ -13,6 +14,7 @@ export interface ImportUserRow {
   email: string;
   password: string;
   role: UserRole;
+  rollNumber?: string;
 }
 
 export const usersApi = {

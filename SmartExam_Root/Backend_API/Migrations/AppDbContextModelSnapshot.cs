@@ -236,6 +236,9 @@ namespace Backend_API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("HwidVersion")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("LastSeenAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -313,6 +316,9 @@ namespace Backend_API.Migrations
                     b.Property<bool>("RequireWebcam")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("ScreenshotIntervalSeconds")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("SectionId")
                         .HasColumnType("uuid");
 
@@ -326,6 +332,9 @@ namespace Backend_API.Migrations
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("WebcamIntervalSeconds")
+                        .HasColumnType("integer");
 
                     b.HasKey("ExamId");
 
@@ -611,6 +620,72 @@ namespace Backend_API.Migrations
                     b.ToTable("ReadinessChecks");
                 });
 
+            modelBuilder.Entity("Backend_API.Models.RefreshToken", b =>
+                {
+                    b.Property<Guid>("TokenId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedByIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FamilyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Jti")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("MachineName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid?>("ReplacedByTokenId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TokenId");
+
+                    b.HasIndex("FamilyId");
+
+                    b.HasIndex("Jti");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "RevokedAt");
+
+                    b.ToTable("RefreshTokens");
+                });
+
             modelBuilder.Entity("Backend_API.Models.Section", b =>
                 {
                     b.Property<Guid>("SectionId")
@@ -747,6 +822,10 @@ namespace Backend_API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("RollNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("Salt")
                         .IsRequired()
                         .HasColumnType("text");
@@ -755,6 +834,10 @@ namespace Backend_API.Migrations
 
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("RollNumber")
+                        .IsUnique()
+                        .HasFilter("\"RollNumber\" IS NOT NULL");
 
                     b.ToTable("Users");
                 });
@@ -1061,6 +1144,17 @@ namespace Backend_API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Backend_API.Models.RefreshToken", b =>
+                {
+                    b.HasOne("Backend_API.Models.User", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Backend_API.Models.Section", b =>
                 {
                     b.HasOne("Backend_API.Models.Course", "Course")
@@ -1210,6 +1304,8 @@ namespace Backend_API.Migrations
                     b.Navigation("ExamAssignments");
 
                     b.Navigation("ExamSessions");
+
+                    b.Navigation("RefreshTokens");
 
                     b.Navigation("Sessions");
                 });

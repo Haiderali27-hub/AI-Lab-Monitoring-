@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { AuthUser } from '../types';
+import { TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY, clearStoredSession } from '../api/client';
+import { authApi } from '../api/auth.api';
 
 interface AuthContextType {
   user: AuthUser | null;
   token: string | null;
-  login: (token: string, user: AuthUser) => void;
+  login: (token: string, user: AuthUser, refreshToken?: string | null) => void;
   logout: () => void;
   isLoading: boolean;
 }
@@ -18,8 +20,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const t = localStorage.getItem('smartexam_token');
-    const u = localStorage.getItem('smartexam_user');
+    const t = localStorage.getItem(TOKEN_KEY);
+    const u = localStorage.getItem(USER_KEY);
     if (t && u) {
       try {
         const parsedUser = JSON.parse(u);
@@ -29,30 +31,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(parsedUser);
         } else {
           // Outdated or invalid role format in cache (e.g. old numeric role) -> clean it
-          localStorage.removeItem('smartexam_token');
-          localStorage.removeItem('smartexam_user');
+          clearStoredSession();
         }
       } catch (e) {
-        localStorage.removeItem('smartexam_token');
-        localStorage.removeItem('smartexam_user');
+        clearStoredSession();
       }
     }
     setIsLoading(false);
   }, []);
 
-  const login = (token: string, user: AuthUser) => {
-    localStorage.setItem('smartexam_token', token);
-    localStorage.setItem('smartexam_user', JSON.stringify(user));
+  const login = (token: string, user: AuthUser, refreshToken?: string | null) => {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    else localStorage.removeItem(REFRESH_TOKEN_KEY);
     setToken(token);
     setUser(user);
   };
 
   const logout = () => {
-    localStorage.removeItem('smartexam_token');
-    localStorage.removeItem('smartexam_user');
-    setToken(null);
-    setUser(null);
-    window.location.href = '/login';
+    // Revoke the session + refresh-token family server-side (best effort, bounded wait), then clear.
+    const finish = () => {
+      clearStoredSession();
+      setToken(null);
+      setUser(null);
+      window.location.href = '/login';
+    };
+    if (localStorage.getItem(TOKEN_KEY)) {
+      authApi.logout().catch(() => undefined).finally(finish);
+    } else {
+      finish();
+    }
   };
 
   return (

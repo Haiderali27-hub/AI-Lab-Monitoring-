@@ -7,7 +7,8 @@ namespace Student_Desktop_App.Services.Lockdown;
 /// <summary>
 /// Starts and stops every lockdown guard together with an exam session and forwards
 /// their findings to the proctor as Violation events. Teardown is idempotent and also
-/// runs on unhandled exceptions so the student's PC is never left hooked.
+/// runs on unhandled exceptions and process exit so the student's PC is never left hooked
+/// (and the Task Manager policy is restored; a hard kill is recovered at the next app start).
 /// </summary>
 public sealed class LockdownCoordinator : IDisposable
 {
@@ -21,6 +22,7 @@ public sealed class LockdownCoordinator : IDisposable
     private readonly ProcessGuardService _processes;
     private readonly ClipboardGuardService _clipboard = new();
     private readonly DeviceGuardService _devices;
+    private readonly TaskManagerGuard? _taskManager;   // null when the policy is off for this exam
     private readonly ConcurrentDictionary<string, DateTime> _lastReported = new();
     private bool _active;
 
@@ -30,8 +32,10 @@ public sealed class LockdownCoordinator : IDisposable
     /// Raised for every violation (UI thread not guaranteed) — used for the on-screen warning.
     public event Action<string>? ViolationRaised;
 
+    /// <param name="accessToken">Fallback only — ApiClient sends the current (refreshed) session token.</param>
+    /// <param name="disableTaskManager">Config switch for the DisableTaskMgr policy (see TaskManagerPolicy).</param>
     public LockdownCoordinator(ApiClient apiClient, string accessToken, Guid sessionId,
-        LockdownMode mode, IEnumerable<string>? allowedApps, bool blockMultiMonitor)
+        LockdownMode mode, IEnumerable<string>? allowedApps, bool blockMultiMonitor, bool disableTaskManager = true)
     {
         _apiClient = apiClient;
         _accessToken = accessToken;
@@ -41,6 +45,8 @@ public sealed class LockdownCoordinator : IDisposable
         _keyboard = new KeyboardHookService(Policy);
         _processes = new ProcessGuardService(Policy);
         _devices = new DeviceGuardService(blockMultiMonitor);
+        if (TaskManagerPolicy.ShouldDisable(mode, disableTaskManager))
+            _taskManager = TaskManagerRegistryGuard.Create();
 
         _keyboard.KeyBlocked += keys => Report("KeyBlocked", keys);
         _processes.UnauthorizedProcess += (name, action) =>
@@ -56,7 +62,15 @@ public sealed class LockdownCoordinator : IDisposable
         _active = true;
 
         AppDomain.CurrentDomain.UnhandledException += OnCrash;
+        AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
         Application.Current.DispatcherUnhandledException += OnDispatcherCrash;
+
+        if (_taskManager is not null)
+        {
+            var applied = _taskManager.Apply();
+            if (applied is TaskManagerApplyResult.MarkerWriteFailed or TaskManagerApplyResult.RegistryFailed)
+                Report("LockdownDegraded", $"Task Manager policy not applied ({applied})");
+        }
 
         if (!_keyboard.Install())
             Report("LockdownDegraded", "Keyboard hook could not be installed");
@@ -74,8 +88,10 @@ public sealed class LockdownCoordinator : IDisposable
         _clipboard.Stop();
         _processes.Stop();
         _devices.Stop();
+        _taskManager?.Restore();
 
         AppDomain.CurrentDomain.UnhandledException -= OnCrash;
+        AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
         if (Application.Current is not null)
             Application.Current.DispatcherUnhandledException -= OnDispatcherCrash;
     }
@@ -95,6 +111,9 @@ public sealed class LockdownCoordinator : IDisposable
     }
 
     private void OnCrash(object sender, UnhandledExceptionEventArgs e) => Stop();
+
+    // Environment.Exit / normal shutdown with the exam window still up: never leave the policy behind.
+    private void OnProcessExit(object? sender, EventArgs e) => Stop();
 
     private void OnDispatcherCrash(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e) => Stop();
 

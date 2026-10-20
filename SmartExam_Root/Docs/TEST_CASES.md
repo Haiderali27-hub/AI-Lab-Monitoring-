@@ -49,14 +49,29 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M1-A-06 | Missing HWID rejected | `student-login` without fingerprint | 400 | ✅ |
 | M1-E-01 | Login page — valid admin | Fill form | Lands on `/admin/dashboard` | ✅ |
 | M1-E-02 | Login page — invalid creds | Fill wrong password | Error shown, stays on `/login` | ✅ |
-| M1-I-01 | Refresh token issued | Login | Response has non-dummy refresh token | ⏳ |
-| M1-I-02 | Refresh rotates token | POST `/refresh` | New access + new refresh; old refresh invalid | ⏳ |
-| M1-I-03 | Refresh reuse detection | Use old refresh again | 401, whole token family revoked | ⏳ |
-| M1-I-04 | Access token lifetime 30 min | Decode JWT | `exp - iat` = 1800 s | ⏳ |
-| M1-I-05 | Login by roll number | `student-login` with roll number | 200 | ⏳ |
-| M1-I-06 | Duplicate names don't collide | Two students named "Ali", login by name | Rejected / requires email or roll no. | ⏳ |
-| M1-I-07 | HWID v2 migration | Old-hash binding logs in with new fingerprint format | Accepted once, binding rehashed, audited | ⏳ |
+| M1-I-01 | Refresh token issued | Login | Response has non-dummy refresh token | ✅ xUnit |
+| M1-I-02 | Refresh rotates token | POST `/refresh` | New access + new refresh; old refresh invalid | ✅ xUnit |
+| M1-I-03 | Refresh reuse detection | Use old refresh again | 401, whole token family revoked | ✅ xUnit |
+| M1-I-04 | Access token lifetime 30 min | Decode JWT | `exp - iat` = 1800 s | ✅ xUnit |
+| M1-I-05 | Login by roll number | `student-login` with roll number | 200 | ✅ xUnit |
+| M1-I-06 | Duplicate names don't collide | Two students named "Ali", login by name | Rejected / requires email or roll no. | ✅ xUnit |
+| M1-I-07 | HWID v2 migration | Old-hash binding logs in with new fingerprint format | Accepted once, binding rehashed, audited | ✅ xUnit |
 | M1-I-08 | Deactivated user blocked | Deactivate, login | 401 | ✅ (existing xUnit) |
+| M1-I-09 | Refresh revocation paths | Logout / force-logout / deactivate, then refresh; refresh for an inactive user; expired token | 401 each (`REFRESH_TOKEN_EXPIRED` for expiry); a revoked (not rotated) token is not treated as theft | ✅ xUnit (`RefreshTokenAndRollNumberTests`) |
+| M1-I-10 | Refresh keeps seat claims, never extends the family | Desktop login with machine name → refresh | New token still has `client=desktop` + `machine`; successor `ExpiresAt` = original; only the SHA-256 hash is stored | ✅ xUnit |
+| M1-I-11 | Roll-number management | Set " bscs-21-001 ", reuse it, omit it, clear it, import duplicates | Stored `BSCS-21-001`; duplicate → 409; omitted = unchanged; `""` clears; import skips duplicate roll | ✅ xUnit |
+| M1-I-12 | HWID v2 upgrade rule | Wrong legacy proof; v2 without proof; second v2 on a v2 binding; first bind with v2 | 401 `DEVICE_MISMATCH` (no rebind, no audit); first bind stores `HwidVersion=2` | ✅ xUnit |
+| M1-A-07 | Refresh rotation + reuse over HTTP | Simulator: login → refresh → replay old refresh | 200 then 401 `REFRESH_TOKEN_REUSED`; successor and its access token dead; `REFRESH_TOKEN_REUSE` audited | ✅ Playwright api |
+| M1-A-08 | Logout / force-logout revoke refresh | Logout, refresh; login, admin force-logout, refresh | 401 both | ✅ Playwright api |
+| M1-A-09 | Staff refresh + 30-min access token | Staff login, decode JWT, refresh | `exp - iat` = 1800; refresh 200 with role | ✅ Playwright api |
+| M1-A-10 | Roll-number login, not display name | Admin sets roll; login by roll / by name; reuse roll | 200 / 401 / 409 | ✅ Playwright api |
+| M1-E-03 | Web refresh interceptor | Logged-in admin's access token replaced by an invalid one → open Users | Page loads (single refresh + retry); tokens rotated in localStorage | ✅ Playwright e2e |
+| M1-E-04 | Rejected refresh → login | Invalid access + unknown refresh token → open Users | Redirected to `/login`, session cleared | ✅ Playwright e2e |
+| M1-E-05 | Web logout revokes server-side | Logout button, then POST `/refresh` with the old refresh token | 401 | ✅ Playwright e2e |
+| M1-E-06 | Roll number in Users page | Admin creates student with roll number (lower-case) | Shown upper-case, searchable; desktop-style login by roll → 200 | ✅ Playwright e2e |
+| M1-U-01 | Desktop refresh is single-flight | Two concurrent 401s; stale failure after another refresh; near-expiry token | One `POST /refresh`; both callers get the new pair; proactive refresh 60 s before expiry | ✅ desktop xUnit (`TokenRefreshGateTests`) |
+| M1-U-02 | Desktop keeps the session on transient errors | Refresh → network error / 429 / 5xx vs `REFRESH_TOKEN_REUSED` | Transient: keep token, no kick; refusal: session over; logout during refresh is not undone | ✅ desktop xUnit |
+| M1-U-03 | HWID v2 fingerprint composition | BIOS/disk/board serials incl. OEM junk ("To be filled by O.E.M.", "0", …) | `v2\|BIOS\|DISK\|BOARD`; junk dropped; < 2 usable serials → SMBIOS UUID, else MachineGuid appended | ✅ desktop xUnit (`DeviceFingerprintTests`) |
 
 ## M2 — Pre-Exam Verification & Mock Test
 
@@ -135,6 +150,9 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M4-U-12 | Foreground check uses PID, not title | Notepad titled "Exam" | Not treated as exam window | ✅ |
 | M4-U-13 | Violation classifier | Warnings ×3 → Suspicious; Suspicious ×2 → Violation; ProcessKilled/USB/RDP → Violation; `"Violation"+reason` resolves to the specific type | As described | ✅ backend xUnit |
 | M4-U-14 | Virtual machine detection | WMI manufacturer/model of VMware, VirtualBox, Hyper-V, QEMU vs Dell/Surface | Vendor name / null | ✅ desktop xUnit |
+| M4-U-15 | Escape tools caught without a window | `taskmgr`, `procexp64`, `SystemInformer`, `regedit` windowless; windowless `cmd`/`powershell` (IDE terminals) | Enforce → Kill, Report → Report; shells allowed unless windowed; teacher can whitelist | ✅ desktop xUnit |
+| M4-U-16 | Task Manager policy apply / restore | Fake registry: value absent / 0 / 1 (GPO); marker write fails; registry write fails; apply twice | Marker written before `DisableTaskMgr=1`; restore deletes or rewrites the original; idempotent; no registry change without a marker | ✅ desktop xUnit (`TaskManagerPolicyTests`) |
+| M4-U-17 | Task Manager crash recovery | Marker left by killed pid 42; next start as pid 77 (file marker in a temp dir) | Original value restored, marker removed; not restored while another SmartExam instance still runs; corrupt marker → default (value deleted) | ✅ desktop xUnit |
 | M4-I-01 | Lockdown config in student status | Exam LockdownMode=Enforce | `/student/current` returns mode + allowedApps | ✅ |
 | M4-I-02 | Violation types accepted | POST event `UnauthorizedProcess` | 200, stored with type | ✅ |
 | M4-I-03 | Severity classification | 1 FocusLost → Warning; 3 → Suspicious; ProcessKilled → Violation | Tile status matches | ✅ |
@@ -150,10 +168,10 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M4-D-04 | Minimise impossible | Send minimise | Stays maximised | 📋 |
 | M4-D-05 | Unauthorized app killed | Launch notepad during exam | Process exits, violation sent | 📋 |
 | M4-D-06 | Clipboard cleared | Copy text in notepad before exam, paste in exam | Empty | 📋 |
-| M4-D-07 | Teardown after crash | Kill exam process | Next launch restores Task Manager policy | 📋 |
+| M4-D-07 | Teardown after crash | Kill exam process | Next launch restores Task Manager policy | 📋 FlaUI (decision logic ✅ M4-U-16/17) |
 | M4-D-08 | Hooks removed after exam | After submit press Alt+Tab | Works normally | 📋 |
 | M4-M-01 | Ctrl+Alt+Del | Press during exam | Focus-loss violation logged on return | 📋 manual |
-| M4-M-02 | Task Manager | Ctrl+Shift+Esc | Blocked / does not open | 📋 |
+| M4-M-02 | Task Manager | Ctrl+Shift+Esc; Ctrl+Alt+Del → Task Manager | Key blocked; Task Manager "disabled by your administrator" while the exam window is up, works again after submit | 📋 |
 | M4-M-03 | USB stick inserted | Insert USB | `UsbInserted` violation on live monitor | 📋 |
 | M4-M-04 | Second monitor hot-plug | Plug monitor mid-exam | `MultiMonitor` violation | 📋 |
 | M4-M-05 | RDP into lab PC | Start exam over RDP | Blocked at readiness | 📋 |
@@ -245,8 +263,9 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M8-A-02 | Invalid MCQ index | correctOptionIndex out of range | 400 | ✅ |
 | M8-A-03 | Coding without test cases | | 400 | ✅ |
 | M8-E-01 | Create exam wizard end-to-end | UI: details → 2 questions → publish | Exam in dashboard list | ✅ |
-| M8-E-02 | Monitoring settings step | Set screenshot interval 30 s | Persisted | ⏳ |
-| M8-E-03 | Allowed apps picker | Pick code.exe | `AllowedApps` contains it | ⏳ |
+| M8-I-01 | Capture intervals | Create/edit with screenshot/webcam interval; 9 s / 601 s | Default 60; persisted on create + edit; in `/student/current`; out of range → 400 | ✅ xUnit (`Module8CaptureSettingsTests`) |
+| M8-E-02 | Monitoring settings step | Set screenshot interval 5 s, then 30 s (webcam 120 s) | 5 s rejected in the wizard; 30/120 persisted; edit page shows them | ✅ |
+| M8-E-03 | Allowed apps picker | Pick Visual Studio Code + Code::Blocks from the catalogue, add `sublime_text`, remove one chip | Chips show exe names; picked apps leave the list; `AllowedApps` = `["code.exe","sublime_text.exe"]` | ✅ |
 
 ## M9 — Eligibility & Access Control
 
@@ -386,6 +405,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | D-09 | M9-I-10 | Every student login auto-registered its PC into "Systems Engineering Lab", defeating seat enforcement | **Fixed** — only with `Labs:AutoRegister=true` (dotnet-run demo profiles) |
 | D-10 | M9-I-19 | Any teacher could read another section's attendance (via `GET /exams/{id}/assignments`) and change another teacher's eligibility, roster and seat map | **Fixed** — owner-teacher / admin guard on all Module 9 roster endpoints |
 | D-11 | M9-I-20 | `SeatMatch=Ip` skipped web-portal tokens, so a student could start from a wrong PC through the browser | **Fixed** — web tokens are checked by the server-observed request IP in Ip / Either mode |
+| D-12 | M1-E-05 | Web panel logout only cleared localStorage; the access token stayed valid server-side until it expired | **Fixed** — logout calls `POST /api/auth/logout`, which also revokes the refresh-token family |
 
 ---
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import AppLayout from '../../components/layout/AppLayout';
 import { analyticsApi } from '../../api/analytics.api';
+import { getFreshAccessToken } from '../../api/client';
 import { examsApi } from '../../api/exams.api';
 import type { ExamReport, Exam } from '../../types';
 import { Download, FileText, Calendar, Loader2 } from 'lucide-react';
@@ -39,11 +40,12 @@ export default function ReportsPage() {
     showToast('Downloading', 'Requesting PDF stream from server...', 'info');
     
     // Use the auth token fetch + blob download strategy to bypass unauthorized requests
-    fetch(url, {
+    getFreshAccessToken()
+    .then(token => fetch(url, {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('smartexam_token')}`
+        Authorization: `Bearer ${token}`
       }
-    })
+    }))
     .then(res => {
       if (!res.ok) throw new Error('File download failed');
       return res.blob();

@@ -37,7 +37,10 @@ public record StudentExamStatus(
     DateTime? OpensAtUtc = null,
     int EarlyJoinMinutes = 0,
     bool? CanStartNow = null,
-    string? SeatStatus = null);
+    string? SeatStatus = null,
+    // Module 8: mean capture intervals (s) for the Module 5 capture service; it jitters each wait by ±50%.
+    int ScreenshotIntervalSeconds = 60,
+    int WebcamIntervalSeconds = 60);
 
 public record HealthProbe(bool Ok, TimeSpan RoundTrip, DateTimeOffset? ServerTime);
 

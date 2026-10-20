@@ -34,6 +34,7 @@ public class AppDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ReadinessCheck> ReadinessChecks => Set<ReadinessCheck>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -181,5 +182,26 @@ public class AppDbContext : DbContext
         // Module 9 eligibility provenance + seat identity
         modelBuilder.Entity<ExamAssignment>().Property(a => a.EligibilitySource).HasConversion<string>().HasMaxLength(16);
         modelBuilder.Entity<Workstation>().Property(w => w.HostName).HasMaxLength(128);
+
+        // Module 1: unique roll number (NULL for staff and for students without one)
+        modelBuilder.Entity<User>().Property(u => u.RollNumber).HasMaxLength(32);
+        modelBuilder.Entity<User>().HasIndex(u => u.RollNumber).IsUnique().HasFilter("\"RollNumber\" IS NOT NULL");
+
+        // Module 1: rotating refresh tokens (hash only). RevokedAt is a concurrency token so two
+        // concurrent refreshes with the same token cannot both rotate it.
+        modelBuilder.Entity<RefreshToken>().HasKey(t => t.TokenId);
+        modelBuilder.Entity<RefreshToken>().Property(t => t.TokenHash).HasMaxLength(64);
+        modelBuilder.Entity<RefreshToken>().Property(t => t.Jti).HasMaxLength(64);
+        modelBuilder.Entity<RefreshToken>().Property(t => t.Channel).HasMaxLength(32);
+        modelBuilder.Entity<RefreshToken>().Property(t => t.MachineName).HasMaxLength(128);
+        modelBuilder.Entity<RefreshToken>().Property(t => t.RevokedReason).HasMaxLength(32);
+        modelBuilder.Entity<RefreshToken>().Property(t => t.CreatedByIp).HasMaxLength(64);
+        modelBuilder.Entity<RefreshToken>().Property(t => t.RevokedAt).IsConcurrencyToken();
+        modelBuilder.Entity<RefreshToken>().HasIndex(t => t.TokenHash).IsUnique();
+        modelBuilder.Entity<RefreshToken>().HasIndex(t => t.FamilyId);
+        modelBuilder.Entity<RefreshToken>().HasIndex(t => t.Jti);
+        modelBuilder.Entity<RefreshToken>().HasIndex(t => new { t.UserId, t.RevokedAt });
+        modelBuilder.Entity<RefreshToken>()
+            .HasOne(t => t.User).WithMany(u => u.RefreshTokens).HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }

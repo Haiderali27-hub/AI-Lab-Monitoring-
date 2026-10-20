@@ -31,6 +31,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // ── Auth ─────────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<JwtHelper>();
 builder.Services.AddScoped<Backend_API.Services.AuditService>();
+// Module 1 — rotating refresh tokens (hashed at rest, reuse detection)
+builder.Services.AddScoped<Backend_API.Services.RefreshTokenService>();
 builder.Services.AddScoped<Backend_API.Services.SubmissionService>();
 // Module 9 — seat enforcement (config: SeatMatch = MachineName | Ip | Either)
 builder.Services.AddScoped<Backend_API.Services.SeatGuard>();
@@ -112,6 +114,16 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = builder.Configuration.GetValue("RateLimiting:LoginPermitLimit", 10),
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+    // Refresh is anonymous too; a client legitimately refreshes about once per access-token lifetime.
+    options.AddPolicy("refresh", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:RefreshPermitLimit", 30),
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import { analyticsApi } from '../../api/analytics.api';
+import { getFreshAccessToken } from '../../api/client';
 import { examsApi } from '../../api/exams.api';
 import type { ExamSummaryAnalytics, Exam } from '../../types';
 import { Download, BarChart2, BookOpen } from 'lucide-react';
@@ -63,7 +64,7 @@ export default function ExamAnalyticsPage() {
       const fileName = (result.downloadUrl as string).split('/').pop() ?? '';
       const url = analyticsApi.getReportDownloadUrl(fileName);
       const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('smartexam_token')}` },
+        headers: { Authorization: `Bearer ${await getFreshAccessToken()}` },
       });
       if (!res.ok) throw new Error('File download failed');
       const blob = await res.blob();

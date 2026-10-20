@@ -29,7 +29,7 @@ public partial class ExamWindow : Window
         var config = AppConfigProvider.Current;
         _lockdown = new LockdownCoordinator(apiClient, accessToken, sessionId,
             AppConfigProvider.ParseLockdownMode(examLockdownMode ?? config.LockdownMode), allowedApps,
-            examBlockMultiMonitor ?? config.BlockMultiMonitor);
+            examBlockMultiMonitor ?? config.BlockMultiMonitor, config.DisableTaskManager);
         _viewModel = new ExamSessionViewModel(apiClient, accessToken, sessionId, remainingSeconds);
         _viewModel.TimeExpired += () => Dispatcher.Invoke(async () => await AutoSubmitOnExpiry());
         DataContext = _viewModel;

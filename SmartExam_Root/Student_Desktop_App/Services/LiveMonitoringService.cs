@@ -84,9 +84,10 @@ public class LiveMonitoringService(ApiClient apiClient)
                     RemainingSecondsUpdated?.Invoke(remaining);
                 }
             }
-            else if (result.Code == "HTTP_401")
+            else if (result.Code == "HTTP_401" && !await _apiClient.IsSessionAliveAsync(_accessToken))
             {
-                // Server revoked this session (force-logout / deactivation) — kick out.
+                // ApiClient already tried a token refresh; the session is confirmed dead
+                // (force-logout / deactivation / revoked refresh token) — kick out.
                 StatusChanged?.Invoke("Session ended by administrator.");
                 SessionRevoked?.Invoke();
                 return;

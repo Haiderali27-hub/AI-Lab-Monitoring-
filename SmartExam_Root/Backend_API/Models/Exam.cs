@@ -28,8 +28,19 @@ public class Exam
     public double MinAttendancePercent { get; set; } = 75;
     // Module 9: when a seat is assigned, the student may only start/continue from that workstation.
     public bool EnforceSeat { get; set; } = true;
+    // Module 8 (consumed by the Module 5 capture service): mean screenshot interval. The client
+    // jitters each wait uniformly in [0.5x, 1.5x], so the default 60 s gives the thesis' random
+    // 30–90 s schedule; a violation also triggers an immediate capture.
+    public int ScreenshotIntervalSeconds { get; set; } = DefaultScreenshotIntervalSeconds;
+    // Mean webcam snapshot interval (the on-device face check itself runs at 1–2 FPS on CPU).
+    public int WebcamIntervalSeconds { get; set; } = DefaultWebcamIntervalSeconds;
     public ExamStatus Status { get; set; } = ExamStatus.Scheduled;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public const int DefaultScreenshotIntervalSeconds = 60;
+    public const int DefaultWebcamIntervalSeconds = 60;
+    public const int MinCaptureIntervalSeconds = 10;
+    public const int MaxCaptureIntervalSeconds = 600;
 
     // Navigation
     public Section Section { get; set; } = null!;

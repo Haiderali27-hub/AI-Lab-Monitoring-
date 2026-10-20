@@ -20,14 +20,18 @@ public class AuthController : ControllerBase
     private readonly JwtHelper _jwt;
     private readonly AuditService _audit;
     private readonly IConfiguration _config;
+    private readonly RefreshTokenService _refreshTokens;
 
-    public AuthController(AppDbContext db, JwtHelper jwt, AuditService audit, IConfiguration config)
+    public AuthController(AppDbContext db, JwtHelper jwt, AuditService audit, IConfiguration config, RefreshTokenService refreshTokens)
     {
         _db = db;
         _jwt = jwt;
         _audit = audit;
         _config = config;
+        _refreshTokens = refreshTokens;
     }
+
+    private string? ClientIp => HttpContext.Connection.RemoteIpAddress?.ToString();
 
     // POST /api/auth/login
     [HttpPost("login")]
@@ -64,11 +68,12 @@ public class AuthController : ControllerBase
             Jti = jti,
             ExpiresAt = expiry
         });
+        var refreshToken = await _refreshTokens.IssueForLoginAsync(user, jti, RefreshTokenChannels.Web, null, ClientIp);
         _audit.Add(user.UserId, "LOGIN_SUCCESS", "User", user.UserId.ToString(), new { user.Email, role = user.Role.ToString() });
 
         await _db.SaveChangesAsync();
 
-        return Ok(new LoginResponse(token, user.UserId, user.Name, user.Email, user.Role, deviceBound));
+        return Ok(new LoginResponse(token, user.UserId, user.Name, user.Email, user.Role, deviceBound, refreshToken, expiry));
     }
 
     // POST /api/auth/change-password
@@ -105,6 +110,9 @@ public class AuthController : ControllerBase
         if (jti is null) return BadRequest();
 
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        // Revoke the refresh-token family first, otherwise a refresh would resurrect the session.
+        await _refreshTokens.RevokeFamilyByJtiAsync(jti, RefreshTokenRevocation.Logout);
+
         var session = await _db.UserSessions.FirstOrDefaultAsync(s => s.Jti == jti);
         if (session is not null)
         {
@@ -142,9 +150,12 @@ public class AuthController : ControllerBase
     [EnableRateLimiting("login")]
     public async Task<IActionResult> StudentLogin([FromBody] StudentLoginRequest req)
     {
-        var user = await _db.Users
+        // Email or unique roll number — never the display name, which is not unique (M1-I-06).
+        var identifier = req.UsernameOrEmail?.Trim() ?? string.Empty;
+        var rollNumber = NormalizeRollNumber(identifier);
+        var user = identifier.Length == 0 ? null : await _db.Users
             .Include(u => u.DeviceBinding)
-            .FirstOrDefaultAsync(u => (u.Email == req.UsernameOrEmail || u.Name == req.UsernameOrEmail) && u.IsActive);
+            .FirstOrDefaultAsync(u => (u.Email == identifier || (u.RollNumber != null && u.RollNumber == rollNumber)) && u.IsActive);
 
         if (user is null || !PasswordHelper.VerifyPassword(req.Password, user.Salt, user.PasswordHash))
         {
@@ -165,22 +176,37 @@ public class AuthController : ControllerBase
         // Store/compare the HASH of the raw fingerprint — the DB never holds raw device IDs.
         var hwidHash = HwidHelper.Hash(req.HardwareFingerprint);
 
+        var hwidVersion = HwidHelper.VersionOf(req.HardwareFingerprint);
+
         if (user.DeviceBinding is null)
         {
             _db.DeviceBindings.Add(new DeviceBinding
             {
                 UserId = user.UserId,
                 HwidHash = hwidHash,
+                HwidVersion = hwidVersion,
                 MachineName = req.MachineName,
                 WindowsUsername = req.WindowsUsername
             });
             _audit.Add(user.UserId, "DEVICE_BOUND", "DeviceBinding", user.UserId.ToString(),
-                new { firstRegistration = true, machineName = req.MachineName, windowsUsername = req.WindowsUsername });
+                new { firstRegistration = true, hwidVersion, machineName = req.MachineName, windowsUsername = req.WindowsUsername });
             deviceBound = true;
         }
         else
         {
-            if (user.DeviceBinding.HwidHash != hwidHash)
+            var binding = user.DeviceBinding;
+            if (!HwidHelper.FixedTimeEquals(binding.HwidHash, hwidHash) &&
+                HwidHelper.CanUpgradeToV2(binding.HwidVersion, binding.HwidHash, req.HardwareFingerprint, req.LegacyHardwareFingerprint))
+            {
+                // HWID v2 migration: the client proved the v1 fingerprint this account is bound to, so
+                // re-bind to the v2 hash once. From now on only the v2 fingerprint is accepted.
+                binding.HwidHash = hwidHash;
+                binding.HwidVersion = 2;
+                _audit.Add(user.UserId, "DEVICE_REBOUND", "DeviceBinding", user.UserId.ToString(),
+                    new { fromVersion = 1, toVersion = 2, machineName = req.MachineName, windowsUsername = req.WindowsUsername });
+            }
+
+            if (!HwidHelper.FixedTimeEquals(binding.HwidHash, hwidHash))
             {
                 await _audit.LogAsync(user.UserId, "DEVICE_MISMATCH", "DeviceBinding", user.UserId.ToString(),
                     new { email = user.Email, outcome = "access_blocked", attemptedFromMachine = req.MachineName, attemptedByWindowsUser = req.WindowsUsername });
@@ -215,12 +241,14 @@ public class AuthController : ControllerBase
             Jti = jti,
             ExpiresAt = expiry
         });
+        var machineClaim = clientClaims.FirstOrDefault(c => c.Type == SeatGuard.MachineClaim)?.Value;
+        var refreshToken = await _refreshTokens.IssueForLoginAsync(user, jti, RefreshTokenChannels.StudentClient, machineClaim, ClientIp);
 
         await _db.SaveChangesAsync();
 
         var response = new TokenResponse(
             token,
-            "dummy-refresh-token",
+            refreshToken,
             expiry,
             new UserSummary(user.UserId, Guid.Empty, user.Name, user.Email, "Student"),
             deviceBound
@@ -229,13 +257,23 @@ public class AuthController : ControllerBase
         return Ok(new ApiEnvelope<TokenResponse>(true, "SUCCESS", "Success", response));
     }
 
-    // POST /api/auth/refresh
+    // POST /api/auth/refresh  — rotate: new access token + new refresh token; the presented one dies.
+    // Replaying an already-rotated token revokes its whole family (see RefreshTokenService).
     [HttpPost("refresh")]
     [AllowAnonymous]
-    public IActionResult Refresh([FromBody] RefreshRequest req)
+    [EnableRateLimiting("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest? req)
     {
-        return Ok(new ApiEnvelope<object>(true, "SUCCESS", "Success", null));
+        var outcome = await _refreshTokens.RotateAsync(req?.RefreshToken, ClientIp);
+        if (!outcome.Ok)
+            return Unauthorized(new ApiEnvelope<object>(false, outcome.Code, outcome.Message, null));
+
+        return Ok(new ApiEnvelope<TokenResponse>(true, "SUCCESS", "Success", outcome.Tokens));
     }
+
+    /// <summary>Roll numbers are compared trimmed and upper-case ("bscs-21-001" == "BSCS-21-001").</summary>
+    public static string? NormalizeRollNumber(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
 
     // Transparently migrate legacy SHA-256 hashes to PBKDF2 once we know the plaintext is correct.
     // Persisted by the SaveChangesAsync that follows in the login flow.

@@ -14,6 +14,9 @@ export interface LoginResponse {
   email: string;
   role: UserRole;
   deviceBound: boolean;
+  // Module 1: rotating refresh token + access-token expiry (POST /api/auth/refresh)
+  refreshToken?: string | null;
+  accessTokenExpiresAtUtc?: string | null;
 }
 
 export interface AuthUser {
@@ -28,6 +31,7 @@ export interface User {
   userId: string;
   name: string;
   email: string;
+  rollNumber?: string | null;       // Module 1: unique student roll number (login identifier)
   role: UserRole;
   isActive: boolean;
   createdAt: string;
@@ -43,6 +47,7 @@ export interface CreateUserRequest {
   email: string;
   password: string;
   role: UserRole;
+  rollNumber?: string;
 }
 
 // ── Exams ──────────────────────────────────────────────────────

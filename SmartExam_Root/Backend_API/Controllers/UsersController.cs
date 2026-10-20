@@ -17,11 +17,28 @@ public class UsersController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly AuditService _audit;
+    private readonly RefreshTokenService _refreshTokens;
 
-    public UsersController(AppDbContext db, AuditService audit)
+    public UsersController(AppDbContext db, AuditService audit, RefreshTokenService refreshTokens)
     {
         _db = db;
         _audit = audit;
+        _refreshTokens = refreshTokens;
+    }
+
+    private const int MaxRollNumberLength = 32;
+
+    // Validates + normalises a requested roll number. Returns an error result, or null when acceptable.
+    private async Task<IActionResult?> ValidateRollNumberAsync(string? normalized, Guid? exceptUserId)
+    {
+        if (normalized is null) return null;
+        if (normalized.Length > MaxRollNumberLength)
+            return BadRequest(new { message = $"Roll number must be at most {MaxRollNumberLength} characters." });
+        if (normalized.Contains('@'))
+            return BadRequest(new { message = "Roll number must not contain '@'." });
+        if (await _db.Users.AnyAsync(u => u.RollNumber == normalized && u.UserId != exceptUserId))
+            return Conflict(new { message = "Roll number already in use by another user." });
+        return null;
     }
 
     private Guid CurrentUserId =>
@@ -42,7 +59,7 @@ public class UsersController : ControllerBase
         var users = await query
             .Select(u => new
             {
-                u.UserId, u.Name, u.Email, u.Role, u.IsActive, u.CreatedAt,
+                u.UserId, u.Name, u.Email, u.RollNumber, u.Role, u.IsActive, u.CreatedAt,
                 DeviceBound = u.DeviceBinding != null,
                 DeviceRegisteredAt = u.DeviceBinding != null ? u.DeviceBinding.RegisteredAt : (DateTime?)null,
                 MachineName = u.DeviceBinding != null ? u.DeviceBinding.MachineName : null,
@@ -65,7 +82,7 @@ public class UsersController : ControllerBase
             .Where(u => u.UserId == id)
             .Select(u => new
             {
-                u.UserId, u.Name, u.Email, u.Role, u.IsActive, u.CreatedAt,
+                u.UserId, u.Name, u.Email, u.RollNumber, u.Role, u.IsActive, u.CreatedAt,
                 DeviceBound = u.DeviceBinding != null,
                 DeviceRegisteredAt = u.DeviceBinding != null ? u.DeviceBinding.RegisteredAt : (DateTime?)null,
                 MachineName = u.DeviceBinding != null ? u.DeviceBinding.MachineName : null,
@@ -86,11 +103,16 @@ public class UsersController : ControllerBase
         if (await _db.Users.AnyAsync(u => u.Email == req.Email))
             return Conflict(new { message = "Email already in use." });
 
+        var rollNumber = AuthController.NormalizeRollNumber(req.RollNumber);
+        var rollError = await ValidateRollNumberAsync(rollNumber, null);
+        if (rollError is not null) return rollError;
+
         var salt = PasswordHelper.GenerateSalt();
         var user = new User
         {
             Name = req.Name,
             Email = req.Email,
+            RollNumber = rollNumber,
             Role = req.Role,
             Salt = salt,
             PasswordHash = PasswordHelper.HashPassword(req.Password, salt)
@@ -101,7 +123,7 @@ public class UsersController : ControllerBase
         await _db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetById), new { id = user.UserId },
-            new { user.UserId, user.Name, user.Email, user.Role });
+            new { user.UserId, user.Name, user.Email, user.RollNumber, user.Role });
     }
 
     // PUT /api/users/{id}  — Edit name/email/role, optionally reset password
@@ -125,6 +147,15 @@ public class UsersController : ControllerBase
         if (id == CurrentUserId && user.Role != req.Role)
             return BadRequest(new { message = "You cannot change your own role." });
 
+        // RollNumber: null = leave unchanged, "" = clear, otherwise set (unique).
+        if (req.RollNumber is not null)
+        {
+            var rollNumber = AuthController.NormalizeRollNumber(req.RollNumber);
+            var rollError = await ValidateRollNumberAsync(rollNumber, id);
+            if (rollError is not null) return rollError;
+            user.RollNumber = rollNumber;
+        }
+
         user.Name = req.Name;
         user.Email = req.Email;
         user.Role = req.Role;
@@ -139,10 +170,10 @@ public class UsersController : ControllerBase
             passwordReset = true;
         }
 
-        _audit.Add(CurrentUserId, "USER_UPDATED", "User", id.ToString(), new { user.Email, role = user.Role.ToString(), passwordReset });
+        _audit.Add(CurrentUserId, "USER_UPDATED", "User", id.ToString(), new { user.Email, user.RollNumber, role = user.Role.ToString(), passwordReset });
         await _db.SaveChangesAsync();
 
-        return Ok(new { user.UserId, user.Name, user.Email, user.Role, message = "User updated." });
+        return Ok(new { user.UserId, user.Name, user.Email, user.RollNumber, user.Role, message = "User updated." });
     }
 
     // DELETE /api/users/{id}  — Hard delete, guarded to protect referential integrity
@@ -169,6 +200,8 @@ public class UsersController : ControllerBase
         _db.DeviceBindings.RemoveRange(bindings);
         var sessions = await _db.UserSessions.Where(s => s.UserId == id).ToListAsync();
         _db.UserSessions.RemoveRange(sessions);
+        var refreshTokens = await _db.RefreshTokens.Where(t => t.UserId == id).ToListAsync();
+        _db.RefreshTokens.RemoveRange(refreshTokens);
         var assignments = await _db.ExamAssignments.Where(a => a.UserId == id).ToListAsync();
         _db.ExamAssignments.RemoveRange(assignments);
         var enrollments = await _db.SectionEnrollments.Where(e => e.UserId == id).ToListAsync();
@@ -191,6 +224,8 @@ public class UsersController : ControllerBase
 
         var existingEmails = (await _db.Users.Select(u => u.Email).ToListAsync())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var existingRolls = (await _db.Users.Where(u => u.RollNumber != null).Select(u => u.RollNumber!).ToListAsync())
+            .ToHashSet(StringComparer.Ordinal);
         var created = 0;
         var skipped = new List<object>();
         var seenInBatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -203,12 +238,18 @@ public class UsersController : ControllerBase
             { skipped.Add(new { line, email = row.Email, reason = "missing name/email/password" }); continue; }
             if (existingEmails.Contains(row.Email) || !seenInBatch.Add(row.Email))
             { skipped.Add(new { line, email = row.Email, reason = "duplicate email" }); continue; }
+            var rollNumber = AuthController.NormalizeRollNumber(row.RollNumber);
+            if (rollNumber is not null && (rollNumber.Length > MaxRollNumberLength || rollNumber.Contains('@')))
+            { skipped.Add(new { line, email = row.Email, reason = "invalid roll number" }); continue; }
+            if (rollNumber is not null && !existingRolls.Add(rollNumber))
+            { skipped.Add(new { line, email = row.Email, reason = "duplicate roll number" }); continue; }
 
             var salt = PasswordHelper.GenerateSalt();
             _db.Users.Add(new User
             {
                 Name = row.Name.Trim(),
                 Email = row.Email.Trim(),
+                RollNumber = rollNumber,
                 Role = row.Role,
                 Salt = salt,
                 PasswordHash = PasswordHelper.HashPassword(row.Password, salt)
@@ -242,12 +283,15 @@ public class UsersController : ControllerBase
     [Authorize(Roles = "Admin,SuperAdmin")]
     public async Task<IActionResult> ForceLogout(Guid id)
     {
+        // Refresh tokens first: otherwise the client would simply mint a new access token.
+        var revokedRefreshTokens = await _refreshTokens.RevokeAllForUserAsync(id, RefreshTokenRevocation.ForceLogout);
+
         var sessions = await _db.UserSessions
             .Where(s => s.UserId == id && !s.IsRevoked)
             .ToListAsync();
 
         sessions.ForEach(s => s.IsRevoked = true);
-        _audit.Add(CurrentUserId, "FORCE_LOGOUT", "User", id.ToString(), new { revokedCount = sessions.Count });
+        _audit.Add(CurrentUserId, "FORCE_LOGOUT", "User", id.ToString(), new { revokedCount = sessions.Count, revokedRefreshTokens });
         await _db.SaveChangesAsync();
 
         return Ok(new { message = $"Revoked {sessions.Count} active session(s)." });
@@ -263,6 +307,10 @@ public class UsersController : ControllerBase
 
         if (id == CurrentUserId)
             return BadRequest(new { message = "You cannot deactivate your own account." });
+
+        await _refreshTokens.RevokeAllForUserAsync(id, RefreshTokenRevocation.Deactivated);
+        user = await _db.Users.FindAsync(id); // the revocation may have cleared the change tracker
+        if (user is null) return NotFound();
 
         user.IsActive = false;
         // Revoke live sessions so deactivation takes effect immediately

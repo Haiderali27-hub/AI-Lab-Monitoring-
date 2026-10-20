@@ -29,7 +29,7 @@ export default function LoginPage() {
         name: data.name,
         email: data.email,
         role: data.role,
-      });
+      }, data.refreshToken);
       // Redirect based on role
       if (data.role === 'Teacher') {
         navigate('/teacher/dashboard');

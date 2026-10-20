@@ -54,7 +54,7 @@ public class LoginViewModel(ApiClient apiClient) : BindableBase
 
         if (string.IsNullOrWhiteSpace(UsernameOrEmail) || string.IsNullOrWhiteSpace(password))
         {
-            StatusMessage = "Username/email and password are required.";
+            StatusMessage = "Email or roll number and password are required.";
             return false;
         }
 
@@ -63,8 +63,11 @@ public class LoginViewModel(ApiClient apiClient) : BindableBase
         {
             StatusMessage = "Authenticating...";
 
-            var hardwareFingerprint = DeviceFingerprint.CreateRawFingerprint();
-            var result = await _apiClient.StudentLoginAsync(UsernameOrEmail.Trim(), password, hardwareFingerprint, cancellationToken);
+            // WMI queries can take a moment; keep them off the UI thread.
+            // v2 (BIOS + disk + baseboard) is the binding; v1 is sent once so an old binding can be upgraded.
+            var (hardwareFingerprint, legacyFingerprint) = await Task.Run(
+                () => (DeviceFingerprint.CreateRawFingerprintV2(), DeviceFingerprint.CreateRawFingerprint()), cancellationToken);
+            var result = await _apiClient.StudentLoginAsync(UsernameOrEmail.Trim(), password, hardwareFingerprint, legacyFingerprint, cancellationToken);
             if (!result.Success || result.Data is null)
             {
                 StatusMessage = result.Message;

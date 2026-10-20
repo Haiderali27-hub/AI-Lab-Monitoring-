@@ -13,6 +13,7 @@ export default function UsersPage() {
   // Form state
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
+  const [formRollNumber, setFormRollNumber] = useState('');
   const [formPassword, setFormPassword] = useState('');
   const [formRole, setFormRole] = useState<UserRole>('Student');
   const [formError, setFormError] = useState('');
@@ -32,6 +33,7 @@ export default function UsersPage() {
     setEditingUser(null);
     setFormName('');
     setFormEmail('');
+    setFormRollNumber('');
     setFormPassword('');
     setFormRole('Student');
     setFormError('');
@@ -43,6 +45,7 @@ export default function UsersPage() {
     setEditingUser(user);
     setFormName(user.name);
     setFormEmail(user.email);
+    setFormRollNumber(user.rollNumber ?? '');
     setFormPassword('');
     setFormRole(user.role);
     setFormError('');
@@ -87,14 +90,17 @@ export default function UsersPage() {
           name: formName,
           email: formEmail,
           role: formRole,
-          password: formPassword.trim() ? formPassword : undefined
+          password: formPassword.trim() ? formPassword : undefined,
+          // Roll numbers are a student login identifier; '' clears it (e.g. after a role change).
+          rollNumber: formRole === 'Student' ? formRollNumber.trim() : ''
         });
       } else {
         await usersApi.create({
           name: formName,
           email: formEmail,
           password: formPassword,
-          role: formRole
+          role: formRole,
+          rollNumber: formRole === 'Student' && formRollNumber.trim() ? formRollNumber.trim() : undefined
         });
       }
       setShowPanel(false);
@@ -134,7 +140,7 @@ export default function UsersPage() {
     }
   };
 
-  // Parse a simple CSV (header row: name,email,password,role) into import rows
+  // Parse a simple CSV (header row: name,email,password,role[,rollNumber]) into import rows
   const handleCsvFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (fileInputRef.current) fileInputRef.current.value = ''; // allow re-selecting same file
@@ -149,7 +155,9 @@ export default function UsersPage() {
         name: header.indexOf('name'),
         email: header.indexOf('email'),
         password: header.indexOf('password'),
-        role: header.indexOf('role')
+        role: header.indexOf('role'),
+        // optional
+        rollNumber: header.findIndex(h => ['rollnumber', 'roll_number', 'roll number', 'roll'].includes(h))
       };
       if (idx.name < 0 || idx.email < 0 || idx.password < 0 || idx.role < 0) {
         alert('CSV header must include: name, email, password, role');
@@ -158,7 +166,8 @@ export default function UsersPage() {
       const rows = lines.slice(1).map(line => {
         const cols = line.split(',').map(c => c.trim());
         const role = (cols[idx.role] || 'Student') as UserRole;
-        return { name: cols[idx.name] || '', email: cols[idx.email] || '', password: cols[idx.password] || '', role };
+        const rollNumber = idx.rollNumber >= 0 ? cols[idx.rollNumber] || undefined : undefined;
+        return { name: cols[idx.name] || '', email: cols[idx.email] || '', password: cols[idx.password] || '', role, rollNumber };
       });
       const result: any = await usersApi.importUsers(rows);
       alert(`Import complete: ${result.created} created, ${result.skippedCount} skipped.`);
@@ -201,7 +210,8 @@ export default function UsersPage() {
     const matchesTab = activeTab === 'All' || u.role === activeTab;
     const matchesSearch = 
       u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase());
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
+      (u.rollNumber ?? '').toLowerCase().includes(search.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
@@ -249,7 +259,7 @@ export default function UsersPage() {
             </svg>
             <input
               className="w-full h-10 pl-10 pr-4 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
-              placeholder="Search by name or email..."
+              placeholder="Search by name, email or roll number..."
               type="text"
               value={search}
               onChange={(e) => {
@@ -331,7 +341,12 @@ export default function UsersPage() {
                             <span className="text-sm font-semibold text-slate-700">{user.name}</span>
                           </div>
                         </td>
-                        <td className="p-4 text-sm text-slate-500">{user.email}</td>
+                        <td className="p-4 text-sm text-slate-500">
+                          {user.email}
+                          {user.rollNumber && (
+                            <div className="text-xs text-slate-400 font-mono" data-testid="user-roll-number">{user.rollNumber}</div>
+                          )}
+                        </td>
                         <td className="p-4">{getRoleBadge(user.role)}</td>
                         <td className="p-4">
                           {user.isActive ? (
@@ -496,6 +511,21 @@ export default function UsersPage() {
                 required
               />
             </div>
+            {formRole === 'Student' && (
+              <div className="space-y-1.5">
+                <label htmlFor="rollNumber" className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Roll Number (optional)</label>
+                <input
+                  id="rollNumber"
+                  className="w-full h-10 px-4 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all text-sm font-mono uppercase"
+                  placeholder="e.g. BSCS-21-001"
+                  type="text"
+                  maxLength={32}
+                  value={formRollNumber}
+                  onChange={(e) => setFormRollNumber(e.target.value)}
+                />
+                <p className="text-xs text-slate-400">Unique. Students can sign in to the desktop client with it instead of their email.</p>
+              </div>
+            )}
             {/* Form Field */}
             <div className="space-y-1.5">
               <label htmlFor="password" className="text-xs font-semibold tracking-wider text-slate-400 uppercase">

@@ -41,7 +41,10 @@ public record StudentExamStatus(
     int EarlyJoinMinutes = 0,
     bool CanStartNow = false,
     // Module 9: Ok | Mismatch | Unassigned | NotEnforced | NotChecked (see Services/SeatGuard)
-    string? SeatStatus = null
+    string? SeatStatus = null,
+    // Module 8: mean capture intervals in seconds (the client jitters each wait by ±50%)
+    int ScreenshotIntervalSeconds = 60,
+    int WebcamIntervalSeconds = 60
 );
 
 public record PracticeExamSummary(Guid ExamId, string Title, int DurationMinutes, int QuestionCount, int Attempts, Guid? InProgressSessionId);
@@ -53,7 +56,10 @@ public record StudentLoginRequest(
     string Password,
     string HardwareFingerprint,
     string? MachineName = null,      // Windows computer name of the lab PC
-    string? WindowsUsername = null); // Windows account in use on that PC
+    string? WindowsUsername = null,  // Windows account in use on that PC
+    // Module 1 HWID v2 migration: the old-format (CPU|BOARD|MAC) fingerprint, sent alongside a
+    // "v2|…" fingerprint so a v1 binding can be upgraded once without an admin reset.
+    string? LegacyHardwareFingerprint = null);
 
 public record RefreshRequest(string RefreshToken);
 

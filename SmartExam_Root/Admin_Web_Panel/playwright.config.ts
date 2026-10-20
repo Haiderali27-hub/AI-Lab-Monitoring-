@@ -54,6 +54,9 @@ export default defineConfig({
         ASPNETCORE_ENVIRONMENT: 'Development',
         E2E__InMemory: 'true',
         RateLimiting__LoginPermitLimit: '100000',
+        RateLimiting__RefreshPermitLimit: '100000',
+        // Exercise the production access-token lifetime (the web/desktop clients refresh transparently).
+        Jwt__ExpiryMinutes: '30',
       },
     },
     {

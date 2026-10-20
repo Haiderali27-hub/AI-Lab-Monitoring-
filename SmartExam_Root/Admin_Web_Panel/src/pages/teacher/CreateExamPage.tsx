@@ -3,6 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import { examsApi } from '../../api/exams.api';
 import type { QuestionType } from '../../types';
+import AllowedAppsPicker from '../../components/exam/AllowedAppsPicker';
+import { parseAllowedApps } from '../../utils/allowedApps';
+
+// Module 8: per-exam mean capture intervals (seconds); the server enforces the same range.
+const MIN_CAPTURE_INTERVAL = 10;
+const MAX_CAPTURE_INTERVAL = 600;
 
 interface Section {
   sectionId: string;
@@ -53,7 +59,7 @@ export default function CreateExamPage() {
 
   const [questions, setQuestions] = useState<QuestionForm[]>([]);
 
-  const [allowedApps, setAllowedApps] = useState('');
+  const [allowedApps, setAllowedApps] = useState<string[]>([]);
   const [aiEvaluationEnabled, setAiEvaluationEnabled] = useState(true);
   const [plagiarismThreshold, setPlagiarismThreshold] = useState(70);
   const [lockdownMode, setLockdownMode] = useState<'Off' | 'Report' | 'Enforce'>('Report');
@@ -67,6 +73,9 @@ export default function CreateExamPage() {
   const [earlyJoinMinutes, setEarlyJoinMinutes] = useState(0);
   const [minAttendancePercent, setMinAttendancePercent] = useState(75);
   const [enforceSeat, setEnforceSeat] = useState(true);
+  // Module 8 — monitoring intervals (mean; the desktop client jitters each wait by ±50%)
+  const [screenshotIntervalSeconds, setScreenshotIntervalSeconds] = useState(60);
+  const [webcamIntervalSeconds, setWebcamIntervalSeconds] = useState(60);
 
   const [assignedStudentIds, setAssignedStudentIds] = useState<string[]>([]);
   // In edit mode, the prefetched assignment list must survive the section-students reload
@@ -96,10 +105,7 @@ export default function CreateExamPage() {
         setScheduledDate(start.toLocaleDateString('en-CA')); // YYYY-MM-DD (local)
         setStartTime(start.toTimeString().slice(0, 5));      // HH:mm (local)
         setDurationMinutes(exam.durationMinutes);
-        try {
-          const apps = JSON.parse(exam.allowedApps || '[]');
-          setAllowedApps(Array.isArray(apps) ? apps.join(', ') : '');
-        } catch { setAllowedApps(''); }
+        setAllowedApps(parseAllowedApps(exam.allowedApps));
         setAiEvaluationEnabled(exam.aiEvaluationEnabled ?? true);
         setPlagiarismThreshold(exam.plagiarismThreshold ?? 70);
         setLockdownMode(exam.lockdownMode ?? 'Report');
@@ -111,6 +117,8 @@ export default function CreateExamPage() {
         setEarlyJoinMinutes(exam.earlyJoinMinutes ?? 0);
         setMinAttendancePercent(exam.minAttendancePercent ?? 75);
         setEnforceSeat(exam.enforceSeat ?? true);
+        setScreenshotIntervalSeconds(exam.screenshotIntervalSeconds ?? 60);
+        setWebcamIntervalSeconds(exam.webcamIntervalSeconds ?? 60);
         const qs = [...(exam.questions ?? [])].sort((a: any, b: any) => a.orderIndex - b.orderIndex);
         setQuestions(qs.map((q: any) => ({
           type: q.type as QuestionType,
@@ -308,6 +316,12 @@ export default function CreateExamPage() {
           if (!tc.expectedOutput.trim()) return `Question ${i + 1} test case ${j + 1} expected output is empty.`;
         }
       }
+    } else if (step === 3) {
+      const inRange = (v: number) => Number.isInteger(v) && v >= MIN_CAPTURE_INTERVAL && v <= MAX_CAPTURE_INTERVAL;
+      if (!inRange(screenshotIntervalSeconds))
+        return `Screenshot interval must be between ${MIN_CAPTURE_INTERVAL} and ${MAX_CAPTURE_INTERVAL} seconds.`;
+      if (!inRange(webcamIntervalSeconds))
+        return `Webcam interval must be between ${MIN_CAPTURE_INTERVAL} and ${MAX_CAPTURE_INTERVAL} seconds.`;
     } else if (step === 4) {
       if (assignedStudentIds.length === 0) return 'Please assign at least one student.';
     }
@@ -343,19 +357,13 @@ export default function CreateExamPage() {
     // Combine date and time
     const startDateTime = new Date(`${scheduledDate}T${startTime}`);
 
-    // Parse apps array
-    const appsList = allowedApps
-      .split(',')
-      .map(app => app.trim())
-      .filter(app => app.length > 0);
-
     const payload = {
       title,
       instructions,
       sectionId: selectedSectionId,
       startTime: startDateTime.toISOString(),
       durationMinutes,
-      allowedApps: JSON.stringify(appsList),
+      allowedApps: JSON.stringify(allowedApps),
       aiEvaluationEnabled,
       plagiarismThreshold,
       lockdownMode,
@@ -367,6 +375,8 @@ export default function CreateExamPage() {
       earlyJoinMinutes,
       minAttendancePercent,
       enforceSeat,
+      screenshotIntervalSeconds,
+      webcamIntervalSeconds,
       questions: questions.map(q => ({
         type: q.type,
         bodyText: q.bodyText,
@@ -830,17 +840,11 @@ export default function CreateExamPage() {
               <div className="space-y-6">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    ALLOWED APPLICATIONS (COMMA-SEPARATED)
+                    ALLOWED APPLICATIONS
                   </label>
-                  <input 
-                    type="text" 
-                    value={allowedApps}
-                    onChange={e => setAllowedApps(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-slate-800"
-                    placeholder="e.g. code.exe, codeblocks.exe, chrome.exe"
-                  />
+                  <AllowedAppsPicker value={allowedApps} onChange={setAllowedApps} />
                   <p className="text-xs text-slate-400 mt-1">
-                    Executable names students may use besides the exam app. Leave empty to allow only the exam app.
+                    Programs students may use besides the exam app. Leave empty to allow only the exam app.
                   </p>
                 </div>
 
@@ -964,6 +968,39 @@ export default function CreateExamPage() {
                       className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-slate-800"
                     />
                     <p className="text-xs text-slate-400 mt-1">Used by "Recalculate" on the Eligibility page.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="screenshot-interval" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                      Screenshot interval (seconds)
+                    </label>
+                    <input
+                      id="screenshot-interval"
+                      type="number"
+                      min={MIN_CAPTURE_INTERVAL}
+                      max={MAX_CAPTURE_INTERVAL}
+                      value={screenshotIntervalSeconds}
+                      onChange={e => setScreenshotIntervalSeconds(Math.round(Number(e.target.value) || 0))}
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-slate-800"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Average gap between screen captures ({MIN_CAPTURE_INTERVAL}–{MAX_CAPTURE_INTERVAL} s). Each gap is randomised ±50% (60 → every 30–90 s), plus an immediate capture on a violation.</p>
+                  </div>
+                  <div>
+                    <label htmlFor="webcam-interval" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                      Webcam interval (seconds)
+                    </label>
+                    <input
+                      id="webcam-interval"
+                      type="number"
+                      min={MIN_CAPTURE_INTERVAL}
+                      max={MAX_CAPTURE_INTERVAL}
+                      value={webcamIntervalSeconds}
+                      onChange={e => setWebcamIntervalSeconds(Math.round(Number(e.target.value) || 0))}
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-slate-800"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Average gap between webcam snapshots kept as evidence (when a webcam is used).</p>
                   </div>
                 </div>
 

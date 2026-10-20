@@ -51,6 +51,17 @@ public class LockdownPolicy
         "whatsapp", "telegram", "slack", "zoom", "ms-teams", "chrome", "msedge", "firefox", "opera", "brave"
     };
 
+    // Tools that can end the exam client or undo the lockdown (Task Manager, process explorers, registry
+    // editor). Like AlwaysBlocked they count even without a visible window (an elevated Task Manager may not
+    // expose one to us), so Enforce mode kills them and Report mode reports them. Console shells (cmd,
+    // powershell) are deliberately NOT here: IDE terminals run them windowless; a windowed shell is already
+    // caught by the generic "unknown windowed app" rule.
+    private static readonly HashSet<string> EscapeTools = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "taskmgr", "procexp", "procexp64", "procexp64a", "processhacker", "systeminformer", "resmon", "perfmon",
+        "regedit", "regedt32", "autoruns", "autoruns64"
+    };
+
     private readonly HashSet<string> _allowedApps;
 
     public LockdownMode Mode { get; }
@@ -130,11 +141,14 @@ public class LockdownPolicy
         var name = Normalize(processName);
         if (name.Length == 0 || IsAllowedApp(name)) return ProcessDecision.Allowed;
 
-        var suspicious = AlwaysBlocked.Contains(name) || (hasVisibleWindow && !SystemProcesses.Contains(name));
+        var suspicious = AlwaysBlocked.Contains(name) || EscapeTools.Contains(name) ||
+                         (hasVisibleWindow && !SystemProcesses.Contains(name));
         if (!suspicious) return ProcessDecision.Allowed;
 
         return Mode == LockdownMode.Enforce ? ProcessDecision.Kill : ProcessDecision.Report;
     }
+
+    public static bool IsEscapeTool(string processName) => EscapeTools.Contains(Normalize(processName));
 
     /// <summary>
     /// Is the foreground window acceptable? Decided by the owning process ID, never the

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import * as signalR from '@microsoft/signalr';
 import { useAuth } from '../../context/AuthContext';
 import { examsApi } from '../../api/exams.api';
+import { getFreshAccessToken } from '../../api/client';
 import { SIGNALR_HUB_URL } from '../../utils/constants';
 import type { Exam, StudentLiveStatus, TileStatus } from '../../types';
 import { severityOf, violationLabel, worseStatus } from '../../utils/violations';
@@ -71,7 +72,8 @@ export default function LiveMonitorPage() {
 
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(SIGNALR_HUB_URL, {
-        accessTokenFactory: () => token
+        // Read at (re)connect time and refreshed when near expiry: access tokens live 30 minutes.
+        accessTokenFactory: () => getFreshAccessToken()
       })
       .withAutomaticReconnect()
       .build();

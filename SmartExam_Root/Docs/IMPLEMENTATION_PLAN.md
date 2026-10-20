@@ -10,14 +10,14 @@
 
 | # | Module | Thesis sprint | Status | Est. done |
 |---|--------|---------------|--------|-----------|
-| 1 | Authentication & Device Binding | S2 | Mostly complete | 80% |
+| 1 | Authentication & Device Binding | S2 | **Complete** — rotating refresh tokens, roll number, HWID v2 (see §6 status) | 95% |
 | 2 | Pre-Exam Verification & Mock Test | S4 | **Not started** | 0% |
 | 3 | Student Exam Dashboard | S4 | **Start gate done** (see §3.4 status) | 95% |
-| 4 | Secure Exam Environment (lockdown) | S4 | **Implemented, lab validation pending** (see §3.1 status) | 75% |
+| 4 | Secure Exam Environment (lockdown) | S4 | **Implemented incl. Task Manager policy, lab validation pending** (see §3.1 status) | 85% |
 | 5 | Live Monitoring Client Service | S5 | Barely started | 20% |
 | 6 | Submission & Backup | S6 | Partial | 50% |
 | 7 | User & Role Management | S2 | Mostly complete | 85% |
-| 8 | Exam Creation & Configuration | S3 | Mostly complete | 80% |
+| 8 | Exam Creation & Configuration | S3 | **Complete** — capture intervals + allowed-apps picker (see §6 status) | 95% |
 | 9 | Eligibility & Access Control | S3 | **Implemented, lab validation pending** (see §3.3 status) | 90% |
 | 10 | Live Proctoring Dashboard | S5 | Partial | 60% |
 | 11 | AI-Assisted Evaluation | S6 | Barely started | 15% |
@@ -93,7 +93,8 @@ Definition of Done for every task: code + tests listed in its row passing in CI,
 
 **Status (branch `fyp1-security-hardening`):**
 - ✅ Done: `LockdownPolicy`, `KeyboardHookService`, `ProcessGuardService`, `ClipboardGuardService`, `DeviceGuardService`, `LockdownCoordinator`; exam window fullscreen/topmost/uncloseable until submit; PID-based foreground check in `LiveMonitoringService`; `Exam.LockdownMode`/`BlockMultiMonitor` + migration `AddLockdownConfig`; `ViolationClassifier` (Warning → Suspicious → Violation); create-exam lockdown settings; live-monitor violation labels. Tests: M4-U-01…13, M4-I-01…05, M4-E-01…04 automated.
-- ⏳ Remaining: `TaskManagerPolicy` (registry, optional), VM detection, FlaUI desktop tests M4-D-*, manual lab checks M4-M-*, code-signing / AV exclusion note.
+- ✅ Done (Stage S2): Task Manager policy. Pure `Core/Lockdown/TaskManagerPolicy.cs` (`TaskManagerGuard` over `ITaskManagerPolicyStore` + `IRestoreMarkerStore`) sets `HKCU\…\Policies\System\DisableTaskMgr=1` while the exam window is up (Report + Enforce; config `DisableTaskManager`, default on, env `SMARTEXAM_DISABLE_TASKMGR`). The restore marker `%LOCALAPPDATA%\SmartExam\lockdown-restore.json` is written **before** the value; `LockdownCoordinator.Stop()` restores it on submit/close, unhandled exception and `ProcessExit`, and `App.OnStartup` recovers after a hard kill (skipped while another SmartExam instance still runs). `LockdownPolicy` escape-tool list (`taskmgr`, Process Explorer/Hacker/System Informer, `resmon`, `perfmon`, `regedit`, Autoruns) is caught even without a window: Enforce kills, Report reports. Windowless `cmd`/`powershell` stay allowed (IDE terminals). Tests M4-U-15…17 (fakes only — the real registry is never touched by tests). VM detection was already done (M4-U-14).
+- ⏳ Remaining: FlaUI desktop tests M4-D-* (M4-D-07 now has its unit half), manual lab checks M4-M-* (incl. M4-M-02 Task Manager under GPO), code-signing / AV exclusion note.
 - Client config fallback (`appsettings.desktop.json` / `SMARTEXAM_LOCKDOWN_MODE`): `LockdownMode` (default `Report`), `BlockMultiMonitor` — used only when the server sends no per-exam value.
 
 ### 3.2 Module 2 — Pre-Exam Verification & Mock Test (thesis FR2, `Ch-2-2`)
@@ -260,6 +261,21 @@ Backend: `MonitoringController` new endpoints `POST screenshot`, `POST events/ba
 
 **Acceptance:** M1-I-01…08, M7-I-01…05, M7-E-01…04, M8-E-01…03. **Effort:** 7 dev-days + docs.
 
+**Status — Module 1 (Stage S2, 2026-10-20)**
+- ✅ Refresh tokens (`Models/RefreshToken.cs`, `Services/RefreshTokenService.cs`): 64-byte random token (Base64Url), only the SHA-256 hex hash stored (unique index); a family per login with an absolute expiry (`Jwt:StudentRefreshHours` / `Jwt:StaffRefreshHours`, default 12 h — rotation never extends it). `POST /api/auth/refresh` (anonymous, own rate-limit policy `refresh`) rotates: old token `rotated` + `ReplacedByTokenId`, new access token (+ `UserSession`) re-emitting the desktop `client`/`machine` seat claims, successor in the same family. Replaying a rotated token (or racing it — `RevokedAt` is a concurrency token) revokes the whole family **and** every access token it issued, audits `REFRESH_TOKEN_REUSE`, returns 401 `REFRESH_TOKEN_REUSED`. Logout revokes the caller's family; force-logout and deactivate revoke all of the user's tokens (`FORCE_LOGOUT` audit carries `revokedRefreshTokens`). Staff `login` returns `refreshToken` + `accessTokenExpiresAtUtc` (appended fields).
+- ✅ Access tokens: `iat` claim, single clock reading (`exp − iat` exactly the lifetime); code default 30 min (`appsettings.example.json` 30; the xUnit factory still pins 480; Playwright's backend runs with 30). **Set `Jwt:ExpiryMinutes` to 30 in your local/deployed `appsettings.json`** — it is untracked and still says 480.
+- ✅ Desktop: pure `Core/Auth/TokenRefreshGate` (single-flight, proactive refresh 60 s before expiry, transient errors keep the session); `ApiClient.SendAuthorizedAsync` reads the current token at send time and refreshes + retries once on 401 for **every** authorized call (save-answer, submit, start-session, exam detail, readiness, notifications, logout included), so windows/services holding an old token string are safe. `IsSessionAliveAsync` and the heartbeat only kick out after a refresh is refused.
+- ✅ Web: `src/api/client.ts` single-flight refresh (Web Locks across tabs), proactive refresh in the request interceptor, retry-once on 401, login redirect only when the refresh is refused; `getFreshAccessToken()` for SignalR `accessTokenFactory` (Live Monitor reconnects after expiry) and the PDF `fetch` downloads; logout now calls `POST /api/auth/logout` (it used to clear localStorage only — defect D-12).
+- ✅ Roll number: `User.RollNumber` (≤ 32, trimmed + upper-case, filtered unique index); create / update (`null` = unchanged, `""` = clear, duplicate → 409) / CSV import (`rollNumber` column) / list + detail; Users page field, column and search. Student login = email **or** roll number; the non-unique display name no longer logs in. Demo seed: Ali `BSCS-21-001`, Sara `BSCS-21-002`. WPF prompt "Email or roll number".
+- ✅ HWID v2: desktop `DeviceFingerprint.CreateRawFingerprintV2()` = `v2|BIOS|system disk (Index 0)|baseboard` with OEM-junk filtering and an SMBIOS-UUID / MachineGuid fallback when fewer than two serials are usable; the legacy v1 string is sent once as `legacyHardwareFingerprint`. Server: `DeviceBinding.HwidVersion` (existing rows = 1); a v1 binding is re-bound to the v2 hash only when the same login proves the old fingerprint (`DEVICE_REBOUND` audit), after which only v2 is accepted. New bindings from a v2 client start at version 2.
+- Tests: M1-I-01…07 un-skipped; M1-I-09…12, M1-A-07…10, M1-E-03…06, M1-U-01…03 added.
+- Known limitation: if the refresh **response** is lost on the network after the server rotated, the client's retry is a replay and ends the session (the student logs in again and resumes the in-progress session). No grace window, by design of M1-I-03.
+
+**Status — Module 8 (Stage S2)**
+- ✅ `Exam.ScreenshotIntervalSeconds` / `WebcamIntervalSeconds` (default 60, validated 10–600 on create/edit; migration `AddCaptureIntervals`), returned by exam detail and `/student/current` (desktop `StudentExamStatus` has the fields for the Module 5 capture service). The value is the **mean**: the client randomises each wait ±50%, so the default gives the thesis' random 30–90 s schedule, plus an immediate capture on a violation.
+- ✅ Wizard step 3: "Screenshot interval" / "Webcam interval" inputs (prefilled on edit, validated in the wizard); allowed-apps picker (`components/exam/AllowedAppsPicker.tsx`, catalogue in `utils/allowedApps.ts`: VS Code, Code::Blocks, Dev-C++, Python IDLE, Eclipse, IntelliJ, PyCharm, NetBeans, Visual Studio, Notepad++, …) with chips and a free-text fallback normalised to `name.exe`. Early join / min attendance / enforce seat were already in place (Stage S1).
+- Tests: M8-I-01, M8-E-02, M8-E-03.
+
 ---
 
 ## 7. Database migrations (in order)
@@ -267,12 +283,13 @@ Backend: `MonitoringController` new endpoints `POST screenshot`, `POST events/ba
 1. `AddLockdownConfig` — Exam.LockdownMode, BlockMultiMonitor
 2. `AddReadinessChecks` — ReadinessChecks table; Exam.RequireReadiness/RequireWebcam/RequireMic/IsMock/EarlyJoinMinutes
 3. ✅ `AddAttendanceSeatAndEarlyJoin` — AttendanceRecords; Exam.MinAttendancePercent/EnforceSeat/EarlyJoinMinutes (EarlyJoinMinutes was not in #2 after all); ExamAssignment.EligibilityOverridden/EligibilitySource; Workstation.HostName
-4. `AddScreenshotsAndClientEventId` — Screenshots; MonitoringEvent.ClientEventId (unique); Exam.ScreenshotIntervalSeconds/WebcamIntervalSeconds; ExamSession.LastHeartbeatAt/ExtraMinutes
+4. `AddScreenshotsAndClientEventId` — Screenshots; MonitoringEvent.ClientEventId (unique); ExamSession.LastHeartbeatAt/ExtraMinutes (Exam.ScreenshotIntervalSeconds/WebcamIntervalSeconds already added by ✅ `AddCaptureIntervals`, Stage S2)
 5. `AddAnswerRevision` — Answer.Revision, ClientSavedAt
 6. `AddIncidentsAndProctors` — Incidents, ExamProctors
 7. `AddGradingPipeline` — AiGradingResult.Status, TestCaseResultsJson; Question.ModelAnswer, RubricKeywords; TestCase.Weight
 8. `AddAuditHashChain` — AuditLog.Sequence/PrevHash/Hash (backfill job computes chain for existing rows)
-9. `AddRefreshTokensAndRollNumber`
+9. ✅ `AddRefreshTokensRollNumberHwidV2` — RefreshTokens (hash unique, family/jti/user indexes, FK cascade); User.RollNumber (filtered unique); DeviceBinding.HwidVersion (default 1 for existing rows). All additive.
+10. ✅ `AddCaptureIntervals` — Exam.ScreenshotIntervalSeconds/WebcamIntervalSeconds (default 60).
 
 Every migration: tested on a copy of the Neon DB first (`pg_dump` → local docker `Infra/docker-compose.postgres.yml`).
 

@@ -60,6 +60,29 @@ test('M7-E-02 Create user via UI', async ({ page }) => {
   await expect(page.locator('table tbody tr').filter({ hasText: email })).toHaveCount(1);
 });
 
+test('M1-E-06 Admin sets a student roll number, which works as a login identifier', async ({ page, request }) => {
+  const email = `roll_${Date.now()}@test.com`;
+  const roll = `BSCS-PW-${Date.now().toString().slice(-6)}`;
+  await page.goto('/admin/users');
+  await page.getByRole('button', { name: /add user/i }).click();
+  await page.getByLabel(/full name/i).fill('Roll Number Student');
+  await page.getByLabel(/email/i).fill(email);
+  await page.getByLabel(/password/i).fill('Test@12345');
+  await page.getByLabel(/role/i).selectOption('Student');
+  await page.getByLabel(/roll number/i).fill(roll.toLowerCase());
+  await page.getByRole('button', { name: /create user/i }).click();
+  await expect(page.getByText(/add new user/i)).not.toBeVisible({ timeout: 5_000 });
+
+  // Stored normalised (upper-case) and searchable.
+  await page.getByPlaceholder(/search/i).fill(roll);
+  const row = page.locator('table tbody tr').filter({ hasText: email });
+  await expect(row).toHaveCount(1);
+  await expect(row.getByTestId('user-roll-number')).toHaveText(roll);
+
+  const login = await StudentClient.rawLogin(request, { usernameOrEmail: roll, password: 'Test@12345', hardwareFingerprint: `HWID-${roll}` });
+  expect(login.status()).toBe(200);
+});
+
 test('M7-E-03 Audit log shows login', async ({ page }) => {
   await page.goto('/admin/audit-logs');
   await expect(page.getByRole('heading', { name: /security & administrative logs/i })).toBeVisible();

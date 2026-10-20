@@ -13,6 +13,9 @@ public class AppConfig
     // "Off" disables lockdown entirely (development only).
     public string LockdownMode { get; set; } = "Report";
     public bool BlockMultiMonitor { get; set; } = true;
+
+    // Set HKCU DisableTaskMgr while the exam window is up (always restored, see TaskManagerPolicy).
+    public bool DisableTaskManager { get; set; } = true;
 }
 
 public static class AppConfigProvider
@@ -43,6 +46,12 @@ public static class AppConfigProvider
             config.LockdownMode = envLockdown;
         }
 
+        var envTaskMgr = Environment.GetEnvironmentVariable("SMARTEXAM_DISABLE_TASKMGR");
+        if (bool.TryParse(envTaskMgr, out var disableTaskMgr))
+        {
+            config.DisableTaskManager = disableTaskMgr;
+        }
+
         var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.desktop.json");
         if (!File.Exists(configPath))
         {
@@ -70,6 +79,11 @@ public static class AppConfigProvider
                 }
 
                 config.BlockMultiMonitor = fileConfig.BlockMultiMonitor;
+                // An explicit environment override wins over the file.
+                if (envTaskMgr is null || !bool.TryParse(envTaskMgr, out _))
+                {
+                    config.DisableTaskManager = fileConfig.DisableTaskManager;
+                }
             }
         }
         catch

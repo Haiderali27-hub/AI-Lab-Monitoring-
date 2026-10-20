@@ -1,14 +1,24 @@
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Student_Desktop_App.Core;
+using Student_Desktop_App.Core.Auth;
 
 namespace Student_Desktop_App.Services;
 
+/// <summary>
+/// HTTP client for the SmartExam API. Every authorized call goes through <see cref="SendAuthorizedAsync"/>:
+/// the access token is read from <see cref="SessionStore"/> at send time (so a window or service that was
+/// handed a token string before a refresh never sends a stale one), refreshed proactively shortly before
+/// it expires, and on a 401 refreshed once (single-flight, see <see cref="TokenRefreshGate"/>) and retried.
+/// The <c>accessToken</c> parameters are only a fallback for when no session is stored.
+/// </summary>
 public class ApiClient
 {
     private readonly HttpClient _httpClient;
+    private readonly TokenRefreshGate _refreshGate;
     private readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -28,6 +38,8 @@ public class ApiClient
         {
             BaseAddress = new Uri(AppConfigProvider.Current.ApiBaseUrl.TrimEnd('/') + "/")
         };
+
+        _refreshGate = new TokenRefreshGate(() => SessionStore.CurrentToken, SessionStore.UpdateAccessToken, RefreshForGateAsync);
     }
 
     public async Task<bool> CheckConnectionAsync(CancellationToken cancellationToken = default)
@@ -70,8 +82,9 @@ public class ApiClient
     {
         try
         {
-            using var request = CreateAuthorizedJsonRequest(HttpMethod.Post, $"api/exams/{examId}/readiness", accessToken, payload);
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await SendAuthorizedAsync(
+                token => CreateAuthorizedJsonRequest(HttpMethod.Post, $"api/exams/{examId}/readiness", token, payload),
+                accessToken, cancellationToken);
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode) return (false, false, $"Server rejected the check (HTTP {(int)response.StatusCode}).");
             using var doc = JsonDocument.Parse(body);
@@ -84,13 +97,11 @@ public class ApiClient
         }
     }
 
-    public async Task<ApiResult<List<PracticeExamSummary>>> GetPracticeExamsAsync(
+    public Task<ApiResult<List<PracticeExamSummary>>> GetPracticeExamsAsync(
         string accessToken,
-        CancellationToken cancellationToken = default)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/exams/student/practice", accessToken);
-        return await SendWithRefreshAsync<List<PracticeExamSummary>>(request, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendWithRefreshAsync<List<PracticeExamSummary>>(
+            token => CreateAuthorizedRequest(HttpMethod.Get, "api/exams/student/practice", token), accessToken, cancellationToken);
 
     // start-session returns a plain object { sessionId } or { code, message } (no ApiEnvelope).
     public async Task<(Guid? sessionId, string message)> StartSessionAsync(
@@ -100,9 +111,9 @@ public class ApiClient
     {
         try
         {
-            using var request = CreateAuthorizedRequest(HttpMethod.Post, $"api/exams/{examId}/start-session", accessToken);
-            request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await SendAuthorizedAsync(
+                token => CreateAuthorizedJsonRequest(HttpMethod.Post, $"api/exams/{examId}/start-session", token, new { }),
+                accessToken, cancellationToken);
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
             if (response.IsSuccessStatusCode && doc.RootElement.TryGetProperty("sessionId", out var sid))
@@ -115,10 +126,13 @@ public class ApiClient
         }
     }
 
+    /// <param name="hardwareFingerprint">The current ("v2|BIOS|DISK|BOARD") fingerprint.</param>
+    /// <param name="legacyHardwareFingerprint">The old-format fingerprint, so the server can upgrade a v1 binding once.</param>
     public async Task<ApiResult<TokenResponse>> StudentLoginAsync(
         string usernameOrEmail,
         string password,
         string hardwareFingerprint,
+        string? legacyHardwareFingerprint = null,
         CancellationToken cancellationToken = default)
     {
         var payload = new
@@ -126,6 +140,7 @@ public class ApiClient
             usernameOrEmail,
             password,
             hardwareFingerprint,
+            legacyHardwareFingerprint,
             // Human-readable machine identity so proctors/admins can see WHO is on WHICH PC
             machineName = Environment.MachineName,
             windowsUsername = Environment.UserName
@@ -135,34 +150,27 @@ public class ApiClient
         return await SendAsync<TokenResponse>(request, cancellationToken);
     }
 
-    public async Task<ApiResult<StudentExamStatus>> GetCurrentExamStatusAsync(
+    public Task<ApiResult<StudentExamStatus>> GetCurrentExamStatusAsync(
         string accessToken,
-        CancellationToken cancellationToken = default)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/exams/student/current", accessToken);
-        return await SendWithRefreshAsync<StudentExamStatus>(request, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendWithRefreshAsync<StudentExamStatus>(
+            token => CreateAuthorizedRequest(HttpMethod.Get, "api/exams/student/current", token), accessToken, cancellationToken);
 
-    public async Task<ApiResult<StartExamResult>> StartExamAsync(
+    public Task<ApiResult<StartExamResult>> StartExamAsync(
         string accessToken,
-        CancellationToken cancellationToken = default)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/exams/student/start", accessToken);
-        request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
-        return await SendWithRefreshAsync<StartExamResult>(request, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendWithRefreshAsync<StartExamResult>(
+            token => CreateAuthorizedJsonRequest(HttpMethod.Post, "api/exams/student/start", token, new { }), accessToken, cancellationToken);
 
-    public async Task<ApiResult<HeartbeatAck>> SendHeartbeatAsync(
+    public Task<ApiResult<HeartbeatAck>> SendHeartbeatAsync(
         string accessToken,
         HeartbeatPayload payload,
-        CancellationToken cancellationToken = default)
-    {
-        using var request = CreateAuthorizedJsonRequest(HttpMethod.Post, "api/monitoring/heartbeat", accessToken, payload);
-        return await SendWithRefreshAsync<HeartbeatAck>(request, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendWithRefreshAsync<HeartbeatAck>(
+            token => CreateAuthorizedJsonRequest(HttpMethod.Post, "api/monitoring/heartbeat", token, payload), accessToken, cancellationToken);
 
     // Exam detail (questions) for the student's exam-taking window.
-    // This endpoint returns a plain EF object (no ApiEnvelope), so deserialize directly.
+    // This endpoint returns a plain object (no ApiEnvelope), so deserialize directly.
     public async Task<ExamDetailDto?> GetExamDetailAsync(
         string accessToken,
         Guid examId,
@@ -170,8 +178,8 @@ public class ApiClient
     {
         try
         {
-            using var request = CreateAuthorizedRequest(HttpMethod.Get, $"api/exams/{examId}", accessToken);
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await SendAuthorizedAsync(
+                token => CreateAuthorizedRequest(HttpMethod.Get, $"api/exams/{examId}", token), accessToken, cancellationToken);
             if (!response.IsSuccessStatusCode) return null;
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             return JsonSerializer.Deserialize<ExamDetailDto>(body, _jsonSerializerOptions);
@@ -194,8 +202,9 @@ public class ApiClient
         try
         {
             var payload = new { questionId, answerText };
-            using var request = CreateAuthorizedJsonRequest(HttpMethod.Post, $"api/exams/sessions/{sessionId}/save-answer", accessToken, payload);
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await SendAuthorizedAsync(
+                token => CreateAuthorizedJsonRequest(HttpMethod.Post, $"api/exams/sessions/{sessionId}/save-answer", token, payload),
+                accessToken, cancellationToken);
             return response.IsSuccessStatusCode;
         }
         catch
@@ -211,9 +220,9 @@ public class ApiClient
     {
         try
         {
-            using var request = CreateAuthorizedRequest(HttpMethod.Post, $"api/exams/sessions/{sessionId}/submit", accessToken);
-            request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await SendAuthorizedAsync(
+                token => CreateAuthorizedJsonRequest(HttpMethod.Post, $"api/exams/sessions/{sessionId}/submit", token, new { }),
+                accessToken, cancellationToken);
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             return (response.IsSuccessStatusCode, body);
         }
@@ -223,7 +232,7 @@ public class ApiClient
         }
     }
 
-    public async Task<ApiResult<object>> SendMonitoringEventAsync(
+    public Task<ApiResult<object>> SendMonitoringEventAsync(
         string accessToken,
         string eventType,
         Guid? examSessionId,
@@ -231,22 +240,35 @@ public class ApiClient
         CancellationToken cancellationToken = default)
     {
         var envelope = new MonitoringEventPayload(eventType, examSessionId, JsonSerializer.Serialize(payload));
-        using var request = CreateAuthorizedJsonRequest(HttpMethod.Post, "api/monitoring/event", accessToken, envelope);
-        return await SendWithRefreshAsync<object>(request, cancellationToken);
+        return SendWithRefreshAsync<object>(
+            token => CreateAuthorizedJsonRequest(HttpMethod.Post, "api/monitoring/event", token, envelope), accessToken, cancellationToken);
     }
 
     /// <summary>
-    /// True while the session is still valid server-side. Returns false ONLY on an
-    /// explicit 401 (revoked/force-logout/deactivated) — network errors return true
-    /// so a Wi-Fi blip can't kick a student out of an exam.
+    /// True while the session is still valid server-side. Returns false ONLY when the server has
+    /// explicitly ended it: a 401 that a refresh cannot fix (revoked / force-logout / deactivated).
+    /// An expired access token is renewed transparently, and network errors return true so a Wi-Fi
+    /// blip can't kick a student out of an exam.
     /// </summary>
     public async Task<bool> IsSessionAliveAsync(string accessToken, CancellationToken cancellationToken = default)
     {
         try
         {
-            using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/auth/me", accessToken);
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
-            return response.StatusCode != System.Net.HttpStatusCode.Unauthorized;
+            var token = await _refreshGate.GetAccessTokenAsync(cancellationToken) ?? accessToken;
+            using (var request = CreateAuthorizedRequest(HttpMethod.Get, "api/auth/me", token))
+            using (var response = await _httpClient.SendAsync(request, cancellationToken))
+            {
+                if (response.StatusCode != HttpStatusCode.Unauthorized) return true;
+            }
+
+            if (SessionStore.CurrentToken is null) return false;
+            var attempt = await _refreshGate.RefreshAsync(token, cancellationToken);
+            if (attempt.Status == RefreshStatus.Unavailable) return true;
+            if (attempt.Status == RefreshStatus.Rejected || attempt.Token is null) return false;
+
+            using var retry = CreateAuthorizedRequest(HttpMethod.Get, "api/auth/me", attempt.Token.AccessToken);
+            using var retried = await _httpClient.SendAsync(retry, cancellationToken);
+            return retried.StatusCode != HttpStatusCode.Unauthorized;
         }
         catch
         {
@@ -265,8 +287,8 @@ public class ApiClient
     {
         try
         {
-            using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/notifications", accessToken);
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await SendAuthorizedAsync(
+                token => CreateAuthorizedRequest(HttpMethod.Get, "api/notifications", token), accessToken, cancellationToken);
             if (!response.IsSuccessStatusCode) return null;
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             return JsonSerializer.Deserialize<NotificationsEnvelope>(body, _jsonSerializerOptions);
@@ -284,8 +306,9 @@ public class ApiClient
     {
         try
         {
-            using var request = CreateAuthorizedRequest(HttpMethod.Patch, $"api/notifications/{notificationId}/read", accessToken);
-            using var _ = await _httpClient.SendAsync(request, cancellationToken);
+            using var _ = await SendAuthorizedAsync(
+                token => CreateAuthorizedRequest(HttpMethod.Patch, $"api/notifications/{notificationId}/read", token),
+                accessToken, cancellationToken);
         }
         catch
         {
@@ -293,14 +316,12 @@ public class ApiClient
         }
     }
 
-    public async Task<ApiResult<object>> LogoutAsync(
+    /// <summary>Server-side logout: revokes this session and its refresh-token family.</summary>
+    public Task<ApiResult<object>> LogoutAsync(
         string accessToken,
-        CancellationToken cancellationToken = default)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/auth/logout", accessToken);
-        request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
-        return await SendWithRefreshAsync<object>(request, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendWithRefreshAsync<object>(
+            token => CreateAuthorizedJsonRequest(HttpMethod.Post, "api/auth/logout", token, new { }), accessToken, cancellationToken);
 
     public async Task<ApiResult<TokenResponse>> RefreshAsync(
         string refreshToken,
@@ -311,6 +332,19 @@ public class ApiClient
         return await SendAsync<TokenResponse>(request, cancellationToken);
     }
 
+    // Maps the refresh call onto the gate's three outcomes. Only an explicit refusal ends the session;
+    // network errors, rate limiting (429) and server errors leave the current token in place.
+    private async Task<RefreshAttempt> RefreshForGateAsync(string refreshToken, CancellationToken cancellationToken)
+    {
+        var result = await RefreshAsync(refreshToken, cancellationToken);
+        if (result.Success && result.Data is not null) return new RefreshAttempt(RefreshStatus.Refreshed, result.Data);
+        return IsTransientFailure(result.Code) ? RefreshAttempt.Unavailable : RefreshAttempt.Rejected;
+    }
+
+    public static bool IsTransientFailure(string code) =>
+        code == "NETWORK_ERROR" || code == "HTTP_429" || code == "HTTP_408" ||
+        (code.StartsWith("HTTP_5", StringComparison.Ordinal) && code.Length == 8);
+
     private HttpRequestMessage CreateJsonRequest(HttpMethod method, string path, object payload)
     {
         var request = new HttpRequestMessage(method, path);
@@ -319,14 +353,14 @@ public class ApiClient
         return request;
     }
 
-    private HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string path, string accessToken)
+    private static HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string path, string accessToken)
     {
         var request = new HttpRequestMessage(method, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         return request;
     }
 
-    private HttpRequestMessage CreateAuthorizedJsonRequest(HttpMethod method, string path, string accessToken, object payload)
+    private static HttpRequestMessage CreateAuthorizedJsonRequest(HttpMethod method, string path, string accessToken, object payload)
     {
         var request = CreateAuthorizedRequest(method, path, accessToken);
         var json = JsonSerializer.Serialize(payload);
@@ -334,29 +368,45 @@ public class ApiClient
         return request;
     }
 
-    private async Task<ApiResult<T>> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
+    /// <summary>
+    /// Sends an authorized request built by <paramref name="build"/> for a given access token. Uses the
+    /// stored session token (refreshed first when near expiry); on a 401 refreshes once and rebuilds +
+    /// resends the request. Throws on network errors like <see cref="HttpClient.SendAsync(HttpRequestMessage, CancellationToken)"/>.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAuthorizedAsync(
+        Func<string, HttpRequestMessage> build, string fallbackAccessToken, CancellationToken cancellationToken)
+    {
+        var token = await _refreshGate.GetAccessTokenAsync(cancellationToken) ?? fallbackAccessToken;
+
+        HttpResponseMessage response;
+        using (var request = build(token))
+        {
+            response = await _httpClient.SendAsync(request, cancellationToken);
+        }
+
+        if (response.StatusCode != HttpStatusCode.Unauthorized || SessionStore.CurrentToken is null)
+        {
+            return response;
+        }
+
+        var attempt = await _refreshGate.RefreshAsync(token, cancellationToken);
+        if (attempt.Status != RefreshStatus.Refreshed || attempt.Token is null)
+        {
+            return response;
+        }
+
+        response.Dispose();
+        using var retry = build(attempt.Token.AccessToken);
+        return await _httpClient.SendAsync(retry, cancellationToken);
+    }
+
+    private async Task<ApiResult<T>> SendWithRefreshAsync<T>(
+        Func<string, HttpRequestMessage> build, string fallbackAccessToken, CancellationToken cancellationToken)
     {
         try
         {
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            if (string.IsNullOrWhiteSpace(body))
-            {
-                return response.IsSuccessStatusCode
-                    ? new ApiResult<T>(true, "SUCCESS", "Success", default)
-                    : ApiResult<T>.Fail($"HTTP_{(int)response.StatusCode}", response.ReasonPhrase ?? "Request failed");
-            }
-
-            var envelope = JsonSerializer.Deserialize<ApiEnvelope<T>>(body, _jsonSerializerOptions);
-            if (envelope is not null)
-            {
-                return new ApiResult<T>(envelope.Success, envelope.Code, envelope.Message, envelope.Data);
-            }
-
-            return response.IsSuccessStatusCode
-                ? new ApiResult<T>(true, "SUCCESS", "Success", JsonSerializer.Deserialize<T>(body, _jsonSerializerOptions))
-                : ApiResult<T>.Fail($"HTTP_{(int)response.StatusCode}", body);
+            using var response = await SendAuthorizedAsync(build, fallbackAccessToken, cancellationToken);
+            return await ParseAsync<T>(response, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -364,46 +414,38 @@ public class ApiClient
         }
     }
 
-    private async Task<ApiResult<T>> SendWithRefreshAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
+    private async Task<ApiResult<T>> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        var result = await SendAsync<T>(request, cancellationToken);
-        if (result.Code != "HTTP_401")
+        try
         {
-            return result;
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            return await ParseAsync<T>(response, cancellationToken);
         }
-
-        var token = SessionStore.CurrentToken;
-        if (token is null || string.IsNullOrWhiteSpace(token.RefreshToken))
+        catch (Exception ex)
         {
-            return result;
+            return ApiResult<T>.Fail("NETWORK_ERROR", ex.Message);
         }
-
-        var refreshResult = await RefreshAsync(token.RefreshToken, cancellationToken);
-        if (!refreshResult.Success || refreshResult.Data is null)
-        {
-            return result;
-        }
-
-        SessionStore.UpdateAccessToken(refreshResult.Data);
-
-        var retryRequest = CloneRequestWithNewToken(request, refreshResult.Data.AccessToken);
-        return await SendAsync<T>(retryRequest, cancellationToken);
     }
 
-    private static HttpRequestMessage CloneRequestWithNewToken(HttpRequestMessage request, string accessToken)
+    private async Task<ApiResult<T>> ParseAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
     {
-        var clone = new HttpRequestMessage(request.Method, request.RequestUri)
-        {
-            Content = request.Content,
-            Version = request.Version
-        };
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        foreach (var header in request.Headers)
+        if (string.IsNullOrWhiteSpace(body))
         {
-            clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            return response.IsSuccessStatusCode
+                ? new ApiResult<T>(true, "SUCCESS", "Success", default)
+                : ApiResult<T>.Fail($"HTTP_{(int)response.StatusCode}", response.ReasonPhrase ?? "Request failed");
         }
 
-        clone.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        return clone;
+        var envelope = JsonSerializer.Deserialize<ApiEnvelope<T>>(body, _jsonSerializerOptions);
+        if (envelope is not null && !string.IsNullOrEmpty(envelope.Code))
+        {
+            return new ApiResult<T>(envelope.Success, envelope.Code, envelope.Message, envelope.Data);
+        }
+
+        return response.IsSuccessStatusCode
+            ? new ApiResult<T>(true, "SUCCESS", "Success", JsonSerializer.Deserialize<T>(body, _jsonSerializerOptions))
+            : ApiResult<T>.Fail($"HTTP_{(int)response.StatusCode}", body);
     }
 }

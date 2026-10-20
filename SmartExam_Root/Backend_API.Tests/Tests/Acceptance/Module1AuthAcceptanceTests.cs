@@ -29,7 +29,7 @@ public class Module1AuthAcceptanceTests : IDisposable
     private static Task<HttpResponseMessage> RefreshAsync(HttpClient c, string refreshToken) =>
         c.PostAsJsonAsync("/api/auth/refresh", new { refreshToken });
 
-    [Fact(Skip = "Pending: M1-I-01 — real refresh tokens")]
+    [Fact]
     public async Task M1_I_01_Login_IssuesNonDummyRefreshToken()
     {
         var c = _host.NewClient();
@@ -45,7 +45,7 @@ public class Module1AuthAcceptanceTests : IDisposable
         again.GetProperty("refreshToken").GetString().Should().NotBe(refresh);
     }
 
-    [Fact(Skip = "Pending: M1-I-02 — refresh token rotation")]
+    [Fact]
     public async Task M1_I_02_Refresh_RotatesAccessAndRefreshToken_OldRefreshInvalid()
     {
         var c = _host.NewClient();
@@ -71,7 +71,7 @@ public class Module1AuthAcceptanceTests : IDisposable
         (await RefreshAsync(_host.NewClient(), oldRefresh)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    [Fact(Skip = "Pending: M1-I-03 — refresh token reuse detection")]
+    [Fact]
     public async Task M1_I_03_RefreshReuse_Returns401_AndRevokesWholeFamily()
     {
         var c = _host.NewClient();
@@ -97,7 +97,7 @@ public class Module1AuthAcceptanceTests : IDisposable
         (await _host.AuditLogsAsync("REFRESH_TOKEN_REUSE")).Should().NotBeEmpty();
     }
 
-    [Fact(Skip = "Pending: M1-I-04 — 30-minute access tokens")]
+    [Fact]
     public async Task M1_I_04_AccessTokenLifetime_Is30Minutes()
     {
         // The shared test factory pins Jwt:ExpiryMinutes=480; the planned default is a 30-min access token.
@@ -115,7 +115,7 @@ public class Module1AuthAcceptanceTests : IDisposable
         lifetime.Should().Be(1800);
     }
 
-    [Fact(Skip = "Pending: M1-I-05 — login by unique roll number")]
+    [Fact]
     public async Task M1_I_05_StudentLogin_ByRollNumber_Returns200()
     {
         var admin = await _host.AsAdmin();
@@ -131,7 +131,7 @@ public class Module1AuthAcceptanceTests : IDisposable
             .GetProperty("email").GetString().Should().Be(SeededData.StudentEmail);
     }
 
-    [Fact(Skip = "Pending: M1-I-06 — student login must not resolve by (non-unique) display name")]
+    [Fact]
     public async Task M1_I_06_DuplicateNames_LoginByName_IsRejected()
     {
         // A second active student with exactly the same display name and password as the seeded one.
@@ -149,7 +149,7 @@ public class Module1AuthAcceptanceTests : IDisposable
             .StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
-    [Fact(Skip = "Pending: M1-I-07 — HWID v2 (BIOS+disk+baseboard) migration")]
+    [Fact]
     public async Task M1_I_07_HwidV2Migration_AcceptedOnce_Rebinds_AndIsAudited()
     {
         const string v2 = "v2|BIOS-SN-1234|DISK-SN-5678|BOARD-SN-9012";
