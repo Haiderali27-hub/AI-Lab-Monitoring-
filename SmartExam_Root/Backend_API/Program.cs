@@ -4,6 +4,7 @@ using Backend_API.Data;
 using Backend_API.Helpers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -76,7 +77,8 @@ builder.Services.AddScoped<Backend_API.Services.Notifications.NotificationServic
 // Serve static PDF report files
 builder.Services.AddDirectoryBrowser();
 
-builder.Services.AddSignalR();
+// D-41: hub calls re-check the sign-in (revoked / deactivated / role changed), not only the connect.
+builder.Services.AddSignalR(o => o.AddFilter<Backend_API.Hubs.HubSessionFilter>());
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -109,24 +111,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnTokenValidated = async context =>
             {
                 var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
-                var jti = context.Principal?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value;
-                var sub = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-
-                if (jti is not null)
-                {
-                    var session = await db.UserSessions.AsNoTracking().FirstOrDefaultAsync(s => s.Jti == jti);
-                    if (session is not null && session.IsRevoked)
-                    {
-                        context.Fail("Session revoked.");
-                        return;
-                    }
-                }
-
-                if (Guid.TryParse(sub, out var userId))
-                {
-                    var isActive = await db.Users.AsNoTracking().Where(u => u.UserId == userId).Select(u => u.IsActive).FirstOrDefaultAsync();
-                    if (!isActive) context.Fail("Account inactive.");
-                }
+                if (await Backend_API.Hubs.HubSessionFilter.FailureReasonAsync(db, context.Principal, checkRole: false) is { } reason)
+                    context.Fail(reason);
             }
         };
     });

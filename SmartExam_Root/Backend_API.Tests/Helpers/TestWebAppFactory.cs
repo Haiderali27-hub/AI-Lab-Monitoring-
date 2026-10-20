@@ -64,6 +64,8 @@ public class TestWebAppFactory : WebApplicationFactory<Program>
         // Module 9: pin the secure defaults so a local appsettings.Development.json (e.g. one that
         // enables demo auto-registration) can never change what the tests assert.
         builder.UseSetting("Labs:AutoRegister", "false");
+        // The desktop-client requirement (on by default since D-45) is pinned off here: most tests drive sessions with
+        // web-portal tokens. The strict-mode tests (M9-I-18, M9-I-22) turn it back on in their own host.
         builder.UseSetting("Exams:RequireDesktopClientForStart", "false");
 
         // Module 6: the timeout sweeper is off by default so tests that move an exam's window into the past

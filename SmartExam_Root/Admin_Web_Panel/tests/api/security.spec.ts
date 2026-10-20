@@ -38,6 +38,12 @@ test.describe('SEC — Security hardening', () => {
     const staffView = await teacher.examDetail(exam.examId);
     expect(staffView.questions.some((q: any) => q.correctOptionIndex === 1)).toBe(true);
 
+    // D-42: before the student starts, the exam's details come without the paper.
+    const before = await students[0].examDetailRaw(exam.examId);
+    expect(before.status()).toBe(200);
+    expect((await before.json()).questions).toHaveLength(0);
+
+    await students[0].start(exam.examId);
     const res = await students[0].examDetailRaw(exam.examId);
     expect(res.status()).toBe(200);
     const detail = await res.json();

@@ -72,6 +72,8 @@ public class MonitoringController(
     [HttpPost("heartbeat")]
     public async Task<IActionResult> Heartbeat([FromBody] HeartbeatPayload request)
     {
+        // D-45: exam monitoring comes from the desktop app only (a web token carries no device, seat or lockdown).
+        if (_seats.RefusesClient(User)) return SeatGuard.DesktopRequired();
         var studentId = CallerId;
         var now = DateTime.UtcNow;
 
@@ -371,6 +373,8 @@ public class MonitoringController(
     [HttpPost("event")]
     public async Task<IActionResult> PushEvent([FromBody] MonitoringEventPayload request)
     {
+        // D-45: exam monitoring comes from the desktop app only (a web token carries no device, seat or lockdown).
+        if (_seats.RefusesClient(User)) return SeatGuard.DesktopRequired();
         var studentId = CallerId;
         var now = DateTime.UtcNow;
 
@@ -429,6 +433,8 @@ public class MonitoringController(
     [HttpPost("events/batch")]
     public async Task<IActionResult> PushEventBatch([FromBody] MonitoringEventBatch request)
     {
+        // D-45: exam monitoring comes from the desktop app only (a web token carries no device, seat or lockdown).
+        if (_seats.RefusesClient(User)) return SeatGuard.DesktopRequired();
         var studentId = CallerId;
         var now = DateTime.UtcNow;
         var events = request.Events ?? [];
@@ -567,6 +573,8 @@ public class MonitoringController(
     [RequestFormLimits(MultipartBodyLengthLimit = MultipartLimit)]
     public async Task<IActionResult> UploadScreenshot([FromForm] ScreenshotUploadForm form, CancellationToken cancellationToken)
     {
+        // D-45: exam monitoring comes from the desktop app only (a web token carries no device, seat or lockdown).
+        if (_seats.RefusesClient(User)) return SeatGuard.DesktopRequired();
         var studentId = CallerId;
         var now = DateTime.UtcNow;
 

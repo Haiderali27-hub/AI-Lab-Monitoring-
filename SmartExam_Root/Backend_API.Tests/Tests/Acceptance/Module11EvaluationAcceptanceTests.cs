@@ -573,7 +573,10 @@ public class Module11EvaluationAcceptanceTests : IDisposable
         tcs[0].GetProperty("floatTolerance").GetDouble().Should().Be(0.01);
         tcs[1].GetProperty("isEdgeCase").GetBoolean().Should().BeTrue();
 
-        var studentView = await TestHost.JsonAsync(await (await _host.AsStudent()).GetAsync($"/api/exams/{examId}"));
+        // The student sees the paper only while sitting it (D-42).
+        var student = await _host.AsStudent();
+        await _host.StartSessionAsync(student, examId);
+        var studentView = await TestHost.JsonAsync(await student.GetAsync($"/api/exams/{examId}"));
         studentView.GetProperty("questions")[0].GetProperty("testCases").GetArrayLength().Should().Be(1, "hidden cases never reach students");
     }
 

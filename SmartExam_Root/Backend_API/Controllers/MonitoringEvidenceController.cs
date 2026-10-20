@@ -121,10 +121,12 @@ public class MonitoringEvidenceController(AppDbContext db, ExamAccessService acc
                 (s.Trigger == Screenshot.TriggerViolation ? $" (violation{(s.TriggerReason is null ? "" : ": " + s.TriggerReason)})" : ""),
             s.TriggerReason, s.ScreenshotId, s.UploadedAt)));
 
-        // Proctor warnings sent to this student while the session was running.
+        // Proctor warnings sent about this session (SendWarning stores the session id in RelatedEntityId). D-47: a
+        // warning another exam's proctor sent while the student also had that exam open is not this exam's evidence.
         var end = session.SubmittedAt ?? DateTime.MaxValue;
+        var sessionKey = sessionId.ToString();
         var warnings = await _db.Notifications.AsNoTracking()
-            .Where(n => n.RecipientId == session.UserId && n.Type == MonitoringHub.WarningType &&
+            .Where(n => n.RecipientId == session.UserId && n.Type == MonitoringHub.WarningType && n.RelatedEntityId == sessionKey &&
                         n.CreatedAt >= session.StartedAt && n.CreatedAt <= end && n.CreatedAt > since)
             .OrderByDescending(n => n.CreatedAt)
             .Take(take)

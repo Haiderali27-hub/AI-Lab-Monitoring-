@@ -132,4 +132,30 @@ test.describe('M9 — Eligibility & Access Control', () => {
     const row = (await teacher.assignments(exam.examId)).find(r => r.userId === users[0].userId);
     expect(row.isEligible).toBe(true);
   });
+
+  // D-45: the desktop client is required by default, for the whole exam - a web-portal token holding the same
+  // student's password can neither read the paper nor answer into the session running on the lab PC.
+  test('M9-A-05 A web-portal token cannot answer into the desktop session', async ({ request }) => {
+    const { students, exam, users } = await examWithStudents(request, 1);
+    const desktop = students[0];
+    await desktop.start(exam.examId);
+    const theory = exam.questions.find(q => q.type === 'Theory')!;
+    expect((await desktop.saveAnswer(theory.questionId, 'desktop answer', desktop.sessionId, { revision: 1 })).status()).toBe(200);
+
+    const login = await request.post(`${API_URL}/api/auth/login`, { data: { email: users[0].email, password: users[0].password } });
+    expect(login.status()).toBe(200);
+    const web = { Authorization: `Bearer ${(await login.json()).token}` };
+    const save = await request.post(`${API_URL}/api/exams/sessions/${desktop.sessionId}/save-answer`, {
+      headers: web, data: { questionId: theory.questionId, answerText: 'accomplice answer', revision: 99 },
+    });
+    expect(save.status()).toBe(403);
+    expect((await save.json()).code).toBe('DESKTOP_CLIENT_REQUIRED');
+    expect((await request.post(`${API_URL}/api/exams/sessions/${desktop.sessionId}/submit`, { headers: web, data: {} })).status()).toBe(403);
+    const paper = await request.get(`${API_URL}/api/exams/${exam.examId}`, { headers: web });
+    expect(paper.status()).toBe(200);
+    expect((await paper.json()).questions).toHaveLength(0);
+
+    const saved = await (await desktop.answers()).json();
+    expect(saved.answers.find((a: any) => a.questionId === theory.questionId).answerText).toBe('desktop answer');
+  });
 });

@@ -135,6 +135,13 @@ public class ExamsController : ControllerBase
             isForeignTeacher = access < ExamAccess.Owner;
         }
         var hideAnswerKey = isStudent || isInvigilator || isForeignTeacher;
+        // D-42: a student gets the paper only while sitting it - an in-progress session of this exam (started through
+        // the start gates: window open, eligible, seat, readiness) and, when the desktop client is required, from the
+        // desktop app (D-45). Before that (or after submitting) the exam's details come without questions, so an
+        // assigned (or ineligible) student can no longer download the paper days before the exam.
+        var questionsVisible = !isStudent ||
+            (!_seats.RefusesClient(User) &&
+             await _db.ExamSessions.AnyAsync(s => s.ExamId == id && s.UserId == CurrentUserId && s.Status == SessionStatus.InProgress));
 
         // Explicit projection — the raw EF graph included every assigned student's PasswordHash/Salt.
         return Ok(new
@@ -167,7 +174,7 @@ public class ExamsController : ControllerBase
                 exam.Section.Name,
                 Course = exam.Section.Course is null ? null : new { exam.Section.Course.CourseId, exam.Section.Course.Name, exam.Section.Course.Code }
             },
-            Questions = exam.Questions.OrderBy(q => q.OrderIndex).Select(q => new
+            Questions = exam.Questions.Where(_ => questionsVisible).OrderBy(q => q.OrderIndex).Select(q => new
             {
                 q.QuestionId,
                 q.ExamId,
@@ -212,6 +219,8 @@ public class ExamsController : ControllerBase
     {
         var validationError = await ValidateExamPayloadAsync(req);
         if (validationError is not null) return validationError;
+        var foreignStudents = await RefuseOtherTeachersStudentsAsync(req.StudentIds.Distinct().ToList());
+        if (foreignStudents is not null) return foreignStudents;
 
         var exam = new Exam
         {
@@ -275,6 +284,10 @@ public class ExamsController : ControllerBase
 
         var validationError = await ValidateExamPayloadAsync(req);
         if (validationError is not null) return validationError;
+        // Students already on the roster stay (an admin may have assigned them); only additions are checked.
+        var added = req.StudentIds.Distinct().Where(sid => exam.Assignments.All(a => a.UserId != sid)).ToList();
+        var foreignStudents = await RefuseOtherTeachersStudentsAsync(added);
+        if (foreignStudents is not null) return foreignStudents;
 
         exam.Title = req.Title;
         exam.Instructions = string.IsNullOrWhiteSpace(req.Instructions) ? null : req.Instructions.Trim();
@@ -540,6 +553,38 @@ public class ExamsController : ControllerBase
         if (!CanManage(exam.Section))
             return (null, StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only manage exams of your own sections." }));
         return (exam, null);
+    }
+
+    public const string ForeignStudentCode = "STUDENT_NOT_IN_YOUR_SECTIONS";
+
+    /// <summary>
+    /// D-44: a teacher may put on their exam's roster only students of the sections they teach, or students enrolled in
+    /// no section at all (assigning without a formal enrollment stays possible, as the attendance import allows). A
+    /// student enrolled only in other teachers' sections is refused (403): otherwise teacher B could assign teacher A's
+    /// class to an exam timed just before A's, so the desktop dashboard and student/start pick B's exam, and B, as its
+    /// owner, would see those students' screenshots, webcam captures, processes and answers. Admins assign anyone.
+    /// </summary>
+    private async Task<IActionResult?> RefuseOtherTeachersStudentsAsync(IReadOnlyCollection<Guid> studentIds)
+    {
+        if (studentIds.Count == 0 || User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value != "Teacher")
+            return null;
+        var me = CurrentUserId;
+        var ids = studentIds.ToList();
+        var enrolled = await _db.SectionEnrollments.AsNoTracking()
+            .Where(se => ids.Contains(se.UserId))
+            .Select(se => new { se.UserId, se.Section.TeacherId })
+            .ToListAsync();
+        var foreign = enrolled.GroupBy(e => e.UserId)
+            .Where(g => g.All(e => e.TeacherId != me))
+            .Select(g => g.Key)
+            .ToList();
+        if (foreign.Count == 0) return null;
+        return StatusCode(StatusCodes.Status403Forbidden, new
+        {
+            code = ForeignStudentCode,
+            message = "You can only assign students of your own sections (or students not enrolled in any section).",
+            studentIds = foreign
+        });
     }
 
     // ── Module 7 / 10: proctor assignment (ExamProctors) ─────────────────────
@@ -821,6 +866,8 @@ public class ExamsController : ControllerBase
 
         var isStudent = await _db.Users.AnyAsync(u => u.UserId == req.UserId && u.Role == UserRole.Student);
         if (!isStudent) return BadRequest(new { message = "User is not a valid student." });
+        var foreignStudent = await RefuseOtherTeachersStudentsAsync([req.UserId]);
+        if (foreignStudent is not null) return foreignStudent;
 
         if (await _db.ExamAssignments.AnyAsync(a => a.ExamId == examId && a.UserId == req.UserId))
             return Conflict(new { message = "Student is already assigned to this exam." });
@@ -1238,6 +1285,7 @@ public class ExamsController : ControllerBase
     [Authorize(Roles = "Student")]
     public async Task<IActionResult> Submit(Guid sessionId)
     {
+        if (_seats.RefusesClient(User)) return SeatGuard.DesktopRequired(); // D-45
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
 
         var session = await _db.ExamSessions
@@ -1289,6 +1337,9 @@ public class ExamsController : ControllerBase
     [Authorize(Roles = "Student")]
     public async Task<IActionResult> SaveAnswer(Guid sessionId, [FromBody] SaveAnswerRequest req)
     {
+        // D-45: answers come from the desktop app only - a web token (no device binding, seat or lockdown) could
+        // otherwise write into the session the student is running on the lab PC.
+        if (_seats.RefusesClient(User)) return SeatGuard.DesktopRequired();
         var userId = CurrentUserId;
         var session = await _db.ExamSessions.Include(s => s.Exam).FirstOrDefaultAsync(s => s.SessionId == sessionId);
         // Ownership check: a student may only write to their own session (prevents IDOR).
@@ -1374,6 +1425,7 @@ public class ExamsController : ControllerBase
     [Authorize(Roles = "Student")]
     public async Task<IActionResult> GetSessionAnswers(Guid sessionId)
     {
+        if (_seats.RefusesClient(User)) return SeatGuard.DesktopRequired(); // D-45
         var session = await _db.ExamSessions.AsNoTracking().Include(s => s.Exam)
             .FirstOrDefaultAsync(s => s.SessionId == sessionId && s.UserId == CurrentUserId);
         // 404 (not 403) for someone else's session, as save-answer does.
@@ -1457,6 +1509,7 @@ public class ExamsController : ControllerBase
             ?? candidates
                 .OrderByDescending(a => a.Exam.StartTime)
                 .FirstOrDefault();
+        assignment = await PreferOpenUnfinishedAsync(assignment, candidates, studentId, now);
 
         if (assignment is null)
         {
@@ -1569,6 +1622,7 @@ public class ExamsController : ControllerBase
                 .OrderBy(a => a.Exam.StartTime)
                 .FirstOrDefault()
             ?? startCandidates.OrderByDescending(a => a.Exam.StartTime).FirstOrDefault();
+        assignment = await PreferOpenUnfinishedAsync(assignment, startCandidates, studentId, now);
 
         if (assignment is null)
         {
@@ -1589,14 +1643,23 @@ public class ExamsController : ControllerBase
         var seatRefusal = await CheckSeatOnStartAsync(assignment);
         if (seatRefusal is not null) return seatRefusal;
 
+        // D-43: one sitting per (non-practice) exam, as start-session does. The running session is resumed; a submitted,
+        // force-submitted or timed-out one is final - starting again would undo a proctor's force-submit and let the
+        // student re-sit the exam in a fresh session.
         var existing = await _db.ExamSessions
-            .FirstOrDefaultAsync(s => s.ExamId == assignment.ExamId && s.UserId == studentId && s.Status == SessionStatus.InProgress);
+            .Where(s => s.ExamId == assignment.ExamId && s.UserId == studentId)
+            .OrderByDescending(s => s.Status == SessionStatus.InProgress)
+            .ThenByDescending(s => s.StartedAt)
+            .FirstOrDefaultAsync();
 
-        if (existing is not null)
+        if (existing is { Status: SessionStatus.InProgress })
         {
             var res = new StartExamResult(existing.SessionId, "InProgress", existing.StartedAt);
             return Ok(new ApiEnvelope<StartExamResult>(true, "SUCCESS", "Success", res));
         }
+        if (existing is not null)
+            return Conflict(new ApiEnvelope<object>(false, AlreadySubmittedCode, "You have already submitted this exam.",
+                new { existing.SessionId, status = existing.Status.ToString(), existing.SubmittedAt }));
 
         if (assignment.Exam.RequireReadiness && !await HasFreshPassingReadinessAsync(assignment.ExamId, studentId))
             return BadRequest(new ApiEnvelope<object>(false, "READINESS_REQUIRED", ReadinessRequiredMessage, null));
@@ -1640,6 +1703,31 @@ public class ExamsController : ControllerBase
         return session is null ? null : candidates.First(a => a.ExamId == session.ExamId);
     }
 
+    public const string AlreadySubmittedCode = "ALREADY_SUBMITTED";
+
+    /// D-43: when the window-based pick is an exam this student has already finished (submitted, force-submitted, timed
+    /// out) and another assigned exam is open right now and not finished, student/current and student/start point at
+    /// that one instead - the dashboard would otherwise keep showing "Submitted" for the first exam and the second could
+    /// not be started until the first one's window closed.
+    private async Task<ExamAssignment?> PreferOpenUnfinishedAsync(ExamAssignment? pick, IReadOnlyCollection<ExamAssignment> candidates,
+        Guid studentId, DateTime now)
+    {
+        if (pick is null || candidates.Count < 2) return pick;
+        var examIds = candidates.Select(a => a.ExamId).ToList();
+        var finished = (await _db.ExamSessions.AsNoTracking()
+                .Where(s => s.UserId == studentId && examIds.Contains(s.ExamId) && s.Status != SessionStatus.InProgress)
+                .Select(s => s.ExamId)
+                .ToListAsync())
+            .ToHashSet();
+        if (!finished.Contains(pick.ExamId)) return pick;
+        return candidates
+                   .Where(a => !finished.Contains(a.ExamId) && a.Exam.Status != ExamStatus.Ended &&
+                               OpensAt(a.Exam) <= now && now < a.Exam.StartTime.AddMinutes(a.Exam.DurationMinutes))
+                   .OrderBy(a => a.Exam.StartTime)
+                   .FirstOrDefault()
+               ?? pick;
+    }
+
     /// The student's in-progress session of this exam while it can still be resumed: the exam was not
     /// ended and the student's own deadline (exam end + extra minutes, plus the grace when asked) is ahead.
     private async Task<ExamSession?> OpenSessionAsync(Guid examId, Guid userId, DateTime now, bool withGrace)
@@ -1665,9 +1753,8 @@ public class ExamsController : ControllerBase
     /// </summary>
     private async Task<IActionResult?> CheckSeatOnStartAsync(ExamAssignment assignment)
     {
-        if (_seats.DesktopClientRequired && !SeatGuard.IsDesktopClient(User))
-            return StatusCode(StatusCodes.Status403Forbidden, new ApiEnvelope<object>(false, "DESKTOP_CLIENT_REQUIRED",
-                "Exams can only be started from the SmartExam desktop app on a lab workstation.", null));
+        if (_seats.RefusesClient(User))
+            return SeatGuard.DesktopRequired("Exams can only be started from the SmartExam desktop app on a lab workstation.");
 
         var seat = _seats.Check(assignment, User, HttpContext);
         if (!seat.IsMismatch) return null;

@@ -135,4 +135,18 @@ test.describe('M6 — Submission & Backup', () => {
     expect(res.status()).toBe(400);
     expect((await res.json()).message).toMatch(/does not belong/i);
   });
+
+  // D-43: the desktop start path used to open a fresh session after a submit (or a proctor's force-submit).
+  test('M6-A-09 A submitted exam cannot be started again', async ({ request }) => {
+    const { students } = await examWithStudents(request, 1);
+    const student = students[0];
+    expect((await student.startCurrent()).status()).toBe(200);
+    const first = student.sessionId;
+    expect((await student.submit()).status()).toBe(200);
+
+    const again = await student.startCurrent();
+    expect(again.status()).toBe(409);
+    expect((await again.json()).code).toBe('ALREADY_SUBMITTED');
+    expect(student.sessionId).toBe(first);
+  });
 });

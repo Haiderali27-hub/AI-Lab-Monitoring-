@@ -1,8 +1,10 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
+using Backend_API.DTOs;
 using Backend_API.Hubs;
 using Backend_API.Models;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Backend_API.Services;
@@ -52,8 +54,10 @@ public sealed record SeatCheckResult(
 /// student-login (the same value saved to DeviceBinding.MachineName); the IP is taken from the
 /// request itself at check time, never from the client. Tokens issued by student-login
 /// (<c>client=desktop</c>) are checked in every mode; web-portal tokens carry no machine identity,
-/// so they are checked by request IP in Ip / Either mode and not at all in MachineName mode — set
-/// <c>Exams:RequireDesktopClientForStart=true</c> to refuse exam starts from them altogether.
+/// so they are checked by request IP in Ip / Either mode and not at all in MachineName mode.
+/// <c>Exams:RequireDesktopClientForStart</c> (default true since D-45) refuses them for the whole exam: starting it,
+/// reading its questions, saving / reading answers, submitting and every monitoring upload. Set it to false only for
+/// development without the desktop app.
 /// Limitation (thesis): the machine name is client-reported; HWID binds the student, not the seat.
 /// </summary>
 public class SeatGuard
@@ -62,6 +66,7 @@ public class SeatGuard
     public const string DesktopClient = "desktop";
     public const string MachineClaim = "machine";
     public const string MismatchCode = "SEAT_MISMATCH";
+    public const string DesktopRequiredCode = "DESKTOP_CLIENT_REQUIRED";
 
     private readonly IConfiguration _config;
     private readonly AuditService _audit;
@@ -77,8 +82,17 @@ public class SeatGuard
     public SeatMatchMode Mode =>
         Enum.TryParse<SeatMatchMode>(_config["SeatMatch"], ignoreCase: true, out var mode) ? mode : SeatMatchMode.MachineName;
 
-    /// Exams:RequireDesktopClientForStart — refuse exam starts from tokens that did not come from the desktop client.
-    public bool DesktopClientRequired => _config.GetValue("Exams:RequireDesktopClientForStart", false);
+    /// Exams:RequireDesktopClientForStart — refuse exam traffic (start, questions, answers, submit, monitoring) from tokens
+    /// that did not come from the desktop client. D-45: on by default — the web login carries no device binding, seat or
+    /// lockdown, so with it off anyone holding the student's password could answer inside the student's running session.
+    public bool DesktopClientRequired => _config.GetValue("Exams:RequireDesktopClientForStart", true);
+
+    /// <summary>True when this caller must be refused exam traffic: desktop client required, and this is a web token.</summary>
+    public bool RefusesClient(ClaimsPrincipal user) => DesktopClientRequired && !IsDesktopClient(user);
+
+    /// <summary>The 403 sent to a web token when the desktop client is required (<see cref="RefusesClient"/>).</summary>
+    public static ObjectResult DesktopRequired(string message = "Exams can only be taken in the SmartExam desktop app on a lab workstation.") =>
+        new(new ApiEnvelope<object>(false, DesktopRequiredCode, message, null)) { StatusCode = StatusCodes.Status403Forbidden };
 
     public static bool IsDesktopClient(ClaimsPrincipal user) =>
         string.Equals(user.FindFirst(ClientClaim)?.Value, DesktopClient, StringComparison.Ordinal);

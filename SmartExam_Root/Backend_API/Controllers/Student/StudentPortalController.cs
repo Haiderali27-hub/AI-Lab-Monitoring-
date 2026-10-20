@@ -1,4 +1,6 @@
 using Backend_API.Data;
+using Backend_API.Hubs;
+using Backend_API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +14,13 @@ namespace Backend_API.Controllers.Student;
 public class StudentPortalController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public StudentPortalController(AppDbContext db) => _db = db;
+    private readonly AuditService _audit;
+
+    public StudentPortalController(AppDbContext db, AuditService audit)
+    {
+        _db = db;
+        _audit = audit;
+    }
 
     // Helper — gets the logged-in student's ID from JWT
     private Guid Me => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
@@ -286,6 +294,11 @@ public class StudentPortalController : ControllerBase
 
         if (notification is null) return NotFound();
 
+        // D-46: marking a proctor's warning read here also stops it reaching the exam window (heartbeat ack), so it is
+        // audited exactly like the desktop banner's acknowledgement and the read-all path (D-32).
+        if (!notification.IsRead && notification.Type == MonitoringHub.WarningType)
+            _audit.Add(Me, "PROCTOR_WARNING_ACKNOWLEDGED", "Notification", notification.NotificationId.ToString(),
+                new { sessionId = notification.RelatedEntityId, via = "student-portal" });
         notification.IsRead = true;
         await _db.SaveChangesAsync();
         return Ok(new { message = "Marked as read." });
