@@ -9,19 +9,20 @@ Write-Host "2. Admin/Teacher Web Panel (Vite Dev Server)"
 Write-Host "3. Student WPF Desktop App"
 Write-Host ""
 
-$PSScriptRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
-if ([string]::IsNullOrEmpty($PSScriptRoot)) {
-    $PSScriptRoot = Get-Location
+# $PSScriptRoot is an automatic variable - read it, never assign it.
+$root = $PSScriptRoot
+if ([string]::IsNullOrEmpty($root)) {
+    $root = (Get-Location).Path
 }
 
 Write-Host "[1/3] Starting Backend API..." -ForegroundColor Green
-Start-Process cmd -ArgumentList "/k cd /d `"$PSScriptRoot\SmartExam_Root\Backend_API`" && dotnet run --urls http://localhost:5050"
+Start-Process cmd -ArgumentList "/k cd /d `"$root\SmartExam_Root\Backend_API`" && dotnet run --urls http://localhost:5050"
 
 Write-Host "[2/3] Starting Admin Web Panel..." -ForegroundColor Green
-Start-Process cmd -ArgumentList "/k cd /d `"$PSScriptRoot\SmartExam_Root\Admin_Web_Panel`" && npm run dev"
+Start-Process cmd -ArgumentList "/k cd /d `"$root\SmartExam_Root\Admin_Web_Panel`" && npm run dev"
 
 Write-Host "[3/3] Starting Student Desktop App..." -ForegroundColor Green
-Start-Process cmd -ArgumentList "/k cd /d `"$PSScriptRoot\SmartExam_Root\Student_Desktop_App`" && dotnet run"
+Start-Process cmd -ArgumentList "/k cd /d `"$root\SmartExam_Root\Student_Desktop_App`" && dotnet run --project Student_Desktop_App.csproj"
 
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor Cyan

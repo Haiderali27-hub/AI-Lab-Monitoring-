@@ -3,13 +3,15 @@ using Microsoft.AspNetCore.SignalR;
 using Backend_API.Data;
 using Microsoft.EntityFrameworkCore;
 using Backend_API.Models.Enums;
+using Backend_API.Services;
 
 namespace Backend_API.Hubs;
 
 [Authorize]
-public class MonitoringHub(AppDbContext db) : Hub
+public class MonitoringHub(AppDbContext db, SubmissionService submissions) : Hub
 {
     private readonly AppDbContext _db = db;
+    private readonly SubmissionService _submissions = submissions;
 
     private bool IsStaff =>
         Context.User is not null &&
@@ -97,9 +99,7 @@ public class MonitoringHub(AppDbContext db) : Hub
                 if (isTeacherOnly && session.Exam.Section.TeacherId != CallerId)
                     throw new HubException("You can only force-submit sessions for your own exams.");
 
-                session.Status = SessionStatus.ForceSubmitted;
-                session.SubmittedAt = DateTime.UtcNow;
-                await _db.SaveChangesAsync();
+                await _submissions.FinalizeAsync(session, SessionStatus.ForceSubmitted);
             }
         }
     }

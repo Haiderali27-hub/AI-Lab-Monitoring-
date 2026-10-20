@@ -19,12 +19,14 @@ public class ExamsController : ControllerBase
     private readonly AppDbContext _db;
     private readonly AuditService _audit;
     private readonly IHubContext<MonitoringHub> _hub;
+    private readonly SubmissionService _submissions;
 
-    public ExamsController(AppDbContext db, AuditService audit, IHubContext<MonitoringHub> hub)
+    public ExamsController(AppDbContext db, AuditService audit, IHubContext<MonitoringHub> hub, SubmissionService submissions)
     {
         _db = db;
         _audit = audit;
         _hub = hub;
+        _submissions = submissions;
     }
 
     private Guid CurrentUserId =>
@@ -625,14 +627,12 @@ public class ExamsController : ControllerBase
         exam.Status = ExamStatus.Ended;
 
         var sessions = await _db.ExamSessions
+            .Include(s => s.Exam)
             .Where(s => s.ExamId == examId && s.Status == SessionStatus.InProgress)
             .ToListAsync();
 
         foreach (var s in sessions)
-        {
-            s.Status = SessionStatus.ForceSubmitted;
-            s.SubmittedAt = DateTime.UtcNow;
-        }
+            await _submissions.FinalizeAsync(s, SessionStatus.ForceSubmitted);
 
         await _db.SaveChangesAsync();
         return Ok(new { message = $"Exam ended. Force-submitted {sessions.Count} session(s)." });
@@ -652,7 +652,7 @@ public class ExamsController : ControllerBase
         if (assignment is null) return Forbid();
         if (!assignment.IsEligible)
             return BadRequest(new { message = "You are not eligible for this exam." });
-        if (assignment.Exam.Status == ExamStatus.Ended)
+        if (SubmissionService.IsClosed(assignment.Exam, DateTime.UtcNow))
             return BadRequest(new { message = "This exam has already ended." });
 
         // Check if session already exists
@@ -688,7 +688,6 @@ public class ExamsController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
 
         var session = await _db.ExamSessions
-            .Include(s => s.Answers).ThenInclude(a => a.Question)
             .Include(s => s.Exam)
             .FirstOrDefaultAsync(s => s.SessionId == sessionId && s.UserId == userId);
 
@@ -696,139 +695,11 @@ public class ExamsController : ControllerBase
         if (session.Status != SessionStatus.InProgress)
             return BadRequest(new { message = "Session is not active." });
 
-        session.Status = SessionStatus.Submitted;
-        session.SubmittedAt = DateTime.UtcNow;
-
-        // --- AUTOMATED AI GRADING SIMULATOR ---
-        foreach (var answer in session.Answers)
-        {
-            if (session.Exam.AiEvaluationEnabled)
-            {
-                var existingGrading = await _db.AiGradingResults.FirstOrDefaultAsync(g => g.AnswerId == answer.AnswerId);
-                if (existingGrading is null)
-                {
-                    double suggestedMarks = 0;
-                    string confidence = "Medium";
-                    string justification = "";
-
-                    if (answer.Question.Type == QuestionType.Mcq)
-                    {
-                        // Deterministic MCQ grading: answer stores the selected option index
-                        var correct = int.TryParse(answer.AnswerText?.Trim(), out var selected)
-                                      && selected == answer.Question.CorrectOptionIndex;
-                        suggestedMarks = correct ? answer.Question.Marks : 0;
-                        confidence = "High";
-                        justification = correct
-                            ? "Selected option matches the correct answer."
-                            : "Selected option does not match the correct answer.";
-                    }
-                    else if (answer.Question.Type == QuestionType.Coding)
-                    {
-                        var answerText = answer.AnswerText.ToLower();
-                        if (answerText.Contains("for") && (answerText.Contains("max") || answerText.Contains("arr")))
-                        {
-                            suggestedMarks = answer.Question.Marks * 0.9; // 90%
-                            confidence = "High";
-                            justification = "The code correctly implements the required array iteration. Verified bounds checks and conditional updates. Passed both visible and hidden test cases successfully.";
-                        }
-                        else
-                        {
-                            suggestedMarks = answer.Question.Marks * 0.4; // 40%
-                            confidence = "Medium";
-                            justification = "Code loop is missing or incomplete. Failed test case compilation checks. Conditional variable logic is not found.";
-                        }
-                    }
-                    else // Theory question
-                    {
-                        var answerText = answer.AnswerText.ToLower();
-                        if (answerText.Contains("lifo") || answerText.Contains("fifo") || answerText.Contains("stack") || answerText.Contains("queue"))
-                        {
-                            suggestedMarks = answer.Question.Marks * 0.9; // 90%
-                            confidence = "High";
-                            justification = "Response exhibits clear and correct conceptual difference between LIFO (stack) and FIFO (queue) structures. Real-world analogy is sound.";
-                        }
-                        else
-                        {
-                            suggestedMarks = answer.Question.Marks * 0.5; // 50%
-                            confidence = "Low";
-                            justification = "Explanation is brief or lacks structural distinctions between Stack and Queue indexing patterns.";
-                        }
-                    }
-
-                    _db.AiGradingResults.Add(new AiGradingResult
-                    {
-                        AnswerId = answer.AnswerId,
-                        SuggestedMarks = suggestedMarks,
-                        Confidence = confidence,
-                        Justification = justification
-                    });
-                }
-            }
-        }
-
-        // --- AUTOMATED PLAGIARISM DETECTOR ---
-        foreach (var answer in session.Answers)
-        {
-            // MCQ answers are just option indexes — identical picks are expected, not plagiarism
-            if (answer.Question.Type == QuestionType.Mcq) continue;
-
-            var otherAnswers = await _db.Answers
-                .Include(a => a.ExamSession)
-                .Where(a => a.QuestionId == answer.QuestionId && a.ExamSession.ExamId == session.ExamId && a.ExamSession.UserId != session.UserId && a.ExamSession.Status == SessionStatus.Submitted)
-                .ToListAsync();
-
-            foreach (var other in otherAnswers)
-            {
-                var similarity = GetSimilarity(answer.AnswerText, other.AnswerText);
-                if (similarity >= session.Exam.PlagiarismThreshold)
-                {
-                    var existingPlag = await _db.PlagiarismResults.FirstOrDefaultAsync(pr =>
-                        pr.QuestionId == answer.QuestionId &&
-                        ((pr.UserIdA == session.UserId && pr.UserIdB == other.ExamSession.UserId) ||
-                         (pr.UserIdA == other.ExamSession.UserId && pr.UserIdB == session.UserId)));
-
-                    if (existingPlag is null)
-                    {
-                        var matchingTextJson = System.Text.Json.JsonSerializer.Serialize(new[] {
-                            new { A = answer.AnswerText, B = other.AnswerText }
-                        });
-
-                        _db.PlagiarismResults.Add(new PlagiarismResult
-                        {
-                            ExamId = session.ExamId,
-                            QuestionId = answer.QuestionId,
-                            UserIdA = session.UserId,
-                            UserIdB = other.ExamSession.UserId,
-                            SimilarityScore = Math.Round(similarity, 1),
-                            MatchingSegments = matchingTextJson
-                        });
-                    }
-                }
-            }
-        }
-
-        await _db.SaveChangesAsync();
+        // A late submit is still accepted so the session gets locked and graded — answers
+        // themselves were already frozen at the deadline by save-answer.
+        await _submissions.FinalizeAsync(session, SessionStatus.Submitted);
 
         return Ok(new { message = "Exam submitted successfully.", submittedAt = session.SubmittedAt });
-    }
-
-    private static double GetSimilarity(string s1, string s2)
-    {
-        if (string.IsNullOrEmpty(s1) || string.IsNullOrEmpty(s2)) return 0;
-
-        var separators = new[] { ' ', '\n', '\r', '\t', '{', '}', '(', ')', ';', ',', '[', ']' };
-        var words1 = s1.Split(separators, StringSplitOptions.RemoveEmptyEntries)
-                       .Select(w => w.Trim().ToLower())
-                       .ToHashSet();
-
-        var words2 = s2.Split(separators, StringSplitOptions.RemoveEmptyEntries)
-                       .Select(w => w.Trim().ToLower())
-                       .ToHashSet();
-
-        var intersect = words1.Intersect(words2).Count();
-        var union = words1.Union(words2).Count();
-
-        return union == 0 ? 0 : ((double)intersect / union) * 100;
     }
 
     // POST /api/exams/sessions/{sessionId}/save-answer  — Auto-save
@@ -837,12 +708,15 @@ public class ExamsController : ControllerBase
     public async Task<IActionResult> SaveAnswer(Guid sessionId, [FromBody] SaveAnswerRequest req)
     {
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
-        var session = await _db.ExamSessions.FindAsync(sessionId);
+        var session = await _db.ExamSessions.Include(s => s.Exam).FirstOrDefaultAsync(s => s.SessionId == sessionId);
         // Ownership check: a student may only write to their own session (prevents IDOR).
         if (session is null || session.UserId != userId)
             return NotFound(new { message = "Session not found." });
         if (session.Status != SessionStatus.InProgress)
             return BadRequest(new { message = "Invalid or inactive session." });
+        // Server-side deadline: the client timer alone can be bypassed.
+        if (SubmissionService.IsClosed(session.Exam, DateTime.UtcNow))
+            return BadRequest(new { message = "Exam time is over. Answers can no longer be changed." });
 
         var answer = await _db.Answers
             .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.QuestionId == req.QuestionId);

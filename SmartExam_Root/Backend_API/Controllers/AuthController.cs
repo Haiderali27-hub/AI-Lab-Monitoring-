@@ -7,6 +7,7 @@ using Backend_API.Models.Enums;
 using Backend_API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend_API.Controllers;
@@ -28,6 +29,7 @@ public class AuthController : ControllerBase
 
     // POST /api/auth/login
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
         var user = await _db.Users
@@ -46,6 +48,8 @@ public class AuthController : ControllerBase
             await _audit.LogAsync(user.UserId, "LOGIN_DENIED_INACTIVE", "User", user.UserId.ToString(), new { email = req.Email });
             return Unauthorized(new { message = "This account has been deactivated. Contact your administrator." });
         }
+
+        UpgradePasswordHashIfNeeded(user, req.Password);
 
         bool deviceBound = user.DeviceBinding != null;
 
@@ -133,6 +137,7 @@ public class AuthController : ControllerBase
     // POST /api/auth/student-login
     [HttpPost("student-login")]
     [AllowAnonymous]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> StudentLogin([FromBody] StudentLoginRequest req)
     {
         var user = await _db.Users
@@ -148,6 +153,8 @@ public class AuthController : ControllerBase
 
         if (user.Role != UserRole.Student)
             return Unauthorized(new ApiEnvelope<object>(false, "FORBIDDEN", "Only students can log in via this client.", null));
+
+        UpgradePasswordHashIfNeeded(user, req.Password);
 
         bool deviceBound = false;
         if (string.IsNullOrEmpty(req.HardwareFingerprint))
@@ -218,6 +225,15 @@ public class AuthController : ControllerBase
     public IActionResult Refresh([FromBody] RefreshRequest req)
     {
         return Ok(new ApiEnvelope<object>(true, "SUCCESS", "Success", null));
+    }
+
+    // Transparently migrate legacy SHA-256 hashes to PBKDF2 once we know the plaintext is correct.
+    // Persisted by the SaveChangesAsync that follows in the login flow.
+    private static void UpgradePasswordHashIfNeeded(User user, string password)
+    {
+        if (!PasswordHelper.NeedsRehash(user.PasswordHash)) return;
+        user.Salt = PasswordHelper.GenerateSalt();
+        user.PasswordHash = PasswordHelper.HashPassword(password, user.Salt);
     }
 
     // Idempotently add the caller's machine to the Systems Engineering Lab.

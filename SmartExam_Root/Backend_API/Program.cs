@@ -1,7 +1,9 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Backend_API.Data;
 using Backend_API.Helpers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -19,6 +21,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // ── Auth ─────────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<JwtHelper>();
 builder.Services.AddScoped<Backend_API.Services.AuditService>();
+builder.Services.AddScoped<Backend_API.Services.SubmissionService>();
 
 // Module 4 — Analytics
 builder.Services.AddScoped<Backend_API.Services.Analytics.AnalyticsService>();
@@ -87,6 +90,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// ── Rate limiting (brute-force protection on login endpoints) ────────────────
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("login", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:LoginPermitLimit", 10),
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
+
 // ── CORS (allow React dev server) ─────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
@@ -133,7 +151,10 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // ── Seed Database ─────────────────────────────────────────────────────────────
-if (app.Configuration["UseInMemoryDatabase"] != "true")
+// Demo accounts have well-known passwords, so seeding defaults to Development only.
+// Set "Seed:DemoData": true to seed elsewhere (e.g. a one-off demo machine).
+var seedDemoData = app.Configuration.GetValue("Seed:DemoData", app.Environment.IsDevelopment());
+if (seedDemoData && app.Configuration["UseInMemoryDatabase"] != "true")
 {
     using (var scope = app.Services.CreateScope())
     {
@@ -143,12 +164,16 @@ if (app.Configuration["UseInMemoryDatabase"] != "true")
 }
 
 // ── Middleware Pipeline ───────────────────────────────────────────────────────
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
 app.MapHub<Backend_API.Hubs.MonitoringHub>("/hubs/monitoring");

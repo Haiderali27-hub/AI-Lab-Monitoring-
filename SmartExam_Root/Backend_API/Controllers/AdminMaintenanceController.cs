@@ -8,7 +8,8 @@ namespace Backend_API.Controllers;
 
 /// <summary>
 /// Admin maintenance utilities. The reset endpoint wipes ALL data and reseeds the
-/// minimal demo set — useful before a fresh demo run. Guarded to SuperAdmin/Admin.
+/// minimal demo set — useful before a fresh demo run. Guarded to SuperAdmin/Admin, and
+/// only exposed in the Development environment so it can never wipe a production database.
 /// </summary>
 [ApiController]
 [Route("api/admin")]
@@ -17,17 +18,21 @@ public class AdminMaintenanceController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly AuditService _audit;
+    private readonly IWebHostEnvironment _env;
 
-    public AdminMaintenanceController(AppDbContext db, AuditService audit)
+    public AdminMaintenanceController(AppDbContext db, AuditService audit, IWebHostEnvironment env)
     {
         _db = db;
         _audit = audit;
+        _env = env;
     }
 
     // POST /api/admin/reset-demo-data  — wipe everything and reseed the minimal demo set
     [HttpPost("reset-demo-data")]
     public async Task<IActionResult> ResetDemoData()
     {
+        if (!_env.IsDevelopment()) return NotFound();
+
         var actorId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
 
         // Delete in FK-safe order

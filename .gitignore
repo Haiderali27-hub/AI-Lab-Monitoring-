@@ -30,3 +30,10 @@ SmartExam_Root/Backend_API/Reports/
 /AI-Lab-Monitoring--main/
 # Large intermediate archives (thesis PDFs are kept; raw zips are not).
 *.zip
+
+# ── Generated test output ───────────────────────────────────────
+**/playwright-report/
+**/test-results/
+
+# ── graphify knowledge graph (regenerate with /graphify --update) ──
+graphify-out/

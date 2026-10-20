@@ -38,6 +38,9 @@ public class TestWebAppFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Audience", "SmartExamUsers");
         builder.UseSetting("Jwt:ExpiryMinutes", "480");
 
+        // Tests log in many times from the same (null) IP — don't let the login limiter throttle them
+        builder.UseSetting("RateLimiting:LoginPermitLimit", "10000");
+
         // Use InMemory database for testing
         builder.UseSetting("UseInMemoryDatabase", "true");
 
