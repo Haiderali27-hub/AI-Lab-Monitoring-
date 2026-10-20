@@ -466,7 +466,7 @@ Built in S7. Coding answers are compiled and run in a background queue: the Dock
 | M11-I-08 | Teacher override wins | Override after AI grade | Final mark = override | ✅ |
 | M11-I-09 | Grades are the owner's (D-34) | Other teacher / student: results, plagiarism, matrix, override, accept-ai, regrade | 403 each; owner + admin 200; unknown exam 404 | ✅ |
 | M11-I-10 | Matrix rules | Practice exam; unknown / MCQ question filter; per-question matrix | 400; 400; per-question values, diagonal 100 | ✅ |
-| M11-I-11 | Accept AI suggestions | Owner POST `/grading/accept-ai` | Overrides = suggestions for Graded answers without one; audit `AI_SUGGESTIONS_ACCEPTED`; second call accepts 0 | ✅ |
+| M11-I-11 | Accept AI suggestions | Owner POST `/grading/accept-ai` (coding with test cases + theory with a model answer) | Overrides = suggestions for Graded answers without one; audit `AI_SUGGESTIONS_ACCEPTED`; second call accepts 0 | ✅ (S7 verifier: own exam, see M11-I-22) |
 | M11-I-12 | Regrade | POST `/api/answers/{id}/regrade` | Pending, then Graded again; `QueueVersion` 1; audit `AI_REGRADE_REQUESTED` | ✅ |
 | M11-I-13 | Regrade refused | Running session / MCQ / unknown answer | 409 / 400 / 404 | ✅ |
 | M11-I-14 | Compile error through the API | `#compile-error` (fake) | 0, High, compiler output, cases NotRun, analysis present; student sees 1 visible case + `hiddenTotal` 2, no analysis | ✅ |
@@ -477,6 +477,10 @@ Built in S7. Coding answers are compiled and run in a background queue: the Dock
 | M11-I-19 | Weighted cases + TF-IDF via API | Weights 3 / 1; theory with model answer | 20/20 with weights reported; engine TF-IDF, 10/10 | ✅ |
 | M11-I-20 | Runner None | `Grading:Runner=None` | Coding graded at once: Low, "Not compiled … teacher review required" | ✅ |
 | M11-I-21 | Engine failure | Docker CLI missing, 1 attempt | Status Failed, 0, Low, cases NotRun | ✅ |
+| M11-I-22 | Bulk accept skips non-grades (D-36) | Runner None: coding "Not compiled" + theory with model answer | accepted 1 (theory), `needsManualMark` 1, no override on the coding answer | ✅ (S7 verifier) |
+| M11-I-23 | LLM reply of an unexpected shape (D-37) | LLM on, provider returns `content: 42` | Falls back to the offline TF-IDF grade (Graded), never stuck Pending | ✅ (S7 verifier) |
+| M11-I-24 | Engine label fits its column (D-37) | LLM on with a 124-character model name | Graded; engine starts "LLM (" and is ≤ 64 characters | ✅ (S7 verifier) |
+| M11-I-25 | Unexpected failure ends as Failed (D-37) | The database refuses the first save of the grade | Status Failed, 0, "internal error … teacher review required", cases NotRun, `GradingCompleted` Failed | ✅ (S7 verifier) |
 | M11-A-01 | Coding answer really compiled, labelled with engine | Submit coding answer that does not compile | Submit returns at once; then Graded: 0, High, "compilation failed", engine Docker/MinGW, compiler output, 2 case rows | ✅ (rewritten in S7: was the keyword heuristic) |
 | M11-A-02 | Plagiarism pair flagged | Two simulators submit identical theory answers | Pair in plagiarism list | ✅ |
 | M11-A-03 | Correct code passes all cases | Real runner, visible + hidden case; student result after the exam | 20/20, both Passed, analysis O(n); student sees 1 case + hidden tally, never the hidden input | ✅ |
@@ -488,6 +492,7 @@ Built in S7. Coding answers are compiled and run in a background queue: the Dock
 | M11-E-04 | Test-case breakdown | Results drawer | Per-case pass/fail incl. hidden marker, 20 / 20, complexity O(n) | ✅ |
 | M11-E-05 | Side-by-side plagiarism | Two students, renamed copy | Flag 100%, matched lines highlighted, 2×2 heat map in the tab | ✅ |
 | M11-E-06 | Accept AI suggestions (UI) | Button + confirm | Toast "Accepted 2 suggestion(s)", both answers Overridden | ✅ |
+| M11-E-07 | Editing keeps test-case settings (D-38) | Exam created with category / ignore-case / tolerance, saved from the edit page | Weight, category, ignoreCase, floatTolerance unchanged | ✅ (S7 verifier) |
 
 ## M12 — Logs, Analytics & Audit Trail
 
@@ -557,6 +562,9 @@ Built in S7. Coding answers are compiled and run in a background queue: the Dock
 | D-33 | M5-U (S6 verifier) | Desktop test `JpegEncoder_WorksOnAFrozenSourceOffTheUiThread` failed about 1 run in 5: it froze the bitmap on a pool thread, and freezing is thread-affine (passed only when `Task.Run` reused the test thread). Production was not affected (`ScreenCapture` freezes on the capturing thread) | **Fixed** — the test freezes on the creating thread; the encoder's doc states the contract |
 | D-34 | M11-I-09 (S7) | Any teacher could read any exam's results and plagiarism report and override any answer's grade (results / plagiarism / override were not ownership-checked); overrides accepted any mark and were not audited | **Fixed** — owner (section teacher) or admin only (403 otherwise, 404 for an unknown exam); marks must be within 0…question marks; audit `GRADE_OVERRIDDEN` (M11-I-09, M11-I-17, M11-A-04) |
 | D-35 | M11-I-05 (S7) | With `-O2` the compiler deleted the test's unused 1 GB allocation (and would delete an empty endless loop), so memory- and time-limit breaches went undetected | **Fixed by design** — both runners compile with `-O0`: the program does what the student wrote |
+| D-36 | M11-I-22 (S7 verifier) | "Accept AI suggestions" also turned the grader's non-grades (code not compiled, theory without a model answer, compile check only — "0, Low, teacher review required") into final 0 marks | **Fixed** — `GradingService.NeedsManualMark`: such answers are skipped and reported as `needsManualMark` |
+| D-37 | M11-I-23…25 (S7 verifier) | Any error outside the runner's retries (an LLM reply of an unexpected shape, the database refusing the result — e.g. an engine label over 64 characters) left the answer Pending for ever: re-run on every restart, results page polling indefinitely | **Fixed** — the LLM client treats any malformed reply as "no answer" (offline fallback); engine labels are cut to the column; an unexpected failure marks the row Failed (same queue version only) and announces it |
+| D-38 | M11-E-07 (S7 verifier) | Saving an exam from the edit page reset each test case's category, ignore-case and numeric tolerance (set through the API; the wizard has no editor for them) | **Fixed** — the wizard carries the fields through |
 
 ---
 

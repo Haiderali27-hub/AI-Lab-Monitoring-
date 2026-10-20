@@ -91,9 +91,12 @@ public sealed class LlmClient
             {
                 _logger.LogWarning("LLM request timed out (attempt {Attempt}).", attempt);
             }
-            catch (Exception ex) when (ex is HttpRequestException or JsonException)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                // Network errors, and replies of an unexpected shape (e.g. "content" a number, not a string: JsonNode
+                // throws InvalidOperationException) — the offline result stands (M11-I-23).
                 _logger.LogWarning(ex, "LLM request failed (attempt {Attempt}).", attempt);
+                if (ex is not (HttpRequestException or JsonException)) return null;   // a wrong shape will not improve on retry
             }
         }
         return null;

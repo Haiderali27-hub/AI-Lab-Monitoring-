@@ -34,7 +34,8 @@ interface QuestionForm {
   rubricKeywords: string;            // Theory: comma-separated key terms for the offline grader
 }
 
-// Module 11: weight (marks share), optional per-case time limit and edge-case flag.
+// Module 11: weight (marks share), optional per-case time limit and edge-case flag. Category and the comparison
+// options have no editor here (API only), but are carried through so editing an exam never resets them.
 interface TestCaseForm {
   input: string;
   expectedOutput: string;
@@ -42,9 +43,15 @@ interface TestCaseForm {
   weight: number;
   timeLimitMs: number | null;
   isEdgeCase: boolean;
+  category: string | null;
+  ignoreCase: boolean;
+  floatTolerance: number | null;
 }
 
-const newTestCase = (): TestCaseForm => ({ input: '', expectedOutput: '', isHidden: false, weight: 1, timeLimitMs: null, isEdgeCase: false });
+const newTestCase = (): TestCaseForm => ({
+  input: '', expectedOutput: '', isHidden: false, weight: 1, timeLimitMs: null, isEdgeCase: false,
+  category: null, ignoreCase: false, floatTolerance: null
+});
 
 export default function CreateExamPage() {
   const navigate = useNavigate();
@@ -140,7 +147,10 @@ export default function CreateExamPage() {
             isHidden: tc.isHidden ?? false,
             weight: tc.weight ?? 1,
             timeLimitMs: tc.timeLimitMs ?? null,
-            isEdgeCase: tc.isEdgeCase ?? false
+            isEdgeCase: tc.isEdgeCase ?? false,
+            category: tc.category ?? null,
+            ignoreCase: tc.ignoreCase ?? false,
+            floatTolerance: tc.floatTolerance ?? null
           })),
           options: q.optionsJson ? JSON.parse(q.optionsJson) : [],
           correctOptionIndex: q.correctOptionIndex ?? null,

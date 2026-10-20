@@ -10,7 +10,10 @@ export interface QuestionInput {
   options?: string[] | null;
   correctOptionIndex?: number | null;
   referenceAnswer?: string | null;
-  testCases?: { input: string; expectedOutput: string; isHidden: boolean; weight?: number; timeLimitMs?: number | null; isEdgeCase?: boolean }[];
+  testCases?: {
+    input: string; expectedOutput: string; isHidden: boolean; weight?: number; timeLimitMs?: number | null; isEdgeCase?: boolean;
+    category?: string | null; ignoreCase?: boolean; floatTolerance?: number | null;
+  }[];
   language?: string | null;
   rubricKeywords?: string | null;
 }

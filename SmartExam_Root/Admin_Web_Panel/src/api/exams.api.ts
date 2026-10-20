@@ -43,7 +43,7 @@ export const examsApi = {
     apiClient.get<PlagiarismMatrix>(`/exams/${examId}/plagiarism/matrix`, { params: questionId ? { questionId } : undefined }).then(r => r.data),
 
   acceptAiSuggestions: (examId: string) =>
-    apiClient.post<{ accepted: number; notReady: number; message: string }>(`/exams/${examId}/grading/accept-ai`).then(r => r.data),
+    apiClient.post<{ accepted: number; notReady: number; needsManualMark: number; message: string }>(`/exams/${examId}/grading/accept-ai`).then(r => r.data),
 
   regradeAnswer: (answerId: string) =>
     apiClient.post<{ answerId: string; status: string; message: string }>(`/answers/${answerId}/regrade`).then(r => r.data),

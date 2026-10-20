@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { StaffApi } from '../support/staffApi';
 import { acceptDialogs, examWithStudents, signInWeb } from '../support/scenario';
 
 // Coding answers are compiled and run in the background (Docker sandbox, or local MinGW where Docker is
@@ -129,5 +130,31 @@ test.describe('M11 — AI-Assisted Evaluation (results UI)', () => {
     for (const a of result.answers) expect(a.teacherOverride.finalMarks).toBe(a.aiGrading.suggestedMarks);
     await page.locator('tbody tr').filter({ hasText: users[0].name }).getByRole('button', { name: 'Review' }).click();
     await expect(page.getByText('Overridden')).toHaveCount(2);
+  });
+
+  test('M11-E-07 Editing an exam keeps the test-case comparison settings', async ({ page, request }) => {
+    // Category, ignore-case and numeric tolerance have no editor in the wizard (API only): saving the exam from the
+    // edit page must carry them through instead of resetting them.
+    const teacher = await StaffApi.teacher(request);
+    const exam = await teacher.createExam({
+      startTime: new Date(Date.now() + 2 * 24 * 3600_000),
+      questions: [{
+        type: 'Coding', bodyText: 'Print the average of two numbers.', marks: 10, language: 'cpp',
+        testCases: [{ input: '1 2', expectedOutput: '1.5', isHidden: false, weight: 2, category: 'basic', ignoreCase: true, floatTolerance: 0.01 }],
+      }],
+    });
+
+    await signInWeb(page, teacher);
+    await page.goto(`/teacher/exams/${exam.examId}/edit`);
+    await expect(page.getByLabel(/exam title/i)).toHaveValue(exam.title);
+    const save = page.getByRole('button', { name: 'Save Changes' });
+    for (let i = 0; i < 6 && !(await save.isVisible()); i++) await page.getByRole('button', { name: /next step/i }).click();
+    // The editor lists the section's enrolled students: pick one (the exam was created without any).
+    await page.getByRole('checkbox').first().check();
+    await save.click();
+    await expect(page).toHaveURL(/\/teacher\/dashboard/);
+
+    const [tc] = (await teacher.examDetail(exam.examId)).questions[0].testCases;
+    expect(tc).toMatchObject({ weight: 2, category: 'basic', ignoreCase: true, floatTolerance: 0.01 });
   });
 });

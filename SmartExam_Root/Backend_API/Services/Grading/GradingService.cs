@@ -31,6 +31,7 @@ public sealed class GradingService(
 {
     public const string EngineMcq = "MCQ";
     public const string EngineNone = "None";
+    public const int MaxEngineLength = 64;
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly GradingOptions _options = options.Value;
@@ -137,7 +138,11 @@ public sealed class GradingService(
         return true;
     }
 
-    /// <summary>Grades one queued answer (worker). Does nothing if the row is gone or no longer Pending.</summary>
+    /// <summary>
+    /// Grades one queued answer (worker). Does nothing if the row is gone or no longer Pending. An unexpected error
+    /// (a bug, or the database refusing the result) marks the row Failed instead of leaving it Pending for ever — a
+    /// Pending row would be re-run on every restart and keep the results page polling.
+    /// </summary>
     public async Task ProcessAsync(Guid answerId, CancellationToken cancellationToken)
     {
         var row = await db.AiGradingResults
@@ -149,25 +154,30 @@ public sealed class GradingService(
 
         var answer = row.Answer;
         var question = answer.Question;
-
-        if (question.Type == QuestionType.Theory)
-        {
-            var graded = llm.IsEnabled && !string.IsNullOrWhiteSpace(answer.AnswerText)
-                ? await llm.GradeTheoryAsync(question, answer.AnswerText, cancellationToken)
-                : null;
-            Apply(row, graded ?? TheoryGrader.Grade(question, answer.AnswerText));
-        }
-        else if (question.Type == QuestionType.Coding)
-        {
-            await GradeCodeAsync(row, question, answer.AnswerText, cancellationToken);
-        }
-        else
-        {
-            GradeMcq(row, question, answer.AnswerText);
-        }
+        var examId = answer.ExamSession.ExamId;
+        var sessionId = answer.SessionId;
+        var queueVersion = row.QueueVersion;
+        string status;
 
         try
         {
+            if (question.Type == QuestionType.Theory)
+            {
+                var graded = llm.IsEnabled && !string.IsNullOrWhiteSpace(answer.AnswerText)
+                    ? await llm.GradeTheoryAsync(question, answer.AnswerText, cancellationToken)
+                    : null;
+                Apply(row, graded ?? TheoryGrader.Grade(question, answer.AnswerText));
+            }
+            else if (question.Type == QuestionType.Coding)
+            {
+                await GradeCodeAsync(row, question, answer.AnswerText, cancellationToken);
+            }
+            else
+            {
+                GradeMcq(row, question, answer.AnswerText);
+            }
+
+            status = row.Status;
             await db.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateConcurrencyException)
@@ -176,14 +186,49 @@ public sealed class GradingService(
             logger.LogInformation("Discarded a stale grading result for answer {AnswerId}.", answerId);
             return;
         }
-
-        await hub.Clients.Group(ExamGroupTracker.GroupName(answer.ExamSession.ExamId)).SendAsync("GradingCompleted", new
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            examId = answer.ExamSession.ExamId,
-            sessionId = answer.SessionId,
+            throw;      // shutting down: the row stays Pending and is picked up on the next start
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Grading answer {AnswerId} failed unexpectedly; marking it Failed.", answerId);
+            if (!await MarkFailedAsync(answerId, queueVersion, ex)) return;
+            status = AiGradingResult.StatusFailed;
+        }
+
+        await hub.Clients.Group(ExamGroupTracker.GroupName(examId)).SendAsync("GradingCompleted", new
+        {
+            examId,
+            sessionId,
             answerId,
-            status = row.Status
+            status
         }, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Ends a run that broke outside the engine's own retries as Failed (0, Low, teacher review required), on a fresh
+    /// read of the row and only if it is still the same Pending job — a regrade requested meanwhile is left alone.
+    /// </summary>
+    private async Task<bool> MarkFailedAsync(Guid answerId, int queueVersion, Exception error)
+    {
+        db.ChangeTracker.Clear();
+        var row = await db.AiGradingResults.Include(g => g.TestCaseResults).FirstOrDefaultAsync(g => g.AnswerId == answerId);
+        if (row is null || row.Status != AiGradingResult.StatusPending || row.QueueVersion != queueVersion) return false;
+
+        Set(row, 0, "Low",
+            $"Automatic grading failed (internal error: {error.GetType().Name}) — teacher review required.", row.Engine ?? EngineNone);
+        row.Status = AiGradingResult.StatusFailed;
+        foreach (var r in row.TestCaseResults) r.Status = TestCaseResult.StatusNotRun;
+        try
+        {
+            await db.SaveChangesAsync();
+            return true;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return false;   // regraded or deleted in the meantime
+        }
     }
 
     private async Task GradeCodeAsync(AiGradingResult row, Question question, string source, CancellationToken cancellationToken)
@@ -286,6 +331,17 @@ public sealed class GradingService(
         }
     }
 
+    /// <summary>
+    /// True for a Graded row that carries no real suggestion: the code was not compiled (no runner, unsupported
+    /// language), the theory question had no model answer or rubric, or only a compile check ran (no test cases). Its
+    /// 0 means "teacher review required", so bulk accept leaves it for a manual mark. (A blank answer's 0 is a grade.)
+    /// </summary>
+    public static bool NeedsManualMark(AiGradingResult row) =>
+        row.Status == AiGradingResult.StatusGraded &&
+        row.Confidence == "Low" &&
+        (row.Engine is EngineNone or TheoryGrader.EngineNone ||
+         row.TestCaseResults.Any(r => r.TestCaseId == null && r.Name == TestCaseScorer.CompileOnlyCaseName));
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static void GradeMcq(AiGradingResult row, Question question, string? answerText)
@@ -313,7 +369,8 @@ public sealed class GradingService(
         row.SuggestedMarks = marks;
         row.Confidence = confidence;
         row.Justification = justification;
-        row.Engine = engine;
+        // The column holds 64 characters; a long configured image or LLM model name must not make the save fail.
+        row.Engine = engine.Length > MaxEngineLength ? engine[..(MaxEngineLength - 1)] + "…" : engine;
         row.Status = AiGradingResult.StatusGraded;
         row.GradedAt = DateTime.UtcNow;
     }

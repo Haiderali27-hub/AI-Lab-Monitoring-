@@ -7,7 +7,9 @@ using Backend_API.Services.Grading;
 using Backend_API.Tests.Helpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backend_API.Tests.Tests.Acceptance;
@@ -369,15 +371,20 @@ public class Module11EvaluationAcceptanceTests : IDisposable
     [Fact]
     public async Task M11_I_11_AcceptAiSuggestions_CreatesOverrides_Audited()
     {
+        // Both questions can be graded automatically: test cases (coding) and a model answer (theory). Answers the
+        // grader could not mark are left for a manual mark (M11-I-22).
+        var examId = await _host.CreateExamAsync(new[] { _host.Seed.StudentId },
+            questions: new[] { TestHost.CodingQuestion(), TestHost.TheoryQuestion() });
+        var qids = await _host.QuestionIdsAsync(examId);
         var student = await _host.AsStudent();
-        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
-        (await TestHost.SaveAnswerAsync(student, sid, _host.Seed.Question1Id, "int main(){ return 0; }")).StatusCode.Should().Be(HttpStatusCode.OK);
-        (await TestHost.SaveAnswerAsync(student, sid, _host.Seed.Question2Id, "A stack is LIFO.")).StatusCode.Should().Be(HttpStatusCode.OK);
+        var sid = await _host.StartSessionAsync(student, examId);
+        (await TestHost.SaveAnswerAsync(student, sid, qids[0], "int main(){ return 0; }")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SaveAnswerAsync(student, sid, qids[1], "A stack is LIFO.")).StatusCode.Should().Be(HttpStatusCode.OK);
         (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
-        await GradingOfAsync(_host.Seed.ExamId, sid, _host.Seed.Question1Id);
+        await GradingOfAsync(examId, sid, qids[0]);
 
         var teacher = await _host.AsTeacher();
-        var resp = await teacher.PostAsync($"/api/exams/{_host.Seed.ExamId}/grading/accept-ai", null);
+        var resp = await teacher.PostAsync($"/api/exams/{examId}/grading/accept-ai", null);
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         (await TestHost.JsonAsync(resp)).GetProperty("accepted").GetInt32().Should().Be(2);
 
@@ -386,7 +393,7 @@ public class Module11EvaluationAcceptanceTests : IDisposable
         (await _host.AuditLogsAsync("AI_SUGGESTIONS_ACCEPTED")).Should().ContainSingle();
 
         // Answers that already have an override are left alone.
-        (await TestHost.JsonAsync(await teacher.PostAsync($"/api/exams/{_host.Seed.ExamId}/grading/accept-ai", null)))
+        (await TestHost.JsonAsync(await teacher.PostAsync($"/api/exams/{examId}/grading/accept-ai", null)))
             .GetProperty("accepted").GetInt32().Should().Be(0);
     }
 
@@ -630,5 +637,131 @@ public class Module11EvaluationAcceptanceTests : IDisposable
         grading.GetProperty("confidence").GetString().Should().Be("Low");
         grading.GetProperty("justification").GetString().Should().Contain("Automatic grading failed").And.Contain("teacher review required");
         grading.GetProperty("testCaseResults").EnumerateArray().Should().OnlyContain(r => r.GetProperty("status").GetString() == "NotRun");
+    }
+
+    // ── S7 verifier regressions ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task M11_I_22_AcceptAi_LeavesAnswersTheGraderCouldNotMark_ForAManualMark()
+    {
+        // Runner None: the coding answer's "0, Low, Not compiled — teacher review required" is not a suggestion.
+        using var host = new TestHost(b => b.UseSetting("Grading:Runner", "None"));
+        var examId = await host.CreateExamAsync(new[] { host.Seed.StudentId },
+            questions: new[] { TestHost.CodingQuestion(), TestHost.TheoryQuestion() });
+        var qids = await host.QuestionIdsAsync(examId);
+        var student = await host.AsStudent();
+        var sid = await host.StartSessionAsync(student, examId);
+        (await TestHost.SaveAnswerAsync(student, sid, qids[0], "int main(){ return 0; }")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SaveAnswerAsync(student, sid, qids[1], "A stack is LIFO, a queue is FIFO.")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var teacher = await host.AsTeacher();
+        var body = await TestHost.JsonAsync(await teacher.PostAsync($"/api/exams/{examId}/grading/accept-ai", null));
+        body.GetProperty("accepted").GetInt32().Should().Be(1, "only the theory answer has a real suggestion");
+        body.GetProperty("needsManualMark").GetInt32().Should().Be(1);
+        body.GetProperty("message").GetString().Should().Contain("could not be graded automatically");
+
+        var overridden = await host.WithDbAsync(db => db.TeacherGradeOverrides.Select(o => o.Answer.QuestionId).ToListAsync());
+        overridden.Should().Equal(qids[1]);
+    }
+
+    private sealed class StubLlmHandler(string body) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+            });
+    }
+
+    /// <summary>A host with the LLM switched on (key in a test-only environment variable) and a canned provider reply.</summary>
+    private static TestHost LlmHost(string replyBody, string? model = null)
+    {
+        var keyEnv = "SMARTEXAM_TEST_LLM_KEY_" + Guid.NewGuid().ToString("N");
+        Environment.SetEnvironmentVariable(keyEnv, "test-key");
+        return new TestHost(b =>
+        {
+            b.UseSetting("Grading:Llm:Enabled", "true");
+            b.UseSetting("Grading:Llm:ApiKeyEnv", keyEnv);
+            b.UseSetting("Grading:Llm:MaxAttempts", "1");
+            if (model is not null) b.UseSetting("Grading:Llm:Model", model);
+            b.ConfigureTestServices(s => s.AddHttpClient(LlmClient.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => new StubLlmHandler(replyBody)));
+        });
+    }
+
+    private async Task<JsonElement> GradeTheoryOnAsync(TestHost host, string answer)
+    {
+        var examId = await host.CreateExamAsync(new[] { host.Seed.StudentId }, questions: new[] { TestHost.TheoryQuestion() });
+        var qid = (await host.QuestionIdsAsync(examId)).Single();
+        var student = await host.AsStudent();
+        var sid = await host.StartSessionAsync(student, examId);
+        (await TestHost.SaveAnswerAsync(student, sid, qid, answer)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+        return await GradingOfAsync(examId, sid, qid, host);
+    }
+
+    [Fact]
+    public async Task M11_I_23_LlmReplyOfAnUnexpectedShape_FallsBackToTheOfflineGrade()
+    {
+        // "content" is a number, not a string: JsonNode throws InvalidOperationException, which used to escape the
+        // client and leave the answer Pending for ever.
+        using var host = LlmHost("""{"choices":[{"message":{"content":42}}]}""");
+        var grading = await GradeTheoryOnAsync(host, "A stack is LIFO, a queue is FIFO.");
+        grading.GetProperty("status").GetString().Should().Be("Graded");
+        grading.GetProperty("engine").GetString().Should().Be(TheoryGrader.EngineTfIdf);
+    }
+
+    [Fact]
+    public async Task M11_I_24_LongEngineLabel_IsCutToTheColumnLength()
+    {
+        // Engine is varchar(64): a long configured model name must not make Postgres refuse the grade.
+        var model = "org/" + new string('m', 120);
+        using var host = LlmHost(
+            """{"choices":[{"message":{"content":"{\"marks\": 8, \"justification\": \"Mostly right.\", \"confidence\": \"medium\"}"}}]}""",
+            model);
+        var grading = await GradeTheoryOnAsync(host, "A stack is LIFO, a queue is FIFO.");
+        grading.GetProperty("status").GetString().Should().Be("Graded");
+        grading.GetProperty("suggestedMarks").GetDouble().Should().Be(8);
+        var engine = grading.GetProperty("engine").GetString()!;
+        engine.Should().StartWith("LLM (");
+        engine.Length.Should().BeLessThanOrEqualTo(GradingService.MaxEngineLength);
+    }
+
+    /// <summary>Refuses the first save of a graded fake-runner result, as Postgres would refuse a value that is too long.</summary>
+    private sealed class RefuseFirstGradeInterceptor : SaveChangesInterceptor
+    {
+        private int _refused;
+
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            var grade = eventData.Context!.ChangeTracker.Entries<AiGradingResult>()
+                .Any(e => e.State == EntityState.Modified && e.Entity.Status == AiGradingResult.StatusGraded &&
+                          e.Entity.Engine == FakeCodeRunner.EngineName);
+            if (grade && Interlocked.Exchange(ref _refused, 1) == 0)
+                throw new DbUpdateException("22001: value too long for type character varying(64)");
+            return base.SavingChangesAsync(eventData, result, cancellationToken);
+        }
+    }
+
+    [Fact]
+    public async Task M11_I_25_UnexpectedFailure_EndsAsFailed_NotPendingForEver()
+    {
+        var interceptor = new RefuseFirstGradeInterceptor();
+        using var host = new TestHost(b => b.ConfigureTestServices(s =>
+            s.ConfigureDbContext<Backend_API.Data.AppDbContext>(o => o.AddInterceptors(interceptor))));
+        var student = await host.AsStudent();
+        var sid = await host.StartSessionAsync(student, host.Seed.ExamId);
+        (await TestHost.SaveAnswerAsync(student, sid, host.Seed.Question1Id, "int main(){}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var grading = await GradingOfAsync(host.Seed.ExamId, sid, host.Seed.Question1Id, host);
+        grading.GetProperty("status").GetString().Should().Be("Failed");
+        grading.GetProperty("suggestedMarks").GetDouble().Should().Be(0);
+        grading.GetProperty("justification").GetString().Should().Contain("internal error").And.Contain("teacher review required");
+        grading.GetProperty("testCaseResults").EnumerateArray().Should().OnlyContain(r => r.GetProperty("status").GetString() == "NotRun");
+        await TestHost.Eventually(() => Task.FromResult(host.Hub.Named("GradingCompleted").Any(m => m.ArgsJson.Contains("Failed"))),
+            TimeSpan.FromSeconds(5), "the live monitor hears that grading ended");
     }
 }

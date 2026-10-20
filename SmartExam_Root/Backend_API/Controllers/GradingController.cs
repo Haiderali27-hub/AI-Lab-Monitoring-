@@ -53,7 +53,9 @@ public class GradingController(
         });
     }
 
-    // POST /api/exams/{examId}/grading/accept-ai  → overrides equal to the suggestion for every graded, un-overridden answer
+    // POST /api/exams/{examId}/grading/accept-ai  → overrides equal to the suggestion for every graded, un-overridden answer.
+    // Answers the grader could not mark (not compiled, no model answer, compile check only) are left for a manual mark:
+    // their "0, teacher review required" is not a suggestion, and accepting it in bulk would silently fail the student.
     [HttpPost("exams/{examId:guid}/grading/accept-ai")]
     public async Task<IActionResult> AcceptAiSuggestions(Guid examId)
     {
@@ -61,14 +63,16 @@ public class GradingController(
         if (await access.GetAsync(User, examId) < ExamAccess.Owner) return Forbidden();
 
         var candidates = await db.Answers
-            .Include(a => a.AiGradingResult)
+            .Include(a => a.AiGradingResult).ThenInclude(g => g!.TestCaseResults)
             .Where(a => a.ExamSession.ExamId == examId &&
                         Finalised.Contains(a.ExamSession.Status) &&
                         a.TeacherGradeOverride == null &&
                         a.AiGradingResult != null)
             .ToListAsync();
 
-        var accepted = candidates.Where(a => a.AiGradingResult!.Status == AiGradingResult.StatusGraded).ToList();
+        var graded = candidates.Where(a => a.AiGradingResult!.Status == AiGradingResult.StatusGraded).ToList();
+        var accepted = graded.Where(a => !GradingService.NeedsManualMark(a.AiGradingResult!)).ToList();
+        var needsManualMark = graded.Count - accepted.Count;
         var now = DateTime.UtcNow;
         foreach (var answer in accepted)
         {
@@ -81,17 +85,19 @@ public class GradingController(
                 OverriddenAt = now
             });
         }
-        var notReady = candidates.Count - accepted.Count;
-        audit.Add(CurrentUserId, "AI_SUGGESTIONS_ACCEPTED", "Exam", examId.ToString(), new { accepted = accepted.Count, notReady });
+        var notReady = candidates.Count - graded.Count;
+        audit.Add(CurrentUserId, "AI_SUGGESTIONS_ACCEPTED", "Exam", examId.ToString(), new { accepted = accepted.Count, notReady, needsManualMark });
         await db.SaveChangesAsync();
 
+        var message = $"Accepted {accepted.Count} suggestion(s).";
+        if (notReady > 0) message += $" {notReady} answer(s) are still being graded or failed and need a manual mark.";
+        if (needsManualMark > 0) message += $" {needsManualMark} answer(s) could not be graded automatically and need a manual mark.";
         return Ok(new
         {
             accepted = accepted.Count,
             notReady,
-            message = notReady > 0
-                ? $"Accepted {accepted.Count} suggestion(s); {notReady} answer(s) are still being graded or failed and need a manual mark."
-                : $"Accepted {accepted.Count} suggestion(s)."
+            needsManualMark,
+            message
         });
     }
 
