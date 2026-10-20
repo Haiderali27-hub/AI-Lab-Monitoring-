@@ -53,6 +53,9 @@ public class MonitoringPolicyTests
     public async Task JpegEncoder_WorksOnAFrozenSourceOffTheUiThread()
     {
         var source = BitmapSource.Create(64, 48, 96, 96, PixelFormats.Gray8, null, new byte[64 * 48], 64);
+        // Frozen on the thread that created it, as ScreenCapture does. Freezing is itself thread-affine, so without
+        // this the test only passed when Task.Run happened to reuse the test's own thread (flaky, S6 verifier).
+        source.Freeze();
         var jpeg = await Task.Run(() => JpegEncoder.Encode(source));
         jpeg.Take(2).Should().Equal(new byte[] { 0xFF, 0xD8 });
         JpegEncoder.EncodeGrey(new byte[160 * 120], 160, 120).Take(2).Should().Equal(new byte[] { 0xFF, 0xD8 });

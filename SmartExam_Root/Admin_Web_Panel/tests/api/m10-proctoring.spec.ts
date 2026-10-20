@@ -91,4 +91,24 @@ test.describe('M10 — Live Proctoring API', () => {
     const chrome = body.seen.find((s: any) => s.name === 'chrome');
     expect(chrome.running).toBe(false);
   });
+
+  test('M10-A-04 Only the exam owner or an admin extends or ends the whole exam', async ({ request }) => {
+    const { exam, teacher, admin } = await examWithStudents(request, 1);
+    const before = await teacher.examDetail(exam.examId);
+    const otherUser = await admin.createUser('Teacher', 'Other');
+    const other = await StaffApi.login(request, otherUser.email, otherUser.password);
+
+    expect((await other.extendTime(exam.examId, 30)).status()).toBe(403);
+    expect((await other.forceSubmitAll(exam.examId)).status()).toBe(403);
+    expect((await other.delete(`/api/exams/${exam.examId}`)).status()).toBe(403);
+    // Another teacher still sees the exam, but not its answer key.
+    const seen = await other.examDetail(exam.examId);
+    expect(seen.questions.every((q: any) => q.referenceAnswer == null && q.correctOptionIndex == null)).toBe(true);
+    const after = await teacher.examDetail(exam.examId);
+    expect(after.durationMinutes).toBe(before.durationMinutes);
+    expect(after.status).toBe(before.status);
+
+    expect((await teacher.extendTime(exam.examId, 30)).status()).toBe(200);
+    expect((await teacher.forceSubmitAll(exam.examId)).status()).toBe(200);
+  });
 });

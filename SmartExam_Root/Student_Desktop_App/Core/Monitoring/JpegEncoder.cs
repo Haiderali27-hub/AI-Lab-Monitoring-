@@ -7,8 +7,9 @@ namespace Student_Desktop_App.Core.Monitoring;
 /// <summary>
 /// Module 5 — turns a capture into the JPEG that is uploaded: scaled so its longest side is at most
 /// <see cref="CaptureSchedule.MaxSide"/> (1280 px) and encoded at quality <see cref="CaptureSchedule.JpegQuality"/> (60),
-/// about 50–200 KB for a desktop. WPF imaging only (WIC; no System.Drawing dependency), safe off the UI thread
-/// because the source is frozen first. No screen access here, so it is unit-tested on synthetic bitmaps (M5-U-05).
+/// about 50–200 KB for a desktop. WPF imaging only (WIC; no System.Drawing dependency). Safe on any thread for a
+/// FROZEN source; freezing is thread-affine, so a caller that encodes elsewhere freezes the bitmap on the thread that
+/// created it first (ScreenCapture does; an unfrozen source is frozen here, which only works on its own thread). No screen access here, so it is unit-tested on synthetic bitmaps (M5-U-05).
 /// </summary>
 public static class JpegEncoder
 {

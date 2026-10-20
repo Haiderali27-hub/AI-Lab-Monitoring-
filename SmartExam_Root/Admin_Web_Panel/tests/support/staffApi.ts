@@ -324,9 +324,12 @@ export class StaffApi {
    * every other Active exam first (force-submit-all) to make the page deterministic.
    */
   async endAllActiveExams(): Promise<void> {
-    for (const exam of await this.exams()) {
+    // Ending an exam is its section teacher's or an admin's call (M10 hardening), and other tests leave exams of
+    // other sections running: the clean-up runs as the admin.
+    const admin = this.role === 'Admin' || this.role === 'SuperAdmin' ? this : await StaffApi.admin(this.request);
+    for (const exam of await admin.exams()) {
       if (exam.status === 'Active') {
-        const res = await this.forceSubmitAll(exam.examId);
+        const res = await admin.forceSubmitAll(exam.examId);
         expect(res.status()).toBe(200);
       }
     }

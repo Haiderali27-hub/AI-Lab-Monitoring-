@@ -432,4 +432,104 @@ public class Module10ProctoringAcceptanceTests : IDisposable
         items.Should().Contain(i => i.GetProperty("kind").GetString() == "Action" && i.GetProperty("type").GetString() == "SESSION_UNLOCKED"
                                     && i.GetProperty("detail").GetString()!.Contains("Mouse replaced"));
     }
+
+    // ── S6 verifier additions ─────────────────────────────────────────────────────────────────────
+
+    private Dictionary<string, object?> ExamPayload(DateTime startUtc) => new()
+    {
+        ["title"] = "Moved exam",
+        ["instructions"] = "x",
+        ["sectionId"] = _host.Seed.SectionId,
+        ["startTime"] = startUtc,
+        ["durationMinutes"] = 60,
+        ["allowedApps"] = "[\"code.exe\"]",
+        ["aiEvaluationEnabled"] = false,
+        ["plagiarismThreshold"] = 70,
+        ["questions"] = new[] { TestHost.TheoryQuestion() },
+        ["studentIds"] = Array.Empty<Guid>()
+    };
+
+    [Fact]
+    public async Task M10_I_15_WholeExamActions_AreOwnerOrAdminOnly_ProctorsAndOtherTeachersGet403()
+    {
+        // IMPLEMENTATION_PLAN §4.3 / Module 7 notes: extend-time, force-submit-all, edit and delete were callable by
+        // any teacher for any exam. An unrelated teacher and a co-proctoring teacher are both refused.
+        var running = await _host.CreateExamAsync(new[] { _host.Seed.StudentId });
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, running);
+        var (_, email, password) = await _host.CreateUserAsync("Teacher");
+        var outsider = await _host.LoginAsync(email, password);
+        var (coId, coEmail, coPassword) = await _host.CreateUserAsync("Teacher");
+        (await (await _host.AsTeacher()).PostAsJsonAsync($"/api/exams/{running}/proctors", new { userId = coId }))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+        var coProctor = await _host.LoginAsync(coEmail, coPassword);
+
+        foreach (var caller in new[] { outsider, coProctor })
+        {
+            (await caller.PostAsJsonAsync($"/api/exams/{running}/extend-time", new { additionalMinutes = 30 }))
+                .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            (await caller.PostAsync($"/api/exams/{running}/force-submit-all", null))
+                .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
+        // Nothing changed: same duration, the exam still runs, the student can still save.
+        var owner = await _host.AsTeacher();
+        var detail = await TestHost.JsonAsync(await owner.GetAsync($"/api/exams/{running}"));
+        detail.GetProperty("durationMinutes").GetInt32().Should().Be(60);
+        detail.GetProperty("status").GetString().Should().NotBe("Ended");
+        (await _host.AuditLogsAsync("EXAM_TIME_EXTENDED")).Should().BeEmpty();
+        (await TestHost.HeartbeatAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // The co-proctor still supervises (per-student extra time is a proctor action); the owner extends the exam.
+        using (var hub = _host.CreateHub(TestHost.Principal(coId, "Teacher")))
+            await hub.Hub.ExtendStudentTime(sid, 5);
+        (await owner.PostAsJsonAsync($"/api/exams/{running}/extend-time", new { additionalMinutes = 30 }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Edit / delete a scheduled exam, or create one in someone else's section: owner or admin only.
+        var scheduled = await _host.CreateExamAsync(Array.Empty<Guid>(), DateTime.UtcNow.AddDays(1));
+        (await outsider.PutAsJsonAsync($"/api/exams/{scheduled}", ExamPayload(DateTime.UtcNow.AddDays(2))))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await outsider.DeleteAsync($"/api/exams/{scheduled}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await outsider.PostAsJsonAsync("/api/exams", ExamPayload(DateTime.UtcNow.AddDays(2))))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await owner.PutAsJsonAsync($"/api/exams/{scheduled}", ExamPayload(DateTime.UtcNow.AddDays(2))))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await owner.DeleteAsync($"/api/exams/{scheduled}")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Force-ending is the owner's call too.
+        (await owner.PostAsync($"/api/exams/{running}/force-submit-all", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task M10_I_16_OtherTeachers_SeeTheExam_ButNotItsAnswerKey()
+    {
+        var (_, email, password) = await _host.CreateUserAsync("Teacher");
+        var outsider = await _host.LoginAsync(email, password);
+
+        var foreign = await TestHost.JsonAsync(await outsider.GetAsync($"/api/exams/{_host.Seed.ExamId}"));
+        foreign.GetProperty("questions").EnumerateArray().Should().OnlyContain(q =>
+            q.GetProperty("referenceAnswer").ValueKind == JsonValueKind.Null &&
+            q.GetProperty("correctOptionIndex").ValueKind == JsonValueKind.Null &&
+            q.GetProperty("expectedOutput").ValueKind == JsonValueKind.Null);
+
+        var exam = await _host.CreateExamAsync(Array.Empty<Guid>());
+        var own = await TestHost.JsonAsync(await (await _host.AsTeacher()).GetAsync($"/api/exams/{exam}"));
+        own.GetProperty("questions")[0].GetProperty("referenceAnswer").GetString().Should().Be("Stack is LIFO, queue is FIFO.");
+    }
+
+    [Fact]
+    public async Task M10_I_17_MarkAllRead_ClearsAWarning_AndIsAuditedAsAcknowledged()
+    {
+        // read-all also stops a warning reaching the exam window, so it must leave the same evidence as Acknowledge.
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        using (var hub = _host.CreateHub(TestHost.Principal(_host.Seed.TeacherId, "Teacher")))
+            await hub.Hub.SendWarning(_host.Seed.StudentId.ToString(), "Phone away please");
+        (await AckAsync(student, sid)).GetProperty("warnings").GetArrayLength().Should().Be(1);
+
+        (await student.PatchAsync("/api/notifications/read-all", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await AckAsync(student, sid)).GetProperty("warnings").GetArrayLength().Should().Be(0);
+        var acknowledged = await _host.AuditLogsAsync("PROCTOR_WARNING_ACKNOWLEDGED");
+        acknowledged.Should().ContainSingle();
+    }
 }

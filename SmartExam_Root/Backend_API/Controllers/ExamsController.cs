@@ -121,7 +121,10 @@ public class ExamsController : ControllerBase
         var isInvigilator = role == "Invigilator";
         if (isInvigilator && await _access.GetAsync(User, id) == ExamAccess.None)
             return NotFound();
-        var hideAnswerKey = isStudent || isInvigilator;
+        // Module 10 hardening: teachers still see every exam (GET /api/exams), but the answer key only of their own
+        // sections' exams; a co-proctoring or unrelated teacher gets the proctor view, like an invigilator.
+        var isForeignTeacher = role == "Teacher" && exam.Section?.TeacherId != CurrentUserId;
+        var hideAnswerKey = isStudent || isInvigilator || isForeignTeacher;
 
         // Explicit projection — the raw EF graph included every assigned student's PasswordHash/Salt.
         return Ok(new
@@ -241,11 +244,15 @@ public class ExamsController : ControllerBase
     public async Task<IActionResult> UpdateExam(Guid id, [FromBody] CreateExamDto req)
     {
         var exam = await _db.Exams
+            .Include(e => e.Section)
             .Include(e => e.Questions).ThenInclude(q => q.TestCases)
             .Include(e => e.Assignments)
             .FirstOrDefaultAsync(e => e.ExamId == id);
 
         if (exam is null) return NotFound(new { message = "Exam not found." });
+        // Module 10 hardening: only the section's teacher (or an admin) edits an exam.
+        if (!CanManage(exam.Section))
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only manage exams of your own sections." });
         if (exam.Status != ExamStatus.Scheduled)
             return Conflict(new { message = "Only scheduled exams can be edited. This exam is already " + exam.Status + "." });
 
@@ -303,9 +310,10 @@ public class ExamsController : ControllerBase
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> DeleteExam(Guid id)
     {
-        var exam = await _db.Exams.FirstOrDefaultAsync(e => e.ExamId == id);
-        if (exam is null) return NotFound(new { message = "Exam not found." });
-        if (exam.Status != ExamStatus.Scheduled)
+        // Module 10 hardening: only the section's teacher (or an admin) deletes an exam.
+        var (exam, denied) = await LoadManagedExamAsync(id);
+        if (denied is not null) return denied;
+        if (exam!.Status != ExamStatus.Scheduled)
             return Conflict(new { message = "Only scheduled exams can be deleted. This exam is already " + exam.Status + "." });
 
         // Proctor rows cascade in Postgres; removed explicitly so the InMemory provider leaves no orphans.
@@ -334,8 +342,12 @@ public class ExamsController : ControllerBase
             return BadRequest(new { message = $"Screenshot interval must be between {Exam.MinCaptureIntervalSeconds} and {Exam.MaxCaptureIntervalSeconds} seconds." });
         if (req.WebcamIntervalSeconds is < Exam.MinCaptureIntervalSeconds or > Exam.MaxCaptureIntervalSeconds)
             return BadRequest(new { message = $"Webcam interval must be between {Exam.MinCaptureIntervalSeconds} and {Exam.MaxCaptureIntervalSeconds} seconds." });
-        if (!await _db.Sections.AnyAsync(s => s.SectionId == req.SectionId))
+        var section = await _db.Sections.AsNoTracking().FirstOrDefaultAsync(s => s.SectionId == req.SectionId);
+        if (section is null)
             return NotFound(new { message = "Section not found." });
+        // Module 10 hardening: a teacher creates exams for (or moves an exam into) their own sections only.
+        if (!CanManage(section))
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only create exams for your own sections." });
         if (req.Questions.Count == 0)
             return BadRequest(new { message = "An exam must contain at least one question." });
 
@@ -842,9 +854,11 @@ public class ExamsController : ControllerBase
         if (req.AdditionalMinutes is <= 0 or > 180)
             return BadRequest(new { message = "Additional minutes must be between 1 and 180." });
 
-        var exam = await _db.Exams.FindAsync(examId);
-        if (exam is null) return NotFound(new { message = "Exam not found." });
-        if (exam.Status == ExamStatus.Ended)
+        // Module 10 hardening: the whole exam is extended by its section's teacher or an admin only (a proctor gives
+        // one student extra minutes through the hub's ExtendStudentTime instead).
+        var (exam, denied) = await LoadManagedExamAsync(examId);
+        if (denied is not null) return denied;
+        if (exam!.Status == ExamStatus.Ended)
             return Conflict(new { message = "Cannot extend an ended exam." });
 
         exam.DurationMinutes += req.AdditionalMinutes;
@@ -981,11 +995,12 @@ public class ExamsController : ControllerBase
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> ForceSubmitAll(Guid examId)
     {
-        var exam = await _db.Exams.FindAsync(examId);
-        if (exam is null) return NotFound();
+        // Module 10 hardening: ending the exam for everyone is the section's teacher's (or an admin's) call.
+        var (exam, denied) = await LoadManagedExamAsync(examId);
+        if (denied is not null) return denied;
 
         // End the exam first: from here on no save is accepted from anyone (extra time included).
-        exam.Status = ExamStatus.Ended;
+        exam!.Status = ExamStatus.Ended;
         await _db.SaveChangesAsync();
 
         var sessionIds = await _db.ExamSessions

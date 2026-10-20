@@ -73,6 +73,11 @@ public class NotificationsController : ControllerBase
             .Where(n => n.RecipientId == Me && !n.IsRead)
             .ToListAsync();
         unread.ForEach(n => n.IsRead = true);
+        // Module 10: clearing a proctor's warning this way also stops it reaching the exam window, so it is audited
+        // exactly like acknowledging it on the desktop banner.
+        foreach (var n in unread.Where(n => n.Type == MonitoringHub.WarningType))
+            _audit.Add(Me, "PROCTOR_WARNING_ACKNOWLEDGED", "Notification", n.NotificationId.ToString(),
+                new { sessionId = n.RelatedEntityId, via = "read-all" });
         await _db.SaveChangesAsync();
         return Ok(new { markedRead = unread.Count });
     }
