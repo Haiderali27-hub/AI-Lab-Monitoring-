@@ -88,6 +88,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M2-U-07 | Disk space check | 199 MB / 200 MB free | fail / pass | ✅ |
 | M2-U-08 | Real probes on this PC | Run every check via `ReadinessCheckService` | 7 rows, no probe throws, disk passes (with `RequireWebcam` the camera is really opened through OpenCV and a frame grabbed) | ✅ |
 | M2-U-09 | Webcam check needs a real picture | `EvaluateCamera`: no device / no frame / dark or featureless frame / good frame | fail / fail / fail "dark or blocked" / pass (S5: replaces device enumeration only) | ✅ desktop xUnit |
+| M2-U-10 | Webcam check needs exactly one face (S8) | `EvaluateCamera` with the face model's count 1 / 0 / 3 / not run; covered lens with 1 face; count uses the monitoring size rule | pass "face detected" / fail "No face visible" / fail "3 faces visible" / pass "picture OK" (no model on the PC); covered still fails; a small background face is not counted | ✅ desktop xUnit |
 | M2-I-01 | Submit readiness result | Student POST readiness (all pass) | 200, row stored, audit `READINESS_PASSED` | ✅ |
 | M2-I-02 | Start blocked without readiness | `RequireReadiness=true`, no check | 400 `READINESS_REQUIRED` | ✅ |
 | M2-I-03 | Start allowed after passing check | Pass then start | 200 | ✅ |
@@ -201,12 +202,18 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M5-U-15 | Webcam loop survives camera faults (S5 verifier) | Fake camera whose grab throws `InvalidOperationException` | Thread keeps running, faults counted (was: only OpenCV/DLL exceptions caught, anything else ended the exam app) | ✅ desktop xUnit |
 | M5-U-16 | Webcam loop survives throwing subscribers | Covered frames; `IssueChanged` and `SnapshotReady` handlers throw `IOException` | One episode event, snapshot attempted, thread still running, status Covered | ✅ |
 | M5-U-17 | No camera / no OpenCV runtime | Open throws; source factory throws `DllNotFoundException` | Absorbed, no crash; status Off once stopped | ✅ |
+| M5-U-18 | Webcam model decoders (S8) | Hand-made YuNet output tensors (3 strides) and YOLOX-Nano `[3549×85]` tensor; IoU / NMS | Box, score √(cls·obj) and 5 landmarks decoded in frame-height units; weak and duplicate faces dropped, best first; phone box mapped back through the resize ratio, score = obj × class, class-aware NMS keeps a person and a phone; outputs of another model → `ArgumentException` | ✅ desktop xUnit |
+| M5-U-19 | Head pose from 5 landmarks (S8) | Generic face synthesised at known yaw/pitch/roll | Yaw and pitch within 2° (yaw ±45°, pitch ±30°, roll ±20°, upside down); faces too small (< 0.04 frame heights between the eyes) or with swapped / missing landmarks → no pose | ✅ |
+| M5-U-20 | Face / phone debounce (S8) | Detection sequences on a fake clock | NoFace after 5 s, MultipleFaces after 3 s, LookingAway after 3 s, each once per episode, cleared after 2 s; faces < 0.1 frame height ignored; looking away measured from the student's own baseline (camera beside the screen), a 2 s glance and looking down at the keyboard never raise, the baseline ignores turned-away frames; frames without analysis are no evidence; phone needs two consecutive checks, skipped checks change nothing; status priority | ✅ |
+| M5-U-21 | Monitoring loop with the models (S8) | Fake camera returning two faces; dark frames; a model that throws | One MultipleFaces event + violation snapshot (`reason=MultipleFaces`), heartbeat status MultipleFaces; covered frames never analysed (CameraCovered, not NoFace); throwing model absorbed, status Ok | ✅ |
+| M5-U-22 | Model files missing / corrupt / shipped (S8) | Empty models folder; text file named `.onnx`; the shipped YuNet + YOLOX-Nano on a grey 640×480, grey-scale and BGRA frame | Checks off, problems listed, `Analyze` → null, no throw; shipped models load and run on the CPU (no faces, phone 0, phone model every other frame) | ✅ |
 | M5-U-14 | Evidence storage (server) | Magic bytes; save/read/delete; traversal paths; orphans | JPEG/PNG only (MZ, SVG refused); `{exam}/{session}/…` name + SHA-256; `../`, rooted paths refused; only old unreferenced files removed | ✅ xUnit |
 | M5-A-01 | Heartbeat accepted | Student POST `/api/monitoring/heartbeat` | 200 | ✅ |
 | M5-A-02 | Heartbeat for foreign session rejected | Other student's session id | Not attributed to that session ✅; status is 200, not 403/404 (`test.fail` until changed) | ⚠️ partial |
 | M5-A-03 | Screenshot upload & access (black-box) | Upload jpg / exe; staff list + content; student / outsider read; upload after submit | 200 + listed with sha256, image bytes served; 400; 403 / 403; 409 `SESSION_NOT_ACTIVE` | ✅ Playwright api |
 | M5-A-04 | Batch idempotent + timeline (black-box) | Same batch twice; teacher GET timeline; 201 events; foreign session | `{accepted:3}` then `{duplicates:3}`; client time kept, no heartbeats; 400; 404 | ✅ |
 | M5-A-05 | Heartbeat ack capture settings | Exam with 45 s interval | Ack `screenshotIntervalSeconds=45`, `requireWebcam=false` | ✅ |
+| M5-A-06 | Webcam model findings on the board (S8) | Batch MultipleFaces + `Violation{reason:PhoneDetected}`, heartbeat `cameraStatus=LookingAway`, then "Smiling" | `/live` tile: camera LookingAway, 2 violations, Violation; timeline labels + Suspicious; unknown camera status dropped | ✅ Playwright api |
 | M5-I-01 | Screenshot upload | POST multipart jpg | 200, row + file stored | ✅ |
 | M5-I-02 | Screenshot size limit | 10 MB upload | 413 | ✅ |
 | M5-I-03 | Non-image rejected | Upload .exe renamed .jpg | 400 | ✅ |
@@ -227,13 +234,16 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M5-I-18 | Capture rate limit | `MaxScreenshotsPerMinute=2`, upload 3 | Third → 429 `TOO_MANY_CAPTURES` | ✅ |
 | M5-I-19 | Timeline `?after=` with replayed events (S5 verifier) | Cursor taken, then an event recorded 5 min ago arrives in a batch | Returned (filter on server receive time), `at` = client time, `receivedAt` > cursor | ✅ |
 | M5-I-20 | Reconnecting heartbeat racing a finalisation (S5 verifier) | Flagged session; force-submit lands between the heartbeat's load and save | Retry keeps the reconnect: `IsDisconnected` false, one `Reconnected` event, status ForceSubmitted | ✅ |
+| M5-I-21 | Webcam model findings (S8) | Batch with NoFace, MultipleFaces, `Violation{reason:LookingAway}`, PhoneDetected; heartbeats with each new camera status and "Smiling" | Stored with their own types, 4 live alerts, timeline labels with severity Suspicious; `cameraStatus` broadcast for NoFace / MultipleFaces / LookingAway / Phone, unknown value → null; tile escalates to Violation | ✅ |
 | M5-E-01 | Heartbeat shows student online | Simulator heartbeats → live monitor | Tile shows student, Normal | ✅ |
 | M5-E-02 | Thumbnail on tile | Simulator uploads screenshot | Tile shows image (blob URL, decoded); a violation capture is noted in the drawer | ✅ |
 | M5-E-03 | Disconnected tile | Simulator stops heartbeats | Tile shows "Disconnected" within 40 s; the next heartbeat restores it and the drawer says "Reconnected" | ✅ |
 | M5-E-04 | Camera / idle / replay on the tile | Heartbeat with idle 185 s + camera Covered; batch with a fresh CameraCovered and a 10-min-old KeyBlocked | "Idle 3m", "Camera covered"; live label "Camera covered: lens taped"; 2 ALERTS, Suspicious after the next heartbeat | ✅ |
+| M5-E-05 | Webcam model findings on the tile (S8) | Heartbeats `cameraStatus` MultipleFaces, NoFace, Ok; batch PhoneDetected | Badge "Multiple faces" → "No face" → gone; live label "Mobile phone detected: …", Suspicious; drawer lists it | ✅ |
 | M5-D-01 | Screenshot every interval | 30 s interval, 2 min | ~4 uploads | 📋 |
 | M5-D-02 | Network drop & recover | Disable NIC 60 s | Events replayed, none lost | 📋 |
 | M5-D-03 | Foreground app reported | Switch to allowed app | Heartbeat shows its process name | 📋 |
+| M5-M-01 | Webcam models on a lab PC (S8) | `RequireWebcam` exam: leave the seat 6 s; a second person leans in 4 s; turn to the neighbour 4 s; hold up a phone 3 s; Task Manager CPU | NoFace / MultipleFaces / LookingAway / PhoneDetected each once with a webcam snapshot, tile badges follow; CPU for the app < 15 % on a 4-core PC; readiness fails with nobody / two people in view | 📋 manual |
 | M5-P-01 | 30 clients per lab | k6: 30 virtual students heartbeat 10 s + events | p95 < 2 s, 0 errors | 📋 k6 |
 
 ## M6 — Submission & Backup

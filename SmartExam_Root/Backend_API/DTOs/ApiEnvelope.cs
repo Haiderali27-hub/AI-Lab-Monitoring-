@@ -64,7 +64,8 @@ public record StudentLoginRequest(
 public record RefreshRequest(string RefreshToken);
 
 // Module 5 adds IdleSeconds (seconds since the last keyboard/mouse input on the PC, GetLastInputInfo) and
-// CameraStatus (Ok | Covered | Frozen | Unavailable | Off, from on-device webcam monitoring). Both optional:
+// CameraStatus (Ok | Covered | Frozen | Unavailable | Off | NoFace | MultipleFaces | LookingAway | Phone, from on-device
+// webcam monitoring). Both optional:
 // older clients omit them.
 public record HeartbeatPayload(Guid? ExamSessionId, bool IsForegroundExamApp, string? ActiveWindowTitle, string? ProcessListSnapshot,
     int? IdleSeconds = null, string? CameraStatus = null);

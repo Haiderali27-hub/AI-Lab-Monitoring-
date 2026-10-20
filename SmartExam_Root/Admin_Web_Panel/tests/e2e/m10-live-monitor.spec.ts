@@ -384,6 +384,31 @@ test.describe('M5 — Live Monitoring Client Service (dashboard side)', () => {
     await expect(tile).toContainText('2 ALERTS');
     await expect(tile.getByTestId('tile-status')).toHaveText('Suspicious');
   });
+
+  test('M5-E-05 Webcam model findings (S8) on the tile', async ({ page, request }) => {
+    const { students, users } = await openLiveExam(page, request);
+    const tile = await waitForTile(page, students[0], users[0].name);
+
+    // The desktop's face model sees two people: the heartbeat's camera state shows on the tile.
+    expect((await students[0].heartbeat({ cameraStatus: 'MultipleFaces' })).status()).toBe(200);
+    await expect(tile.getByTestId('tile-camera')).toHaveText('Multiple faces');
+    expect((await students[0].heartbeat({ cameraStatus: 'NoFace' })).status()).toBe(200);
+    await expect(tile.getByTestId('tile-camera')).toHaveText('No face');
+
+    // The debounced episode arrives as a live alert with its label; one finding is Suspicious.
+    const batch = await students[0].eventBatch([
+      { clientEventId: randomUUID(), eventType: 'PhoneDetected', payload: { detail: 'Mobile phone in view (confidence 71%)' } },
+    ]);
+    expect(batch.status()).toBe(200);
+    await expect(tile.getByTestId('tile-last-violation')).toHaveText('Mobile phone detected: Mobile phone in view (confidence 71%)', { timeout: 5_000 });
+    await expect(tile.getByTestId('tile-status')).toHaveText('Suspicious');
+
+    // Back to normal: the camera badge disappears.
+    expect((await students[0].heartbeat({ cameraStatus: 'Ok' })).status()).toBe(200);
+    await expect(tile.getByTestId('tile-camera')).toHaveCount(0);
+    await tile.click();
+    await expect(page.getByTestId('student-drawer')).toContainText('Mobile phone detected');
+  });
 });
 
 test.describe('M4 — Secure Exam Environment (dashboard side)', () => {

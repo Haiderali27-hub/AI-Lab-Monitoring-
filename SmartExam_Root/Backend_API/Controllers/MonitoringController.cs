@@ -60,7 +60,10 @@ public class MonitoringController(
     // Module 10: at most this many unread proctor warnings ride on one heartbeat ack.
     public const int MaxWarningsPerAck = 5;
 
-    private static readonly string[] CameraStatuses = ["Ok", "Covered", "Frozen", "Unavailable", "Off"];
+    // Webcam state from the desktop: the picture (Covered/Frozen/Unavailable) or, S8, the on-device models'
+    // findings (NoFace/MultipleFaces/LookingAway/Phone). Anything else is dropped (null).
+    private static readonly string[] CameraStatuses =
+        ["Ok", "Covered", "Frozen", "Unavailable", "Off", "NoFace", "MultipleFaces", "LookingAway", "Phone"];
     private const int MaxProcessSnapshotChars = 4000;
     private const int MaxWindowTitleChars = 512;
 

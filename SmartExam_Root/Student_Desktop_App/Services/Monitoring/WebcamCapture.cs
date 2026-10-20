@@ -20,18 +20,25 @@ public interface IWebcamFrameSource : IDisposable
     WebcamFrame? Grab();
     /// <summary>JPEG of the last grabbed frame; null before the first frame.</summary>
     byte[]? LastFrameJpeg();
+    /// <summary>Module 5 (S8): faces / phone in the last grabbed frame; null when no model is loaded or before the first frame.</summary>
+    VisionResult? AnalyzeLastFrame() => null;
     void Close();
 }
 
 /// <summary>
 /// Module 2/5 — thin OpenCvSharp4 wrapper around the default webcam (DirectShow, 640×480). Only grabs frames and
-/// shrinks them; every decision (covered, frozen, unavailable, readiness pass/fail) is made by the pure classes
+/// shrinks them, and (S8) runs the on-device models of <see cref="WebcamVision"/> on the last frame when asked;
+/// every decision (covered, frozen, unavailable, no face, readiness pass/fail) is made by the pure classes
 /// in <c>Core</c>. Not thread-safe: one owner thread at a time.
 /// </summary>
 public sealed class WebcamCapture : IWebcamFrameSource
 {
+    private readonly WebcamVision _vision;
     private VideoCapture? _capture;
     private Mat? _lastColour;
+
+    /// <param name="vision">Face / phone models (owned: disposed with this capture). None = tamper checks only.</param>
+    public WebcamCapture(WebcamVision? vision = null) => _vision = vision ?? WebcamVision.None;
 
     public bool IsOpen => _capture is { } c && c.IsOpened();
 
@@ -104,6 +111,10 @@ public sealed class WebcamCapture : IWebcamFrameSource
         return jpeg;
     }
 
+    /// <summary>Faces / phone in the last grabbed frame (a few to a few tens of ms on the CPU); null without models.</summary>
+    public VisionResult? AnalyzeLastFrame() =>
+        _lastColour is null || _lastColour.Empty() ? null : _vision.Analyze(_lastColour);
+
     public void Close()
     {
         _lastColour?.Dispose();
@@ -113,20 +124,28 @@ public sealed class WebcamCapture : IWebcamFrameSource
         _capture = null;
     }
 
-    public void Dispose() => Close();
+    public void Dispose()
+    {
+        Close();
+        _vision.Dispose();
+    }
 
     /// <summary>
     /// Module 2 readiness: opens the camera, lets auto-exposure settle (up to ~1.5 s of frames) and reports the last
-    /// frame's statistics. Runs on a worker thread with a timeout, because some camera drivers hang on open.
-    /// Never throws.
+    /// frame's statistics. With <paramref name="countFaces"/> (S8) and the YuNet model present it also counts the faces
+    /// in front of the camera (the same size rule as exam monitoring), looking at up to five settled frames until one
+    /// shows exactly one face; without the model <see cref="CameraProbeResult.FaceCount"/> stays null and the check
+    /// falls back to the picture rule. Runs on a worker thread with a timeout, because some camera drivers hang on
+    /// open. Never throws.
     /// </summary>
-    public static async Task<CameraProbeResult> ProbeAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+    public static async Task<CameraProbeResult> ProbeAsync(TimeSpan timeout, CancellationToken cancellationToken = default,
+        bool countFaces = false)
     {
         var work = Task.Run(() =>
         {
             try
             {
-                using var camera = new WebcamCapture();
+                using var camera = new WebcamCapture(countFaces ? WebcamVision.Load(faces: true, phones: false) : null);
                 if (!camera.Open()) return new CameraProbeResult(false, Error: "could not open the camera");
                 WebcamFrame? last = null;
                 for (var i = 0; i < 15 && !cancellationToken.IsCancellationRequested; i++)
@@ -135,9 +154,21 @@ public sealed class WebcamCapture : IWebcamFrameSource
                     if (last is not null && i >= 5 && !CameraTamperDetector.LooksCovered(last.Mean, last.LaplacianVariance)) break;
                     Thread.Sleep(100);
                 }
-                return last is null
-                    ? new CameraProbeResult(false, Error: "no frames received")
-                    : new CameraProbeResult(true, last.Mean, last.LaplacianVariance);
+                if (last is null) return new CameraProbeResult(false, Error: "no frames received");
+
+                int? faceCount = null;
+                if (camera._vision.FaceDetectionAvailable && !CameraTamperDetector.LooksCovered(last.Mean, last.LaplacianVariance))
+                {
+                    for (var i = 0; i < 5 && !cancellationToken.IsCancellationRequested; i++)
+                    {
+                        if (i > 0 && camera.Grab() is null) break;
+                        if (camera._lastColour is not { } colour || camera._vision.DetectFaces(colour) is not { } faces) continue;
+                        faceCount = VisionIssueDetector.CountFaces(faces);
+                        if (faceCount == 1) break;
+                        Thread.Sleep(150);
+                    }
+                }
+                return new CameraProbeResult(true, last.Mean, last.LaplacianVariance, FaceCount: faceCount);
             }
             catch (Exception ex) when (ex is OpenCVException or DllNotFoundException or TypeInitializationException or BadImageFormatException)
             {

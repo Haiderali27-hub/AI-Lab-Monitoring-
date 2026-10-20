@@ -5,7 +5,10 @@ namespace Student_Desktop_App.Services.Monitoring;
 /// <summary>
 /// Module 5 — on-device webcam monitoring for exams that require a webcam. A background thread grabs a frame
 /// about every 0.7 s (≈1.5 FPS on CPU; LabGuard's 30 FPS is not needed for these checks), feeds its statistics to
-/// <see cref="CameraTamperDetector"/> and reports each covered / frozen / unavailable episode once. Webcam snapshots
+/// <see cref="CameraTamperDetector"/> and reports each covered / frozen / unavailable episode once. S8: a usable frame
+/// (not dark or featureless) also goes through the on-device face / phone models (<see cref="WebcamVision"/>, via
+/// <see cref="IWebcamFrameSource.AnalyzeLastFrame"/>) and <see cref="VisionIssueDetector"/>, which adds NoFace,
+/// MultipleFaces, LookingAway and PhoneDetected episodes; without the model files those checks are simply off. Webcam snapshots
 /// are taken on the exam's random webcam interval and immediately when an issue is raised; they go to the same
 /// encrypted upload spool as screen captures. Nothing is analysed or stored when the exam does not require a webcam.
 /// The loop runs on its own thread during a locked-down exam, so nothing that goes wrong in it (a camera driver,
@@ -18,6 +21,8 @@ public sealed class WebcamMonitorService : IDisposable
     private static readonly TimeSpan ReopenInterval = TimeSpan.FromSeconds(5);
 
     private readonly CameraTamperDetector _detector;
+    private readonly VisionIssueDetector _vision;
+    private readonly CameraThresholds _thresholds;
     private readonly CaptureSchedule _snapshots;
     private readonly Func<IWebcamFrameSource> _sourceFactory;
     private readonly TimeSpan _frameInterval;
@@ -29,14 +34,21 @@ public sealed class WebcamMonitorService : IDisposable
     /// <param name="sourceFactory">Tests pass a fake camera; production uses <see cref="WebcamCapture"/>.</param>
     /// <param name="frameInterval">Time between grabs (default 0.7 s, about 1.5 FPS).</param>
     /// <param name="thresholds">Tamper thresholds (tests shorten the debounce times).</param>
+    /// <param name="visionThresholds">Face / phone rule limits (tests shorten the debounce times).</param>
     public WebcamMonitorService(int snapshotMeanSeconds, Func<IWebcamFrameSource>? sourceFactory = null,
-        TimeSpan? frameInterval = null, CameraThresholds? thresholds = null)
+        TimeSpan? frameInterval = null, CameraThresholds? thresholds = null, VisionThresholds? visionThresholds = null)
     {
         _snapshots = new CaptureSchedule(snapshotMeanSeconds, () => DateTime.UtcNow, Random.Shared.NextDouble);
-        _sourceFactory = sourceFactory ?? (() => new WebcamCapture());
+        _sourceFactory = sourceFactory ?? CameraWithModels(faces: true, phones: true);
         _frameInterval = frameInterval is { } interval && interval > TimeSpan.Zero ? interval : DefaultFrameInterval;
-        _detector = new CameraTamperDetector(thresholds);
+        _thresholds = thresholds ?? new CameraThresholds();
+        _detector = new CameraTamperDetector(_thresholds);
+        _vision = new VisionIssueDetector(visionThresholds);
     }
+
+    /// <summary>The production camera: the default webcam with the face / phone models that are switched on and present.</summary>
+    public static Func<IWebcamFrameSource> CameraWithModels(bool faces, bool phones) =>
+        () => new WebcamCapture(faces || phones ? WebcamVision.Load(faces: faces, phones: phones) : null);
 
     /// <summary>Failures inside the loop that were absorbed instead of ending the thread (diagnostics and tests).</summary>
     public int Faults => Volatile.Read(ref _faults);
@@ -49,13 +61,21 @@ public sealed class WebcamMonitorService : IDisposable
 
     public bool IsRunning => _thread is { IsAlive: true };
 
-    /// <summary>Heartbeat value: Off when not running, otherwise Ok / Covered / Frozen / Unavailable.</summary>
+    /// <summary>
+    /// Heartbeat value: Off when not running, otherwise Ok or the most serious active finding — the picture itself
+    /// first (Unavailable / Covered / Frozen: nothing else can be judged then), then MultipleFaces / Phone / NoFace /
+    /// LookingAway.
+    /// </summary>
     public string Status
     {
         get
         {
             if (!IsRunning) return "Off";
-            lock (_gate) return _detector.Status;
+            lock (_gate)
+            {
+                var tamper = _detector.Status;
+                return tamper != "Ok" ? tamper : _vision.Status;
+            }
         }
     }
 
@@ -156,12 +176,28 @@ public sealed class WebcamMonitorService : IDisposable
             : new CameraObservation(now, true, frame.Mean, frame.LaplacianVariance,
                 previous is null ? null : FrameMetrics.MeanAbsDiff(frame.Grey, previous));
 
-        IReadOnlyList<CameraTransition> transitions;
+        // Faces / phone only on a usable picture: a dark or taped lens is CameraCovered, not "no face". Run outside
+        // the lock (inference takes milliseconds; Status is read from the heartbeat thread meanwhile).
+        VisionResult? vision = null;
+        if (frame is not null && !CameraTamperDetector.LooksCovered(frame.Mean, frame.LaplacianVariance, _thresholds))
+        {
+            try
+            {
+                vision = camera.AnalyzeLastFrame();
+            }
+            catch (Exception)
+            {
+                Interlocked.Increment(ref _faults);   // no analysis for this frame: "no evidence", nothing raised or cleared
+            }
+        }
+
+        var transitions = new List<CameraTransition>();
         bool snapshotDue, violationSnapshot = false;
         string? reason = null;
         lock (_gate)
         {
-            transitions = _detector.Observe(observation);
+            transitions.AddRange(_detector.Observe(observation));
+            transitions.AddRange(_vision.Observe(new VisionObservation(now, vision?.Faces, vision?.PhoneScore)));
             var raised = transitions.FirstOrDefault(t => t.Raised);
             if (raised is not null && _snapshots.TryClaimViolationCapture())
             {

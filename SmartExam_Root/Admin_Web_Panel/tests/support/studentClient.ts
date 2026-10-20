@@ -164,7 +164,8 @@ export class StudentClient {
   // ── live monitoring ─────────────────────────────────────────────────────
   /** `idleSeconds` / `cameraStatus` are what the Module 5 client adds (input idle time, webcam state); omitted = older client. */
   heartbeat(opts: { isForegroundExamApp?: boolean; activeWindowTitle?: string; processListSnapshot?: string; sessionId?: string | null;
-    idleSeconds?: number; cameraStatus?: 'Off' | 'Ok' | 'Covered' | 'Frozen' | 'Unavailable' } = {}) {
+    idleSeconds?: number;
+    cameraStatus?: 'Off' | 'Ok' | 'Covered' | 'Frozen' | 'Unavailable' | 'NoFace' | 'MultipleFaces' | 'LookingAway' | 'Phone' } = {}) {
     return this.request.post(`${API_URL}/api/monitoring/heartbeat`, {
       headers: this.headers(),
       data: {

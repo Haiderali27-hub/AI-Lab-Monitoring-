@@ -6,7 +6,9 @@ namespace Student_Desktop_App.Core.Readiness;
 public record ReadinessItemResult(string Name, bool Passed, string Detail, int DurationMs = 0, bool Skipped = false);
 
 /// <summary>Result of grabbing one real frame from the webcam (statistics from <see cref="Monitoring.FrameMetrics"/>).</summary>
-public record CameraProbeResult(bool FrameGrabbed, double Mean = 0, double LaplacianVariance = 0, string? Error = null);
+/// <param name="FaceCount">S8: faces in front of the camera (YuNet, same size rule as exam monitoring); null when
+/// the face model is not available or was not run.</param>
+public record CameraProbeResult(bool FrameGrabbed, double Mean = 0, double LaplacianVariance = 0, string? Error = null, int? FaceCount = null);
 
 /// <summary>What this exam demands of the workstation (from GET /api/exams/student/current).</summary>
 public record ReadinessRequirements(bool RequireWebcam, bool RequireMic, bool BlockMultiMonitor, LockdownMode Mode);
@@ -88,7 +90,9 @@ public static class ReadinessPolicy
     /// Module 2 + 5 — the webcam check for an exam that requires it: a device must exist AND deliver a real picture
     /// (a frame was grabbed and it is not dark or featureless — the same "covered" rule webcam monitoring uses during
     /// the exam, <see cref="Monitoring.CameraTamperDetector.LooksCovered"/>). Enumerating devices alone would pass a
-    /// camera that is unplugged inside, used by another app, or taped over.
+    /// camera that is unplugged inside, used by another app, or taped over. S8: when the face model ran, exactly one face
+    /// must be in view — nobody (the student is not in front of the camera, or it points elsewhere) or several people
+    /// fail; without the model the picture rule alone decides.
     /// </summary>
     public static ReadinessItemResult EvaluateCamera(bool required, int deviceCount, string? deviceName, CameraProbeResult? probe)
     {
@@ -100,7 +104,13 @@ public static class ReadinessPolicy
             return new(Camera, false, $"Camera found but it gives no picture{(string.IsNullOrWhiteSpace(probe?.Error) ? "" : ": " + probe!.Error)} — close other apps using it and retry");
         if (Monitoring.CameraTamperDetector.LooksCovered(probe.Mean, probe.LaplacianVariance))
             return new(Camera, false, $"Camera picture is dark or blocked (brightness {probe.Mean:0}) — uncover the lens and make sure your face is lit");
-        return new(Camera, true, $"{deviceName ?? "Camera"}: picture OK");
+        return probe.FaceCount switch
+        {
+            0 => new(Camera, false, "No face visible — sit facing the camera with your face lit, then retry"),
+            > 1 => new(Camera, false, $"{probe.FaceCount} faces visible — only you may be in front of the camera"),
+            1 => new(Camera, true, $"{deviceName ?? "Camera"}: picture OK, face detected"),
+            _ => new(Camera, true, $"{deviceName ?? "Camera"}: picture OK")
+        };
     }
 
     public static ReadinessItemResult EvaluateSecureMode(

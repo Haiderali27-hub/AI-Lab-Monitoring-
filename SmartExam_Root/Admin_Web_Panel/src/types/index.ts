@@ -278,7 +278,8 @@ export interface Incident {
   resolvedByName?: string | null;
 }
 
-export type CameraStatus = 'Off' | 'Ok' | 'Covered' | 'Frozen' | 'Unavailable';
+// Picture state (Covered / Frozen / Unavailable) or, Module 5 S8, the desktop's on-device face / phone models.
+export type CameraStatus = 'Off' | 'Ok' | 'Covered' | 'Frozen' | 'Unavailable' | 'NoFace' | 'MultipleFaces' | 'LookingAway' | 'Phone';
 
 /** Module 5: one capture (screen or webcam) of a session, GET /exams/{id}/sessions/{sid}/screenshots. */
 export interface ScreenshotSummary {

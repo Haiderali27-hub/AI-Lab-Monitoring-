@@ -49,7 +49,7 @@ public record PracticeExamSummary(Guid ExamId, string Title, int DurationMinutes
 public record StartExamResult(Guid Id, string Status, DateTime? StartedAtUtc);
 
 // Module 5: IdleSeconds = time since the last keyboard/mouse input (GetLastInputInfo); CameraStatus = Off | Ok |
-// Covered | Frozen | Unavailable from on-device webcam monitoring.
+// Covered | Frozen | Unavailable | NoFace | MultipleFaces | LookingAway | Phone from on-device webcam monitoring.
 public record HeartbeatPayload(Guid? ExamSessionId, bool IsForegroundExamApp, string? ActiveWindowTitle, string? ProcessListSnapshot,
     int? IdleSeconds = null, string? CameraStatus = null);
 

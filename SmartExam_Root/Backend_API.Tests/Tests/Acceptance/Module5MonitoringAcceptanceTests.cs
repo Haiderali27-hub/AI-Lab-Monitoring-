@@ -462,6 +462,59 @@ public class Module5MonitoringAcceptanceTests : IDisposable
     }
 
     [Fact]
+    public async Task M5_I_21_WebcamModelFindings_AreStoredAsSuspiciousViolations_AndTheirCameraStatusReachesTheTile()
+    {
+        // S8: the desktop's on-device face / phone models report debounced episodes through the normal outbox batch.
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        var ids = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
+        var batch = new
+        {
+            examSessionId = sid,
+            events = new object[]
+            {
+                new { clientEventId = ids[0], eventType = "NoFace", payloadJson = "{\"detail\":\"No face in front of the camera\"}", recordedAt = DateTime.UtcNow },
+                new { clientEventId = ids[1], eventType = "MultipleFaces", payloadJson = "{\"detail\":\"2 faces in view\"}", recordedAt = DateTime.UtcNow },
+                // The client's generic form works as well.
+                new { clientEventId = ids[2], eventType = "Violation", payloadJson = "{\"reason\":\"LookingAway\",\"detail\":\"Head turned sideways\"}", recordedAt = DateTime.UtcNow },
+                new { clientEventId = ids[3], eventType = "PhoneDetected", payloadJson = "{\"detail\":\"Mobile phone in view (confidence 71%)\"}", recordedAt = DateTime.UtcNow }
+            }
+        };
+        (await student.PostAsJsonAsync("/api/monitoring/events/batch", batch)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var stored = await _host.WithDbAsync(db => db.MonitoringEvents.Where(e => e.ExamSessionId == sid && e.ClientEventId != null).ToListAsync());
+        stored.Select(e => e.EventType).Should().BeEquivalentTo(new[]
+            { MonitoringEventType.NoFace, MonitoringEventType.MultipleFaces, MonitoringEventType.LookingAway, MonitoringEventType.PhoneDetected });
+        _host.Hub.Named("ViolationEvent").Should().HaveCount(4, "fresh findings are pushed live like any violation");
+
+        // Timeline: labelled, Suspicious.
+        var teacher = await _host.AsTeacher();
+        var items = (await TestHost.DataAsync(await teacher.GetAsync($"/api/exams/{_host.Seed.ExamId}/sessions/{sid}/timeline")))
+            .EnumerateArray().Where(i => i.GetProperty("kind").GetString() == "Event").ToList();
+        foreach (var (type, label) in new[] { ("NoFace", "No face in view"), ("MultipleFaces", "Multiple faces in view"),
+                     ("LookingAway", "Looking away from the screen"), ("PhoneDetected", "Mobile phone detected") })
+            items.Should().ContainSingle(i => i.GetProperty("type").GetString() == type
+                                              && i.GetProperty("label").GetString() == label
+                                              && i.GetProperty("severity").GetString() == "Suspicious");
+
+        // The heartbeat's camera status carries the models' state to the tile; an unknown value is dropped.
+        object Beat(string camera) => new
+        {
+            examSessionId = sid, isForegroundExamApp = true, activeWindowTitle = "SmartExam", processListSnapshot = "SmartExam",
+            cameraStatus = camera
+        };
+        foreach (var status in new[] { "NoFace", "MultipleFaces", "LookingAway", "Phone" })
+        {
+            (await student.PostAsJsonAsync("/api/monitoring/heartbeat", Beat(status.ToLowerInvariant()))).StatusCode.Should().Be(HttpStatusCode.OK);
+            _host.Hub.Named("StudentHeartbeat").Last().ArgsJson.Should().Contain($"\"cameraStatus\":\"{status}\"");
+        }
+        (await student.PostAsJsonAsync("/api/monitoring/heartbeat", Beat("Smiling"))).StatusCode.Should().Be(HttpStatusCode.OK);
+        _host.Hub.Named("StudentHeartbeat").Last().ArgsJson.Should().Contain("\"cameraStatus\":null");
+        // Several Suspicious findings escalate the tile to Violation (server-side classification on the heartbeat).
+        _host.Hub.Named("StudentHeartbeat").Last().ArgsJson.Should().Contain("\"tileStatus\":\"Violation\"");
+    }
+
+    [Fact]
     public async Task M5_I_16_Watchdog_FlagsSilentRunningSessionsOnce_AndIgnoresFinishedOnes()
     {
         var student = await _host.AsStudent();

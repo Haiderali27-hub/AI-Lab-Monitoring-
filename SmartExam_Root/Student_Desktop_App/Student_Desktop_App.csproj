@@ -19,6 +19,10 @@
     <None Update="appsettings.desktop.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- Module 5 (S8): on-device webcam models + their licences (see Models/MODELS.md). Optional at run time. -->
+    <None Update="Models\*.onnx;Models\LICENSE-*.txt;Models\MODELS.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

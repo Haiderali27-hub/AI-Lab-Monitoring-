@@ -168,4 +168,32 @@ test.describe('M5 — Live Monitoring Client Service', () => {
     expect(ack.requireWebcam).toBe(false);
     expect(ack.webcamIntervalSeconds).toBeGreaterThanOrEqual(10);
   });
+
+  test('M5-A-06 Webcam model findings (S8) reach the board and the timeline', async ({ request }) => {
+    // What the desktop's on-device YuNet / YOLOX-Nano checks send: debounced episodes + the heartbeat camera state.
+    const { students, exam, teacher } = await examWithStudents(request, 1);
+    const sessionId = await students[0].start(exam.examId);
+    const batch = await students[0].eventBatch([
+      { clientEventId: randomUUID(), eventType: 'MultipleFaces', payload: { detail: '2 faces in view' } },
+      { clientEventId: randomUUID(), eventType: 'Violation', payload: { reason: 'PhoneDetected', detail: 'Mobile phone in view (confidence 70%)' } },
+    ]);
+    expect(batch.status()).toBe(200);
+    expect((await students[0].heartbeat({ cameraStatus: 'LookingAway' })).status()).toBe(200);
+
+    const tile = (await teacher.live(exam.examId)).students[0];
+    expect(tile.cameraStatus).toBe('LookingAway');
+    expect(tile.violationCount).toBe(2);
+    expect(tile.tileStatus).toBe('Violation');            // two Suspicious findings escalate
+    expect(['MultipleFaces', 'PhoneDetected']).toContain(tile.lastViolationType);
+
+    const timeline = await teacher.timeline(exam.examId, sessionId);
+    const multiple = timeline.find(i => i.type === 'MultipleFaces');
+    expect(multiple?.severity).toBe('Suspicious');
+    expect(multiple?.label).toBe('Multiple faces in view');
+    expect(timeline.find(i => i.type === 'PhoneDetected')?.label).toBe('Mobile phone detected');
+
+    // A camera state the server does not know is dropped, not stored.
+    expect((await students[0].heartbeat({ cameraStatus: 'Smiling' as never })).status()).toBe(200);
+    expect((await teacher.live(exam.examId)).students[0].cameraStatus ?? null).toBeNull();
+  });
 });

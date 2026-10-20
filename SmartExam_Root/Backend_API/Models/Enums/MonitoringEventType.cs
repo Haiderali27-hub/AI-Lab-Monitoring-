@@ -39,6 +39,13 @@ public enum MonitoringEventType
     CameraFrozen,       // identical frames for a while (virtual camera, looped still image)
     CameraUnavailable,  // the required camera stopped delivering frames (unplugged, taken by another app)
 
+    // Module 5 (S8) — on-device webcam models on the desktop (YuNet faces, YOLOX-Nano phones; CPU, ~1.5 FPS), debounced
+    // on the client (Core/Monitoring/VisionIssueDetector): one event per episode, payload { detail, atUtc }.
+    NoFace,             // no face in front of the camera for 5 s
+    MultipleFaces,      // two or more faces for 3 s
+    LookingAway,        // head turned beyond yaw ±30° / pitch +35° −20° (relative to the student's own baseline) for 3 s
+    PhoneDetected,      // a mobile phone in two consecutive phone checks
+
     // Module 10 — reported by the client when a proctor's unlock (hub UnlockSession) suspended its lockdown guards,
     // and when they came back on. Not violations; the unlock itself is audited on the server (SESSION_UNLOCKED).
     LockdownSuspended,

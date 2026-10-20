@@ -35,6 +35,11 @@ const CAMERA_LABEL: Partial<Record<CameraStatus, string>> = {
   Covered: 'Camera covered',
   Frozen: 'Camera frozen',
   Unavailable: 'No camera',
+  // Module 5 S8: the desktop's on-device face / phone models
+  NoFace: 'No face',
+  MultipleFaces: 'Multiple faces',
+  LookingAway: 'Looking away',
+  Phone: 'Phone in view',
 };
 
 function sessionStatusLabel(status?: string | null): string {

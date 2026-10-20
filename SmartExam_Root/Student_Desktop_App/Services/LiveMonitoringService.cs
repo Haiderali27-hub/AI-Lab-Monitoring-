@@ -250,7 +250,9 @@ public class LiveMonitoringService(ApiClient apiClient)
             if (required && _webcam is null && _captures is not null)
             {
                 var captures = _captures;
-                var webcam = new WebcamMonitorService(snapshotMeanSeconds);
+                var config = AppConfigProvider.Current;
+                var webcam = new WebcamMonitorService(snapshotMeanSeconds,
+                    WebcamMonitorService.CameraWithModels(config.WebcamFaceDetection, config.WebcamPhoneDetection));
                 webcam.IssueChanged += t =>
                 {
                     if (!t.Raised) return;   // the heartbeat's cameraStatus shows when it is fixed

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Management;
 using System.Runtime.InteropServices;
+using Student_Desktop_App.Core;
 using Student_Desktop_App.Core.Readiness;
 using Student_Desktop_App.Services.Lockdown;
 using Student_Desktop_App.Services.Monitoring;
@@ -86,7 +87,8 @@ public class ReadinessCheckService(ApiClient apiClient)
             return (found, first);
         }, ct);
         if (count == 0) return ReadinessPolicy.EvaluateCamera(true, 0, null, null);
-        var probe = await WebcamCapture.ProbeAsync(TimeSpan.FromSeconds(8), ct);
+        // S8: with the face model present the camera must also show exactly one face (the candidate).
+        var probe = await WebcamCapture.ProbeAsync(TimeSpan.FromSeconds(8), ct, countFaces: AppConfigProvider.Current.WebcamFaceDetection);
         return ReadinessPolicy.EvaluateCamera(true, count, name, probe);
     }
 

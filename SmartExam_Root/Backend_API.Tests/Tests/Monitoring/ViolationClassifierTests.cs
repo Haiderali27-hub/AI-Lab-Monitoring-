@@ -46,6 +46,10 @@ public class ViolationClassifierTests
     [InlineData("CameraCovered", "{}", T.CameraCovered)]                           // Module 5 webcam monitoring
     [InlineData("Violation", "{\"reason\":\"CameraFrozen\"}", T.CameraFrozen)]
     [InlineData("NetworkOffline", "{}", T.NetworkOffline)]
+    [InlineData("NoFace", "{}", T.NoFace)]                                         // S8 on-device webcam models
+    [InlineData("MultipleFaces", "{}", T.MultipleFaces)]
+    [InlineData("Violation", "{\"reason\":\"LookingAway\"}", T.LookingAway)]
+    [InlineData("PhoneDetected", "{}", T.PhoneDetected)]
     // Server-only findings cannot be forged by a client (M5): watchdog and seat check record them.
     [InlineData("Disconnected", "{}", T.WindowFocus)]
     [InlineData("Reconnected", "{}", T.WindowFocus)]
@@ -62,6 +66,20 @@ public class ViolationClassifierTests
         ViolationClassifier.Classify(new[] { T.CameraCovered }).Should().Be("Suspicious");
         ViolationClassifier.Classify(new[] { T.CameraCovered, T.CameraFrozen }).Should().Be("Violation");
         ViolationClassifier.Classify(new[] { T.Disconnected, T.Reconnected, T.NetworkOffline }).Should().Be("Normal");
+    }
+
+    // S8: the webcam models' findings are Suspicious (worth a look, not proof); two of them escalate like any two.
+    [Theory]
+    [InlineData(T.NoFace)]
+    [InlineData(T.MultipleFaces)]
+    [InlineData(T.LookingAway)]
+    [InlineData(T.PhoneDetected)]
+    public void WebcamModelFindings_AreSuspiciousViolations(T type)
+    {
+        ViolationClassifier.IsViolation(type).Should().BeTrue();
+        ViolationClassifier.SeverityName(type).Should().Be("Suspicious");
+        ViolationClassifier.Classify(new[] { type }).Should().Be("Suspicious");
+        ViolationClassifier.Classify(new[] { type, T.CameraCovered }).Should().Be("Violation");
     }
 
     [Theory]

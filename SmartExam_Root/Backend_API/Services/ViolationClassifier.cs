@@ -32,7 +32,11 @@ public static class ViolationClassifier
         MonitoringEventType.BackupTampered,
         MonitoringEventType.CameraCovered,
         MonitoringEventType.CameraFrozen,
-        MonitoringEventType.CameraUnavailable
+        MonitoringEventType.CameraUnavailable,
+        MonitoringEventType.NoFace,
+        MonitoringEventType.MultipleFaces,
+        MonitoringEventType.LookingAway,
+        MonitoringEventType.PhoneDetected
     };
 
     private enum Severity { Warning = 1, Suspicious = 2, Violation = 3 }
@@ -49,6 +53,9 @@ public static class ViolationClassifier
             or MonitoringEventType.BackupTampered
             // Lens covered, or a feed that never changes (looped image / virtual camera): deliberate more often than not.
             or MonitoringEventType.CameraCovered or MonitoringEventType.CameraFrozen
+            // S8 webcam models: worth a look, not proof (a model can be wrong; the event carries a webcam snapshot).
+            or MonitoringEventType.NoFace or MonitoringEventType.MultipleFaces
+            or MonitoringEventType.LookingAway or MonitoringEventType.PhoneDetected
             => Severity.Suspicious,
         // ProcessKilled = the student actually launched a forbidden app; USB/RDP = evidence risk;
         // SeatMismatch = someone sitting at the wrong workstation (possible impersonation);

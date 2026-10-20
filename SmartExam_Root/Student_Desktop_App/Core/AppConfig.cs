@@ -16,6 +16,12 @@ public class AppConfig
 
     // Set HKCU DisableTaskMgr while the exam window is up (always restored, see TaskManagerPolicy).
     public bool DisableTaskManager { get; set; } = true;
+
+    // Module 5 (S8): on-device webcam models for exams that require a webcam (CPU only, files in Models/).
+    // Face presence / count / looking away (YuNet) and phone detection (YOLOX-Nano). A missing model file
+    // switches its check off on its own; these let a lab turn a check off without deleting files.
+    public bool WebcamFaceDetection { get; set; } = true;
+    public bool WebcamPhoneDetection { get; set; } = true;
 }
 
 public static class AppConfigProvider
@@ -79,6 +85,8 @@ public static class AppConfigProvider
                 }
 
                 config.BlockMultiMonitor = fileConfig.BlockMultiMonitor;
+                config.WebcamFaceDetection = fileConfig.WebcamFaceDetection;
+                config.WebcamPhoneDetection = fileConfig.WebcamPhoneDetection;
                 // An explicit environment override wins over the file.
                 if (envTaskMgr is null || !bool.TryParse(envTaskMgr, out _))
                 {
