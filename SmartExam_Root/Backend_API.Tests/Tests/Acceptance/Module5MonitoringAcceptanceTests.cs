@@ -6,7 +6,9 @@ using Backend_API.Models.Enums;
 using Backend_API.Tests.Helpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backend_API.Tests.Tests.Acceptance;
@@ -529,5 +531,99 @@ public class Module5MonitoringAcceptanceTests : IDisposable
         var third = await UploadScreenshotAsync(student, sid, Jpeg(256));
         third.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
         (await TestHost.ErrorCodeAsync(third)).Should().Be("TOO_MANY_CAPTURES");
+    }
+
+    // ── S5 verifier regressions ──────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task M5_I_19_TimelineAfter_StillDeliversEventsReplayedWithAnOldClientTime()
+    {
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        var teacher = await _host.AsTeacher();
+        var checkpoint = DateTime.UtcNow;   // the drawer's last refresh
+        await Task.Delay(20);
+
+        // The PC was offline: a violation from 5 minutes ago arrives only now, with its original time.
+        var clientTime = DateTime.UtcNow.AddMinutes(-5);
+        (await student.PostAsJsonAsync("/api/monitoring/events/batch", Batch(sid, new[] { (Guid.NewGuid(), clientTime) })))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var newer = (await TestHost.DataAsync(await teacher.GetAsync(
+            $"/api/exams/{_host.Seed.ExamId}/sessions/{sid}/timeline?after={Uri.EscapeDataString(checkpoint.ToString("O"))}"))).EnumerateArray().ToList();
+        var replayed = newer.Should().ContainSingle(i => i.GetProperty("kind").GetString() == "Event",
+            "an incremental refresh must not lose an event just because its client time is older than the cursor").Subject;
+        replayed.GetProperty("at").GetDateTime().ToUniversalTime().Should().BeCloseTo(clientTime, TimeSpan.FromSeconds(1));
+        replayed.GetProperty("receivedAt").GetDateTime().ToUniversalTime().Should().BeAfter(checkpoint);
+    }
+
+    // Makes the next heartbeat's SaveChanges race a finalisation: just before it writes, another context
+    // force-submits the session (ExamSession.Status is a concurrency token), and the save fails with the
+    // DbUpdateConcurrencyException Postgres would raise. It is thrown here, before anything is written, because the
+    // InMemory provider is not transactional (it would keep the rows inserted before the failing update, which
+    // Postgres rolls back), so the heartbeat's retry path runs exactly as it does in production.
+    private sealed class FinaliseDuringHeartbeat : Microsoft.EntityFrameworkCore.Diagnostics.SaveChangesInterceptor
+    {
+        private int _armed;
+        private Guid _sessionId;
+        public int ConcurrencyFailures;
+
+        public void Arm(Guid sessionId)
+        {
+            _sessionId = sessionId;
+            Interlocked.Exchange(ref _armed, 1);
+        }
+
+        public override async ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> SavingChangesAsync(
+            Microsoft.EntityFrameworkCore.Diagnostics.DbContextEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            var context = eventData.Context;
+            if (context is not null &&
+                context.ChangeTracker.Entries<Backend_API.Models.ExamSession>().Any(e =>
+                    e.Entity.SessionId == _sessionId && e.State == EntityState.Modified && e.Property(s => s.LastHeartbeatAt).IsModified) &&
+                Interlocked.Exchange(ref _armed, 0) == 1)
+            {
+                var options = (DbContextOptions<Backend_API.Data.AppDbContext>)context.GetService<IDbContextOptions>();
+                await using var other = new Backend_API.Data.AppDbContext(options);
+                var session = await other.ExamSessions.SingleAsync(s => s.SessionId == _sessionId, cancellationToken);
+                session.Status = SessionStatus.ForceSubmitted;
+                session.SubmittedAt = DateTime.UtcNow;
+                await other.SaveChangesAsync(cancellationToken);
+                Interlocked.Increment(ref ConcurrencyFailures);
+                throw new DbUpdateConcurrencyException("The session was finalised concurrently (simulated).");
+            }
+            return result;
+        }
+    }
+
+    [Fact]
+    public async Task M5_I_20_ReconnectingHeartbeat_RacingAFinalisation_StillClearsTheDisconnectedFlag()
+    {
+        var race = new FinaliseDuringHeartbeat();
+        using var raced = new TestHost(b => b.ConfigureTestServices(s =>
+            s.ConfigureDbContext<Backend_API.Data.AppDbContext>(o => o.AddInterceptors(race))));
+        var rs = await raced.AsStudent();
+        var rsid = await raced.StartSessionAsync(rs, raced.Seed.ExamId);
+        await raced.WithDbAsync(async db =>
+        {
+            var s = await db.ExamSessions.SingleAsync(x => x.SessionId == rsid);
+            s.IsDisconnected = true;
+            s.DisconnectedAt = DateTime.UtcNow.AddSeconds(-40);
+            s.LastHeartbeatAt = DateTime.UtcNow.AddSeconds(-70);
+            await db.SaveChangesAsync();
+        });
+        race.Arm(rsid);
+
+        (await TestHost.HeartbeatAsync(rs, rsid)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        race.ConcurrencyFailures.Should().Be(1, "the heartbeat's first save must have collided with the force-submit");
+        var after = await raced.WithDbAsync(db => db.ExamSessions.SingleAsync(x => x.SessionId == rsid));
+        after.Status.Should().Be(SessionStatus.ForceSubmitted, "the finalisation wins");
+        after.IsDisconnected.Should().BeFalse("the reconnect is re-applied after the reload");
+        after.DisconnectedAt.Should().BeNull();
+        after.LastHeartbeatAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(30));
+        (await raced.WithDbAsync(db => db.MonitoringEvents.CountAsync(e => e.ExamSessionId == rsid && e.EventType == MonitoringEventType.Reconnected)))
+            .Should().Be(1);
     }
 }

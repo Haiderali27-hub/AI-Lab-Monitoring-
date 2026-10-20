@@ -145,7 +145,8 @@ public class MonitoringController(
                             ExamSessionId = session.SessionId,
                             EventType = MonitoringEventType.SeatMismatch,
                             Payload = mismatchPayload,
-                            RecordedAt = now
+                            RecordedAt = now,
+                            ReceivedAt = now
                         });
                         await _seats.ReportMismatchAsync(session.ExamId, studentId, session.SessionId, seat, "heartbeat");
                     }
@@ -162,7 +163,7 @@ public class MonitoringController(
             user.DeviceBinding.LastSeenAt = now;
         }
 
-        await SaveHeartbeatAsync(session, now);
+        await SaveHeartbeatAsync(session, now, reconnectedAfterSeconds is not null);
 
         var workstationNumber = "XX";
         var answeredCount = 0;
@@ -279,8 +280,11 @@ public class MonitoringController(
     }
 
     // ExamSession.Status is a concurrency token. A heartbeat that lands in the same instant as a submit,
-    // force-submit or timeout would otherwise fail on its liveness update: reload and re-apply it once.
-    private async Task SaveHeartbeatAsync(ExamSession? session, DateTime now)
+    // force-submit or timeout would otherwise fail on its liveness update: reload and re-apply it once. The reload
+    // discards everything this beat set on the session, so a reconnect is re-applied too — otherwise the Reconnected
+    // event (still pending) would be stored while the session stayed flagged, and the next beat would record a
+    // second reconnect.
+    private async Task SaveHeartbeatAsync(ExamSession? session, DateTime now, bool reconnected)
     {
         try
         {
@@ -290,6 +294,11 @@ public class MonitoringController(
         {
             await _db.Entry(session).ReloadAsync();
             session.LastHeartbeatAt = now;
+            if (reconnected)
+            {
+                session.IsDisconnected = false;
+                session.DisconnectedAt = null;
+            }
             await _db.SaveChangesAsync();
         }
     }

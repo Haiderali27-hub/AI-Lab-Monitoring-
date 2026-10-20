@@ -50,10 +50,10 @@ public class MonitoringPolicyTests
     }
 
     [Fact]
-    public void JpegEncoder_WorksOnAFrozenSourceOffTheUiThread()
+    public async Task JpegEncoder_WorksOnAFrozenSourceOffTheUiThread()
     {
         var source = BitmapSource.Create(64, 48, 96, 96, PixelFormats.Gray8, null, new byte[64 * 48], 64);
-        var jpeg = Task.Run(() => JpegEncoder.Encode(source)).GetAwaiter().GetResult();
+        var jpeg = await Task.Run(() => JpegEncoder.Encode(source));
         jpeg.Take(2).Should().Equal(new byte[] { 0xFF, 0xD8 });
         JpegEncoder.EncodeGrey(new byte[160 * 120], 160, 120).Take(2).Should().Equal(new byte[] { 0xFF, 0xD8 });
     }

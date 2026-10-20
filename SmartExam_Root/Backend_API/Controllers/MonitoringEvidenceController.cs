@@ -76,7 +76,9 @@ public class MonitoringEvidenceController(AppDbContext db, ExamAccessService acc
     /// <summary>
     /// GET /api/exams/{examId}/sessions/{sessionId}/timeline?after=&amp;limit= — everything that happened in one
     /// session, newest first: monitoring events (heartbeats excluded), captures, proctor warnings and the session's
-    /// own status changes. <c>after</c> returns only newer items (incremental refresh of an open drawer).
+    /// own status changes. <c>after</c> returns only items the SERVER got after that instant (incremental refresh of an
+    /// open drawer): an event replayed after an outage keeps its old client time in <c>at</c> but has a fresh
+    /// <c>receivedAt</c>, so it is still delivered. The caller's next <c>after</c> is the largest <c>receivedAt ?? at</c>.
     /// </summary>
     [HttpGet("exams/{examId:guid}/sessions/{sessionId:guid}/timeline")]
     public async Task<IActionResult> SessionTimeline(Guid examId, Guid sessionId, [FromQuery] DateTime? after = null, [FromQuery] int? limit = null)
@@ -90,7 +92,8 @@ public class MonitoringEvidenceController(AppDbContext db, ExamAccessService acc
         var items = new List<TimelineItem>();
 
         var events = await _db.MonitoringEvents.AsNoTracking()
-            .Where(e => e.ExamSessionId == sessionId && e.EventType != MonitoringEventType.Heartbeat && e.RecordedAt > since)
+            .Where(e => e.ExamSessionId == sessionId && e.EventType != MonitoringEventType.Heartbeat &&
+                        (e.ReceivedAt ?? e.RecordedAt) > since)
             .OrderByDescending(e => e.RecordedAt)
             .Take(take)
             .ToListAsync();
@@ -99,7 +102,7 @@ public class MonitoringEvidenceController(AppDbContext db, ExamAccessService acc
             EventLabel(e.EventType), e.Payload, null, e.ReceivedAt)));
 
         var shots = await _db.Screenshots.AsNoTracking()
-            .Where(s => s.SessionId == sessionId && s.CapturedAt > since)
+            .Where(s => s.SessionId == sessionId && s.UploadedAt > since)
             .OrderByDescending(s => s.CapturedAt)
             .Take(take)
             .ToListAsync();
@@ -170,7 +173,9 @@ public class MonitoringEvidenceController(AppDbContext db, ExamAccessService acc
     /// <param name="Kind">Event | Screenshot | Warning | Status.</param>
     /// <param name="Severity">Info | Warning | Suspicious | Violation.</param>
     /// <param name="Detail">Event payload JSON, warning text, or receipt JSON.</param>
-    /// <param name="ReceivedAt">When the server got it (differs from At for an event replayed after an outage).</param>
+    /// <param name="ReceivedAt">When the server got it (events, captures; differs from At for an event replayed after an
+    /// outage). Null for warnings and status items, whose At is already server time. <c>?after=</c> compares
+    /// <c>ReceivedAt ?? At</c>.</param>
     public sealed record TimelineItem(DateTime At, string Kind, string Type, string Severity, string Label, string? Detail,
         Guid? ScreenshotId, DateTime? ReceivedAt);
 }

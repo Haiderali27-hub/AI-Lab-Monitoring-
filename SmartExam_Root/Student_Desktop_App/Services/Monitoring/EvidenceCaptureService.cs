@@ -57,9 +57,19 @@ public sealed class EvidenceCaptureService
         if (allowed) CaptureScreenInBackground("Violation", reason);
     }
 
-    /// <summary>Spools a webcam snapshot for upload.</summary>
-    public void AddWebcamSnapshot(byte[] jpeg, string trigger, string? reason) =>
-        _spool.Add(new CaptureInfo(Guid.NewGuid(), "Webcam", trigger, reason, DateTime.UtcNow), jpeg);
+    /// <summary>Spools a webcam snapshot for upload. A spool that cannot be written (disk full, folder locked) loses
+    /// this snapshot and reports it; it never throws into the webcam thread.</summary>
+    public void AddWebcamSnapshot(byte[] jpeg, string trigger, string? reason)
+    {
+        try
+        {
+            _spool.Add(new CaptureInfo(Guid.NewGuid(), "Webcam", trigger, reason, DateTime.UtcNow), jpeg);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            CaptureFailed?.Invoke($"Webcam snapshot could not be stored: {ex.Message}");
+        }
+    }
 
     private void CaptureScreenInBackground(string trigger, string? reason)
     {

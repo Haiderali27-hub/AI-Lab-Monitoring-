@@ -236,7 +236,7 @@ export interface SessionTimelineItem {
   label: string;
   detail?: string | null;
   screenshotId?: string | null;
-  receivedAt?: string | null;
+  receivedAt?: string | null;            // server receive time (events, captures); later than `at` for a replayed event
 }
 
 export type TileStatus = 'Normal' | 'Warning' | 'Suspicious' | 'Violation';

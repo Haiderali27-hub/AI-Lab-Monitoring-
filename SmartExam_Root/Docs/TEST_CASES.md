@@ -198,6 +198,9 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M5-U-11 | Camera debounce state machine | Synthetic frame sequences | Covered after 3 s, frozen after 15 s, unavailable after 5 s, each once per episode; cleared after 2 s; a hand passing never raises; a black still image is "covered", not "frozen" | ✅ |
 | M5-U-12 | Batch backoff | Fake clock, failed flushes | 5 → 10 → … → 60 s; a successful heartbeat replays at once | ✅ |
 | M5-U-13 | Input idle time | Tick counts incl. a 32-bit wrap | Correct seconds | ✅ |
+| M5-U-15 | Webcam loop survives camera faults (S5 verifier) | Fake camera whose grab throws `InvalidOperationException` | Thread keeps running, faults counted (was: only OpenCV/DLL exceptions caught, anything else ended the exam app) | ✅ desktop xUnit |
+| M5-U-16 | Webcam loop survives throwing subscribers | Covered frames; `IssueChanged` and `SnapshotReady` handlers throw `IOException` | One episode event, snapshot attempted, thread still running, status Covered | ✅ |
+| M5-U-17 | No camera / no OpenCV runtime | Open throws; source factory throws `DllNotFoundException` | Absorbed, no crash; status Off once stopped | ✅ |
 | M5-U-14 | Evidence storage (server) | Magic bytes; save/read/delete; traversal paths; orphans | JPEG/PNG only (MZ, SVG refused); `{exam}/{session}/…` name + SHA-256; `../`, rooted paths refused; only old unreferenced files removed | ✅ xUnit |
 | M5-A-01 | Heartbeat accepted | Student POST `/api/monitoring/heartbeat` | 200 | ✅ |
 | M5-A-02 | Heartbeat for foreign session rejected | Other student's session id | Not attributed to that session ✅; status is 200, not 403/404 (`test.fail` until changed) | ⚠️ partial |
@@ -222,6 +225,8 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M5-I-16 | Watchdog once, reconnect | Sweep twice; finished session; next heartbeat | Flagged once (finished sessions never); `Reconnected` with offline seconds + `StudentReconnected`; tile stays Normal | ✅ |
 | M5-I-17 | Retention: missing file + orphans | Row whose file is gone; stray old file | Row removed; orphan deleted | ✅ |
 | M5-I-18 | Capture rate limit | `MaxScreenshotsPerMinute=2`, upload 3 | Third → 429 `TOO_MANY_CAPTURES` | ✅ |
+| M5-I-19 | Timeline `?after=` with replayed events (S5 verifier) | Cursor taken, then an event recorded 5 min ago arrives in a batch | Returned (filter on server receive time), `at` = client time, `receivedAt` > cursor | ✅ |
+| M5-I-20 | Reconnecting heartbeat racing a finalisation (S5 verifier) | Flagged session; force-submit lands between the heartbeat's load and save | Retry keeps the reconnect: `IsDisconnected` false, one `Reconnected` event, status ForceSubmitted | ✅ |
 | M5-E-01 | Heartbeat shows student online | Simulator heartbeats → live monitor | Tile shows student, Normal | ✅ |
 | M5-E-02 | Thumbnail on tile | Simulator uploads screenshot | Tile shows image (blob URL, decoded); a violation capture is noted in the drawer | ✅ |
 | M5-E-03 | Disconnected tile | Simulator stops heartbeats | Tile shows "Disconnected" within 40 s; the next heartbeat restores it and the drawer says "Reconnected" | ✅ |
@@ -490,6 +495,9 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | D-24 | M6-I-20 (S4 verifier) | `student/current` and `student/start` chose the next scheduled exam once the running exam's own window had closed, so a student in extra time got no "Resume Exam" and the resume was refused | **Fixed** — both prefer the assignment whose session is still running inside the student's own deadline |
 | D-25 | M5-I-13 (S5) | A client could post the server-only event types `SeatMismatch`, `Disconnected`, `Reconnected` (and `Heartbeat` through "Violation"+reason) and so forge or bury server findings | **Fixed** — `ViolationClassifier.ServerOnlyTypes` are resolved like unknown names |
 | D-26 | review (S5) | Lockdown violations were sent fire-and-forget: lost whenever the network dropped | **Fixed** — `LockdownCoordinator` reports into `LiveMonitoringService.ReportViolation` (encrypted on-disk outbox, batched, replayed in order) |
+| D-27 | M5-U-15/16 (S5 verifier) | The webcam monitoring thread only caught OpenCV/DLL exceptions; any other camera failure, or a webcam snapshot the spool could not write (disk full), was unhandled on a raw thread and ended the exam app mid-exam | **Fixed** — every loop iteration and subscriber call is isolated (`IWebcamFrameSource` makes it testable); `AddWebcamSnapshot` reports instead of throwing; the heartbeat timer handler absorbs failures too |
+| D-28 | M5-I-19 (S5 verifier) | Timeline `?after=` compared the client's `recordedAt`, so an event replayed after an outage (old client time) was never returned to an incremental refresh | **Fixed** — `after` compares the server receive time (`ReceivedAt`, captures `UploadedAt`) |
+| D-29 | M5-I-20 (S5 verifier) | A reconnecting heartbeat that collided with a submit/force-submit reloaded the session and re-applied only `LastHeartbeatAt`: the `Reconnected` event was stored but the session stayed flagged Disconnected (and the next beat recorded a second reconnect) | **Fixed** — the retry re-applies the reconnect; the seat-mismatch event also records `ReceivedAt` |
 
 ---
 

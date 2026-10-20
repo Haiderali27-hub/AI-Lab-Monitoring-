@@ -75,7 +75,18 @@ public class LiveMonitoringService(ApiClient apiClient)
         if (_timer is null)
         {
             _timer = new Timer(AppConfigProvider.Current.HeartbeatSeconds * 1000D);
-            _timer.Elapsed += async (_, _) => await SendHeartbeatAsync();
+            // An async timer handler that throws would end the process (mid-exam, under lockdown): absorb and report.
+            _timer.Elapsed += async (_, _) =>
+            {
+                try
+                {
+                    await SendHeartbeatAsync();
+                }
+                catch (Exception ex)
+                {
+                    StatusChanged?.Invoke($"Heartbeat failed: {ex.Message}");
+                }
+            };
             _timer.AutoReset = true;
         }
         if (_tick is null)

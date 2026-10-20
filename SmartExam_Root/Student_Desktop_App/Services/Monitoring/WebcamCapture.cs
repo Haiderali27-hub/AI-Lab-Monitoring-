@@ -9,11 +9,26 @@ namespace Student_Desktop_App.Services.Monitoring;
 public sealed record WebcamFrame(byte[] Grey, double Mean, double LaplacianVariance);
 
 /// <summary>
+/// Where <see cref="WebcamMonitorService"/> gets its frames: the real camera (<see cref="WebcamCapture"/>) or, in unit
+/// tests, a fake — so the monitoring loop's resilience can be tested without a camera or OpenCV.
+/// </summary>
+public interface IWebcamFrameSource : IDisposable
+{
+    bool IsOpen { get; }
+    bool Open(int index = 0);
+    /// <summary>The next frame, or null when the camera delivered none.</summary>
+    WebcamFrame? Grab();
+    /// <summary>JPEG of the last grabbed frame; null before the first frame.</summary>
+    byte[]? LastFrameJpeg();
+    void Close();
+}
+
+/// <summary>
 /// Module 2/5 — thin OpenCvSharp4 wrapper around the default webcam (DirectShow, 640×480). Only grabs frames and
 /// shrinks them; every decision (covered, frozen, unavailable, readiness pass/fail) is made by the pure classes
 /// in <c>Core</c>. Not thread-safe: one owner thread at a time.
 /// </summary>
-public sealed class WebcamCapture : IDisposable
+public sealed class WebcamCapture : IWebcamFrameSource
 {
     private VideoCapture? _capture;
     private Mat? _lastColour;

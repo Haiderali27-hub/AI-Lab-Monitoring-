@@ -13,6 +13,8 @@ export const monitoringApi = {
   screenshotBlob: (screenshotId: string) =>
     apiClient.get<Blob>(`/screenshots/${screenshotId}/content`, { responseType: 'blob' }).then(r => r.data),
 
+  // `after` is compared with the server's receive time (an event replayed after an outage keeps its old `at`), so
+  // the next cursor is the largest `receivedAt ?? at` of the items already shown.
   timeline: (examId: string, sessionId: string, after?: string) =>
     apiClient.get<SessionTimelineItem[]>(`/exams/${examId}/sessions/${sessionId}/timeline`, {
       params: after ? { after } : undefined,
