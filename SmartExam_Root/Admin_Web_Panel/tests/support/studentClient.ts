@@ -17,6 +17,7 @@ import { API_URL, uniqueTag } from './env';
  *   POST /api/monitoring/screenshots  multipart { examSessionId, kind, trigger, reason?, capturedAt, file }   (Module 5 captures)
  *   POST /api/exams/sessions/{sessionId}/submit           → { message, sessionId, submittedAt, answerCount, sha256 }
  *   GET  /api/notifications                               (teacher warnings / announcements)
+ *   GET  /api/student/exams/{examId}/result               (student portal result: visible test cases only)
  */
 export class StudentClient {
   token = '';
@@ -149,6 +150,11 @@ export class StudentClient {
   /** GET /api/exams/sessions/{id}/answers — the server copy the desktop app merges with its local backup. */
   answers(sessionId = this.sessionId) {
     return this.request.get(`${API_URL}/api/exams/sessions/${sessionId}/answers`, { headers: this.headers() });
+  }
+
+  /** GET /api/student/exams/{examId}/result — the student's own result (available once the exam has ended). */
+  result(examId = this.examId) {
+    return this.request.get(`${API_URL}/api/student/exams/${examId}/result`, { headers: this.headers() });
   }
 
   submit(sessionId = this.sessionId) {

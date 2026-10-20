@@ -10,7 +10,9 @@ export interface QuestionInput {
   options?: string[] | null;
   correctOptionIndex?: number | null;
   referenceAnswer?: string | null;
-  testCases?: { input: string; expectedOutput: string; isHidden: boolean }[];
+  testCases?: { input: string; expectedOutput: string; isHidden: boolean; weight?: number; timeLimitMs?: number | null; isEdgeCase?: boolean }[];
+  language?: string | null;
+  rubricKeywords?: string | null;
 }
 
 export interface ExamInput {
@@ -317,6 +319,24 @@ export class StaffApi {
     const res = await this.get(`/api/exams/${examId}/plagiarism`);
     expect(res.status()).toBe(200);
     return res.json();
+  }
+
+  // ── Module 11: grading ───────────────────────────────────────────────────
+  plagiarismMatrixRaw(examId: string, questionId?: string) {
+    return this.get(`/api/exams/${examId}/plagiarism/matrix${questionId ? `?questionId=${questionId}` : ''}`);
+  }
+
+  /**
+   * Results once the background grader has finished every answer (coding answers are compiled and run
+   * asynchronously: Pending → Graded / Failed). The real sandbox takes a few seconds per answer.
+   */
+  async gradedResults(examId: string, timeoutMs = 60_000): Promise<any[]> {
+    let rows: any[] = [];
+    await expect.poll(async () => {
+      rows = await this.results(examId);
+      return rows.flatMap((r: any) => r.answers).filter((a: any) => a.aiGrading?.status === 'Pending').length;
+    }, { timeout: timeoutMs, intervals: [500, 1000, 2000] }).toBe(0);
+    return rows;
   }
 
   /**

@@ -61,6 +61,10 @@ export default defineConfig({
         Jwt__ExpiryMinutes: '30',
         // Module 5: uploaded screen captures go to a throwaway folder, never into the source tree.
         Storage__EvidencePath: path.join(os.tmpdir(), 'smartexam-e2e-evidence'),
+        // Module 11: coding answers are really compiled and run — the Docker sandbox (gcc:13) when Docker is up,
+        // else the local MinGW runner. Only the suite's own test programs are executed. The LLM stays off.
+        Grading__Runner: 'Auto',
+        Grading__Llm__Enabled: 'false',
       },
     },
     {

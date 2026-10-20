@@ -26,15 +26,25 @@ interface QuestionForm {
   type: QuestionType;
   bodyText: string;
   marks: number;
-  testCases: {
-    input: string;
-    expectedOutput: string;
-    isHidden: boolean;
-  }[];
+  testCases: TestCaseForm[];
   options: string[];                 // MCQ only
   correctOptionIndex: number | null; // MCQ only
   referenceAnswer: string;           // Coding/Theory sample solution
+  language: string;                  // Coding: 'cpp' | 'c' | '' (detect from the answer)
+  rubricKeywords: string;            // Theory: comma-separated key terms for the offline grader
 }
+
+// Module 11: weight (marks share), optional per-case time limit and edge-case flag.
+interface TestCaseForm {
+  input: string;
+  expectedOutput: string;
+  isHidden: boolean;
+  weight: number;
+  timeLimitMs: number | null;
+  isEdgeCase: boolean;
+}
+
+const newTestCase = (): TestCaseForm => ({ input: '', expectedOutput: '', isHidden: false, weight: 1, timeLimitMs: null, isEdgeCase: false });
 
 export default function CreateExamPage() {
   const navigate = useNavigate();
@@ -127,11 +137,16 @@ export default function CreateExamPage() {
           testCases: (q.testCases ?? []).map((tc: any) => ({
             input: tc.input ?? '',
             expectedOutput: tc.expectedOutput ?? '',
-            isHidden: tc.isHidden ?? false
+            isHidden: tc.isHidden ?? false,
+            weight: tc.weight ?? 1,
+            timeLimitMs: tc.timeLimitMs ?? null,
+            isEdgeCase: tc.isEdgeCase ?? false
           })),
           options: q.optionsJson ? JSON.parse(q.optionsJson) : [],
           correctOptionIndex: q.correctOptionIndex ?? null,
-          referenceAnswer: q.referenceAnswer ?? ''
+          referenceAnswer: q.referenceAnswer ?? '',
+          language: q.language ?? '',
+          rubricKeywords: q.rubricKeywords ?? ''
         })));
         setEditAssignedIds((exam.assignments ?? []).map((a: any) => a.userId));
         setPrefilling(false);
@@ -168,7 +183,7 @@ export default function CreateExamPage() {
   const handleAddQuestion = () => {
     setQuestions(prev => [
       ...prev,
-      { type: 'Coding', bodyText: '', marks: 10, testCases: [], options: [], correctOptionIndex: null, referenceAnswer: '' }
+      { type: 'Coding', bodyText: '', marks: 10, testCases: [], options: [], correctOptionIndex: null, referenceAnswer: '', language: 'cpp', rubricKeywords: '' }
     ]);
   };
 
@@ -182,7 +197,9 @@ export default function CreateExamPage() {
         testCases: newType === 'Mcq' ? [] : q.testCases,
         options: newType === 'Mcq' ? (q.options.length >= 2 ? q.options : ['', '']) : [],
         correctOptionIndex: newType === 'Mcq' ? q.correctOptionIndex : null,
-        referenceAnswer: newType === 'Mcq' ? '' : q.referenceAnswer
+        referenceAnswer: newType === 'Mcq' ? '' : q.referenceAnswer,
+        language: newType === 'Coding' ? (q.language || 'cpp') : '',
+        rubricKeywords: newType === 'Theory' ? q.rubricKeywords : ''
       };
     }));
   };
@@ -236,7 +253,7 @@ export default function CreateExamPage() {
       if (i === qIndex) {
         return {
           ...q,
-          testCases: [...q.testCases, { input: '', expectedOutput: '', isHidden: false }]
+          testCases: [...q.testCases, newTestCase()]
         };
       }
       return q;
@@ -314,6 +331,9 @@ export default function CreateExamPage() {
           const tc = q.testCases[j];
           if (!tc.input.trim() && q.type === 'Coding') return `Question ${i + 1} test case ${j + 1} input is empty.`;
           if (!tc.expectedOutput.trim()) return `Question ${i + 1} test case ${j + 1} expected output is empty.`;
+          if (!(tc.weight > 0) || tc.weight > 100) return `Question ${i + 1} test case ${j + 1}: weight must be between 0 and 100.`;
+          if (tc.timeLimitMs !== null && (tc.timeLimitMs < 100 || tc.timeLimitMs > 10000))
+            return `Question ${i + 1} test case ${j + 1}: time limit must be between 100 and 10000 ms.`;
         }
       }
     } else if (step === 3) {
@@ -384,7 +404,9 @@ export default function CreateExamPage() {
         testCases: q.type === 'Mcq' ? [] : q.testCases,
         options: q.type === 'Mcq' ? q.options : null,
         correctOptionIndex: q.type === 'Mcq' ? q.correctOptionIndex : null,
-        referenceAnswer: q.type !== 'Mcq' && q.referenceAnswer.trim() ? q.referenceAnswer : null
+        referenceAnswer: q.type !== 'Mcq' && q.referenceAnswer.trim() ? q.referenceAnswer : null,
+        language: q.type === 'Coding' && q.language ? q.language : null,
+        rubricKeywords: q.type === 'Theory' && q.rubricKeywords.trim() ? q.rubricKeywords.trim() : null
       })),
       studentIds: assignedStudentIds
     };
@@ -747,6 +769,42 @@ export default function CreateExamPage() {
                               placeholder={q.type === 'Coding' ? 'Model solution code...' : 'Model answer / key points...'}
                               rows={2}
                             />
+                            {q.type === 'Theory' && (
+                              <p className="mt-1 text-[10px] text-slate-400">The offline grader compares answers with this model answer (TF-IDF similarity + key terms). Without it, theory answers are left for you to grade.</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Module 11: language for the sandbox (Coding) / rubric key terms (Theory) */}
+                        {q.type === 'Coding' && (
+                          <div className="flex items-center gap-3">
+                            <label htmlFor={`lang-${qIndex}`} className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Language</label>
+                            <select
+                              id={`lang-${qIndex}`}
+                              value={q.language}
+                              onChange={e => handleQuestionChange(qIndex, 'language', e.target.value)}
+                              className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-700 bg-white"
+                            >
+                              <option value="cpp">C++ (C++17)</option>
+                              <option value="c">C (C11)</option>
+                              <option value="">Detect from the answer</option>
+                            </select>
+                            <span className="text-[10px] text-slate-400">Answers are compiled and run against the test cases in a sandbox.</span>
+                          </div>
+                        )}
+                        {q.type === 'Theory' && (
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                              RUBRIC KEY TERMS <span className="text-slate-300 normal-case font-medium">(optional, comma-separated — e.g. LIFO, FIFO, push, pop)</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={q.rubricKeywords}
+                              maxLength={1000}
+                              onChange={e => handleQuestionChange(qIndex, 'rubricKeywords', e.target.value)}
+                              className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-slate-800 text-xs"
+                              placeholder="Key terms a full answer mentions"
+                            />
                           </div>
                         )}
 
@@ -773,6 +831,9 @@ export default function CreateExamPage() {
                                     <th className="px-4 py-2 uppercase font-medium">Input arguments</th>
                                     <th className="px-4 py-2 uppercase font-medium">Expected Output</th>
                                     <th className="px-4 py-2 uppercase font-medium text-center">Hidden?</th>
+                                    <th className="px-4 py-2 uppercase font-medium text-center" title="Share of the marks: a weight-2 case counts double">Weight</th>
+                                    <th className="px-4 py-2 uppercase font-medium text-center" title="Empty = 2000 ms">Limit (ms)</th>
+                                    <th className="px-4 py-2 uppercase font-medium text-center">Edge?</th>
                                     <th className="px-4 py-2 text-right">Action</th>
                                   </tr>
                                 </thead>
@@ -802,6 +863,40 @@ export default function CreateExamPage() {
                                           type="checkbox"
                                           checked={tc.isHidden}
                                           onChange={e => handleTestCaseChange(qIndex, tcIndex, 'isHidden', e.target.checked)}
+                                          className="rounded border-slate-200 text-primary-500 focus:ring-primary-500/20"
+                                        />
+                                      </td>
+                                      <td className="px-2 py-2 text-center">
+                                        <input
+                                          type="number"
+                                          aria-label="Weight"
+                                          min="0.5"
+                                          max="100"
+                                          step="0.5"
+                                          value={tc.weight}
+                                          onChange={e => handleTestCaseChange(qIndex, tcIndex, 'weight', parseFloat(e.target.value) || 0)}
+                                          className="w-16 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-800 text-[11px] text-center"
+                                        />
+                                      </td>
+                                      <td className="px-2 py-2 text-center">
+                                        <input
+                                          type="number"
+                                          aria-label="Time limit (ms)"
+                                          min="100"
+                                          max="10000"
+                                          step="100"
+                                          value={tc.timeLimitMs ?? ''}
+                                          placeholder="2000"
+                                          onChange={e => handleTestCaseChange(qIndex, tcIndex, 'timeLimitMs', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                                          className="w-20 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-800 text-[11px] text-center"
+                                        />
+                                      </td>
+                                      <td className="px-2 py-2 text-center">
+                                        <input
+                                          type="checkbox"
+                                          aria-label="Edge case"
+                                          checked={tc.isEdgeCase}
+                                          onChange={e => handleTestCaseChange(qIndex, tcIndex, 'isEdgeCase', e.target.checked)}
                                           className="rounded border-slate-200 text-primary-500 focus:ring-primary-500/20"
                                         />
                                       </td>

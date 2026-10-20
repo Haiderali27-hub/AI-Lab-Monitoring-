@@ -308,6 +308,57 @@ export interface SessionTimelineItem {
 export type TileStatus = 'Normal' | 'Warning' | 'Suspicious' | 'Violation';
 
 // ── Results ────────────────────────────────────────────────────
+// Module 11: grading is asynchronous for coding answers — Pending until the sandbox has run every test case.
+export type GradingStatus = 'Pending' | 'Graded' | 'Failed';
+export type TestCaseStatus = 'Pending' | 'Passed' | 'Failed' | 'TimedOut' | 'MemoryExceeded' | 'RuntimeError' | 'NotRun';
+
+export interface TestCaseResultView {
+  testCaseId: string | null;
+  name: string;
+  input: string;
+  expectedOutput: string;
+  actualOutput: string | null;
+  isHidden: boolean;
+  isEdgeCase: boolean;
+  category: string | null;
+  weight: number;
+  status: TestCaseStatus;
+  passed: boolean;
+  exitCode: number | null;
+  durationMs: number | null;
+  compareMode: string | null;
+}
+
+/** Static analysis of a coding answer (teacher only): signals, not verdicts. */
+export interface CodeAnalysisView {
+  loopCount: number;
+  maxLoopNesting: number;
+  complexitySignal: string;
+  usesRecursion: boolean;
+  recursiveFunctions: string[];
+  ifCount: number;
+  numericLiteralCount: number;
+  hardcodingSignals: string[];
+  hardcodingSuspicion: 'Low' | 'Medium' | 'High';
+  passRate: number | null;
+  nearCorrect: boolean;
+  categories: { category: string; passed: number; total: number }[];
+}
+
+export interface AiGradingView {
+  suggestedMarks: number;
+  justification: string;
+  confidence: 'High' | 'Medium' | 'Low';
+  status?: GradingStatus;
+  engine?: string | null;
+  compileOutput?: string | null;
+  durationMs?: number | null;
+  gradedAt?: string | null;
+  llmSummary?: string | null;
+  analysis?: CodeAnalysisView | null;
+  testCaseResults?: TestCaseResultView[];
+}
+
 export interface AnswerResult {
   answerId: string;
   questionId: string;
@@ -315,25 +366,57 @@ export interface AnswerResult {
   questionType: QuestionType;
   marks: number;
   answerText: string;
-  aiGrading: {
-    suggestedMarks: number;
-    justification: string;
-    confidence: 'High' | 'Medium' | 'Low';
-  } | null;
+  aiGrading: AiGradingView | null;
   teacherOverride: {
     finalMarks: number;
-    note: string;
+    note: string | null;
   } | null;
+}
+
+export interface StudentResultRow {
+  userId: string;
+  studentName: string;
+  studentEmail: string;
+  sessionId: string;
+  status: string;
+  submittedAt: string | null;
+  receiptSha256?: string | null;     // Module 6: SHA-256 receipt the student got on submit
+  receiptAnswerCount?: number | null;
+  extraMinutes?: number;
+  answers: AnswerResult[];
+}
+
+/** One matched region of a plagiarism pair: 1-based inclusive line ranges in each answer, plus the excerpts. */
+export interface MatchedSegment {
+  aStartLine?: number;
+  aEndLine?: number;
+  bStartLine?: number;
+  bEndLine?: number;
+  A: string;
+  B: string;
 }
 
 export interface PlagiarismFlag {
   plagId: string;
   questionId: string;
   questionText: string;
+  questionType?: QuestionType;
+  userIdA?: string;
+  userIdB?: string;
   studentAName: string;
   studentBName: string;
   similarityScore: number;
-  matchingSegments?: string; // JSON string: [{ "A": string, "B": string }]
+  matchingSegments?: string; // JSON string: MatchedSegment[]
+}
+
+/** GET /exams/{id}/plagiarism/matrix — symmetric similarity (0–100), students in submission order. */
+export interface PlagiarismMatrix {
+  examId: string;
+  questionId: string | null;
+  students: { userId: string; name: string; submittedAt: string | null }[];
+  questions: { questionId: string; type: QuestionType; orderIndex: number; bodyText: string }[];
+  matrix: number[][];
+  threshold: number;
 }
 
 // ── Analytics ─────────────────────────────────────────────────────────────────

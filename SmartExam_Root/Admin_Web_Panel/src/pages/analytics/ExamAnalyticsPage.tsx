@@ -7,6 +7,7 @@ import { examsApi } from '../../api/exams.api';
 import type { ExamSummaryAnalytics, Exam } from '../../types';
 import { Download, BarChart2, BookOpen } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import PlagiarismHeatmap from '../../components/analytics/PlagiarismHeatmap';
 
 export default function ExamAnalyticsPage() {
   const { examId: paramExamId } = useParams();
@@ -231,6 +232,9 @@ export default function ExamAnalyticsPage() {
               </div>
             </section>
           </div>
+
+          {/* Module 11: pairwise similarity of the submitted answers */}
+          <PlagiarismHeatmap examId={selectedExamId} />
 
           {/* Student Leaderboard */}
           <section className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">

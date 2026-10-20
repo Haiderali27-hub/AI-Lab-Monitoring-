@@ -38,6 +38,7 @@ public class AppDbContext : DbContext
     public DbSet<ExamProctor> ExamProctors => Set<ExamProctor>();
     public DbSet<Screenshot> Screenshots => Set<Screenshot>();
     public DbSet<Incident> Incidents => Set<Incident>();
+    public DbSet<TestCaseResult> TestCaseResults => Set<TestCaseResult>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -274,5 +275,26 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Incident>().HasIndex(i => i.SessionId);
         modelBuilder.Entity<Incident>()
             .HasOne(i => i.Session).WithMany().HasForeignKey(i => i.SessionId).OnDelete(DeleteBehavior.Cascade);
+
+        // Module 11: AI-assisted evaluation. Status drives the background grading queue (Pending rows are re-queued on
+        // start); QueueVersion is a concurrency token so a run that finishes after a regrade was requested cannot
+        // overwrite the newer job. Per-test-case results go with their grading row.
+        modelBuilder.Entity<AiGradingResult>().Property(g => g.Status).HasMaxLength(16);
+        modelBuilder.Entity<AiGradingResult>().Property(g => g.Engine).HasMaxLength(64);
+        modelBuilder.Entity<AiGradingResult>().Property(g => g.CompileOutput).HasMaxLength(AiGradingResult.MaxCompileOutputLength + 8);
+        modelBuilder.Entity<AiGradingResult>().Property(g => g.QueueVersion).IsConcurrencyToken();
+        modelBuilder.Entity<AiGradingResult>().HasIndex(g => g.Status);
+        modelBuilder.Entity<TestCaseResult>().HasKey(r => r.TestCaseResultId);
+        modelBuilder.Entity<TestCaseResult>().Property(r => r.Name).HasMaxLength(64);
+        modelBuilder.Entity<TestCaseResult>().Property(r => r.Status).HasMaxLength(16);
+        modelBuilder.Entity<TestCaseResult>().Property(r => r.Category).HasMaxLength(TestCase.MaxCategoryLength);
+        modelBuilder.Entity<TestCaseResult>().Property(r => r.CompareMode).HasMaxLength(32);
+        modelBuilder.Entity<TestCaseResult>().Property(r => r.ActualOutput).HasMaxLength(TestCaseResult.MaxOutputLength + 8);
+        modelBuilder.Entity<TestCaseResult>().HasIndex(r => new { r.ResultId, r.OrderIndex });
+        modelBuilder.Entity<TestCaseResult>()
+            .HasOne(r => r.AiGradingResult).WithMany(g => g.TestCaseResults).HasForeignKey(r => r.ResultId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<TestCase>().Property(tc => tc.Category).HasMaxLength(TestCase.MaxCategoryLength);
+        modelBuilder.Entity<Question>().Property(q => q.Language).HasMaxLength(16);
+        modelBuilder.Entity<Question>().Property(q => q.RubricKeywords).HasMaxLength(1000);
     }
 }

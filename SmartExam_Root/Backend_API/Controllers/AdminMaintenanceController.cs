@@ -41,6 +41,7 @@ public class AdminMaintenanceController : ControllerBase
         _db.ExamReports.RemoveRange(_db.ExamReports);
         _db.PlagiarismResults.RemoveRange(_db.PlagiarismResults);
         _db.TeacherGradeOverrides.RemoveRange(_db.TeacherGradeOverrides);
+        _db.TestCaseResults.RemoveRange(_db.TestCaseResults);
         _db.AiGradingResults.RemoveRange(_db.AiGradingResults);
         _db.Answers.RemoveRange(_db.Answers);
         _db.MonitoringEvents.RemoveRange(_db.MonitoringEvents);

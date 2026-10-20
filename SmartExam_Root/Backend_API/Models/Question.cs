@@ -15,6 +15,11 @@ public class Question
     public int? CorrectOptionIndex { get; set; }    // MCQ only: index into OptionsJson (never sent to students)
     public string? ReferenceAnswer { get; set; }    // Coding/Theory: reference key / sample solution (never sent to students)
 
+    // Module 11. Coding: language the sandbox compiles the answer as ("cpp" or "c"; null = detect from the code).
+    public string? Language { get; set; }
+    // Theory: comma-separated key terms the offline grader checks for (null = the model answer's top terms).
+    public string? RubricKeywords { get; set; }
+
     // Navigation
     public Exam Exam { get; set; } = null!;
     public ICollection<TestCase> TestCases { get; set; } = new List<TestCase>();

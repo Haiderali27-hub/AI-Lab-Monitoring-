@@ -14,7 +14,7 @@ test.describe('M6 — Submission & Backup (teacher side)', () => {
     const mcq = exam.questions.find(q => q.type === 'Mcq')!;
     const theory = exam.questions.find(q => q.type === 'Theory')!;
     await student.saveAnswer(mcq.questionId, '1');              // correct → 5/5
-    await student.saveAnswer(theory.questionId, THEORY_ANSWER); // 4/4 keywords → 0.9 × 10 = 9
+    await student.saveAnswer(theory.questionId, THEORY_ANSWER); // offline TF-IDF: same key terms as the model answer → 10/10
     expect((await student.submit()).status()).toBe(200);
 
     await signInWeb(page, teacher);
@@ -23,7 +23,7 @@ test.describe('M6 — Submission & Backup (teacher side)', () => {
     await expect(page.getByText('1 of 1 Students Submitted')).toBeVisible();
     const row = page.locator('tbody tr').filter({ hasText: users[0].name });
     await expect(row).toContainText('Submitted');
-    await expect(row).toContainText('14/15');
+    await expect(row).toContainText('15/15');
   });
 
   test('M6-E-02 Force submit all from UI', async ({ page, request }) => {

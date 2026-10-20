@@ -77,6 +77,13 @@ public class TestWebAppFactory : WebApplicationFactory<Program>
         builder.UseSetting("Monitoring:DisconnectSweepSeconds", "0");
         builder.UseSetting("Storage:CleanupIntervalSeconds", "0");
 
+        // Module 11: no compiler in the default test host — the fake runner echoes each case's expected output at once
+        // (source markers #fail / #compile-error / #timeout / #memory change that). Tests of the real sandbox set
+        // Grading:Runner themselves and skip when Docker / MinGW is missing. The LLM stays off.
+        builder.UseSetting("Grading:Runner", "Fake");
+        builder.UseSetting("Grading:FakeDelayMs", "0");
+        builder.UseSetting("Grading:Llm:Enabled", "false");
+
         // Disable real email in tests
         builder.UseSetting("Email:SenderEmail", "test@test.com");
         builder.UseSetting("Email:AppPassword", "fake_password");

@@ -1,5 +1,8 @@
 import apiClient from './client';
-import type { AttendanceImportResult, Exam, ExamAssignment, ExamProctor, ReadinessResult, RecalculateResult } from '../types';
+import type {
+  AttendanceImportResult, Exam, ExamAssignment, ExamProctor, PlagiarismFlag, PlagiarismMatrix, ReadinessResult, RecalculateResult,
+  StudentResultRow,
+} from '../types';
 
 export const examsApi = {
   getAll: () =>
@@ -30,10 +33,20 @@ export const examsApi = {
   },
 
   getResults: (examId: string) =>
-    apiClient.get<any[]>(`/exams/${examId}/results`).then(r => r.data),
+    apiClient.get<StudentResultRow[]>(`/exams/${examId}/results`).then(r => r.data),
 
   getPlagiarism: (examId: string) =>
-    apiClient.get<any[]>(`/exams/${examId}/plagiarism`).then(r => r.data),
+    apiClient.get<PlagiarismFlag[]>(`/exams/${examId}/plagiarism`).then(r => r.data),
+
+  // Module 11 — class-wide similarity matrix (heat map), bulk accept, regrade one answer
+  getPlagiarismMatrix: (examId: string, questionId?: string) =>
+    apiClient.get<PlagiarismMatrix>(`/exams/${examId}/plagiarism/matrix`, { params: questionId ? { questionId } : undefined }).then(r => r.data),
+
+  acceptAiSuggestions: (examId: string) =>
+    apiClient.post<{ accepted: number; notReady: number; message: string }>(`/exams/${examId}/grading/accept-ai`).then(r => r.data),
+
+  regradeAnswer: (answerId: string) =>
+    apiClient.post<{ answerId: string; status: string; message: string }>(`/answers/${answerId}/regrade`).then(r => r.data),
 
   overrideGrade: (answerId: string, finalMarks: number, note: string) =>
     apiClient.post(`/answers/${answerId}/override`, { finalMarks, note }),

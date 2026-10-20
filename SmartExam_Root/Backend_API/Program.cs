@@ -49,6 +49,23 @@ builder.Services.AddSingleton<Backend_API.Services.Monitoring.EvidenceStorage>()
 builder.Services.AddHostedService<Backend_API.Services.Monitoring.HeartbeatWatchdogService>();
 builder.Services.AddHostedService<Backend_API.Services.Monitoring.EvidenceRetentionService>();
 
+// Module 11 — AI-assisted evaluation (config section Grading, see appsettings.example.json): sandboxed compile-and-run
+// in a background queue (Docker first, local MinGW fallback labelled "not isolated"), offline theory grading,
+// winnowing plagiarism, and optional LLM features that stay off unless enabled with a key in the environment.
+builder.Services.Configure<Backend_API.Services.Grading.GradingOptions>(builder.Configuration.GetSection(Backend_API.Services.Grading.GradingOptions.Section));
+builder.Services.AddHttpClient(Backend_API.Services.Grading.LlmClient.HttpClientName);
+builder.Services.AddSingleton<Backend_API.Services.Grading.LlmClient>();
+builder.Services.AddSingleton<Backend_API.Services.Grading.LlmGrader>();
+builder.Services.AddSingleton<Backend_API.Services.Grading.DockerProbe>();
+builder.Services.AddSingleton<Backend_API.Services.Grading.DockerCodeRunner>();
+builder.Services.AddSingleton<Backend_API.Services.Grading.LocalMingwCodeRunner>();
+builder.Services.AddSingleton<Backend_API.Services.Grading.CodeRunnerResolver>();
+builder.Services.AddSingleton<Backend_API.Services.Grading.GradingQueue>();
+builder.Services.AddSingleton<Backend_API.Services.Grading.PlagiarismFingerprintCache>();
+builder.Services.AddScoped<Backend_API.Services.Grading.GradingService>();
+builder.Services.AddScoped<Backend_API.Services.Grading.PlagiarismService>();
+builder.Services.AddHostedService<Backend_API.Services.Grading.GradingWorker>();
+
 // Module 4 — Analytics
 builder.Services.AddScoped<Backend_API.Services.Analytics.AnalyticsService>();
 

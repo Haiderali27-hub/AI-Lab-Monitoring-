@@ -4,6 +4,7 @@ using Backend_API.Models;
 using Backend_API.Models.Enums;
 using Backend_API.DTOs;
 using Backend_API.Services;
+using Backend_API.Services.Grading;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -169,8 +170,15 @@ public class ExamsController : ControllerBase
                 ExpectedOutput = hideAnswerKey ? null : q.ExpectedOutput,
                 CorrectOptionIndex = hideAnswerKey ? null : q.CorrectOptionIndex,
                 ReferenceAnswer = hideAnswerKey ? null : q.ReferenceAnswer,
+                q.Language,
+                RubricKeywords = hideAnswerKey ? null : q.RubricKeywords,
                 TestCases = q.TestCases.Where(tc => !hideAnswerKey || !tc.IsHidden)
-                    .Select(tc => new { tc.TestCaseId, tc.QuestionId, tc.Input, tc.ExpectedOutput, tc.IsHidden })
+                    .OrderBy(tc => tc.OrderIndex)
+                    .Select(tc => new
+                    {
+                        tc.TestCaseId, tc.QuestionId, tc.Input, tc.ExpectedOutput, tc.IsHidden,
+                        tc.Weight, tc.TimeLimitMs, tc.IsEdgeCase, tc.Category, tc.IgnoreCase, tc.FloatTolerance, tc.OrderIndex
+                    })
             }),
             Assignments = isStudent
                 ? []
@@ -324,6 +332,7 @@ public class ExamsController : ControllerBase
     }
 
     public const int MaxEarlyJoinMinutes = 60;
+    public const int MaxRubricKeywordsLength = 1000;
 
     // Shared validation for create + edit. Returns null when the payload is valid.
     private async Task<IActionResult?> ValidateExamPayloadAsync(CreateExamDto req)
@@ -375,10 +384,24 @@ public class ExamsController : ControllerBase
             {
                 if (q.Type == QuestionType.Coding && q.TestCases.Count == 0)
                     return BadRequest(new { message = $"{label}: a coding question needs at least one test case." });
+                // Module 11: the sandbox compiles C and C++ (null = detect from the answer).
+                if (q.Type == QuestionType.Coding && !string.IsNullOrWhiteSpace(q.Language) &&
+                    CodeLanguages.Normalise(q.Language) is not (CodeLanguages.Cpp or CodeLanguages.C))
+                    return BadRequest(new { message = $"{label}: language must be C or C++." });
+                if (q.RubricKeywords is { Length: > MaxRubricKeywordsLength })
+                    return BadRequest(new { message = $"{label}: rubric keywords are limited to {MaxRubricKeywordsLength} characters." });
                 foreach (var tc in q.TestCases)
                 {
                     if (string.IsNullOrWhiteSpace(tc.ExpectedOutput))
                         return BadRequest(new { message = $"{label}: every test case needs an expected output." });
+                    if (double.IsNaN(tc.Weight) || tc.Weight <= 0 || tc.Weight > TestCase.MaxWeight)
+                        return BadRequest(new { message = $"{label}: test case weights must be greater than 0 and at most {TestCase.MaxWeight}." });
+                    if (tc.TimeLimitMs is < TestCase.MinTimeLimitMs or > TestCase.MaxTimeLimitMs)
+                        return BadRequest(new { message = $"{label}: test case time limits must be between {TestCase.MinTimeLimitMs} and {TestCase.MaxTimeLimitMs} ms." });
+                    if (tc.FloatTolerance is { } tol && (double.IsNaN(tol) || double.IsInfinity(tol) || tol < 0))
+                        return BadRequest(new { message = $"{label}: the numeric tolerance must be zero or a positive number." });
+                    if (tc.Category is { Length: > TestCase.MaxCategoryLength })
+                        return BadRequest(new { message = $"{label}: test case categories are limited to {TestCase.MaxCategoryLength} characters." });
                 }
             }
         }
@@ -412,18 +435,30 @@ public class ExamsController : ControllerBase
                 CorrectOptionIndex = q.Type == QuestionType.Mcq ? q.CorrectOptionIndex : null,
                 ReferenceAnswer = q.Type != QuestionType.Mcq && !string.IsNullOrWhiteSpace(q.ReferenceAnswer)
                     ? q.ReferenceAnswer.Trim()
+                    : null,
+                Language = q.Type == QuestionType.Coding ? CodeLanguages.Normalise(q.Language) : null,
+                RubricKeywords = q.Type == QuestionType.Theory && !string.IsNullOrWhiteSpace(q.RubricKeywords)
+                    ? q.RubricKeywords.Trim()
                     : null
             };
 
             if (q.Type != QuestionType.Mcq)
             {
+                var tcOrder = 0;
                 foreach (var tc in q.TestCases)
                 {
                     question.TestCases.Add(new TestCase
                     {
                         Input = tc.Input,
                         ExpectedOutput = tc.ExpectedOutput,
-                        IsHidden = tc.IsHidden
+                        IsHidden = tc.IsHidden,
+                        Weight = tc.Weight,
+                        TimeLimitMs = tc.TimeLimitMs,
+                        IsEdgeCase = tc.IsEdgeCase,
+                        Category = string.IsNullOrWhiteSpace(tc.Category) ? null : tc.Category.Trim(),
+                        IgnoreCase = tc.IgnoreCase,
+                        FloatTolerance = tc.FloatTolerance,
+                        OrderIndex = tcOrder++
                     });
                 }
             }
@@ -877,16 +912,30 @@ public class ExamsController : ControllerBase
         return Ok(new { exam.ExamId, exam.DurationMinutes, message = $"Exam extended by {req.AdditionalMinutes} minutes." });
     }
 
-    // GET /api/exams/{examId}/results  — Fetch submissions with AI grades & teacher overrides
+    // ── Module 11: results, plagiarism and overrides are the exam owner's (or an admin's) — D-13 ──────────
+    // Proctors supervise but never see or change grades; another section's teacher gets 403.
+
+    private async Task<IActionResult?> DenyUnlessGraderAsync(Guid examId)
+    {
+        if (!await _db.Exams.AnyAsync(e => e.ExamId == examId)) return NotFound(new { message = "Exam not found." });
+        return await _access.GetAsync(User, examId) >= ExamAccess.Owner
+            ? null
+            : StatusCode(StatusCodes.Status403Forbidden, new { message = "Only the exam's teacher or an admin can see or change its grades." });
+    }
+
+    // GET /api/exams/{examId}/results  — Fetch submissions with AI grades (per-test-case detail) & teacher overrides
     [HttpGet("{examId:guid}/results")]
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> GetResults(Guid examId)
     {
+        var denied = await DenyUnlessGraderAsync(examId);
+        if (denied is not null) return denied;
+
         var sessions = await _db.ExamSessions
             .Where(s => s.ExamId == examId)
             .Include(s => s.Student)
             .Include(s => s.Answers).ThenInclude(a => a.Question)
-            .Include(s => s.Answers).ThenInclude(a => a.AiGradingResult)
+            .Include(s => s.Answers).ThenInclude(a => a.AiGradingResult).ThenInclude(g => g!.TestCaseResults)
             .Include(s => s.Answers).ThenInclude(a => a.TeacherGradeOverride)
             .ToListAsync();
 
@@ -902,7 +951,7 @@ public class ExamsController : ControllerBase
             ReceiptSha256 = s.ReceiptSha256,
             ReceiptAnswerCount = s.ReceiptAnswerCount,
             ExtraMinutes = s.ExtraMinutes,
-            Answers = s.Answers.Select(a => new
+            Answers = s.Answers.OrderBy(a => a.Question.OrderIndex).Select(a => new
             {
                 a.AnswerId,
                 a.QuestionId,
@@ -914,7 +963,33 @@ public class ExamsController : ControllerBase
                 {
                     a.AiGradingResult.SuggestedMarks,
                     a.AiGradingResult.Justification,
-                    a.AiGradingResult.Confidence
+                    a.AiGradingResult.Confidence,
+                    // Module 11: Pending (queued) / Graded / Failed, what graded it, and the evidence behind it.
+                    a.AiGradingResult.Status,
+                    a.AiGradingResult.Engine,
+                    a.AiGradingResult.CompileOutput,
+                    a.AiGradingResult.DurationMs,
+                    a.AiGradingResult.GradedAt,
+                    a.AiGradingResult.LlmSummary,
+                    Analysis = ParseJson(a.AiGradingResult.AnalysisJson),
+                    // Staff see every case, hidden ones included (input, expected and actual output).
+                    TestCaseResults = a.AiGradingResult.TestCaseResults.OrderBy(r => r.OrderIndex).Select(r => new
+                    {
+                        r.TestCaseId,
+                        r.Name,
+                        r.Input,
+                        r.ExpectedOutput,
+                        r.ActualOutput,
+                        r.IsHidden,
+                        r.IsEdgeCase,
+                        r.Category,
+                        r.Weight,
+                        r.Status,
+                        r.Passed,
+                        r.ExitCode,
+                        r.DurationMs,
+                        r.CompareMode
+                    }).ToList()
                 } : null,
                 TeacherOverride = a.TeacherGradeOverride != null ? new
                 {
@@ -927,16 +1002,34 @@ public class ExamsController : ControllerBase
         return Ok(results);
     }
 
+    private static System.Text.Json.JsonElement? ParseJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.Clone();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
     // GET /api/exams/{examId}/plagiarism  — Fetch plagiarism reports
     [HttpGet("{examId:guid}/plagiarism")]
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> GetPlagiarism(Guid examId)
     {
+        var denied = await DenyUnlessGraderAsync(examId);
+        if (denied is not null) return denied;
+
         var plagResults = await _db.PlagiarismResults
             .Where(pr => pr.ExamId == examId && !pr.Exam.IsMock)
             .Include(pr => pr.Question)
             .Include(pr => pr.StudentA)
             .Include(pr => pr.StudentB)
+            .OrderByDescending(pr => pr.SimilarityScore)
             .ToListAsync();
 
         var results = plagResults.Select(pr => new
@@ -944,33 +1037,50 @@ public class ExamsController : ControllerBase
             pr.PlagId,
             pr.QuestionId,
             QuestionText = pr.Question.BodyText,
+            QuestionType = pr.Question.Type.ToString(),
+            pr.UserIdA,
+            pr.UserIdB,
             StudentAName = pr.StudentA.Name,
             StudentBName = pr.StudentB.Name,
             pr.SimilarityScore,
+            // JSON: [{ aStartLine, aEndLine, bStartLine, bEndLine, A, B }] (Module 11 winnowing segments).
             pr.MatchingSegments
         }).ToList();
 
         return Ok(results);
     }
 
-    // POST /api/answers/{answerId}/override  — Override a grade
+    // POST /api/answers/{answerId}/override  — Override a grade (the final mark; the AI suggestion is kept for audit)
     [HttpPost("/api/answers/{answerId:guid}/override")]
     [Authorize(Roles = "Teacher,Admin,SuperAdmin")]
     public async Task<IActionResult> OverrideGrade(Guid answerId, [FromBody] OverrideGradeRequest req)
     {
-        var teacherId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        var teacherId = CurrentUserId;
 
-        var answer = await _db.Answers.FindAsync(answerId);
+        var answer = await _db.Answers
+            .Include(a => a.Question)
+            .Include(a => a.ExamSession)
+            .Include(a => a.AiGradingResult)
+            .FirstOrDefaultAsync(a => a.AnswerId == answerId);
         if (answer is null) return NotFound(new { message = "Answer not found." });
+
+        var denied = await DenyUnlessGraderAsync(answer.ExamSession.ExamId);
+        if (denied is not null) return denied;
+        if (double.IsNaN(req.FinalMarks) || req.FinalMarks < 0 || req.FinalMarks > answer.Question.Marks)
+            return BadRequest(new { message = $"Final marks must be between 0 and {answer.Question.Marks}." });
+        var note = string.IsNullOrWhiteSpace(req.Note) ? null : req.Note.Trim();
+        if (note is { Length: > MaxOverrideNoteLength })
+            return BadRequest(new { message = $"The note is limited to {MaxOverrideNoteLength} characters." });
 
         var existingOverride = await _db.TeacherGradeOverrides
             .FirstOrDefaultAsync(tgo => tgo.AnswerId == answerId);
+        var previous = existingOverride?.FinalMarks;
 
         if (existingOverride is not null)
         {
             existingOverride.TeacherId = teacherId;
             existingOverride.FinalMarks = req.FinalMarks;
-            existingOverride.Note = req.Note;
+            existingOverride.Note = note;
             existingOverride.OverriddenAt = DateTime.UtcNow;
         }
         else
@@ -980,15 +1090,26 @@ public class ExamsController : ControllerBase
                 AnswerId = answerId,
                 TeacherId = teacherId,
                 FinalMarks = req.FinalMarks,
-                Note = req.Note,
+                Note = note,
                 OverriddenAt = DateTime.UtcNow
             };
             _db.TeacherGradeOverrides.Add(gradeOverride);
         }
 
+        _audit.Add(teacherId, "GRADE_OVERRIDDEN", "Answer", answerId.ToString(), new
+        {
+            examId = answer.ExamSession.ExamId,
+            sessionId = answer.SessionId,
+            questionId = answer.QuestionId,
+            finalMarks = req.FinalMarks,
+            previousOverride = previous,
+            aiSuggestion = answer.AiGradingResult?.SuggestedMarks
+        });
         await _db.SaveChangesAsync();
         return Ok(new { message = "Grade override saved successfully." });
     }
+
+    public const int MaxOverrideNoteLength = 1000;
 
     // POST /api/exams/{examId}/force-submit-all  — Force submit all active exam sessions
     [HttpPost("{examId:guid}/force-submit-all")]
@@ -1722,6 +1843,8 @@ public class CreateQuestionDto
     public List<string>? Options { get; set; }          // MCQ only
     public int? CorrectOptionIndex { get; set; }        // MCQ only
     public string? ReferenceAnswer { get; set; }        // Coding/Theory reference key / sample solution
+    public string? Language { get; set; }               // Coding: "cpp" | "c" (null = detect from the answer)
+    public string? RubricKeywords { get; set; }         // Theory: comma-separated key terms for the offline grader
 }
 
 public class CreateTestCaseDto
@@ -1729,6 +1852,13 @@ public class CreateTestCaseDto
     public string Input { get; set; } = string.Empty;
     public string ExpectedOutput { get; set; } = string.Empty;
     public bool IsHidden { get; set; }
+    // Module 11 scoring / comparison settings (all optional).
+    public double Weight { get; set; } = 1;
+    public int? TimeLimitMs { get; set; }
+    public bool IsEdgeCase { get; set; }
+    public string? Category { get; set; }
+    public bool IgnoreCase { get; set; }
+    public double? FloatTolerance { get; set; }
 }
 
 public class UpdateEligibilityDto
@@ -1748,7 +1878,7 @@ public class StudentEligibilityUpdate
 public class OverrideGradeRequest
 {
     public double FinalMarks { get; set; }
-    public string Note { get; set; } = string.Empty;
+    public string? Note { get; set; }
 }
 
 public record SaveAnswerRequest(Guid QuestionId, string? AnswerText, int? Revision = null, DateTime? ClientSavedAt = null);

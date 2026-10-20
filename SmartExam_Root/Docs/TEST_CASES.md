@@ -433,32 +433,61 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 
 ## M11 — AI-Assisted Evaluation
 
+Built in S7. Coding answers are compiled and run in a background queue: the Docker sandbox (`gcc:13`, no network, 256 MB, 0.5 CPU, 64 PIDs, read-only root, `nobody`) when Docker is up, else the local MinGW runner (Windows Job Object; labelled "not isolated"); both use `-std=c++17 -O0`. Theory answers are graded offline (TF-IDF + key terms). Plagiarism is token-normalised 5-gram winnowing. The LLM grader/summary is off by default. Tests use `Grading:Runner=Fake` unless they say otherwise; Docker / MinGW tests skip themselves where the runner is missing.
+
 | ID | Title | Steps | Expected | Status |
 |----|-------|-------|----------|--------|
 | M11-U-01 | MCQ correct | index matches | full marks | ✅ (via xUnit flow) |
 | M11-U-02 | MCQ wrong | | 0 | ✅ |
-| M11-U-03 | Test-case scoring weights | 2/3 passed, weights 1,1,2 | 50% | 📋 |
-| M11-U-04 | Compile error → 0 with message | | 0, compiler output in justification | 📋 |
-| M11-U-05 | Timeout counts as fail | infinite loop | that case fails, others run | 📋 |
-| M11-U-06 | Output comparison trims whitespace | "5\n" vs "5" | pass | 📋 |
-| M11-U-07 | TF-IDF cosine identical text | | ≈1.0 | 📋 |
-| M11-U-08 | Plagiarism ignores identifier renames | Same code, renamed vars | similarity ≥ 90% | 📋 |
-| M11-U-09 | Plagiarism ignores comments/whitespace | | ≥ 95% | 📋 |
-| M11-U-10 | Different solutions low similarity | Two distinct algorithms | < 30% | 📋 |
-| M11-I-01 | Submit returns before grading finishes | Slow fake runner | Submit 200 < 1 s, status Pending | ⏳ |
-| M11-I-02 | Worker grades pending answers | Run worker | Status Graded with per-case results | ⏳ |
-| M11-I-03 | Hidden test results not shown to student | Student result | Only visible cases detailed | ⏳ |
-| M11-I-04 | Sandbox has no network | Code that opens socket | Fails, no egress | ⏳ (Docker) |
-| M11-I-05 | Sandbox memory limit | Allocates 1 GB | Killed, case fails | ⏳ (Docker) |
-| M11-I-06 | Plagiarism matrix | 3 students | 3×3 symmetric matrix | ⏳ |
-| M11-I-07 | Matched segments line ranges | | Ranges present | ⏳ |
+| M11-U-03 | Test-case scoring weights | 2/3 passed, weights 1,1,2 | 50% | ✅ xUnit (`TestCaseScorerTests`) |
+| M11-U-04 | Compile error → 0 with message | | 0, High, compiler output in justification | ✅ xUnit |
+| M11-U-05 | Timeout counts as fail | infinite loop | that case fails, others run | ✅ xUnit (scorer + real Docker / MinGW runner tests) |
+| M11-U-06 | Output comparison trims whitespace | "5\n" vs "5" | pass | ✅ xUnit (`OutputComparerTests`) |
+| M11-U-07 | TF-IDF cosine identical text | | ≈1.0 | ✅ xUnit (`TheoryGraderTests`) |
+| M11-U-08 | Plagiarism ignores identifier renames | Same code, renamed vars | similarity ≥ 90% | ✅ (API + `PlagiarismEngineTests`) |
+| M11-U-09 | Plagiarism ignores comments/whitespace | | ≥ 95% | ✅ |
+| M11-U-10 | Different solutions low similarity | Two distinct algorithms | < 30% | ✅ |
+| M11-U-11 | Output tolerance rules | CRLF, trailing spaces, ignore-case, numeric tolerance | Lenient only where the case allows it | ✅ xUnit (`OutputComparerTests`) |
+| M11-U-12 | Hidden cases never quoted | Hidden case fails | Justification says "Hidden case #2: failed", no input/expected/actual | ✅ xUnit |
+| M11-U-13 | Near-correct and rounding | 4/5 pass; 1/3 of 10 marks | Near-correct flagged; marks round to 0.5 | ✅ xUnit |
+| M11-U-14 | Static analysis signals | Nested / sequential / do-while loops, recursion, Python, lookup tables, many ifs | Loop count + nesting → O(1)/O(n)/O(n^2)/O(n^3+); recursion found; hard-coding suspicion Low/Medium/High | ✅ xUnit (`CodeAnalyzerTests`) |
+| M11-U-15 | Theory grader variants | Paraphrase, partial, unrelated, rubric phrases, keywords only, no model answer | Marks, confidence and missing terms as specified; no model answer → 0, Low | ✅ xUnit |
+| M11-U-16 | LLM features off by default and safe | No `Enabled`, no key; fenced / trailing-comma / truncated JSON; HTTP 500; 429 | Never calls the network when off; robust parse; null fallback; retried on 429; Gemini key in a header; no hidden outputs sent | ✅ xUnit (`LlmGradingTests`, fake HTTP handler) |
+| M11-U-17 | Docker harness and parser | Build harness, parse COMPILED / CASE lines | `-std=c++17 -O0`, per-case limits, LF only; 124 = timeout, cgroup OOM = memory | ✅ xUnit |
+| M11-U-18 | Real Docker runner | gcc:13: sum program, endless loop + next case, compile error | Correct outputs; only the looping case times out; compile error is a report | ✅ xUnit (skips without Docker) |
+| M11-U-19 | Real local runner (Job Object) | MinGW: sum, endless loop, 1 GB malloc, `system("cmd")` + server env var, compile error | Outputs right; timeout per case; memory limit reported; child process blocked and environment scrubbed | ✅ xUnit (skips without MinGW / Windows) |
+| M11-I-01 | Submit returns before grading finishes | Slow fake runner | Submit 200 < 1 s, status Pending | ✅ |
+| M11-I-02 | Worker grades pending answers | Run worker | Status Graded with per-case results | ✅ |
+| M11-I-03 | Hidden test results not shown to student | Student result | Only visible cases detailed | ✅ |
+| M11-I-04 | Sandbox has no network | Code that opens socket | Fails, no egress | ✅ (real Docker; skips without it) |
+| M11-I-05 | Sandbox memory limit | Allocates 1 GB | Killed, case fails, "memory" in justification | ✅ (real Docker; skips without it) |
+| M11-I-06 | Plagiarism matrix | 3 students | 3×3 symmetric matrix | ✅ |
+| M11-I-07 | Matched segments line ranges | | Ranges present | ✅ |
 | M11-I-08 | Teacher override wins | Override after AI grade | Final mark = override | ✅ |
-| M11-A-01 | Heuristic grading labelled honestly | Submit coding answer | Confidence Low + "teacher review required" | ✅ |
+| M11-I-09 | Grades are the owner's (D-34) | Other teacher / student: results, plagiarism, matrix, override, accept-ai, regrade | 403 each; owner + admin 200; unknown exam 404 | ✅ |
+| M11-I-10 | Matrix rules | Practice exam; unknown / MCQ question filter; per-question matrix | 400; 400; per-question values, diagonal 100 | ✅ |
+| M11-I-11 | Accept AI suggestions | Owner POST `/grading/accept-ai` | Overrides = suggestions for Graded answers without one; audit `AI_SUGGESTIONS_ACCEPTED`; second call accepts 0 | ✅ |
+| M11-I-12 | Regrade | POST `/api/answers/{id}/regrade` | Pending, then Graded again; `QueueVersion` 1; audit `AI_REGRADE_REQUESTED` | ✅ |
+| M11-I-13 | Regrade refused | Running session / MCQ / unknown answer | 409 / 400 / 404 | ✅ |
+| M11-I-14 | Compile error through the API | `#compile-error` (fake) | 0, High, compiler output, cases NotRun, analysis present; student sees 1 visible case + `hiddenTotal` 2, no analysis | ✅ |
+| M11-I-15 | GradingCompleted broadcast | Submit coding answer | `GradingCompleted` to `exam:{id}` with session + status | ✅ |
+| M11-I-16 | Restart-safe queue | Pending row with nothing queued; start a worker | Row re-queued and graded | ✅ |
+| M11-I-17 | Override validated and audited | Marks 11 / −1 on a 10-mark question; 6.5 | 400, 400; 200 + audit `GRADE_OVERRIDDEN` | ✅ |
+| M11-I-18 | Test-case settings | Weight 0, limit 50 ms, tolerance −0.1, language java; valid settings | 400 each; stored and returned to staff; hidden cases not sent to students | ✅ |
+| M11-I-19 | Weighted cases + TF-IDF via API | Weights 3 / 1; theory with model answer | 20/20 with weights reported; engine TF-IDF, 10/10 | ✅ |
+| M11-I-20 | Runner None | `Grading:Runner=None` | Coding graded at once: Low, "Not compiled … teacher review required" | ✅ |
+| M11-I-21 | Engine failure | Docker CLI missing, 1 attempt | Status Failed, 0, Low, cases NotRun | ✅ |
+| M11-A-01 | Coding answer really compiled, labelled with engine | Submit coding answer that does not compile | Submit returns at once; then Graded: 0, High, "compilation failed", engine Docker/MinGW, compiler output, 2 case rows | ✅ (rewritten in S7: was the keyword heuristic) |
 | M11-A-02 | Plagiarism pair flagged | Two simulators submit identical theory answers | Pair in plagiarism list | ✅ |
-| M11-E-01 | Results page shows AI suggestion | Teacher → results | Suggested marks + justification | ✅ |
-| M11-E-02 | Override in UI | Edit marks | Saved, shown as Overridden | ✅ |
-| M11-E-03 | Plagiarism heat map | Analytics page | Heat map rendered | ⏳ |
-| M11-E-04 | Test-case breakdown | Results drawer | Per-case pass/fail | ⏳ |
+| M11-A-03 | Correct code passes all cases | Real runner, visible + hidden case; student result after the exam | 20/20, both Passed, analysis O(n); student sees 1 case + hidden tally, never the hidden input | ✅ |
+| M11-A-04 | Matrix over HTTP | 3 students; other teacher; practice exam | Symmetric, identical pair 100, different < 30; 403; 400 | ✅ |
+| M11-A-05 | Regrade + accept-ai over HTTP | Regrade theory answer, then accept | Pending → same mark; override = suggestion; both audited | ✅ |
+| M11-E-01 | Results page shows AI suggestion | Teacher → results, non-compiling code | "Compilation failed", High Confidence, 0 / 20, compiler output, case rows "Not run" | ✅ (updated in S7) |
+| M11-E-02 | Override in UI | Edit marks | 10/10 from TF-IDF; saved, shown as Overridden; AI suggestion kept | ✅ (updated in S7) |
+| M11-E-03 | Plagiarism heat map | Analytics page | 3×3 heat map, identical pair 100 | ✅ |
+| M11-E-04 | Test-case breakdown | Results drawer | Per-case pass/fail incl. hidden marker, 20 / 20, complexity O(n) | ✅ |
+| M11-E-05 | Side-by-side plagiarism | Two students, renamed copy | Flag 100%, matched lines highlighted, 2×2 heat map in the tab | ✅ |
+| M11-E-06 | Accept AI suggestions (UI) | Button + confirm | Toast "Accepted 2 suggestion(s)", both answers Overridden | ✅ |
 
 ## M12 — Logs, Analytics & Audit Trail
 
@@ -526,6 +555,8 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | D-31 | M10-I-15 (S6 verifier) | Any teacher could extend, force-end, edit or delete any exam (and create one in another teacher's section) — the Module 7 "M10 hardening" item was left open; other teachers also received the answer key from `GET /api/exams/{id}` | **Fixed** — `extend-time`, `force-submit-all`, `PUT` and `DELETE /api/exams/{id}` use `LoadManagedExamAsync` (section teacher or admin, else 403); create/edit check the target section; non-owner teachers get the proctor view of the questions (M10-I-15/16, M10-A-04) |
 | D-32 | M10-I-17 (S6 verifier) | `PATCH /api/notifications/read-all` cleared a proctor's warning (so it never reached the exam window) without the `PROCTOR_WARNING_ACKNOWLEDGED` audit row | **Fixed** — read-all audits each warning it clears (`via: read-all`) |
 | D-33 | M5-U (S6 verifier) | Desktop test `JpegEncoder_WorksOnAFrozenSourceOffTheUiThread` failed about 1 run in 5: it froze the bitmap on a pool thread, and freezing is thread-affine (passed only when `Task.Run` reused the test thread). Production was not affected (`ScreenCapture` freezes on the capturing thread) | **Fixed** — the test freezes on the creating thread; the encoder's doc states the contract |
+| D-34 | M11-I-09 (S7) | Any teacher could read any exam's results and plagiarism report and override any answer's grade (results / plagiarism / override were not ownership-checked); overrides accepted any mark and were not audited | **Fixed** — owner (section teacher) or admin only (403 otherwise, 404 for an unknown exam); marks must be within 0…question marks; audit `GRADE_OVERRIDDEN` (M11-I-09, M11-I-17, M11-A-04) |
+| D-35 | M11-I-05 (S7) | With `-O2` the compiler deleted the test's unused 1 GB allocation (and would delete an empty endless loop), so memory- and time-limit breaches went undetected | **Fixed by design** — both runners compile with `-O0`: the program does what the student wrote |
 
 ---
 

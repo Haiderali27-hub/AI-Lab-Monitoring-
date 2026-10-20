@@ -119,7 +119,7 @@ public class StudentPortalController : ControllerBase
             .OrderByDescending(s => s.StartedAt)   // practice exams: latest attempt
             .Include(s => s.Exam).ThenInclude(e => e.Questions)
             .Include(s => s.Answers).ThenInclude(a => a.Question)
-            .Include(s => s.Answers).ThenInclude(a => a.AiGradingResult)
+            .Include(s => s.Answers).ThenInclude(a => a.AiGradingResult).ThenInclude(g => g!.TestCaseResults)
             .Include(s => s.Answers).ThenInclude(a => a.TeacherGradeOverride)
             .FirstOrDefaultAsync();
 
@@ -130,7 +130,7 @@ public class StudentPortalController : ControllerBase
         if (session.Exam.Status != Models.Enums.ExamStatus.Ended)
             return BadRequest(new { message = "Results are not available until the exam ends." });
 
-        var answers = session.Answers.Select(a =>
+        var answers = session.Answers.OrderBy(a => a.Question.OrderIndex).Select(a =>
         {
             double marks = a.TeacherGradeOverride?.FinalMarks ?? a.AiGradingResult?.SuggestedMarks ?? 0;
             return new
@@ -145,7 +145,22 @@ public class StudentPortalController : ControllerBase
                 {
                     a.AiGradingResult.SuggestedMarks,
                     a.AiGradingResult.Justification,
-                    a.AiGradingResult.Confidence
+                    a.AiGradingResult.Confidence,
+                    a.AiGradingResult.Status,
+                    // Module 11: visible test cases only — a hidden case's input, expected and actual output never reach
+                    // the student (the justification already names hidden cases without details); just the tally.
+                    TestCaseResults = a.AiGradingResult.TestCaseResults.Where(r => !r.IsHidden).OrderBy(r => r.OrderIndex).Select(r => new
+                    {
+                        r.Name,
+                        r.Input,
+                        r.ExpectedOutput,
+                        r.ActualOutput,
+                        r.Status,
+                        r.Passed,
+                        r.DurationMs
+                    }).ToList(),
+                    HiddenPassed = a.AiGradingResult.TestCaseResults.Count(r => r.IsHidden && r.Passed),
+                    HiddenTotal = a.AiGradingResult.TestCaseResults.Count(r => r.IsHidden)
                 },
                 TeacherOverridden = a.TeacherGradeOverride != null
             };

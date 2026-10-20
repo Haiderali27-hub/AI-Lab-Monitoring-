@@ -28,12 +28,26 @@ namespace Backend_API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AnalysisJson")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("AnswerId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("CompileOutput")
+                        .HasMaxLength(4104)
+                        .HasColumnType("character varying(4104)");
 
                     b.Property<string>("Confidence")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int?>("DurationMs")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Engine")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime>("GradedAt")
                         .HasColumnType("timestamp with time zone");
@@ -42,6 +56,18 @@ namespace Backend_API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("LlmSummary")
+                        .HasColumnType("text");
+
+                    b.Property<int>("QueueVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<double>("SuggestedMarks")
                         .HasColumnType("double precision");
 
@@ -49,6 +75,8 @@ namespace Backend_API.Migrations
 
                     b.HasIndex("AnswerId")
                         .IsUnique();
+
+                    b.HasIndex("Status");
 
                     b.ToTable("AiGradingResults");
                 });
@@ -682,6 +710,10 @@ namespace Backend_API.Migrations
                     b.Property<string>("ExpectedOutput")
                         .HasColumnType("text");
 
+                    b.Property<string>("Language")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<int>("Marks")
                         .HasColumnType("integer");
 
@@ -693,6 +725,10 @@ namespace Backend_API.Migrations
 
                     b.Property<string>("ReferenceAnswer")
                         .HasColumnType("text");
+
+                    b.Property<string>("RubricKeywords")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -954,6 +990,73 @@ namespace Backend_API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Category")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("ExpectedOutput")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double?>("FloatTolerance")
+                        .HasColumnType("double precision");
+
+                    b.Property<bool>("IgnoreCase")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Input")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsEdgeCase")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsHidden")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("TimeLimitMs")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("Weight")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("TestCaseId");
+
+                    b.HasIndex("QuestionId");
+
+                    b.ToTable("TestCases");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.TestCaseResult", b =>
+                {
+                    b.Property<Guid>("TestCaseResultId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActualOutput")
+                        .HasMaxLength(4104)
+                        .HasColumnType("character varying(4104)");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("CompareMode")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int?>("DurationMs")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ExitCode")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ExpectedOutput")
                         .IsRequired()
                         .HasColumnType("text");
@@ -962,17 +1065,42 @@ namespace Backend_API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsEdgeCase")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsHidden")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid>("QuestionId")
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Passed")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ResultId")
                         .HasColumnType("uuid");
 
-                    b.HasKey("TestCaseId");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
-                    b.HasIndex("QuestionId");
+                    b.Property<Guid?>("TestCaseId")
+                        .HasColumnType("uuid");
 
-                    b.ToTable("TestCases");
+                    b.Property<double>("Weight")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("TestCaseResultId");
+
+                    b.HasIndex("ResultId", "OrderIndex");
+
+                    b.ToTable("TestCaseResults");
                 });
 
             modelBuilder.Entity("Backend_API.Models.User", b =>
@@ -1445,6 +1573,17 @@ namespace Backend_API.Migrations
                     b.Navigation("Question");
                 });
 
+            modelBuilder.Entity("Backend_API.Models.TestCaseResult", b =>
+                {
+                    b.HasOne("Backend_API.Models.AiGradingResult", "AiGradingResult")
+                        .WithMany("TestCaseResults")
+                        .HasForeignKey("ResultId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AiGradingResult");
+                });
+
             modelBuilder.Entity("Backend_API.Models.UserSession", b =>
                 {
                     b.HasOne("Backend_API.Models.User", "User")
@@ -1465,6 +1604,11 @@ namespace Backend_API.Migrations
                         .IsRequired();
 
                     b.Navigation("Lab");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.AiGradingResult", b =>
+                {
+                    b.Navigation("TestCaseResults");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Answer", b =>

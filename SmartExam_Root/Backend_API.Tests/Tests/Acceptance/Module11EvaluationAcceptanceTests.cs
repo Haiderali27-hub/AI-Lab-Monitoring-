@@ -2,10 +2,13 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Backend_API.Models;
+using Backend_API.Services.Grading;
 using Backend_API.Tests.Helpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Backend_API.Tests.Tests.Acceptance;
 
@@ -13,10 +16,10 @@ namespace Backend_API.Tests.Tests.Acceptance;
 /// M11 — AI-Assisted Evaluation (TEST_CASES.md §M11, layers U (via API) and I).
 /// M11-U-01 → Module8ExamCreationTests.McqAnswer_IsAutoGradedExactly_AndSkippedByPlagiarism
 /// M11-U-02 → Module8ExamCreationTests.McqAnswer_WrongOption_ScoresZero
-/// M11-U-03…07 are pure ICodeRunner / ITheoryGrader unit tests with no API surface — not expressed here.
-/// Planned contract: IMPLEMENTATION_PLAN.md §5.1 — async GradingQueue/Worker with AiGradingResult.Status,
-/// per-test-case results, Docker sandbox, winnowing plagiarism, GET /api/exams/{id}/plagiarism/matrix.
-/// Runner selection for tests is assumed to be config-driven: Grading:Runner=Fake, Grading:FakeDelayMs.
+/// M11-U-03…07 are pure unit tests in Tests/Grading (TestCaseScorerTests, OutputComparerTests, TheoryGraderTests).
+/// Contract: IMPLEMENTATION_PLAN.md §5.1 — async GradingQueue/Worker with AiGradingResult.Status, per-test-case
+/// results, Docker sandbox, winnowing plagiarism, GET /api/exams/{id}/plagiarism/matrix. The default test host uses
+/// Grading:Runner=Fake (FakeDelayMs 0); M11-I-04/05 use the real Docker sandbox and skip without Docker + gcc:13.
 /// </summary>
 public class Module11EvaluationAcceptanceTests : IDisposable
 {
@@ -60,7 +63,7 @@ public class Module11EvaluationAcceptanceTests : IDisposable
 
     // ── U rows expressed through the API (plagiarism engine) ─────────────────
 
-    [Fact(Skip = "Pending: M11-U-08 — token-normalised (identifier-insensitive) plagiarism")]
+    [Fact]
     public async Task M11_U_08_Plagiarism_IgnoresIdentifierRenames_AtLeast90()
     {
         const string renamed = """
@@ -75,7 +78,7 @@ public class Module11EvaluationAcceptanceTests : IDisposable
         (await PairSimilarityAsync(SumLoop, renamed)).Should().BeGreaterThanOrEqualTo(90);
     }
 
-    [Fact(Skip = "Pending: M11-U-09 — comment/whitespace-insensitive plagiarism")]
+    [Fact]
     public async Task M11_U_09_Plagiarism_IgnoresCommentsAndWhitespace_AtLeast95()
     {
         const string commented = """
@@ -87,7 +90,7 @@ public class Module11EvaluationAcceptanceTests : IDisposable
         (await PairSimilarityAsync(SumLoop, commented)).Should().BeGreaterThanOrEqualTo(95);
     }
 
-    [Fact(Skip = "Pending: M11-U-10 — winnowing plagiarism keeps distinct solutions apart")]
+    [Fact]
     public async Task M11_U_10_DifferentAlgorithms_LowSimilarity_Under30()
     {
         const string recursive = """
@@ -101,7 +104,7 @@ public class Module11EvaluationAcceptanceTests : IDisposable
 
     // ── I rows ───────────────────────────────────────────────────────────────
 
-    [Fact(Skip = "Pending: M11-I-01 — asynchronous grading queue")]
+    [Fact]
     public async Task M11_I_01_SubmitReturnsBeforeGradingFinishes_StatusPending()
     {
         using var host = new TestHost(b => { b.UseSetting("Grading:Runner", "Fake"); b.UseSetting("Grading:FakeDelayMs", "5000"); });
@@ -117,7 +120,7 @@ public class Module11EvaluationAcceptanceTests : IDisposable
         results!.Single().GetProperty("answers")[0].GetProperty("aiGrading").GetProperty("status").GetString().Should().Be("Pending");
     }
 
-    [Fact(Skip = "Pending: M11-I-02 — grading worker with per-test-case results")]
+    [Fact]
     public async Task M11_I_02_WorkerGradesPendingAnswers_WithPerCaseResults()
     {
         using var host = new TestHost(b => { b.UseSetting("Grading:Runner", "Fake"); b.UseSetting("Grading:FakeDelayMs", "100"); });
@@ -138,7 +141,7 @@ public class Module11EvaluationAcceptanceTests : IDisposable
         grading.GetProperty("testCaseResults").GetArrayLength().Should().BeGreaterThan(0);
     }
 
-    [Fact(Skip = "Pending: M11-I-03 — hidden test-case results not exposed to students")]
+    [Fact]
     public async Task M11_I_03_StudentResult_DetailsOnlyVisibleTestCases()
     {
         const string hiddenExpected = "HIDDEN-EXPECTED-424242";
@@ -161,7 +164,7 @@ public class Module11EvaluationAcceptanceTests : IDisposable
         (await (await teacher.GetAsync($"/api/exams/{examId}/results")).Content.ReadAsStringAsync()).Should().Contain(hiddenExpected);
     }
 
-    [Fact(Skip = "Pending: M11-I-04 — Docker sandbox (no network)")]
+    [DockerFact]
     public async Task M11_I_04_Sandbox_HasNoNetwork()
     {
         using var host = new TestHost(b => b.UseSetting("Grading:Runner", "Docker"));
@@ -186,7 +189,7 @@ public class Module11EvaluationAcceptanceTests : IDisposable
         grading.GetProperty("suggestedMarks").GetDouble().Should().Be(0, "the connect() must fail inside --network none");
     }
 
-    [Fact(Skip = "Pending: M11-I-05 — Docker sandbox (memory limit)")]
+    [DockerFact]
     public async Task M11_I_05_Sandbox_MemoryLimit_KillsAndFailsCase()
     {
         using var host = new TestHost(b => b.UseSetting("Grading:Runner", "Docker"));
@@ -210,7 +213,7 @@ public class Module11EvaluationAcceptanceTests : IDisposable
         grading.GetProperty("justification").GetString().Should().ContainEquivalentOf("memory");
     }
 
-    [Fact(Skip = "Pending: M11-I-06 — pairwise plagiarism matrix")]
+    [Fact]
     public async Task M11_I_06_PlagiarismMatrix_3Students_Is3x3Symmetric()
     {
         var (thirdId, thirdEmail, thirdPassword) = await _host.CreateUserAsync("Student");
@@ -234,7 +237,7 @@ public class Module11EvaluationAcceptanceTests : IDisposable
         m[0][1].Should().BeGreaterThan(90, "students 1 and 2 submitted identical code");
     }
 
-    [Fact(Skip = "Pending: M11-I-07 — matched segments with line ranges")]
+    [Fact]
     public async Task M11_I_07_PlagiarismPair_HasMatchedSegmentLineRanges()
     {
         var examId = await _host.CreateExamAsync(new[] { _host.Seed.StudentId, _host.Seed.Student2Id },
@@ -288,5 +291,344 @@ public class Module11EvaluationAcceptanceTests : IDisposable
         studentAnswer.GetProperty("earnedMarks").GetDouble().Should().Be(4.0);
         studentAnswer.GetProperty("teacherOverridden").GetBoolean().Should().BeTrue();
         result.GetProperty("earnedMarks").GetDouble().Should().Be(4.0);
+    }
+
+    // ── Stage S7 additions: endpoints, access, audit, worker behaviour ──────
+
+    private async Task<JsonElement> GradingOfAsync(Guid examId, Guid sessionId, Guid questionId, TestHost? host = null, bool waitGraded = true)
+    {
+        host ??= _host;
+        var teacher = await host.AsTeacher();
+        JsonElement grading = default;
+        await TestHost.Eventually(async () =>
+        {
+            var results = await (await teacher.GetAsync($"/api/exams/{examId}/results")).Content.ReadFromJsonAsync<List<JsonElement>>();
+            var answer = results!.Single(r => r.GetProperty("sessionId").GetGuid() == sessionId).GetProperty("answers").EnumerateArray()
+                .Single(a => a.GetProperty("questionId").GetGuid() == questionId);
+            grading = answer.GetProperty("aiGrading");
+            return !waitGraded || grading.GetProperty("status").GetString() != AiGradingResult.StatusPending;
+        }, TimeSpan.FromSeconds(15), "the grading worker must finish");
+        return grading;
+    }
+
+    private static object CodingWith(params object[] testCases) => new
+    {
+        type = "Coding", bodyText = "Print the sum of two integers.", marks = 20, testCases,
+        options = (string[]?)null, correctOptionIndex = (int?)null, referenceAnswer = (string?)null, language = "cpp"
+    };
+
+    [Fact]
+    public async Task M11_I_09_ResultsPlagiarismOverrideAndMatrix_AreOwnerOrAdminOnly()
+    {
+        // D-13: another section's teacher could read every exam's results and change any grade.
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        (await TestHost.SaveAnswerAsync(student, sid, _host.Seed.Question2Id, "A stack is LIFO.")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+        var answerId = await _host.WithDbAsync(db => db.Answers.Where(a => a.SessionId == sid).Select(a => a.AnswerId).SingleAsync());
+
+        var (_, email, password) = await _host.CreateUserAsync("Teacher");
+        var other = await _host.LoginAsync(email, password);
+        var exam = _host.Seed.ExamId;
+        (await other.GetAsync($"/api/exams/{exam}/results")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await other.GetAsync($"/api/exams/{exam}/plagiarism")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await other.GetAsync($"/api/exams/{exam}/plagiarism/matrix")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await other.PostAsJsonAsync($"/api/answers/{answerId}/override", new { finalMarks = 1, note = "x" })).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await other.PostAsync($"/api/exams/{exam}/grading/accept-ai", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await other.PostAsync($"/api/answers/{answerId}/regrade", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await student.GetAsync($"/api/exams/{exam}/plagiarism/matrix")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        // The owner and an admin may; an unknown exam is 404.
+        (await (await _host.AsTeacher()).GetAsync($"/api/exams/{exam}/results")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await (await _host.AsAdmin()).GetAsync($"/api/exams/{exam}/plagiarism/matrix")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await (await _host.AsTeacher()).GetAsync($"/api/exams/{Guid.NewGuid()}/results")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await _host.WithDbAsync(db => db.TeacherGradeOverrides.CountAsync())).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task M11_I_10_Matrix_MockExamIs400_AndQuestionFilterIsValidated()
+    {
+        var mock = await _host.CreateExamAsync(new[] { _host.Seed.StudentId }, extra: new Dictionary<string, object?> { ["isMock"] = true });
+        var teacher = await _host.AsTeacher();
+        (await teacher.GetAsync($"/api/exams/{mock}/plagiarism/matrix")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var examId = await _host.CreateExamAsync(new[] { _host.Seed.StudentId, _host.Seed.Student2Id }, questions: new[] { TestHost.CodingQuestion(), TestHost.TheoryQuestion() });
+        var qids = await _host.QuestionIdsAsync(examId);
+        await SubmitAnswerAsync(await _host.AsStudent(), examId, qids[1], "Stack is LIFO and queue is FIFO in every textbook.");
+        await SubmitAnswerAsync(await _host.AsStudent2(), examId, qids[1], "Stack is LIFO and queue is FIFO in every textbook.");
+
+        (await teacher.GetAsync($"/api/exams/{examId}/plagiarism/matrix?questionId={Guid.NewGuid()}")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var byTheory = await TestHost.DataAsync(await teacher.GetAsync($"/api/exams/{examId}/plagiarism/matrix?questionId={qids[1]}"));
+        byTheory.GetProperty("matrix")[0][1].GetDouble().Should().Be(100);
+        byTheory.GetProperty("questions").GetArrayLength().Should().Be(1);
+        var byCoding = await TestHost.DataAsync(await teacher.GetAsync($"/api/exams/{examId}/plagiarism/matrix?questionId={qids[0]}"));
+        byCoding.GetProperty("matrix")[0][1].GetDouble().Should().Be(0, "nobody answered the coding question");
+        byCoding.GetProperty("matrix")[1][1].GetDouble().Should().Be(100);
+    }
+
+    [Fact]
+    public async Task M11_I_11_AcceptAiSuggestions_CreatesOverrides_Audited()
+    {
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        (await TestHost.SaveAnswerAsync(student, sid, _host.Seed.Question1Id, "int main(){ return 0; }")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SaveAnswerAsync(student, sid, _host.Seed.Question2Id, "A stack is LIFO.")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+        await GradingOfAsync(_host.Seed.ExamId, sid, _host.Seed.Question1Id);
+
+        var teacher = await _host.AsTeacher();
+        var resp = await teacher.PostAsync($"/api/exams/{_host.Seed.ExamId}/grading/accept-ai", null);
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.JsonAsync(resp)).GetProperty("accepted").GetInt32().Should().Be(2);
+
+        var overrides = await _host.WithDbAsync(db => db.TeacherGradeOverrides.Include(o => o.Answer).ThenInclude(a => a.AiGradingResult).ToListAsync());
+        overrides.Should().HaveCount(2).And.OnlyContain(o => o.FinalMarks == o.Answer.AiGradingResult!.SuggestedMarks && o.Note == "Accepted AI suggestion");
+        (await _host.AuditLogsAsync("AI_SUGGESTIONS_ACCEPTED")).Should().ContainSingle();
+
+        // Answers that already have an override are left alone.
+        (await TestHost.JsonAsync(await teacher.PostAsync($"/api/exams/{_host.Seed.ExamId}/grading/accept-ai", null)))
+            .GetProperty("accepted").GetInt32().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task M11_I_12_Regrade_RequeuesAndGradesAgain_Audited()
+    {
+        var examId = await _host.CreateExamAsync(new[] { _host.Seed.StudentId },
+            questions: new[] { TestHost.CodingQuestion(20, ("1 2", "3", false)), TestHost.TheoryQuestion() });
+        var qids = await _host.QuestionIdsAsync(examId);
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, examId);
+        (await TestHost.SaveAnswerAsync(student, sid, qids[0], "int main(){ /* #fail */ }")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await GradingOfAsync(examId, sid, qids[0])).GetProperty("suggestedMarks").GetDouble().Should().Be(0);
+
+        var answerId = await _host.WithDbAsync(db => db.Answers.Where(a => a.SessionId == sid).Select(a => a.AnswerId).SingleAsync());
+        var teacher = await _host.AsTeacher();
+        var resp = await teacher.PostAsync($"/api/answers/{answerId}/regrade", null);
+        resp.StatusCode.Should().Be(HttpStatusCode.OK, await resp.Content.ReadAsStringAsync());
+        (await TestHost.JsonAsync(resp)).GetProperty("status").GetString().Should().Be("Pending");
+        (await _host.AuditLogsAsync("AI_REGRADE_REQUESTED")).Should().ContainSingle().Which.GetProperty("entityId").GetString().Should().Be(answerId.ToString());
+
+        var again = await GradingOfAsync(examId, sid, qids[0]);
+        again.GetProperty("status").GetString().Should().Be("Graded");
+        again.GetProperty("testCaseResults").GetArrayLength().Should().Be(1);
+        (await _host.WithDbAsync(db => db.AiGradingResults.Where(g => g.AnswerId == answerId).Select(g => g.QueueVersion).SingleAsync())).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task M11_I_13_Regrade_RefusesMcqAndRunningSessions()
+    {
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        (await TestHost.SaveAnswerAsync(student, sid, _host.Seed.Question2Id, "LIFO")).StatusCode.Should().Be(HttpStatusCode.OK);
+        var answerId = await _host.WithDbAsync(db => db.Answers.Where(a => a.SessionId == sid).Select(a => a.AnswerId).SingleAsync());
+        var teacher = await _host.AsTeacher();
+        (await teacher.PostAsync($"/api/answers/{answerId}/regrade", null)).StatusCode.Should().Be(HttpStatusCode.Conflict, "the session is still running");
+        (await teacher.PostAsync($"/api/answers/{Guid.NewGuid()}/regrade", null)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var mcqExam = await _host.CreateExamAsync(new[] { _host.Seed.StudentId }, questions: new object[]
+        {
+            new { type = "Mcq", bodyText = "Pick B", marks = 2, testCases = Array.Empty<object>(), options = new[] { "A", "B" }, correctOptionIndex = 1, referenceAnswer = (string?)null }
+        });
+        var mcqQ = (await _host.QuestionIdsAsync(mcqExam)).Single();
+        await SubmitAnswerAsync(student, mcqExam, mcqQ, "1");
+        var mcqAnswer = await _host.WithDbAsync(db => db.Answers.Where(a => a.QuestionId == mcqQ).Select(a => a.AnswerId).SingleAsync());
+        (await teacher.PostAsync($"/api/answers/{mcqAnswer}/regrade", null)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task M11_I_14_CompileError_ZeroHighConfidence_StudentSeesHiddenTallyOnly()
+    {
+        var examId = await _host.CreateExamAsync(new[] { _host.Seed.StudentId },
+            questions: new[] { TestHost.CodingQuestion(20, ("1 2", "3", false), ("2 2", "4", true), ("5 5", "10", true)) });
+        var qid = (await _host.QuestionIdsAsync(examId)).Single();
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, examId);
+        (await TestHost.SaveAnswerAsync(student, sid, qid, "int main(){ #compile-error }")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var grading = await GradingOfAsync(examId, sid, qid);
+        grading.GetProperty("suggestedMarks").GetDouble().Should().Be(0);
+        grading.GetProperty("confidence").GetString().Should().Be("High");
+        grading.GetProperty("justification").GetString().Should().Contain("Compilation failed");
+        grading.GetProperty("compileOutput").GetString().Should().Contain("error");
+        grading.GetProperty("engine").GetString().Should().Be(FakeCodeRunner.EngineName);
+        grading.GetProperty("testCaseResults").EnumerateArray().Should().OnlyContain(r => r.GetProperty("status").GetString() == "NotRun");
+        grading.GetProperty("analysis").ValueKind.Should().Be(JsonValueKind.Object);
+
+        (await (await _host.AsTeacher()).PostAsync($"/api/exams/{examId}/force-submit-all", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await (await student.GetAsync($"/api/student/exams/{examId}/result")).Content.ReadFromJsonAsync<JsonElement>();
+        var feedback = result.GetProperty("answers")[0].GetProperty("aiFeedback");
+        feedback.GetProperty("testCaseResults").GetArrayLength().Should().Be(1);
+        feedback.GetProperty("hiddenTotal").GetInt32().Should().Be(2);
+        feedback.GetProperty("hiddenPassed").GetInt32().Should().Be(0);
+        feedback.TryGetProperty("analysis", out _).Should().BeFalse("static-analysis flags are for staff");
+    }
+
+    [Fact]
+    public async Task M11_I_15_GradingCompleted_IsBroadcastToTheExamGroup()
+    {
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        (await TestHost.SaveAnswerAsync(student, sid, _host.Seed.Question1Id, "int main(){}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await TestHost.Eventually(() => Task.FromResult(_host.Hub.Named("GradingCompleted").Any()), TimeSpan.FromSeconds(15), "the worker announces the grade");
+        var msg = _host.Hub.Named("GradingCompleted").Single();
+        msg.Target.Should().Be($"exam:{_host.Seed.ExamId}");
+        msg.ArgsJson.Should().Contain(sid.ToString()).And.Contain("Graded");
+    }
+
+    [Fact]
+    public async Task M11_I_16_Worker_RequeuesPendingRowsOnStart()
+    {
+        // A row left Pending by a restart (the queue lives in memory) is graded when a worker starts.
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        (await TestHost.SaveAnswerAsync(student, sid, _host.Seed.Question1Id, "int main(){}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        var answerId = await _host.WithDbAsync(db => db.Answers.Where(a => a.SessionId == sid).Select(a => a.AnswerId).SingleAsync());
+        await _host.WithDbAsync(async db =>
+        {
+            db.AiGradingResults.Add(new AiGradingResult { AnswerId = answerId, Status = AiGradingResult.StatusPending, Confidence = "Low", Justification = "Queued" });
+            await db.SaveChangesAsync();
+        });
+
+        using var worker = ActivatorUtilities.CreateInstance<GradingWorker>(_host.Services);
+        await worker.StartAsync(CancellationToken.None);
+        try
+        {
+            await TestHost.Eventually(() => _host.WithDbAsync(db =>
+                db.AiGradingResults.AnyAsync(g => g.AnswerId == answerId && g.Status == AiGradingResult.StatusGraded)),
+                TimeSpan.FromSeconds(15), "the pending row is re-queued and graded");
+        }
+        finally
+        {
+            await worker.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task M11_I_17_Override_IsValidated_AndAudited()
+    {
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        (await TestHost.SaveAnswerAsync(student, sid, _host.Seed.Question2Id, "LIFO")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+        var answerId = await _host.WithDbAsync(db => db.Answers.Where(a => a.SessionId == sid).Select(a => a.AnswerId).SingleAsync());
+
+        var teacher = await _host.AsTeacher();
+        (await teacher.PostAsJsonAsync($"/api/answers/{answerId}/override", new { finalMarks = 11, note = "" })).StatusCode.Should().Be(HttpStatusCode.BadRequest, "Q2 is worth 10");
+        (await teacher.PostAsJsonAsync($"/api/answers/{answerId}/override", new { finalMarks = -1, note = "" })).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await teacher.PostAsJsonAsync($"/api/answers/{answerId}/override", new { finalMarks = 6.5, note = "Good" })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var log = (await _host.AuditLogsAsync("GRADE_OVERRIDDEN")).Should().ContainSingle().Subject;
+        log.GetProperty("entityId").GetString().Should().Be(answerId.ToString());
+        log.GetRawText().Should().Contain("6.5");
+    }
+
+    [Fact]
+    public async Task M11_I_18_TestCaseSettings_AreValidated_StoredAndHiddenFromStudents()
+    {
+        var teacher = await _host.AsTeacher();
+        async Task<HttpStatusCode> CreateWith(object tc, string? language = "cpp")
+        {
+            var payload = new Dictionary<string, object?>
+            {
+                ["title"] = "Settings exam", ["sectionId"] = _host.Seed.SectionId, ["startTime"] = DateTime.UtcNow.AddMinutes(-1),
+                ["durationMinutes"] = 60, ["allowedApps"] = "[]", ["studentIds"] = new[] { _host.Seed.StudentId },
+                ["questions"] = new object[]
+                {
+                    new { type = "Coding", bodyText = "Sum", marks = 10, testCases = new[] { tc }, language, options = (string[]?)null, correctOptionIndex = (int?)null }
+                }
+            };
+            return (await teacher.PostAsJsonAsync("/api/exams", payload)).StatusCode;
+        }
+
+        (await CreateWith(new { input = "1", expectedOutput = "1", isHidden = false, weight = 0 })).Should().Be(HttpStatusCode.BadRequest);
+        (await CreateWith(new { input = "1", expectedOutput = "1", isHidden = false, timeLimitMs = 50 })).Should().Be(HttpStatusCode.BadRequest);
+        (await CreateWith(new { input = "1", expectedOutput = "1", isHidden = false, floatTolerance = -0.1 })).Should().Be(HttpStatusCode.BadRequest);
+        (await CreateWith(new { input = "1", expectedOutput = "1", isHidden = false }, language: "java")).Should().Be(HttpStatusCode.BadRequest);
+
+        var examId = await _host.CreateExamAsync(new[] { _host.Seed.StudentId }, questions: new[]
+        {
+            CodingWith(
+                new { input = "1 2", expectedOutput = "3", isHidden = false, weight = 2, timeLimitMs = 1500, isEdgeCase = false, category = "basic", ignoreCase = true, floatTolerance = 0.01 },
+                new { input = "0 0", expectedOutput = "0", isHidden = true, weight = 1, isEdgeCase = true, category = "edge" })
+        });
+        var detail = await TestHost.JsonAsync(await teacher.GetAsync($"/api/exams/{examId}"));
+        var q = detail.GetProperty("questions")[0];
+        q.GetProperty("language").GetString().Should().Be("cpp");
+        var tcs = q.GetProperty("testCases");
+        tcs.GetArrayLength().Should().Be(2);
+        tcs[0].GetProperty("weight").GetDouble().Should().Be(2);
+        tcs[0].GetProperty("timeLimitMs").GetInt32().Should().Be(1500);
+        tcs[0].GetProperty("ignoreCase").GetBoolean().Should().BeTrue();
+        tcs[0].GetProperty("floatTolerance").GetDouble().Should().Be(0.01);
+        tcs[1].GetProperty("isEdgeCase").GetBoolean().Should().BeTrue();
+
+        var studentView = await TestHost.JsonAsync(await (await _host.AsStudent()).GetAsync($"/api/exams/{examId}"));
+        studentView.GetProperty("questions")[0].GetProperty("testCases").GetArrayLength().Should().Be(1, "hidden cases never reach students");
+    }
+
+    [Fact]
+    public async Task M11_I_19_WeightedCases_AndTheoryTfIdf_ThroughTheApi()
+    {
+        var examId = await _host.CreateExamAsync(new[] { _host.Seed.StudentId }, questions: new object[]
+        {
+            CodingWith(new { input = "1 2", expectedOutput = "3", isHidden = false, weight = 3 }, new { input = "2 2", expectedOutput = "4", isHidden = true, weight = 1 }),
+            TestHost.TheoryQuestion()
+        });
+        var qids = await _host.QuestionIdsAsync(examId);
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, examId);
+        (await TestHost.SaveAnswerAsync(student, sid, qids[0], "int main(){}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SaveAnswerAsync(student, sid, qids[1], "A stack is LIFO and a queue is FIFO.")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var coding = await GradingOfAsync(examId, sid, qids[0]);
+        coding.GetProperty("suggestedMarks").GetDouble().Should().Be(20);
+        coding.GetProperty("testCaseResults").EnumerateArray().Select(r => r.GetProperty("weight").GetDouble()).Should().Equal(3, 1);
+
+        var theory = await GradingOfAsync(examId, sid, qids[1]);
+        theory.GetProperty("engine").GetString().Should().Be(TheoryGrader.EngineTfIdf);
+        theory.GetProperty("suggestedMarks").GetDouble().Should().Be(10);
+        theory.GetProperty("justification").GetString().Should().Contain("Similarity to the model answer");
+    }
+
+    [Fact]
+    public async Task M11_I_20_RunnerNone_LeavesCodingForTheTeacher_WithoutQueueing()
+    {
+        using var host = new TestHost(b => b.UseSetting("Grading:Runner", "None"));
+        var student = await host.AsStudent();
+        var sid = await host.StartSessionAsync(student, host.Seed.ExamId);
+        (await TestHost.SaveAnswerAsync(student, sid, host.Seed.Question1Id, "int main(){}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var grading = await GradingOfAsync(host.Seed.ExamId, sid, host.Seed.Question1Id, host, waitGraded: false);
+        grading.GetProperty("status").GetString().Should().Be("Graded");
+        grading.GetProperty("confidence").GetString().Should().Be("Low");
+        grading.GetProperty("justification").GetString().Should().Contain("Not compiled").And.Contain("teacher review required");
+    }
+
+    [Fact]
+    public async Task M11_I_21_EngineFailure_EndsAsFailed_NotAsAFakeGrade()
+    {
+        using var host = new TestHost(b =>
+        {
+            b.UseSetting("Grading:Runner", "Docker");
+            b.UseSetting("Grading:Docker:Executable", "smartexam-no-such-docker");
+            b.UseSetting("Grading:MaxAttempts", "1");
+        });
+        var student = await host.AsStudent();
+        var sid = await host.StartSessionAsync(student, host.Seed.ExamId);
+        (await TestHost.SaveAnswerAsync(student, sid, host.Seed.Question1Id, "int main(){}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await TestHost.SubmitAsync(student, sid)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var grading = await GradingOfAsync(host.Seed.ExamId, sid, host.Seed.Question1Id, host);
+        grading.GetProperty("status").GetString().Should().Be("Failed");
+        grading.GetProperty("suggestedMarks").GetDouble().Should().Be(0);
+        grading.GetProperty("confidence").GetString().Should().Be("Low");
+        grading.GetProperty("justification").GetString().Should().Contain("Automatic grading failed").And.Contain("teacher review required");
+        grading.GetProperty("testCaseResults").EnumerateArray().Should().OnlyContain(r => r.GetProperty("status").GetString() == "NotRun");
     }
 }
