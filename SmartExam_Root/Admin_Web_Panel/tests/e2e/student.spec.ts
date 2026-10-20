@@ -38,9 +38,12 @@ test('Student Violations page shows empty state when no violations', async ({ pa
   await expect(page.getByRole('heading', { name: /academic integrity secured/i })).toBeVisible();
 });
 
-test('Student cannot access admin routes', async ({ page }) => {
+test('SEC-E-01 Role routing guard', async ({ page }) => {
   await page.goto('/admin/users');
   await expect(page).not.toHaveURL(/\/admin\/users/);
+  // The admin page itself never rendered for the student
+  await expect(page.getByText(/user management/i)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /add user/i })).toHaveCount(0);
 });
 
 test('Student top navbar has all navigation links', async ({ page }) => {

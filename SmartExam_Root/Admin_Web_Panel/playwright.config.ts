@@ -1,7 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Only reuse already-running servers when explicitly asked (PW_REUSE=1). By default Playwright
+// starts its own backend in E2E in-memory mode, so a test run can never hit a dev backend that
+// is wired to the real (Neon) database.
+const reuse = !!process.env.PW_REUSE;
+
 export default defineConfig({
-  testDir: './tests/e2e',
   timeout: 30_000,           // 30 seconds per test max
   retries: 1,                // Retry failed test once before marking as failed
   workers: 1,                // Run tests one at a time (avoids conflicts with shared state)
@@ -22,16 +26,41 @@ export default defineConfig({
 
   projects: [
     {
+      // Headless black-box HTTP tests (Playwright `request`, no browser)
+      name: 'api',
+      testDir: './tests/api',
+      use: { baseURL: 'http://localhost:5050' },
+    },
+    {
+      // Headless browser E2E (+ student desktop-client simulator over HTTP)
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      testDir: './tests/e2e',
+      use: { ...devices['Desktop Chrome'], headless: true },
     },
   ],
 
-  // Automatically start the dev server before tests run
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: true,  // Use already-running server if available
-    timeout: 30_000,
-  },
+  // Start the backend (in-memory, seeded, rate limit lifted) and the Vite dev server
+  webServer: [
+    {
+      command: 'dotnet run --project Backend_API.csproj --urls http://localhost:5050 --no-launch-profile',
+      // Run from Backend_API so relative paths (appsettings, Reports/) resolve as in normal runs
+      cwd: '../Backend_API',
+      url: 'http://localhost:5050/api/health',
+      reuseExistingServer: reuse,
+      timeout: 180_000,
+      stdout: 'ignore',
+      stderr: 'pipe',
+      env: {
+        ASPNETCORE_ENVIRONMENT: 'Development',
+        E2E__InMemory: 'true',
+        RateLimiting__LoginPermitLimit: '100000',
+      },
+    },
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: reuse,
+      timeout: 60_000,
+    },
+  ],
 });

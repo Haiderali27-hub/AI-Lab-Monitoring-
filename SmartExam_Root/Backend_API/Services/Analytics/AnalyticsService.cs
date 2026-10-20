@@ -88,7 +88,7 @@ public class AnalyticsService
         // Violation stats
         var violations = submittedSessions
             .SelectMany(s => s.MonitoringEvents)
-            .Where(e => e.EventType == Models.Enums.MonitoringEventType.Violation)
+            .Where(e => Backend_API.Services.ViolationClassifier.ViolationTypes.Contains(e.EventType))
             .ToList();
 
         return new ExamSummaryAnalytics
@@ -105,7 +105,7 @@ public class AnalyticsService
             QuestionStats = questionStats,
             TotalViolations = violations.Count,
             StudentsWithViolations = submittedSessions.Count(s =>
-                s.MonitoringEvents.Any(e => e.EventType == Models.Enums.MonitoringEventType.Violation))
+                s.MonitoringEvents.Any(e => Backend_API.Services.ViolationClassifier.ViolationTypes.Contains(e.EventType)))
         };
     }
 
@@ -138,7 +138,7 @@ public class AnalyticsService
 
         // Violation trend (last 30 days by day)
         var violationTrend = await _db.MonitoringEvents
-            .Where(e => e.EventType == Models.Enums.MonitoringEventType.Violation
+            .Where(e => Backend_API.Services.ViolationClassifier.ViolationTypes.Contains(e.EventType)
                      && e.RecordedAt >= thirtyDaysAgo)
             .GroupBy(e => e.RecordedAt.Date)
             .Select(g => new DayCount { Date = g.Key, Count = g.Count() })
@@ -152,7 +152,7 @@ public class AnalyticsService
             TotalExams = await _db.Exams.CountAsync(),
             TotalExamsLast30Days = await _db.Exams.CountAsync(e => e.StartTime >= thirtyDaysAgo),
             TotalViolationsLast30Days = await _db.MonitoringEvents.CountAsync(
-                e => e.EventType == Models.Enums.MonitoringEventType.Violation && e.RecordedAt >= thirtyDaysAgo),
+                e => Backend_API.Services.ViolationClassifier.ViolationTypes.Contains(e.EventType) && e.RecordedAt >= thirtyDaysAgo),
             ExamsByMonth = examsByMonth,
             TopCoursesByExamCount = topCourses.Select(x => new MonthCount { Label = x.CourseName, Count = x.ExamCount }).ToList(),
             ViolationTrendLast30Days = violationTrend

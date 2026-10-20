@@ -5,6 +5,7 @@ using Backend_API.DTOs;
 using Backend_API.Hubs;
 using Backend_API.Models;
 using Backend_API.Models.Enums;
+using Backend_API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -74,13 +75,18 @@ public class MonitoringController(
         var answeredCount = 0;
         var totalQuestions = 0;
         var violationCount = 0;
+        var violationTypes = new List<MonitoringEventType>();
         int? remainingSeconds = null;
 
         if (session is not null)
         {
             answeredCount = await _db.Answers.CountAsync(a => a.SessionId == session.SessionId);
             totalQuestions = await _db.Questions.CountAsync(q => q.ExamId == session.ExamId);
-            violationCount = await _db.MonitoringEvents.CountAsync(e => e.ExamSessionId == session.SessionId && e.EventType == MonitoringEventType.Violation);
+            violationTypes = await _db.MonitoringEvents
+                .Where(e => e.ExamSessionId == session.SessionId && ViolationClassifier.ViolationTypes.Contains(e.EventType))
+                .Select(e => e.EventType)
+                .ToListAsync();
+            violationCount = violationTypes.Count;
 
             // Authoritative remaining time — lets the client resync its countdown
             // (e.g. after the teacher grants a time extension).
@@ -96,7 +102,7 @@ public class MonitoringController(
             }
         }
 
-        var tileStatus = violationCount > 0 ? "Violation" : "Normal";
+        var tileStatus = ViolationClassifier.Classify(violationTypes);
 
         // Broadcast to the proctors watching THIS exam only (was Clients.All)
         if (session is not null)
@@ -112,6 +118,7 @@ public class MonitoringController(
                     windowsUsername = user?.DeviceBinding?.WindowsUsername,  // Windows account in use
                     sessionId = request.ExamSessionId,
                     activeWindow = request.ActiveWindowTitle ?? "Unknown",
+                    isForegroundExamApp = request.IsForegroundExamApp,
                     answeredCount,
                     totalQuestions,
                     violationCount,
@@ -128,11 +135,8 @@ public class MonitoringController(
         var studentId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
         var now = DateTime.UtcNow;
 
-        var eventType = MonitoringEventType.WindowFocus;
-        if (request.EventType == "Violation")
-        {
-            eventType = MonitoringEventType.Violation;
-        }
+        // "Violation" + payload.reason, or a specific type name ("ProcessKilled"), both accepted.
+        var eventType = ViolationClassifier.Resolve(request.EventType, request.PayloadJson);
 
         var hasSessionRef = request.ExamSessionId.HasValue && request.ExamSessionId.Value != Guid.Empty;
         if (hasSessionRef)
@@ -155,7 +159,7 @@ public class MonitoringController(
             });
             await _db.SaveChangesAsync();
 
-            if (eventType == MonitoringEventType.Violation)
+            if (ViolationClassifier.IsViolation(eventType))
             {
                 // Scoped to the proctors watching this exam (was Clients.All)
                 await _hubContext.Clients.Group($"exam:{session.ExamId}").SendAsync(
@@ -164,6 +168,7 @@ public class MonitoringController(
                     {
                         userId = studentId,
                         eventType = request.EventType,
+                        violationType = eventType.ToString(),
                         payload = request.PayloadJson
                     });
             }

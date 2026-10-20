@@ -56,6 +56,8 @@ export default function CreateExamPage() {
   const [allowedApps, setAllowedApps] = useState('');
   const [aiEvaluationEnabled, setAiEvaluationEnabled] = useState(true);
   const [plagiarismThreshold, setPlagiarismThreshold] = useState(70);
+  const [lockdownMode, setLockdownMode] = useState<'Off' | 'Report' | 'Enforce'>('Report');
+  const [blockMultiMonitor, setBlockMultiMonitor] = useState(true);
 
   const [assignedStudentIds, setAssignedStudentIds] = useState<string[]>([]);
   // In edit mode, the prefetched assignment list must survive the section-students reload
@@ -91,6 +93,8 @@ export default function CreateExamPage() {
         } catch { setAllowedApps(''); }
         setAiEvaluationEnabled(exam.aiEvaluationEnabled ?? true);
         setPlagiarismThreshold(exam.plagiarismThreshold ?? 70);
+        setLockdownMode(exam.lockdownMode ?? 'Report');
+        setBlockMultiMonitor(exam.blockMultiMonitor ?? true);
         const qs = [...(exam.questions ?? [])].sort((a: any, b: any) => a.orderIndex - b.orderIndex);
         setQuestions(qs.map((q: any) => ({
           type: q.type as QuestionType,
@@ -338,6 +342,8 @@ export default function CreateExamPage() {
       allowedApps: JSON.stringify(appsList),
       aiEvaluationEnabled,
       plagiarismThreshold,
+      lockdownMode,
+      blockMultiMonitor,
       questions: questions.map(q => ({
         type: q.type,
         bodyText: q.bodyText,
@@ -811,14 +817,47 @@ export default function CreateExamPage() {
                     placeholder="e.g. code.exe, codeblocks.exe, chrome.exe"
                   />
                   <p className="text-xs text-slate-400 mt-1">
-                    Enter the executable file names that students are permitted to open. Leave empty to allow any software.
+                    Executable names students may use besides the exam app. Leave empty to allow only the exam app.
                   </p>
                 </div>
+
+                <div>
+                  <label htmlFor="lockdown-mode" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    LOCKDOWN MODE
+                  </label>
+                  <select
+                    id="lockdown-mode"
+                    value={lockdownMode}
+                    onChange={e => setLockdownMode(e.target.value as 'Off' | 'Report' | 'Enforce')}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-slate-800 bg-white"
+                  >
+                    <option value="Report">Report — lock keys &amp; window, report other apps</option>
+                    <option value="Enforce">Enforce — also close unauthorized apps (lab PCs)</option>
+                    <option value="Off">Off — no lockdown (practice only)</option>
+                  </select>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Enforce closes other programs without saving — use it only on lab workstations.
+                  </p>
+                </div>
+
+                <label htmlFor="block-multi-monitor" className="flex items-start justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                  <div className="space-y-1">
+                    <span className="font-semibold text-sm text-slate-800 block">Flag multiple monitors</span>
+                    <span className="text-xs text-slate-500">Report students who have a second screen attached.</span>
+                  </div>
+                  <input
+                    id="block-multi-monitor"
+                    type="checkbox"
+                    checked={blockMultiMonitor}
+                    onChange={e => setBlockMultiMonitor(e.target.checked)}
+                    className="mt-1"
+                  />
+                </label>
 
                 <div className="flex items-start justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl">
                   <div className="space-y-1">
                     <span className="font-semibold text-sm text-slate-800 block">Enable AI Evaluation</span>
-                    <span className="text-xs text-slate-500">Automatically grade submissions using LLMs based on Rubric instructions.</span>
+                    <span className="text-xs text-slate-500">Suggest grades automatically: MCQ exactly; coding/theory as low-confidence suggestions for your review.</span>
                   </div>
                   <input 
                     type="checkbox"

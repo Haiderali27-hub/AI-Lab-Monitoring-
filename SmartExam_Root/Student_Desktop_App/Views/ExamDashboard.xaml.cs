@@ -133,12 +133,13 @@ public partial class ExamDashboard : Window
         var token = SessionStore.CurrentToken;
         if (token is not null)
         {
-            _monitoringService.Start(token.AccessToken, _viewModel.ExamSessionId);
+            _monitoringService.Start(token.AccessToken, _viewModel.ExamSessionId, _viewModel.AllowedAppNames);
 
             // Open the exam-taking window with the real questions.
             if (_viewModel.CurrentExamId is Guid examId && _viewModel.ExamSessionId is Guid sessionId)
             {
-                var examWindow = new ExamWindow(_apiClient, token.AccessToken, examId, sessionId, _viewModel.RemainingSecondsSnapshot)
+                var examWindow = new ExamWindow(_apiClient, token.AccessToken, examId, sessionId, _viewModel.RemainingSecondsSnapshot, _viewModel.AllowedAppNames,
+                    _viewModel.ExamLockdownMode, _viewModel.ExamBlockMultiMonitor)
                 {
                     Owner = this
                 };

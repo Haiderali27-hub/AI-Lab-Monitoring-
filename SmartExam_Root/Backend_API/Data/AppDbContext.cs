@@ -64,6 +64,7 @@ public class AppDbContext : DbContext
         // Enum conversions — store as strings in DB (readable, not magic numbers)
         modelBuilder.Entity<User>().Property(u => u.Role).HasConversion<string>();
         modelBuilder.Entity<Exam>().Property(e => e.Status).HasConversion<string>();
+        modelBuilder.Entity<Exam>().Property(e => e.LockdownMode).HasConversion<string>().HasMaxLength(16);
         modelBuilder.Entity<ExamSession>().Property(s => s.Status).HasConversion<string>();
         modelBuilder.Entity<Question>().Property(q => q.Type).HasConversion<string>();
         modelBuilder.Entity<MonitoringEvent>().Property(m => m.EventType).HasConversion<string>();

@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:api": "playwright test --project=api",
+    "test:e2e": "playwright test --project=chromium",
+    "test:all": "playwright test",
+    "test:report": "playwright show-report"
   },
   "dependencies": {
     "@microsoft/signalr": "^10.0.0",

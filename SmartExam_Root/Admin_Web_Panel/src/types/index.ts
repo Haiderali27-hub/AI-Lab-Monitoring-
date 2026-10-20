@@ -123,8 +123,11 @@ export interface StudentLiveStatus {
   answeredCount: number;
   totalQuestions: number;
   violationCount: number;
-  tileStatus: 'Normal' | 'Warning' | 'Violation';
+  tileStatus: TileStatus;
+  lastViolation?: string | null;    // human label of the most recent violation, e.g. "Blocked keys: Alt+Tab"
 }
+
+export type TileStatus = 'Normal' | 'Warning' | 'Suspicious' | 'Violation';
 
 // ── Results ────────────────────────────────────────────────────
 export interface AnswerResult {

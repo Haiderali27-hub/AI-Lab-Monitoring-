@@ -1,0 +1,17 @@
+{
+  // Type-check only for the Playwright suites (Playwright transpiles them itself).
+  // Not referenced by the app's `tsc -b`, so test code never affects the production build.
+  // Run: npx tsc -p tests
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "noUnusedLocals": true
+  },
+  "include": ["**/*.ts", "../playwright.config.ts"]
+}

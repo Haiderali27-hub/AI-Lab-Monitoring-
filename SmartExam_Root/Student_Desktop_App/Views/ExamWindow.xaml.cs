@@ -2,7 +2,9 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
+using Student_Desktop_App.Core;
 using Student_Desktop_App.Services;
+using Student_Desktop_App.Services.Lockdown;
 using Student_Desktop_App.ViewModels;
 
 namespace Student_Desktop_App.Views;
@@ -10,6 +12,7 @@ namespace Student_Desktop_App.Views;
 public partial class ExamWindow : Window
 {
     private readonly ExamSessionViewModel _viewModel;
+    private readonly LockdownCoordinator _lockdown;
     private readonly Guid _examId;
     private ExamQuestionItem? _current;
     private bool _submitted;
@@ -17,10 +20,16 @@ public partial class ExamWindow : Window
 
     public bool Submitted => _submitted;
 
-    public ExamWindow(ApiClient apiClient, string accessToken, Guid examId, Guid sessionId, int remainingSeconds)
+    public ExamWindow(ApiClient apiClient, string accessToken, Guid examId, Guid sessionId, int remainingSeconds,
+        IEnumerable<string> allowedApps, string? examLockdownMode = null, bool? examBlockMultiMonitor = null)
     {
         InitializeComponent();
         _examId = examId;
+        // The exam's server-side settings win; the local config only applies when the server sends none.
+        var config = AppConfigProvider.Current;
+        _lockdown = new LockdownCoordinator(apiClient, accessToken, sessionId,
+            AppConfigProvider.ParseLockdownMode(examLockdownMode ?? config.LockdownMode), allowedApps,
+            examBlockMultiMonitor ?? config.BlockMultiMonitor);
         _viewModel = new ExamSessionViewModel(apiClient, accessToken, sessionId, remainingSeconds);
         _viewModel.TimeExpired += () => Dispatcher.Invoke(async () => await AutoSubmitOnExpiry());
         DataContext = _viewModel;
@@ -28,12 +37,14 @@ public partial class ExamWindow : Window
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed)
+        // The exam window is pinned fullscreen while locked down.
+        if (!_lockdown.IsActive && e.LeftButton == System.Windows.Input.MouseButtonState.Pressed)
             DragMove();
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        _lockdown.Start(this);
         await _viewModel.LoadAsync(_examId);
         if (_viewModel.Questions.Count > 0)
         {
@@ -126,7 +137,7 @@ public partial class ExamWindow : Window
         var prompt = unanswered > 0
             ? $"You have {unanswered} unanswered question(s). Submit anyway? You cannot change answers after submitting."
             : "Submit your exam? You cannot change answers after submitting.";
-        if (MessageBox.Show(prompt, "Submit Exam", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (MessageBox.Show(this, prompt, "Submit Exam", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
         await DoSubmit(auto: false);
@@ -134,7 +145,7 @@ public partial class ExamWindow : Window
 
     private async Task AutoSubmitOnExpiry()
     {
-        MessageBox.Show("Time is up. Your exam is being submitted automatically.", "Time Expired", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show(this, "Time is up. Your exam is being submitted automatically.", "Time Expired", MessageBoxButton.OK, MessageBoxImage.Information);
         await DoSubmit(auto: true);
     }
 
@@ -148,17 +159,26 @@ public partial class ExamWindow : Window
         if (!ok && !auto)
         {
             SubmitButton.IsEnabled = true;
-            MessageBox.Show($"Could not submit: {message}", "Submit Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, $"Could not submit: {message}", "Submit Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         _submitted = true;
-        MessageBox.Show("Your exam has been submitted successfully.", "Submitted", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show(this, "Your exam has been submitted successfully.", "Submitted", MessageBoxButton.OK, MessageBoxImage.Information);
         Close();
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
+        // Alt+F4 is swallowed by the hook; this also refuses any other close attempt until the
+        // exam is submitted (manually, on time expiry, or by the proctor via force-submit).
+        if (_lockdown.IsActive && !_submitted)
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        _lockdown.Dispose();
         _viewModel.Stop();
     }
 }

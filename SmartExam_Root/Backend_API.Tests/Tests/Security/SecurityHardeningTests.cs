@@ -132,6 +132,66 @@ public class SecurityHardeningTests : IDisposable
         grading.Should().OnlyContain(g => g.Confidence == "Low" && g.Justification.Contains("teacher review"));
     }
 
+    // ── Exam detail must not leak credentials or other exams (SEC-A-06) ───────
+
+    [Fact]
+    public async Task GetExamById_AsTeacher_NeverIncludesPasswordHashOrSalt()
+    {
+        await AuthHelper.AuthorizeAs(_client, SeededData.TeacherEmail, SeededData.TeacherPassword);
+        var resp = await _client.GetAsync($"/api/exams/{_seed.ExamId}");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var json = await resp.Content.ReadAsStringAsync();
+        json.Should().NotContainEquivalentOf("passwordHash").And.NotContainEquivalentOf("\"salt\"");
+        // The edit page still needs the assigned student ids.
+        var body = JsonDocument.Parse(json).RootElement;
+        body.GetProperty("assignments").EnumerateArray().Should().NotBeEmpty();
+        body.GetProperty("assignments")[0].TryGetProperty("userId", out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetExamById_AsStudentNotAssigned_Returns404()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var student2 = await db.Users.SingleAsync(u => u.Email == SeededData.Student2Email);
+            db.ExamAssignments.RemoveRange(db.ExamAssignments.Where(a => a.UserId == student2.UserId));
+            await db.SaveChangesAsync();
+        }
+
+        await AuthHelper.AuthorizeAs(_client, SeededData.Student2Email, SeededData.Student2Password, SeededData.TestHwid2);
+        (await _client.GetAsync($"/api/exams/{_seed.ExamId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetExamById_AsAssignedStudent_HidesAnswerKeyAndAssignments()
+    {
+        await AuthHelper.AuthorizeAs(_client, SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid);
+        var body = await (await _client.GetAsync($"/api/exams/{_seed.ExamId}")).Content.ReadFromJsonAsync<JsonElement>();
+
+        body.GetProperty("assignments").GetArrayLength().Should().Be(0);
+        foreach (var q in body.GetProperty("questions").EnumerateArray())
+        {
+            q.GetProperty("correctOptionIndex").ValueKind.Should().Be(JsonValueKind.Null);
+            q.GetProperty("referenceAnswer").ValueKind.Should().Be(JsonValueKind.Null);
+            q.GetProperty("testCases").EnumerateArray().Where(tc => tc.GetProperty("isHidden").GetBoolean()).Should().BeEmpty();
+        }
+    }
+
+    // ── Desktop start path activates the exam (live monitor bug) ──────────────
+
+    [Fact]
+    public async Task StudentStart_FromDesktopClient_ActivatesScheduledExam()
+    {
+        await AuthHelper.AuthorizeAs(_client, SeededData.StudentEmail, SeededData.StudentPassword, SeededData.TestHwid);
+        (await _client.PostAsync("/api/exams/student/start", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await db.Exams.SingleAsync(e => e.ExamId == _seed.ExamId)).Status.Should().Be(Backend_API.Models.Enums.ExamStatus.Active);
+    }
+
     // ── Production defaults ───────────────────────────────────────────────────
 
     [Fact]

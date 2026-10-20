@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using Student_Desktop_App.Core;
+using Student_Desktop_App.Core.Lockdown;
 using Student_Desktop_App.Services;
 using Timer = System.Timers.Timer;
 
@@ -14,6 +15,7 @@ public class LiveMonitoringService(ApiClient apiClient)
     private Timer? _timer;
     private string? _accessToken;
     private Guid? _examSessionId;
+    private LockdownPolicy _focusPolicy = new(LockdownMode.Report, null, Process.GetCurrentProcess().ProcessName);
     private bool _wasForegroundExamApp = true;          // transition tracking for focus-loss violations
     private DateTime _lastViolationSentUtc = DateTime.MinValue;
     private static readonly TimeSpan ViolationCooldown = TimeSpan.FromSeconds(30);
@@ -22,10 +24,11 @@ public class LiveMonitoringService(ApiClient apiClient)
     public event Action<int>? RemainingSecondsUpdated;  // authoritative clock from the server ack
     public event Action? SessionRevoked;                // server force-logout / deactivation
 
-    public void Start(string accessToken, Guid? examSessionId)
+    public void Start(string accessToken, Guid? examSessionId, IEnumerable<string>? allowedApps = null)
     {
         _accessToken = accessToken;
         _examSessionId = examSessionId;
+        _focusPolicy = new LockdownPolicy(LockdownMode.Report, allowedApps, Process.GetCurrentProcess().ProcessName);
 
         if (_timer is null)
         {
@@ -64,8 +67,10 @@ public class LiveMonitoringService(ApiClient apiClient)
         try
         {
             var activeWindowTitle = GetActiveWindowTitle();
-            var isForegroundExamApp = activeWindowTitle.Contains("Exam", StringComparison.OrdinalIgnoreCase) ||
-                                      activeWindowTitle.Contains("Smart", StringComparison.OrdinalIgnoreCase);
+            // Decided by the owning process ID — a window merely titled "Exam" doesn't count.
+            var foregroundPid = GetForegroundProcessId();
+            var isForegroundExamApp = _focusPolicy.IsForegroundAcceptable(
+                foregroundPid, Environment.ProcessId, ProcessNameOf(foregroundPid));
 
             var processSnapshot = GetProcessSnapshot();
             var payload = new HeartbeatPayload(_examSessionId, isForegroundExamApp, activeWindowTitle, processSnapshot);
@@ -120,11 +125,12 @@ public class LiveMonitoringService(ApiClient apiClient)
     {
         try
         {
+            // Apps with a visible window — what a proctor actually cares about (was: first 12 names).
             var processNames = Process.GetProcesses()
-                .Where(x => !string.IsNullOrWhiteSpace(x.ProcessName))
-                .OrderBy(x => x.ProcessName)
-                .Take(12)
+                .Where(x => x.MainWindowHandle != IntPtr.Zero && !string.IsNullOrWhiteSpace(x.ProcessName))
                 .Select(x => x.ProcessName)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x)
                 .ToArray();
 
             return string.Join(',', processNames);
@@ -148,8 +154,33 @@ public class LiveMonitoringService(ApiClient apiClient)
         return builder.ToString();
     }
 
+    private static int GetForegroundProcessId()
+    {
+        var hwnd = GetForegroundWindow();
+        if (hwnd == IntPtr.Zero) return 0;
+        _ = GetWindowThreadProcessId(hwnd, out var pid);
+        return (int)pid;
+    }
+
+    private static string? ProcessNameOf(int pid)
+    {
+        if (pid == 0) return null;
+        try
+        {
+            using var p = Process.GetProcessById(pid);
+            return p.ProcessName;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);

@@ -40,7 +40,7 @@ public class StudentPortalController : ControllerBase
             double earned = s.Answers.Sum(a =>
                 a.TeacherGradeOverride?.FinalMarks ?? a.AiGradingResult?.SuggestedMarks ?? 0);
             double pct = total > 0 ? Math.Round((earned / total) * 100, 1) : 0;
-            int violations = s.MonitoringEvents.Count(e => e.EventType == Models.Enums.MonitoringEventType.Violation);
+            int violations = s.MonitoringEvents.Count(e => Backend_API.Services.ViolationClassifier.ViolationTypes.Contains(e.EventType));
 
             return new
             {
@@ -176,7 +176,7 @@ public class StudentPortalController : ControllerBase
 
         var violations = await _db.MonitoringEvents
             .Where(e => e.ExamSession.UserId == studentId
-                     && e.EventType == Models.Enums.MonitoringEventType.Violation)
+                     && Backend_API.Services.ViolationClassifier.ViolationTypes.Contains(e.EventType))
             .Include(e => e.ExamSession).ThenInclude(s => s.Exam)
             .OrderByDescending(e => e.RecordedAt)
             .Select(e => new

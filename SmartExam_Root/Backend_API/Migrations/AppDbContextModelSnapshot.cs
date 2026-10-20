@@ -238,6 +238,9 @@ namespace Backend_API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("BlockMultiMonitor")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -246,6 +249,11 @@ namespace Backend_API.Migrations
 
                     b.Property<string>("Instructions")
                         .HasColumnType("text");
+
+                    b.Property<string>("LockdownMode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<int>("PlagiarismThreshold")
                         .HasColumnType("integer");

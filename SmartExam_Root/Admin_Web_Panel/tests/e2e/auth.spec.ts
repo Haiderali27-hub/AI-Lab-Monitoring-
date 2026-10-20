@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { loginAs, ADMIN, TEACHER, STUDENT } from './helpers';
 import { LoginPage } from './pages/LoginPage';
 
-test('Admin login redirects to admin dashboard', async ({ page }) => {
+test('M1-E-01 Login page — valid admin lands on /admin/dashboard', async ({ page }) => {
   await loginAs(page, ADMIN.email, ADMIN.password);
   await expect(page).toHaveURL(/\/admin\/dashboard/);
   await expect(page.getByText(/overview/i)).toBeVisible();
@@ -18,7 +18,7 @@ test('Student login redirects to student portal', async ({ page }) => {
   await expect(page).toHaveURL(/\/student\/dashboard/);
 });
 
-test('Wrong password shows error message', async ({ page }) => {
+test('M1-E-02 Login page — invalid creds shows error and stays on /login', async ({ page }) => {
   const loginPage = new LoginPage(page);
   await loginPage.loginAs(ADMIN.email, 'WrongPassword123!');
   await expect(page.getByText(/invalid email or password/i)).toBeVisible();

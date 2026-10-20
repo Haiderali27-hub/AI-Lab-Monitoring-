@@ -87,19 +87,61 @@ public class ExamsController : ControllerBase
 
         if (exam is null) return NotFound();
 
-        // Students only see non-hidden test cases and never the answer key
+        // Students: only exams they are assigned to, only visible test cases, never the answer key.
         var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-        if (role == "Student")
-        {
-            foreach (var q in exam.Questions)
-            {
-                q.TestCases = q.TestCases.Where(tc => !tc.IsHidden).ToList();
-                q.CorrectOptionIndex = null;   // MCQ answer key
-                q.ReferenceAnswer = null;      // reference solution
-            }
-        }
+        var isStudent = role == "Student";
+        if (isStudent && exam.Assignments.All(a => a.UserId != CurrentUserId))
+            return NotFound();
 
-        return Ok(exam);
+        // Explicit projection — the raw EF graph included every assigned student's PasswordHash/Salt.
+        return Ok(new
+        {
+            exam.ExamId,
+            exam.Title,
+            exam.Instructions,
+            exam.SectionId,
+            exam.StartTime,
+            exam.DurationMinutes,
+            exam.AllowedApps,
+            exam.AiEvaluationEnabled,
+            exam.PlagiarismThreshold,
+            exam.LockdownMode,
+            exam.BlockMultiMonitor,
+            exam.Status,
+            exam.CreatedAt,
+            Section = exam.Section is null ? null : new
+            {
+                exam.Section.SectionId,
+                exam.Section.Name,
+                Course = exam.Section.Course is null ? null : new { exam.Section.Course.CourseId, exam.Section.Course.Name, exam.Section.Course.Code }
+            },
+            Questions = exam.Questions.OrderBy(q => q.OrderIndex).Select(q => new
+            {
+                q.QuestionId,
+                q.ExamId,
+                q.Type,
+                q.BodyText,
+                q.Marks,
+                q.OrderIndex,
+                q.OptionsJson,
+                ExpectedOutput = isStudent ? null : q.ExpectedOutput,
+                CorrectOptionIndex = isStudent ? null : q.CorrectOptionIndex,
+                ReferenceAnswer = isStudent ? null : q.ReferenceAnswer,
+                TestCases = q.TestCases.Where(tc => !isStudent || !tc.IsHidden)
+                    .Select(tc => new { tc.TestCaseId, tc.QuestionId, tc.Input, tc.ExpectedOutput, tc.IsHidden })
+            }),
+            Assignments = isStudent
+                ? []
+                : exam.Assignments.Select(a => (object)new
+                {
+                    a.AssignmentId,
+                    a.UserId,
+                    a.WorkstationId,
+                    a.IsEligible,
+                    a.EligibilityNote,
+                    Student = a.Student is null ? null : new { a.Student.UserId, a.Student.Name, a.Student.Email }
+                }).ToList()
+        });
     }
 
     // POST /api/exams  - Create Exam
@@ -120,6 +162,8 @@ public class ExamsController : ControllerBase
             AllowedApps = req.AllowedApps,
             AiEvaluationEnabled = req.AiEvaluationEnabled,
             PlagiarismThreshold = req.PlagiarismThreshold,
+            LockdownMode = req.LockdownMode,
+            BlockMultiMonitor = req.BlockMultiMonitor,
             Status = ExamStatus.Scheduled,
             CreatedAt = DateTime.UtcNow
         };
@@ -166,6 +210,8 @@ public class ExamsController : ControllerBase
         exam.AllowedApps = req.AllowedApps;
         exam.AiEvaluationEnabled = req.AiEvaluationEnabled;
         exam.PlagiarismThreshold = req.PlagiarismThreshold;
+        exam.LockdownMode = req.LockdownMode;
+        exam.BlockMultiMonitor = req.BlockMultiMonitor;
 
         // Replace questions (safe: Scheduled exams have no sessions/answers yet).
         // Materialize first — RemoveRange triggers EF fixup that mutates the live nav collections mid-iteration.
@@ -845,7 +891,9 @@ public class ExamsController : ControllerBase
             assignment.Workstation?.Lab?.Name ?? "Unassigned",
             assignment.Exam.Section?.Teacher?.Name ?? "Not assigned",
             assignment.Workstation?.MachineNumber ?? "Unassigned",
-            assignment.Exam.AllowedApps
+            assignment.Exam.AllowedApps,
+            assignment.Exam.LockdownMode.ToString(),
+            assignment.Exam.BlockMultiMonitor
         );
 
         return Ok(new ApiEnvelope<StudentExamStatus>(true, "SUCCESS", "Success", response));
@@ -893,6 +941,11 @@ public class ExamsController : ControllerBase
             return Ok(new ApiEnvelope<StartExamResult>(true, "SUCCESS", "Success", res));
         }
 
+        // Activate the exam on the first student start (as start-session does) so it
+        // appears on the proctor's live monitor.
+        if (assignment.Exam.Status == ExamStatus.Scheduled)
+            assignment.Exam.Status = ExamStatus.Active;
+
         var session = new ExamSession
         {
             SessionId = Guid.NewGuid(),
@@ -921,6 +974,8 @@ public class CreateExamDto
     public string AllowedApps { get; set; } = "[]";
     public bool AiEvaluationEnabled { get; set; } = true;
     public int PlagiarismThreshold { get; set; } = 70;
+    public LockdownMode LockdownMode { get; set; } = LockdownMode.Report;
+    public bool BlockMultiMonitor { get; set; } = true;
     public List<CreateQuestionDto> Questions { get; set; } = new();
     public List<Guid> StudentIds { get; set; } = new();
 }

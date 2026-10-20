@@ -14,6 +14,8 @@ public class Exam
     public string AllowedApps { get; set; } = "[]";  // JSON array of exe names e.g. ["code.exe","codeblocks.exe"]
     public bool AiEvaluationEnabled { get; set; } = true;
     public int PlagiarismThreshold { get; set; } = 70;  // percentage
+    public LockdownMode LockdownMode { get; set; } = LockdownMode.Report;
+    public bool BlockMultiMonitor { get; set; } = true;
     public ExamStatus Status { get; set; } = ExamStatus.Scheduled;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

@@ -11,6 +11,8 @@
     <PackageReference Include="MailKit" Version="4.7.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.1" />
+    <!-- In-memory provider for the Playwright E2E mode (E2E:InMemory=true) -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
     <PackageReference Include="NodaTime" Version="3.1.11" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.3" />
     

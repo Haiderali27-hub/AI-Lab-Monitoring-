@@ -4,7 +4,8 @@ import * as signalR from '@microsoft/signalr';
 import { useAuth } from '../../context/AuthContext';
 import { examsApi } from '../../api/exams.api';
 import { SIGNALR_HUB_URL } from '../../utils/constants';
-import type { Exam, StudentLiveStatus } from '../../types';
+import type { Exam, StudentLiveStatus, TileStatus } from '../../types';
+import { severityOf, violationLabel, worseStatus } from '../../utils/violations';
 
 interface TimelineEvent {
   title: string;
@@ -89,17 +90,22 @@ export default function LiveMonitorPage() {
         answeredCount: data.answeredCount ?? 0,
         totalQuestions: data.totalQuestions ?? activeExam.questionCount,
         violationCount: data.violationCount ?? 0,
-        tileStatus: data.tileStatus || 'Normal'
+        tileStatus: (data.tileStatus || 'Normal') as TileStatus
       };
 
       setStudentStatuses(prev => {
         const next = new Map(prev);
-        next.set(data.userId, updatedStatus);
+        // Keep the last violation label across heartbeats (heartbeats don't carry it).
+        next.set(data.userId, { ...updatedStatus, lastViolation: prev.get(data.userId)?.lastViolation ?? null });
         return next;
       });
 
-      // Append active window switch event to timeline if it is not blank
-      if (data.activeWindow && data.activeWindow !== 'Exam Browser') {
+      // Log a focus change only when the client says the exam (or an allowed app) is NOT in front.
+      // Older clients don't send the flag — fall back to the previous title heuristic.
+      const lostFocus = data.isForegroundExamApp === undefined
+        ? data.activeWindow && data.activeWindow !== 'Exam Browser'
+        : data.isForegroundExamApp === false;
+      if (lostFocus) {
         const timeStr = new Date().toLocaleTimeString();
         setTimelines(prev => {
           const next = new Map(prev);
@@ -123,7 +129,10 @@ export default function LiveMonitorPage() {
 
     connection.on('ViolationEvent', (data: any) => {
       const timeStr = new Date().toLocaleTimeString();
-      
+      const label = violationLabel(data.violationType, data.payload);
+
+      // Show the new severity immediately; the next heartbeat brings the server's
+      // authoritative status (which also escalates repeated offences).
       setStudentStatuses(prev => {
         const next = new Map(prev);
         const existing = next.get(data.userId);
@@ -131,7 +140,8 @@ export default function LiveMonitorPage() {
           next.set(data.userId, {
             ...existing,
             violationCount: existing.violationCount + 1,
-            tileStatus: 'Violation'
+            tileStatus: worseStatus(existing.tileStatus, severityOf(data.violationType)),
+            lastViolation: label
           });
         }
         return next;
@@ -142,7 +152,7 @@ export default function LiveMonitorPage() {
         const currentTimeline = next.get(data.userId) || [];
         next.set(data.userId, [
           {
-            title: data.eventType || 'Security Violation',
+            title: label,
             timestamp: timeStr,
             description: data.payload || 'Unauthorized activity detected.',
             isAlert: true
@@ -443,10 +453,14 @@ export default function LiveMonitorPage() {
                 let statusText = 'Stable';
 
                 if (s.tileStatus === 'Warning') {
-                  statusColor = 'border-orange-400 ring-orange-100';
-                  heartColor = 'text-orange-400';
+                  statusColor = 'border-amber-300 ring-amber-50';
+                  heartColor = 'text-amber-500';
+                  statusText = 'Warning';
+                } else if (s.tileStatus === 'Suspicious') {
+                  statusColor = 'border-orange-500 ring-orange-100';
+                  heartColor = 'text-orange-500';
                   statusText = 'Suspicious';
-                } else if (s.tileStatus === 'Violation' || s.violationCount > 0) {
+                } else if (s.tileStatus === 'Violation') {
                   statusColor = 'border-red-500 ring-red-100';
                   heartColor = 'text-red-500';
                   statusText = 'Critical';
@@ -455,6 +469,7 @@ export default function LiveMonitorPage() {
                 return (
                   <div 
                     key={s.userId}
+                    data-testid="student-tile"
                     onClick={() => setSelectedStudentId(isSelected ? null : s.userId)}
                     className={`bg-white border-2 rounded-xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden ring-4 ${statusColor} ${isSelected ? 'ring-primary-500/20 border-primary-500' : ''}`}
                   >
@@ -474,9 +489,15 @@ export default function LiveMonitorPage() {
                       </div>
                       <div className="flex flex-col items-end">
                         <span className={`material-symbols-outlined ${heartColor}`} style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
-                        <span className={`text-[8px] font-bold uppercase tracking-wider mt-0.5 ${heartColor}`}>{statusText}</span>
+                        <span data-testid="tile-status" className={`text-[8px] font-bold uppercase tracking-wider mt-0.5 ${heartColor}`}>{statusText}</span>
                       </div>
                     </div>
+
+                    {s.lastViolation && (
+                      <p data-testid="tile-last-violation" className={`text-[10px] font-semibold mb-2 truncate ${heartColor}`} title={s.lastViolation}>
+                        {s.lastViolation}
+                      </p>
+                    )}
 
                     <div className="bg-slate-50 rounded-lg p-2.5 mb-3 text-xs space-y-1.5">
                       <div className="flex items-center gap-1.5 text-slate-600">
@@ -513,7 +534,7 @@ export default function LiveMonitorPage() {
 
       {/* Side Detail Drawer (Michael Chen details mockup transformed to dynamic state) */}
       {selectedStudent && (
-        <aside className="fixed right-0 top-[56px] bottom-0 w-[320px] bg-white border-l border-slate-200 shadow-2xl flex flex-col z-50 animate-in slide-in-from-right duration-200">
+        <aside data-testid="student-drawer" className="fixed right-0 top-[56px] bottom-0 w-[320px] bg-white border-l border-slate-200 shadow-2xl flex flex-col z-50 animate-in slide-in-from-right duration-200">
           
           {/* Drawer Header */}
           <div className="p-6 border-b border-slate-100 shrink-0">
@@ -590,6 +611,7 @@ export default function LiveMonitorPage() {
             <div className="relative mb-3 flex items-center gap-1.5">
               <input 
                 type="text"
+                data-testid="warning-message-input"
                 value={messageText}
                 onChange={e => setMessageText(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-slate-800 bg-white"
@@ -597,6 +619,7 @@ export default function LiveMonitorPage() {
                 onKeyDown={e => { if (e.key === 'Enter') handleSendMessage(); }}
               />
               <button 
+                data-testid="send-warning-button"
                 onClick={handleSendMessage}
                 className="p-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center justify-center shrink-0"
               >

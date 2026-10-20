@@ -42,6 +42,11 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
 
     // Allowed applications shown as chips; teacher warnings shown in the notification rail.
     public ObservableCollection<string> AllowedApps { get; } = new();
+    // Raw executable names for the lockdown whitelist (AllowedApps may hold a display placeholder).
+    public List<string> AllowedAppNames { get; } = new();
+    // Per-exam lockdown settings from the server (null → fall back to local config).
+    public string? ExamLockdownMode { get; private set; }
+    public bool? ExamBlockMultiMonitor { get; private set; }
     public ObservableCollection<NotificationItem> Notifications { get; } = new();
 
     public string StudentDisplayName
@@ -338,6 +343,9 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
 
         // Parse the allowed-apps JSON array into chips
         AllowedApps.Clear();
+        AllowedAppNames.Clear();
+        ExamLockdownMode = status.LockdownMode;
+        ExamBlockMultiMonitor = status.BlockMultiMonitor;
         if (!string.IsNullOrWhiteSpace(status.AllowedApps))
         {
             try
@@ -346,12 +354,15 @@ public class DashboardViewModel(ApiClient apiClient) : BindableBase
                 if (apps is not null)
                 {
                     foreach (var app in apps.Where(a => !string.IsNullOrWhiteSpace(a)))
+                    {
                         AllowedApps.Add(app);
+                        AllowedAppNames.Add(app);
+                    }
                 }
             }
             catch { /* malformed — leave empty */ }
         }
-        if (AllowedApps.Count == 0) AllowedApps.Add("No restrictions configured");
+        if (AllowedApps.Count == 0) AllowedApps.Add("Only the exam app is allowed");
         OnPropertyChanged(nameof(HasAllowedApps));
 
         // Re-checking is required each refresh unless the exam is already running

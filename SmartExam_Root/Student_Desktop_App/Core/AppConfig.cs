@@ -7,6 +7,12 @@ public class AppConfig
 {
     public string ApiBaseUrl { get; set; } = "https://localhost:7068";
     public int HeartbeatSeconds { get; set; } = 10;
+
+    // Exam lockdown. "Report" locks keys/window and reports unauthorized apps;
+    // "Enforce" also terminates them (lab PCs only — it closes other programs without saving);
+    // "Off" disables lockdown entirely (development only).
+    public string LockdownMode { get; set; } = "Report";
+    public bool BlockMultiMonitor { get; set; } = true;
 }
 
 public static class AppConfigProvider
@@ -31,6 +37,12 @@ public static class AppConfigProvider
             config.HeartbeatSeconds = heartbeatSeconds;
         }
 
+        var envLockdown = Environment.GetEnvironmentVariable("SMARTEXAM_LOCKDOWN_MODE");
+        if (!string.IsNullOrWhiteSpace(envLockdown))
+        {
+            config.LockdownMode = envLockdown;
+        }
+
         var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.desktop.json");
         if (!File.Exists(configPath))
         {
@@ -51,6 +63,13 @@ public static class AppConfigProvider
                 {
                     config.HeartbeatSeconds = fileConfig.HeartbeatSeconds;
                 }
+
+                if (!string.IsNullOrWhiteSpace(fileConfig.LockdownMode))
+                {
+                    config.LockdownMode = fileConfig.LockdownMode;
+                }
+
+                config.BlockMultiMonitor = fileConfig.BlockMultiMonitor;
             }
         }
         catch
@@ -60,4 +79,7 @@ public static class AppConfigProvider
 
         return config;
     }
+
+    public static Lockdown.LockdownMode ParseLockdownMode(string? value) =>
+        Enum.TryParse<Lockdown.LockdownMode>(value, ignoreCase: true, out var mode) ? mode : Lockdown.LockdownMode.Report;
 }

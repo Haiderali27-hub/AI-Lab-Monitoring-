@@ -10,9 +10,19 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// E2E mode (Playwright): a throwaway in-memory database, seeded on startup, so browser/API
+// test runs can never touch the real (Neon) database. Never allowed in Production.
+var e2eInMemory = builder.Configuration.GetValue("E2E:InMemory", false);
+if (e2eInMemory && builder.Environment.IsProduction())
+    throw new InvalidOperationException("E2E:InMemory must not be enabled in Production.");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    if (builder.Configuration["UseInMemoryDatabase"] != "true")
+    if (e2eInMemory)
+    {
+        options.UseInMemoryDatabase("SmartExamE2E");
+    }
+    else if (builder.Configuration["UseInMemoryDatabase"] != "true")
     {
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
     }
@@ -154,7 +164,8 @@ var app = builder.Build();
 // Demo accounts have well-known passwords, so seeding defaults to Development only.
 // Set "Seed:DemoData": true to seed elsewhere (e.g. a one-off demo machine).
 var seedDemoData = app.Configuration.GetValue("Seed:DemoData", app.Environment.IsDevelopment());
-if (seedDemoData && app.Configuration["UseInMemoryDatabase"] != "true")
+// (UseInMemoryDatabase=true is the xUnit factory, which seeds its own data; E2E mode always seeds.)
+if (e2eInMemory || (seedDemoData && app.Configuration["UseInMemoryDatabase"] != "true"))
 {
     using (var scope = app.Services.CreateScope())
     {

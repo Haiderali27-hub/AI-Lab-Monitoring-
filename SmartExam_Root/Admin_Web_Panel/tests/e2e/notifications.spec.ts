@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, ADMIN, TEACHER, STUDENT, waitForToast } from './helpers';
+import { loginAs, ADMIN, TEACHER, STUDENT } from './helpers';
 
 test('Notification bell visible in admin navbar', async ({ page }) => {
   await loginAs(page, ADMIN.email, ADMIN.password);

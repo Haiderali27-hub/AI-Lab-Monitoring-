@@ -27,7 +27,9 @@ public record StudentExamStatus(
     string? LabName,
     string? ProctorName,
     string? Seat = null,
-    string? AllowedApps = null
+    string? AllowedApps = null,
+    string LockdownMode = "Report",
+    bool BlockMultiMonitor = true
 );
 
 public record StartExamResult(Guid Id, string Status, DateTime? StartedAtUtc);
