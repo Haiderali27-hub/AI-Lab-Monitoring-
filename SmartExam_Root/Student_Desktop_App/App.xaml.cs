@@ -25,6 +25,16 @@ public partial class App : Application
             // housekeeping only — never block the app from starting
         }
 
+        // Module 5: monitoring spools (queued events, captures not yet uploaded) of exams long over.
+        try
+        {
+            Core.Monitoring.MonitoringSpool.Cleanup(Core.Monitoring.MonitoringSpool.DefaultRoot, TimeSpan.FromDays(7), DateTime.UtcNow);
+        }
+        catch (Exception)
+        {
+            // housekeeping only
+        }
+
         base.OnStartup(e);
     }
 }

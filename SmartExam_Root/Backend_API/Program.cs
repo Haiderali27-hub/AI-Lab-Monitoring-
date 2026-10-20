@@ -43,6 +43,12 @@ builder.Services.AddScoped<Backend_API.Services.ExamAccessService>();
 // …and which live connections joined which exam group, so withdrawn access is enforced on open pages too
 builder.Services.AddSingleton<Backend_API.Services.ExamGroupTracker>();
 
+// Module 5 — live monitoring evidence: capture files on disk (Storage:EvidencePath), disconnect detection
+// (Monitoring:DisconnectAfterSeconds / DisconnectSweepSeconds) and retention (Storage:RetentionDays / CleanupIntervalSeconds)
+builder.Services.AddSingleton<Backend_API.Services.Monitoring.EvidenceStorage>();
+builder.Services.AddHostedService<Backend_API.Services.Monitoring.HeartbeatWatchdogService>();
+builder.Services.AddHostedService<Backend_API.Services.Monitoring.EvidenceRetentionService>();
+
 // Module 4 — Analytics
 builder.Services.AddScoped<Backend_API.Services.Analytics.AnalyticsService>();
 

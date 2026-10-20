@@ -3,6 +3,7 @@ using System.Management;
 using System.Runtime.InteropServices;
 using Student_Desktop_App.Core.Readiness;
 using Student_Desktop_App.Services.Lockdown;
+using Student_Desktop_App.Services.Monitoring;
 
 namespace Student_Desktop_App.Services.Readiness;
 
@@ -35,8 +36,8 @@ public class ReadinessCheckService(ApiClient apiClient)
                 ReadinessPolicy.ClockSkew => await CheckClockAsync(ct),
                 ReadinessPolicy.ScreenCapture => await Task.Run(CheckScreenCapture, ct),
                 ReadinessPolicy.Camera => req.RequireWebcam
-                    ? await Task.Run(() => ReadinessPolicy.EvaluateDevice(check, true, CountCameras(out var name), name), ct)
-                    : ReadinessPolicy.EvaluateDevice(check, false, 0),
+                    ? await CheckCameraAsync(ct)
+                    : ReadinessPolicy.EvaluateCamera(false, 0, null, null),
                 ReadinessPolicy.Microphone => ReadinessPolicy.EvaluateDevice(check, req.RequireMic, req.RequireMic ? (int)waveInGetNumDevs() : 0),
                 ReadinessPolicy.SecureMode => await Task.Run(() => ReadinessPolicy.EvaluateSecureMode(req,
                     NativeMethods.GetSystemMetrics(NativeMethods.SM_CMONITORS),
@@ -75,31 +76,25 @@ public class ReadinessCheckService(ApiClient apiClient)
         return ReadinessPolicy.EvaluateClockSkew(probe.Ok ? probe.ServerTime : null, local);
     }
 
+    // Module 2 + 5: a camera must exist AND give a real, uncovered picture. The camera is only opened when WMI finds
+    // one, and the probe has its own timeout (some drivers hang on open).
+    private static async Task<ReadinessItemResult> CheckCameraAsync(CancellationToken ct)
+    {
+        var (count, name) = await Task.Run(() =>
+        {
+            var found = CountCameras(out var first);
+            return (found, first);
+        }, ct);
+        if (count == 0) return ReadinessPolicy.EvaluateCamera(true, 0, null, null);
+        var probe = await WebcamCapture.ProbeAsync(TimeSpan.FromSeconds(8), ct);
+        return ReadinessPolicy.EvaluateCamera(true, count, name, probe);
+    }
+
     private static ReadinessItemResult CheckScreenCapture()
     {
-        // Copy the primary screen into an off-screen bitmap — the same GDI path a proctoring
-        // screenshot uses; fails on locked sessions / capture-blocking policies.
-        var screen = GetDC(IntPtr.Zero);
-        if (screen == IntPtr.Zero) return ReadinessPolicy.EvaluateScreenCapture(false, "no screen DC");
-        var mem = IntPtr.Zero;
-        var bmp = IntPtr.Zero;
-        try
-        {
-            int w = GetSystemMetrics(SM_CXSCREEN), h = GetSystemMetrics(SM_CYSCREEN);
-            mem = CreateCompatibleDC(screen);
-            bmp = CreateCompatibleBitmap(screen, w, h);
-            if (mem == IntPtr.Zero || bmp == IntPtr.Zero) return ReadinessPolicy.EvaluateScreenCapture(false, "out of GDI resources");
-            var old = SelectObject(mem, bmp);
-            var ok = BitBlt(mem, 0, 0, w, h, screen, 0, 0, SRCCOPY);
-            SelectObject(mem, old);
-            return ReadinessPolicy.EvaluateScreenCapture(ok, ok ? null : $"BitBlt error {Marshal.GetLastWin32Error()}");
-        }
-        finally
-        {
-            if (bmp != IntPtr.Zero) DeleteObject(bmp);
-            if (mem != IntPtr.Zero) DeleteDC(mem);
-            ReleaseDC(IntPtr.Zero, screen);
-        }
+        // All monitors, through exactly the GDI path the exam's screen captures use (Module 5).
+        var ok = ScreenCapture.CanCapture(out var error);
+        return ReadinessPolicy.EvaluateScreenCapture(ok, error);
     }
 
     private static int CountCameras(out string? firstName)
@@ -149,19 +144,5 @@ public class ReadinessCheckService(ApiClient apiClient)
     }
 
     // ── Win32 ────────────────────────────────────────────────────────────────
-    private const int SM_CXSCREEN = 0, SM_CYSCREEN = 1;
-    private const int SRCCOPY = 0x00CC0020;
-
-    [DllImport("user32.dll")] private static extern IntPtr GetDC(IntPtr hWnd);
-    [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
-    [DllImport("user32.dll")] private static extern int GetSystemMetrics(int nIndex);
-    [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleDC(IntPtr hdc);
-    [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleBitmap(IntPtr hdc, int w, int h);
-    [DllImport("gdi32.dll")] private static extern IntPtr SelectObject(IntPtr hdc, IntPtr obj);
-    [DllImport("gdi32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool BitBlt(IntPtr dst, int x, int y, int w, int h, IntPtr src, int sx, int sy, int rop);
-    [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr obj);
-    [DllImport("gdi32.dll")] private static extern bool DeleteDC(IntPtr hdc);
     [DllImport("winmm.dll")] private static extern uint waveInGetNumDevs();
 }

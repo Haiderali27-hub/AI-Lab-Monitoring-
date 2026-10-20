@@ -63,6 +63,16 @@ public record StudentLoginRequest(
 
 public record RefreshRequest(string RefreshToken);
 
-public record HeartbeatPayload(Guid? ExamSessionId, bool IsForegroundExamApp, string? ActiveWindowTitle, string? ProcessListSnapshot);
+// Module 5 adds IdleSeconds (seconds since the last keyboard/mouse input on the PC, GetLastInputInfo) and
+// CameraStatus (Ok | Covered | Frozen | Unavailable | Off, from on-device webcam monitoring). Both optional:
+// older clients omit them.
+public record HeartbeatPayload(Guid? ExamSessionId, bool IsForegroundExamApp, string? ActiveWindowTitle, string? ProcessListSnapshot,
+    int? IdleSeconds = null, string? CameraStatus = null);
+
+// Module 5: POST /api/monitoring/events/batch — events the desktop client queued (offline-safe) and flushes every
+// 5 s, or at once for a violation. ClientEventId makes a resent batch idempotent; RecordedAt is the client's time.
+public record BatchedMonitoringEvent(Guid? ClientEventId, string EventType, string? PayloadJson, DateTime? RecordedAt);
+
+public record MonitoringEventBatch(Guid ExamSessionId, List<BatchedMonitoringEvent>? Events);
 
 public record MonitoringEventPayload(string EventType, Guid? ExamSessionId, string PayloadJson);

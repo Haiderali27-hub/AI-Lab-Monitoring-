@@ -25,5 +25,17 @@ public enum MonitoringEventType
 
     // Module 6 — the desktop app found its encrypted local answer backup altered (AES-GCM tag failure)
     // and fell back to the server's copy
-    BackupTampered
+    BackupTampered,
+
+    // Module 5 — liveness, recorded by the SERVER (heartbeat watchdog / next heartbeat). Not violations.
+    Disconnected,
+    Reconnected,
+    // Reported by the client after a network outage: { offlineFromUtc, offlineToUtc, queuedEvents }. Not a violation.
+    NetworkOffline,
+
+    // Module 5 — on-device webcam monitoring (only when the exam requires a webcam). Debounced on the client
+    // (Core/Monitoring/CameraTamperDetector): one event per episode, not per frame.
+    CameraCovered,      // lens covered / image black or featureless for a few seconds
+    CameraFrozen,       // identical frames for a while (virtual camera, looped still image)
+    CameraUnavailable   // the required camera stopped delivering frames (unplugged, taken by another app)
 }

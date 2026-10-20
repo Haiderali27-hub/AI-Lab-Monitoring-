@@ -195,9 +195,10 @@ public partial class ExamDashboard : Window
                 return;
             }
 
-            _monitoringService.Start(token.AccessToken, sid, Array.Empty<string>().ToList());
+            // Practice exams never use the webcam; the screen capture interval follows the heartbeat ack.
+            _monitoringService.Start(token.AccessToken, sid, Array.Empty<string>().ToList(), new CaptureSettings());
             var examWindow = new ExamWindow(_apiClient, token.AccessToken, practice.ExamId, sid, token.User.Id, practice.DurationMinutes * 60,
-                new List<string>(), "Report", false)
+                new List<string>(), "Report", false, _monitoringService)
             {
                 Owner = this
             };
@@ -225,13 +226,13 @@ public partial class ExamDashboard : Window
         var token = SessionStore.CurrentToken;
         if (token is not null)
         {
-            _monitoringService.Start(token.AccessToken, _viewModel.ExamSessionId, _viewModel.AllowedAppNames);
+            _monitoringService.Start(token.AccessToken, _viewModel.ExamSessionId, _viewModel.AllowedAppNames, _viewModel.ExamCapture);
 
             // Open the exam-taking window with the real questions.
             if (_viewModel.CurrentExamId is Guid examId && _viewModel.ExamSessionId is Guid sessionId)
             {
                 var examWindow = new ExamWindow(_apiClient, token.AccessToken, examId, sessionId, token.User.Id, _viewModel.RemainingSecondsSnapshot,
-                    _viewModel.AllowedAppNames, _viewModel.ExamLockdownMode, _viewModel.ExamBlockMultiMonitor)
+                    _viewModel.AllowedAppNames, _viewModel.ExamLockdownMode, _viewModel.ExamBlockMultiMonitor, _monitoringService)
                 {
                     Owner = this
                 };

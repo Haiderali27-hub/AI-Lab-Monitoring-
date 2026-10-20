@@ -86,7 +86,8 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M2-U-05 | RDP session fails secure mode | TerminalServerSession=true | fail (also VM, keyboard-hook failure) | ✅ |
 | M2-U-06 | Overall result aggregation | Mixed results | `PassedAll` only if all required pass | ✅ |
 | M2-U-07 | Disk space check | 199 MB / 200 MB free | fail / pass | ✅ |
-| M2-U-08 | Real probes on this PC | Run every check via `ReadinessCheckService` | 7 rows, no probe throws, disk passes | ✅ |
+| M2-U-08 | Real probes on this PC | Run every check via `ReadinessCheckService` | 7 rows, no probe throws, disk passes (with `RequireWebcam` the camera is really opened through OpenCV and a frame grabbed) | ✅ |
+| M2-U-09 | Webcam check needs a real picture | `EvaluateCamera`: no device / no frame / dark or featureless frame / good frame | fail / fail / fail "dark or blocked" / pass (S5: replaces device enumeration only) | ✅ desktop xUnit |
 | M2-I-01 | Submit readiness result | Student POST readiness (all pass) | 200, row stored, audit `READINESS_PASSED` | ✅ |
 | M2-I-02 | Start blocked without readiness | `RequireReadiness=true`, no check | 400 `READINESS_REQUIRED` | ✅ |
 | M2-I-03 | Start allowed after passing check | Pass then start | 200 | ✅ |
@@ -184,26 +185,47 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 
 | ID | Title | Steps | Expected | Status |
 |----|-------|-------|----------|--------|
-| M5-U-01 | Offline queue preserves order | Enqueue 5, replay | Same order, same timestamps | 📋 desktop |
-| M5-U-02 | Offline queue encrypted at rest | Inspect file | Not plaintext JSON | 📋 |
-| M5-U-03 | Queue survives restart | Enqueue, dispose, reopen | Items still present | 📋 |
-| M5-U-04 | Process diff | Lists A then A+B | Diff = +B | 📋 |
-| M5-U-05 | Screenshot scaling | 3840×2160 capture | ≤1280 px wide JPEG | 📋 |
-| M5-U-06 | Batch flush every 5 s | Fake clock | Flushes at 5 s boundaries | 📋 |
+| M5-U-01 | Offline queue preserves order | Enqueue 5, replay | Same order, same timestamps | ✅ desktop xUnit |
+| M5-U-02 | Offline queue encrypted at rest | Inspect file | Not plaintext JSON (AES-256-GCM per record, DPAPI-wrapped key) | ✅ |
+| M5-U-03 | Queue survives restart | Enqueue, dispose, reopen | Items still present; acks durable | ✅ |
+| M5-U-04 | Process diff | Lists A then A+B | Diff = +B (case / `.exe` ignored) | ✅ |
+| M5-U-05 | Screenshot scaling | 3840×2160 capture | ≤1280 px wide JPEG (encoded and decoded: 1280×720) | ✅ |
+| M5-U-06 | Batch flush every 5 s | Fake clock | Flushes at 5 s boundaries; a violation at once | ✅ |
+| M5-U-07 | Outbox tamper / torn tail | Flip a record byte, append half a record | Edited record skipped and counted, torn tail dropped, file rewritten | ✅ |
+| M5-U-08 | Capture spool | Add / read / fill past the limit / edit a file | Encrypted round trip; interval captures dropped before violation evidence; an edited capture is discarded | ✅ |
+| M5-U-09 | Capture schedule | Fake clock + random | Waits uniform in [0.5, 1.5]× mean (60 s → 30–90 s); mean clamped 10–600; violation capture ≤ 1 per 15 s; a shorter teacher interval reschedules | ✅ |
+| M5-U-10 | Webcam frame metrics | Black, flat grey, textured, repeated frames | Mean / Laplacian variance / frame difference tell covered, taped and frozen apart | ✅ |
+| M5-U-11 | Camera debounce state machine | Synthetic frame sequences | Covered after 3 s, frozen after 15 s, unavailable after 5 s, each once per episode; cleared after 2 s; a hand passing never raises; a black still image is "covered", not "frozen" | ✅ |
+| M5-U-12 | Batch backoff | Fake clock, failed flushes | 5 → 10 → … → 60 s; a successful heartbeat replays at once | ✅ |
+| M5-U-13 | Input idle time | Tick counts incl. a 32-bit wrap | Correct seconds | ✅ |
+| M5-U-14 | Evidence storage (server) | Magic bytes; save/read/delete; traversal paths; orphans | JPEG/PNG only (MZ, SVG refused); `{exam}/{session}/…` name + SHA-256; `../`, rooted paths refused; only old unreferenced files removed | ✅ xUnit |
 | M5-A-01 | Heartbeat accepted | Student POST `/api/monitoring/heartbeat` | 200 | ✅ |
 | M5-A-02 | Heartbeat for foreign session rejected | Other student's session id | Not attributed to that session ✅; status is 200, not 403/404 (`test.fail` until changed) | ⚠️ partial |
-| M5-I-01 | Screenshot upload | POST multipart jpg | 200, row + file stored | ⏳ |
-| M5-I-02 | Screenshot size limit | 10 MB upload | 413 | ⏳ |
-| M5-I-03 | Non-image rejected | Upload .exe renamed .jpg | 400 | ⏳ |
-| M5-I-04 | Screenshot access control | Teacher of other section GETs screenshots | 403 | ⏳ |
-| M5-I-05 | Batch events | POST 20 events | 200, 20 stored | ⏳ |
-| M5-I-06 | ClientEventId dedup | Same batch twice | Stored once | ⏳ |
-| M5-I-07 | Original timestamps kept | Replay offline events | `RecordedAt` = client time | ⏳ |
-| M5-I-08 | Disconnected detection | No heartbeat 30 s | Session flagged Disconnected, hub broadcast | ⏳ |
-| M5-I-09 | Retention cleanup | Screenshot older than RetentionDays | Deleted by job | ⏳ |
+| M5-A-03 | Screenshot upload & access (black-box) | Upload jpg / exe; staff list + content; student / outsider read; upload after submit | 200 + listed with sha256, image bytes served; 400; 403 / 403; 409 `SESSION_NOT_ACTIVE` | ✅ Playwright api |
+| M5-A-04 | Batch idempotent + timeline (black-box) | Same batch twice; teacher GET timeline; 201 events; foreign session | `{accepted:3}` then `{duplicates:3}`; client time kept, no heartbeats; 400; 404 | ✅ |
+| M5-A-05 | Heartbeat ack capture settings | Exam with 45 s interval | Ack `screenshotIntervalSeconds=45`, `requireWebcam=false` | ✅ |
+| M5-I-01 | Screenshot upload | POST multipart jpg | 200, row + file stored | ✅ |
+| M5-I-02 | Screenshot size limit | 10 MB upload | 413 | ✅ |
+| M5-I-03 | Non-image rejected | Upload .exe renamed .jpg | 400 | ✅ |
+| M5-I-04 | Screenshot access control | Teacher of other section GETs screenshots | 403 | ✅ |
+| M5-I-05 | Batch events | POST 20 events | 200, 20 stored | ✅ |
+| M5-I-06 | ClientEventId dedup | Same batch twice | Stored once | ✅ |
+| M5-I-07 | Original timestamps kept | Replay offline events | `RecordedAt` = client time | ✅ |
+| M5-I-08 | Disconnected detection | No heartbeat 30 s | Session flagged Disconnected, hub broadcast | ✅ |
+| M5-I-09 | Retention cleanup | Screenshot older than RetentionDays | Deleted by job | ✅ |
+| M5-I-10 | Evidence content | Upload (violation trigger), staff fetch content | `ScreenshotUploaded` to the exam group; bytes and SHA-256 identical; server-generated path; student 403, unknown id 404 | ✅ |
+| M5-I-11 | Upload rules | Foreign session, webcam image for a no-webcam exam, PNG, bad kind, absurd time, after submit | 404, 400 `WEBCAM_NOT_REQUIRED`, 200, 400, stored at server time, 409 | ✅ |
+| M5-I-12 | Proctor scoping | Assigned / unassigned invigilator; session of another exam | 200 / 403 on list, content, timeline; 404 | ✅ |
+| M5-I-13 | Batch validation & live alerts | >200 events, foreign session, one bad payload; future / 10-min-old / forged "Disconnected" | 400 / 404 / 400 with nothing stored; future clamped + `clockAdjusted`; old kept at client time without a live alert; forged type stored as a non-violation | ✅ |
+| M5-I-14 | Session timeline | Heartbeat, focus loss, capture, proctor warning, submit | Events (no heartbeats), capture, warning, Started/Submitted — newest first; `?after=` incremental; outsider and student 403 | ✅ |
+| M5-I-15 | Heartbeat liveness + throttling | Same report twice, then a new app | `LastHeartbeatAt` set; one stored row per change (≤ 1/min otherwise); ack has capture settings; broadcast has processes, idle, camera | ✅ |
+| M5-I-16 | Watchdog once, reconnect | Sweep twice; finished session; next heartbeat | Flagged once (finished sessions never); `Reconnected` with offline seconds + `StudentReconnected`; tile stays Normal | ✅ |
+| M5-I-17 | Retention: missing file + orphans | Row whose file is gone; stray old file | Row removed; orphan deleted | ✅ |
+| M5-I-18 | Capture rate limit | `MaxScreenshotsPerMinute=2`, upload 3 | Third → 429 `TOO_MANY_CAPTURES` | ✅ |
 | M5-E-01 | Heartbeat shows student online | Simulator heartbeats → live monitor | Tile shows student, Normal | ✅ |
-| M5-E-02 | Thumbnail on tile | Simulator uploads screenshot | Tile shows image | ⏳ |
-| M5-E-03 | Disconnected tile | Simulator stops heartbeats | Tile shows "Disconnected" within 40 s | ⏳ |
+| M5-E-02 | Thumbnail on tile | Simulator uploads screenshot | Tile shows image (blob URL, decoded); a violation capture is noted in the drawer | ✅ |
+| M5-E-03 | Disconnected tile | Simulator stops heartbeats | Tile shows "Disconnected" within 40 s; the next heartbeat restores it and the drawer says "Reconnected" | ✅ |
+| M5-E-04 | Camera / idle / replay on the tile | Heartbeat with idle 185 s + camera Covered; batch with a fresh CameraCovered and a 10-min-old KeyBlocked | "Idle 3m", "Camera covered"; live label "Camera covered: lens taped"; 2 ALERTS, Suspicious after the next heartbeat | ✅ |
 | M5-D-01 | Screenshot every interval | 30 s interval, 2 min | ~4 uploads | 📋 |
 | M5-D-02 | Network drop & recover | Disable NIC 60 s | Events replayed, none lost | 📋 |
 | M5-D-03 | Foreground app reported | Switch to allowed app | Heartbeat shows its process name | 📋 |
@@ -466,6 +488,8 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | D-22 | review (S4) | The desktop app only saved answered questions, so clearing an answer never reached the server | **Fixed** — revisioned saves send every edit, including a cleared answer |
 | D-23 | M6-I-19 (S4 verifier) | Plagiarism detection only compared against `Submitted`/`ForceSubmitted` sessions, so sessions the new sweeper finalised as `TimedOut` were never compared | **Fixed** — every finalised session (`Status != InProgress`) is compared |
 | D-24 | M6-I-20 (S4 verifier) | `student/current` and `student/start` chose the next scheduled exam once the running exam's own window had closed, so a student in extra time got no "Resume Exam" and the resume was refused | **Fixed** — both prefer the assignment whose session is still running inside the student's own deadline |
+| D-25 | M5-I-13 (S5) | A client could post the server-only event types `SeatMismatch`, `Disconnected`, `Reconnected` (and `Heartbeat` through "Violation"+reason) and so forge or bury server findings | **Fixed** — `ViolationClassifier.ServerOnlyTypes` are resolved like unknown names |
+| D-26 | review (S5) | Lockdown violations were sent fire-and-forget: lost whenever the network dropped | **Fixed** — `LockdownCoordinator` reports into `LiveMonitoringService.ReportViolation` (encrypted on-disk outbox, batched, replayed in order) |
 
 ---
 

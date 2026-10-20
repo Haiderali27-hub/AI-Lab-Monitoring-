@@ -418,11 +418,20 @@ namespace Backend_API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("DisconnectedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("ExamId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("ExtraMinutes")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsDisconnected")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastHeartbeatAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("ReceiptAnswerCount")
                         .HasColumnType("integer");
@@ -450,6 +459,8 @@ namespace Backend_API.Migrations
                     b.HasIndex("ExamId");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("Status", "LastHeartbeatAt");
 
                     b.ToTable("ExamSessions");
                 });
@@ -482,6 +493,9 @@ namespace Backend_API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ClientEventId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("EventType")
                         .IsRequired()
                         .HasColumnType("text");
@@ -493,12 +507,19 @@ namespace Backend_API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("RecordedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("EventId");
 
-                    b.HasIndex("ExamSessionId");
+                    b.HasIndex("ExamSessionId", "ClientEventId")
+                        .IsUnique()
+                        .HasFilter("\"ClientEventId\" IS NOT NULL");
+
+                    b.HasIndex("ExamSessionId", "RecordedAt");
 
                     b.ToTable("MonitoringEvents");
                 });
@@ -725,6 +746,67 @@ namespace Backend_API.Migrations
                     b.HasIndex("UserId", "RevokedAt");
 
                     b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.Screenshot", b =>
+                {
+                    b.Property<Guid>("ScreenshotId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CapturedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("ExamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("Trigger")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("TriggerReason")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ScreenshotId");
+
+                    b.HasIndex("CapturedAt");
+
+                    b.HasIndex("ExamId");
+
+                    b.HasIndex("SessionId", "CapturedAt");
+
+                    b.ToTable("Screenshots");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Section", b =>
@@ -1213,6 +1295,17 @@ namespace Backend_API.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Backend_API.Models.Screenshot", b =>
+                {
+                    b.HasOne("Backend_API.Models.ExamSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Section", b =>

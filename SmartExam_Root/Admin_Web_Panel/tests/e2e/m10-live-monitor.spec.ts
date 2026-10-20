@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { StaffApi } from '../support/staffApi';
 import type { StudentClient } from '../support/studentClient';
@@ -256,19 +257,59 @@ test.describe('M5 — Live Monitoring Client Service (dashboard side)', () => {
     await expect(tile).not.toContainText('ALERTS');
   });
 
-  test.fixme('M5-E-02 Thumbnail on tile', async ({ page, request }) => {
+  test('M5-E-02 Thumbnail on tile', async ({ page, request }) => {
     const { students, users } = await openLiveExam(page, request);
-    // Simulator uploads a screenshot (planned POST /api/monitoring/screenshots, M5-I-01)
     const tile = await waitForTile(page, students[0], users[0].name);
-    await expect(tile.getByTestId('tile-thumbnail')).toBeVisible();
+    await expect(tile.getByTestId('tile-thumbnail')).toHaveCount(0);
+
+    // The simulator uploads a capture (ScreenshotService → POST /api/monitoring/screenshots); the page is told
+    // over SignalR and fetches the image with the teacher's token.
+    expect((await students[0].screenshot()).status()).toBe(200);
+    const thumbnail = tile.getByTestId('tile-thumbnail');
+    await expect(thumbnail).toBeVisible({ timeout: 10_000 });
+    await expect(thumbnail).toHaveAttribute('src', /^blob:/);
+    await expect.poll(() => thumbnail.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
+
+    // A violation capture replaces it and is noted in the drawer's timeline.
+    expect((await students[0].screenshot({ trigger: 'Violation', reason: 'UnauthorizedProcess' })).status()).toBe(200);
+    await tile.click();
+    await expect(page.getByTestId('student-drawer')).toContainText('Evidence captured for: Unauthorized app', { timeout: 10_000 });
   });
 
-  test.fixme('M5-E-03 Disconnected tile', async ({ page, request }) => {
+  test('M5-E-03 Disconnected tile', async ({ page, request }) => {
     test.setTimeout(90_000);
     const { students, users } = await openLiveExam(page, request);
     const tile = await waitForTile(page, students[0], users[0].name);
-    // Simulator stops heartbeating; server marks session Disconnected after 30 s (M5-I-08)
+    await expect(tile.getByTestId('tile-status')).toHaveText('Stable');
+    // Simulator stops heartbeating; the server's watchdog flags the session after 30 s (sweep every 5 s, M5-I-08)
     await expect(tile.getByTestId('tile-status')).toHaveText(/disconnected/i, { timeout: 40_000 });
+
+    // The next heartbeat brings the student back.
+    expect((await students[0].heartbeat()).status()).toBe(200);
+    await expect(tile.getByTestId('tile-status')).toHaveText('Stable', { timeout: 10_000 });
+    await tile.click();
+    await expect(page.getByTestId('student-drawer')).toContainText('Reconnected');
+  });
+
+  test('M5-E-04 Camera, idle time and replayed violations reach the tile', async ({ page, request }) => {
+    const { students, users } = await openLiveExam(page, request);
+    const tile = await waitForTile(page, students[0], users[0].name);
+
+    // Heartbeat with what the desktop client measures: input idle time and the webcam state.
+    expect((await students[0].heartbeat({ idleSeconds: 185, cameraStatus: 'Covered' })).status()).toBe(200);
+    await expect(tile.getByTestId('tile-idle')).toHaveText('Idle 3m');
+    await expect(tile.getByTestId('tile-camera')).toHaveText('Camera covered');
+
+    // A fresh violation from the offline outbox is shown live; an old replayed one only counts.
+    const batch = await students[0].eventBatch([
+      { clientEventId: randomUUID(), eventType: 'CameraCovered', payload: { detail: 'lens taped' } },
+      { clientEventId: randomUUID(), eventType: 'Violation', payload: { reason: 'KeyBlocked', detail: 'Alt+Tab' }, recordedAt: new Date(Date.now() - 10 * 60_000).toISOString() },
+    ]);
+    expect(batch.status()).toBe(200);
+    await expect(tile.getByTestId('tile-last-violation')).toHaveText('Camera covered: lens taped', { timeout: 5_000 });
+    await students[0].heartbeat();
+    await expect(tile).toContainText('2 ALERTS');
+    await expect(tile.getByTestId('tile-status')).toHaveText('Suspicious');
   });
 });
 

@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Student_Desktop_App.Core;
 using Student_Desktop_App.Core.Auth;
+using Student_Desktop_App.Core.Monitoring;
 using Student_Desktop_App.Core.Submission;
 
 namespace Student_Desktop_App.Services;
@@ -301,6 +302,78 @@ public class ApiClient
         var envelope = new MonitoringEventPayload(eventType, examSessionId, JsonSerializer.Serialize(payload));
         return SendWithRefreshAsync<object>(
             token => CreateAuthorizedJsonRequest(HttpMethod.Post, "api/monitoring/event", token, envelope), accessToken, cancellationToken);
+    }
+
+    /// <summary>
+    /// Module 5: delivers queued monitoring events in one call (POST /api/monitoring/events/batch). Idempotent on the
+    /// server (clientEventId), so a batch whose reply was lost is simply sent again. Never throws.
+    /// </summary>
+    public async Task<DeliveryOutcome> SendEventBatchAsync(
+        string accessToken,
+        Guid sessionId,
+        IReadOnlyList<QueuedEvent> events,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var payload = new
+            {
+                examSessionId = sessionId,
+                events = events.Select(e => new
+                {
+                    clientEventId = e.ClientEventId,
+                    eventType = e.EventType,
+                    payloadJson = e.PayloadJson,
+                    recordedAt = e.RecordedAtUtc
+                }).ToList()
+            };
+            using var response = await SendAuthorizedAsync(
+                token => CreateAuthorizedJsonRequest(HttpMethod.Post, "api/monitoring/events/batch", token, payload),
+                accessToken, cancellationToken);
+            return Delivery.Classify((int)response.StatusCode);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return DeliveryOutcome.Offline;
+        }
+    }
+
+    /// <summary>
+    /// Module 5: uploads one screen capture or webcam snapshot (multipart POST /api/monitoring/screenshot).
+    /// Rejected (drop it) when the server refuses it for good — e.g. 409 once the session is over. Never throws.
+    /// </summary>
+    public async Task<DeliveryOutcome> UploadCaptureAsync(
+        string accessToken,
+        Guid sessionId,
+        CaptureInfo info,
+        byte[] image,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var response = await SendAuthorizedAsync(token =>
+            {
+                var request = CreateAuthorizedRequest(HttpMethod.Post, "api/monitoring/screenshot", token);
+                var form = new MultipartFormDataContent
+                {
+                    { new StringContent(sessionId.ToString()), "examSessionId" },
+                    { new StringContent(info.Kind), "kind" },
+                    { new StringContent(info.Trigger), "trigger" },
+                    { new StringContent(info.CapturedAtUtc.ToString("O")), "capturedAt" }
+                };
+                if (!string.IsNullOrWhiteSpace(info.Reason)) form.Add(new StringContent(info.Reason), "reason");
+                var file = new ByteArrayContent(image);
+                file.Headers.ContentType = new MediaTypeHeaderValue(info.ContentType);
+                form.Add(file, "file", info.ContentType == "image/png" ? "capture.png" : "capture.jpg");
+                request.Content = form;
+                return request;
+            }, accessToken, cancellationToken);
+            return Delivery.Classify((int)response.StatusCode);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return DeliveryOutcome.Offline;
+        }
     }
 
     /// <summary>

@@ -62,6 +62,8 @@ public class DashboardViewModel(ApiClient apiClient, AnswerBackupStore? backupSt
     // Per-exam lockdown settings from the server (null → fall back to local config).
     public string? ExamLockdownMode { get; private set; }
     public bool? ExamBlockMultiMonitor { get; private set; }
+    // Module 5: capture settings of the current exam (screen/webcam intervals, webcam required).
+    public CaptureSettings ExamCapture { get; private set; } = new();
     public ObservableCollection<NotificationItem> Notifications { get; } = new();
     // Module 2 pre-exam checklist (one row per check, each retryable).
     public ObservableCollection<ReadinessRow> ReadinessItems { get; } = new();
@@ -531,6 +533,7 @@ public class DashboardViewModel(ApiClient apiClient, AnswerBackupStore? backupSt
         AllowedAppNames.Clear();
         ExamLockdownMode = status.LockdownMode;
         ExamBlockMultiMonitor = status.BlockMultiMonitor;
+        ExamCapture = new CaptureSettings(status.ScreenshotIntervalSeconds, status.WebcamIntervalSeconds, status.RequireWebcam);
         RequireReadiness = status.RequireReadiness;
         _requirements = new ReadinessRequirements(
             status.RequireWebcam,

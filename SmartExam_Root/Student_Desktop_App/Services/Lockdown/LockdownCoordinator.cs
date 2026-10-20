@@ -24,6 +24,7 @@ public sealed class LockdownCoordinator : IDisposable
     private readonly DeviceGuardService _devices;
     private readonly TaskManagerGuard? _taskManager;   // null when the policy is off for this exam
     private readonly ConcurrentDictionary<string, DateTime> _lastReported = new();
+    private readonly Action<string, string>? _violationSink;
     private bool _active;
 
     public LockdownPolicy Policy { get; }
@@ -34,9 +35,13 @@ public sealed class LockdownCoordinator : IDisposable
 
     /// <param name="accessToken">Fallback only — ApiClient sends the current (refreshed) session token.</param>
     /// <param name="disableTaskManager">Config switch for the DisableTaskMgr policy (see TaskManagerPolicy).</param>
+    /// <param name="violationSink">Module 5: where violations go (LiveMonitoringService.ReportViolation: encrypted offline
+    /// queue + evidence capture). Without one they are sent directly, fire-and-forget, as before.</param>
     public LockdownCoordinator(ApiClient apiClient, string accessToken, Guid sessionId,
-        LockdownMode mode, IEnumerable<string>? allowedApps, bool blockMultiMonitor, bool disableTaskManager = true)
+        LockdownMode mode, IEnumerable<string>? allowedApps, bool blockMultiMonitor, bool disableTaskManager = true,
+        Action<string, string>? violationSink = null)
     {
+        _violationSink = violationSink;
         _apiClient = apiClient;
         _accessToken = accessToken;
         _sessionId = sessionId;
@@ -109,6 +114,14 @@ public sealed class LockdownCoordinator : IDisposable
         _lastReported[key] = now;
 
         ViolationRaised?.Invoke(reason);
+
+        // Queued on disk and sent in the background (and the screen captured): never stalls the hook or the UI,
+        // and survives a network outage.
+        if (_violationSink is not null)
+        {
+            _violationSink(reason, detail);
+            return;
+        }
 
         // Fire-and-forget: a slow network must never stall the hook or the UI.
         _ = _apiClient.SendMonitoringEventAsync(_accessToken, "Violation", _sessionId,

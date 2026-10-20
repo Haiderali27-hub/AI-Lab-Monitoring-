@@ -204,6 +204,39 @@ export interface StudentLiveStatus {
   seatDetail?: string | null;       // "logged in from R1C2 (assigned R1C1)" while mismatched
   sessionStatus?: SessionStatus | null;  // Module 6: InProgress until submitted / force-submitted / timed out
   extraMinutes?: number | null;          // Module 6: per-student extra time granted by a proctor
+  // Module 5: liveness and what the PC reports
+  isDisconnected?: boolean;              // no heartbeat for 30 s (server watchdog) until the next one arrives
+  disconnectedAt?: string | null;
+  idleSeconds?: number | null;           // seconds since the last keyboard/mouse input on the PC
+  cameraStatus?: CameraStatus | null;    // on-device webcam monitoring (Off when the exam needs no webcam)
+  processes?: string | null;             // apps with a visible window, comma-separated
+}
+
+export type CameraStatus = 'Off' | 'Ok' | 'Covered' | 'Frozen' | 'Unavailable';
+
+/** Module 5: one capture (screen or webcam) of a session, GET /exams/{id}/sessions/{sid}/screenshots. */
+export interface ScreenshotSummary {
+  screenshotId: string;
+  kind: 'Screen' | 'Webcam';
+  trigger: 'Interval' | 'Violation' | 'Manual';
+  triggerReason?: string | null;
+  capturedAt: string;
+  uploadedAt: string;
+  sizeBytes: number;
+  sha256: string;
+  contentUrl: string;
+}
+
+/** Module 5: one entry of a session's activity timeline, newest first. */
+export interface SessionTimelineItem {
+  at: string;
+  kind: 'Event' | 'Screenshot' | 'Warning' | 'Status';
+  type: string;
+  severity: 'Info' | 'Warning' | 'Suspicious' | 'Violation';
+  label: string;
+  detail?: string | null;
+  screenshotId?: string | null;
+  receivedAt?: string | null;
 }
 
 export type TileStatus = 'Normal' | 'Warning' | 'Suspicious' | 'Violation';

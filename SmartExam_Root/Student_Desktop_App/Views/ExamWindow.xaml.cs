@@ -25,20 +25,28 @@ public partial class ExamWindow : Window
 
     public bool Submitted => _submitted;
 
+    /// <param name="monitoring">Module 5: the running monitoring service — lockdown violations go to its offline-safe
+    /// queue and trigger an evidence capture. Null: violations are sent directly (no capture).</param>
     public ExamWindow(ApiClient apiClient, string accessToken, Guid examId, Guid sessionId, Guid userId, int remainingSeconds,
-        IEnumerable<string> allowedApps, string? examLockdownMode = null, bool? examBlockMultiMonitor = null)
+        IEnumerable<string> allowedApps, string? examLockdownMode = null, bool? examBlockMultiMonitor = null,
+        LiveMonitoringService? monitoring = null)
     {
         InitializeComponent();
         // The exam's server-side settings win; the local config only applies when the server sends none.
         var config = AppConfigProvider.Current;
         _lockdown = new LockdownCoordinator(apiClient, accessToken, sessionId,
             AppConfigProvider.ParseLockdownMode(examLockdownMode ?? config.LockdownMode), allowedApps,
-            examBlockMultiMonitor ?? config.BlockMultiMonitor, config.DisableTaskManager);
+            examBlockMultiMonitor ?? config.BlockMultiMonitor, config.DisableTaskManager,
+            monitoring is null ? null : monitoring.ReportViolation);
         _viewModel = new ExamSessionViewModel(apiClient, accessToken, sessionId, examId, userId, remainingSeconds, OpenBackupStore());
         _viewModel.TimeExpired += () => Dispatcher.Invoke(async () => await AutoSubmitOnExpiry());
         // An edited local backup is ignored (server copy wins) and reported to the proctors.
-        _viewModel.BackupTampered += reason => _ = apiClient.SendMonitoringEventAsync(accessToken, "BackupTampered", sessionId,
-            new { reason, detail = "Local answer backup failed its integrity check", atUtc = DateTime.UtcNow });
+        _viewModel.BackupTampered += reason =>
+        {
+            var payload = new { reason, detail = "Local answer backup failed its integrity check", atUtc = DateTime.UtcNow };
+            if (monitoring is not null) monitoring.ReportEvent("BackupTampered", payload, urgent: true);
+            else _ = apiClient.SendMonitoringEventAsync(accessToken, "BackupTampered", sessionId, payload);
+        };
         _submitRetry.Tick += async (_, _) =>
         {
             _submitRetry.Stop();

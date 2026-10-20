@@ -36,6 +36,7 @@ public class AppDbContext : DbContext
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ExamProctor> ExamProctors => Set<ExamProctor>();
+    public DbSet<Screenshot> Screenshots => Set<Screenshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -234,5 +235,32 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Answer>().Property(a => a.Revision).IsConcurrencyToken();
         modelBuilder.Entity<ExamSession>().Property(s => s.Status).IsConcurrencyToken();
         modelBuilder.Entity<ExamSession>().Property(s => s.ReceiptSha256).HasMaxLength(64);
+
+        // Module 5: offline replay dedup — one row per (session, client event id). Partial, so the many
+        // server-generated events (ClientEventId NULL) are not constrained. The batch endpoint also dedups in
+        // code, because the InMemory provider used by the tests does not enforce unique indexes.
+        modelBuilder.Entity<MonitoringEvent>()
+            .HasIndex(e => new { e.ExamSessionId, e.ClientEventId })
+            .IsUnique()
+            .HasFilter("\"ClientEventId\" IS NOT NULL");
+        // Timeline and violation-count queries read one session's events in time order.
+        modelBuilder.Entity<MonitoringEvent>().HasIndex(e => new { e.ExamSessionId, e.RecordedAt });
+        // The heartbeat watchdog scans running sessions by their last heartbeat.
+        modelBuilder.Entity<ExamSession>().HasIndex(s => new { s.Status, s.LastHeartbeatAt });
+
+        // Module 5: capture evidence (screen / webcam). Rows go with their session; the image files are owned by
+        // EvidenceStorage and removed by the retention job.
+        modelBuilder.Entity<Screenshot>().HasKey(s => s.ScreenshotId);
+        modelBuilder.Entity<Screenshot>().Property(s => s.Kind).HasMaxLength(16);
+        modelBuilder.Entity<Screenshot>().Property(s => s.Trigger).HasMaxLength(16);
+        modelBuilder.Entity<Screenshot>().Property(s => s.TriggerReason).HasMaxLength(64);
+        modelBuilder.Entity<Screenshot>().Property(s => s.StoragePath).HasMaxLength(512);
+        modelBuilder.Entity<Screenshot>().Property(s => s.ContentType).HasMaxLength(32);
+        modelBuilder.Entity<Screenshot>().Property(s => s.Sha256).HasMaxLength(64);
+        modelBuilder.Entity<Screenshot>().HasIndex(s => new { s.SessionId, s.CapturedAt });
+        modelBuilder.Entity<Screenshot>().HasIndex(s => s.ExamId);
+        modelBuilder.Entity<Screenshot>().HasIndex(s => s.CapturedAt);
+        modelBuilder.Entity<Screenshot>()
+            .HasOne(s => s.Session).WithMany().HasForeignKey(s => s.SessionId).OnDelete(DeleteBehavior.Cascade);
     }
 }

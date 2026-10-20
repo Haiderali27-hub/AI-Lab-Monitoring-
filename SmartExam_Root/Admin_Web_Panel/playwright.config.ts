@@ -1,4 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
+import os from 'node:os';
+import path from 'node:path';
 
 // Only reuse already-running servers when explicitly asked (PW_REUSE=1). By default Playwright
 // starts its own backend in E2E in-memory mode, so a test run can never hit a dev backend that
@@ -57,6 +59,8 @@ export default defineConfig({
         RateLimiting__RefreshPermitLimit: '100000',
         // Exercise the production access-token lifetime (the web/desktop clients refresh transparently).
         Jwt__ExpiryMinutes: '30',
+        // Module 5: uploaded screen captures go to a throwaway folder, never into the source tree.
+        Storage__EvidencePath: path.join(os.tmpdir(), 'smartexam-e2e-evidence'),
       },
     },
     {

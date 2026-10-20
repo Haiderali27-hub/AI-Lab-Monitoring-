@@ -48,12 +48,20 @@ public record PracticeExamSummary(Guid ExamId, string Title, int DurationMinutes
 
 public record StartExamResult(Guid Id, string Status, DateTime? StartedAtUtc);
 
-public record HeartbeatPayload(Guid? ExamSessionId, bool IsForegroundExamApp, string? ActiveWindowTitle, string? ProcessListSnapshot);
+// Module 5: IdleSeconds = time since the last keyboard/mouse input (GetLastInputInfo); CameraStatus = Off | Ok |
+// Covered | Frozen | Unavailable from on-device webcam monitoring.
+public record HeartbeatPayload(Guid? ExamSessionId, bool IsForegroundExamApp, string? ActiveWindowTitle, string? ProcessListSnapshot,
+    int? IdleSeconds = null, string? CameraStatus = null);
 
 // Server ack for a heartbeat; RemainingSeconds is the authoritative exam clock (lets the countdown resync
 // after a teacher extends the exam or a proctor grants this student extra minutes). SessionStatus tells the
 // exam window that a proctor force-submitted the session or the server timed it out (Module 6, D-17).
-public record HeartbeatAck(DateTime ReceivedAtUtc, int? RemainingSeconds, string? SessionStatus = null, int? ExtraMinutes = null);
+// The capture settings let a running client follow a teacher's change (Module 5).
+public record HeartbeatAck(DateTime ReceivedAtUtc, int? RemainingSeconds, string? SessionStatus = null, int? ExtraMinutes = null,
+    int? ScreenshotIntervalSeconds = null, int? WebcamIntervalSeconds = null, bool? RequireWebcam = null);
+
+/// <summary>Module 5: what the capture service needs to know about the exam (StudentExamStatus / heartbeat ack).</summary>
+public record CaptureSettings(int ScreenshotIntervalSeconds = 60, int WebcamIntervalSeconds = 60, bool RequireWebcam = false);
 
 // Module 6: the receipt returned by POST /api/exams/sessions/{id}/submit (flat body).
 public record SubmitReceipt(Guid SessionId, DateTime SubmittedAt, int AnswerCount, string Sha256);

@@ -44,6 +44,7 @@ public class AdminMaintenanceController : ControllerBase
         _db.AiGradingResults.RemoveRange(_db.AiGradingResults);
         _db.Answers.RemoveRange(_db.Answers);
         _db.MonitoringEvents.RemoveRange(_db.MonitoringEvents);
+        _db.Screenshots.RemoveRange(_db.Screenshots);   // rows only; the evidence files expire via the retention job
         _db.ExamSessions.RemoveRange(_db.ExamSessions);
         _db.ExamAssignments.RemoveRange(_db.ExamAssignments);
         _db.ExamProctors.RemoveRange(_db.ExamProctors);

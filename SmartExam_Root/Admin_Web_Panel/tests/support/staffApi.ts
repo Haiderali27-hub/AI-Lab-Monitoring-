@@ -34,6 +34,9 @@ export interface ExamInput {
   earlyJoinMinutes?: number;
   minAttendancePercent?: number;
   enforceSeat?: boolean;
+  // Module 8 / 5 capture settings (mean seconds, 10–600)
+  screenshotIntervalSeconds?: number;
+  webcamIntervalSeconds?: number;
 }
 
 export interface CreatedUser {
@@ -175,6 +178,8 @@ export class StaffApi {
       ...(input.earlyJoinMinutes !== undefined && { earlyJoinMinutes: input.earlyJoinMinutes }),
       ...(input.minAttendancePercent !== undefined && { minAttendancePercent: input.minAttendancePercent }),
       ...(input.enforceSeat !== undefined && { enforceSeat: input.enforceSeat }),
+      ...(input.screenshotIntervalSeconds !== undefined && { screenshotIntervalSeconds: input.screenshotIntervalSeconds }),
+      ...(input.webcamIntervalSeconds !== undefined && { webcamIntervalSeconds: input.webcamIntervalSeconds }),
     };
   }
 
@@ -258,6 +263,23 @@ export class StaffApi {
 
   async proctors(examId: string): Promise<{ userId: string; name: string; role: string }[]> {
     const res = await this.get(`/api/exams/${examId}/proctors`);
+    expect(res.status()).toBe(200);
+    return res.json();
+  }
+
+  // ── Module 5: monitoring evidence (owner teacher / assigned proctor / admin) ─
+  screenshotsRaw(examId: string, sessionId: string) { return this.get(`/api/exams/${examId}/sessions/${sessionId}/screenshots`); }
+  screenshotContent(screenshotId: string) { return this.get(`/api/screenshots/${screenshotId}/content`); }
+  timelineRaw(examId: string, sessionId: string) { return this.get(`/api/exams/${examId}/sessions/${sessionId}/timeline`); }
+
+  async screenshots(examId: string, sessionId: string): Promise<any[]> {
+    const res = await this.screenshotsRaw(examId, sessionId);
+    expect(res.status()).toBe(200);
+    return res.json();
+  }
+
+  async timeline(examId: string, sessionId: string): Promise<any[]> {
+    const res = await this.timelineRaw(examId, sessionId);
     expect(res.status()).toBe(200);
     return res.json();
   }

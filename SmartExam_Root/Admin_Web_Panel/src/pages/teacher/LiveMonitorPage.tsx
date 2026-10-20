@@ -3,9 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as signalR from '@microsoft/signalr';
 import { useAuth } from '../../context/AuthContext';
 import { examsApi } from '../../api/exams.api';
+import { monitoringApi } from '../../api/monitoring.api';
 import { getFreshAccessToken } from '../../api/client';
 import { SIGNALR_HUB_URL } from '../../utils/constants';
-import type { Exam, StudentLiveStatus, TileStatus } from '../../types';
+import type { CameraStatus, Exam, StudentLiveStatus, TileStatus } from '../../types';
 import { severityOf, violationLabel, worseStatus } from '../../utils/violations';
 import { homePathFor } from '../../utils/roles';
 
@@ -20,6 +21,25 @@ interface TimelineEvent {
 function isFinalised(status?: string | null): boolean {
   return !!status && status !== 'InProgress';
 }
+
+// Module 5: latest screen capture per student, shown on the tile (object URL of an authorised blob fetch).
+interface Thumbnail {
+  url: string;
+  capturedAt: string;
+  trigger: string;
+}
+
+function formatIdle(seconds?: number | null): string | null {
+  if (seconds == null || seconds < 60) return null;
+  const minutes = Math.floor(seconds / 60);
+  return minutes >= 60 ? `Idle ${Math.floor(minutes / 60)}h ${minutes % 60}m` : `Idle ${minutes}m`;
+}
+
+const CAMERA_LABEL: Partial<Record<CameraStatus, string>> = {
+  Covered: 'Camera covered',
+  Frozen: 'Camera frozen',
+  Unavailable: 'No camera',
+};
 
 function sessionStatusLabel(status?: string | null): string {
   switch (status) {
@@ -48,6 +68,8 @@ export default function LiveMonitorPage() {
   const [loading, setLoading] = useState(true);
   const [studentStatuses, setStudentStatuses] = useState<Map<string, StudentLiveStatus>>(new Map());
   const [timelines, setTimelines] = useState<Map<string, TimelineEvent[]>>(new Map());
+  const [thumbnails, setThumbnails] = useState<Map<string, Thumbnail>>(new Map());
+  const thumbnailUrls = useRef<Set<string>>(new Set());
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
   const [remainingTime, setRemainingTime] = useState('00:00:00');
@@ -82,9 +104,19 @@ export default function LiveMonitorPage() {
   useEffect(() => {
     setStudentStatuses(new Map());
     setTimelines(new Map());
+    setThumbnails(new Map());
     setSelectedStudentId(null);
     setJoinError(null);
   }, [activeExamId]);
+
+  // Object URLs hold the image in memory until revoked: release them all when the page goes away.
+  useEffect(() => {
+    const urls = thumbnailUrls.current;
+    return () => {
+      urls.forEach(url => URL.revokeObjectURL(url));
+      urls.clear();
+    };
+  }, []);
 
   const handleSelectExam = (examId: string) => {
     const next = runningExams.find(e => e.examId === examId);
@@ -148,7 +180,13 @@ export default function LiveMonitorPage() {
         tileStatus: (data.tileStatus || 'Normal') as TileStatus,
         seatStatus: data.seatStatus ?? null,
         seatDetail: data.seatDetail ?? null,
-        sessionStatus: data.sessionStatus ?? null
+        sessionStatus: data.sessionStatus ?? null,
+        // Module 5: a heartbeat means the PC is connected again; idle time, webcam state and visible apps
+        isDisconnected: false,
+        disconnectedAt: null,
+        idleSeconds: data.idleSeconds ?? null,
+        cameraStatus: data.cameraStatus ?? null,
+        processes: data.processes ?? null
       };
 
       setStudentStatuses(prev => {
@@ -229,6 +267,70 @@ export default function LiveMonitorPage() {
         ]);
         return next;
       });
+    });
+
+    // Module 5: the server's watchdog saw no heartbeat for 30 s — the PC is off the network, crashed or was closed.
+    connection.on('StudentDisconnected', (data: any) => {
+      if (data?.examId && data.examId !== activeExam.examId) return;
+      setStudentStatuses(prev => {
+        const existing = prev.get(data.userId);
+        if (!existing) return prev;
+        const next = new Map(prev);
+        next.set(data.userId, { ...existing, isDisconnected: true, disconnectedAt: data.disconnectedAt ?? new Date().toISOString() });
+        return next;
+      });
+      addTimeline(data.userId, {
+        title: 'Disconnected',
+        timestamp: new Date().toLocaleTimeString(),
+        description: 'No heartbeat from the student PC for 30 seconds.',
+        isAlert: true
+      });
+    });
+
+    connection.on('StudentReconnected', (data: any) => {
+      if (data?.examId && data.examId !== activeExam.examId) return;
+      setStudentStatuses(prev => {
+        const existing = prev.get(data.userId);
+        if (!existing) return prev;
+        const next = new Map(prev);
+        next.set(data.userId, { ...existing, isDisconnected: false, disconnectedAt: null });
+        return next;
+      });
+      addTimeline(data.userId, {
+        title: 'Reconnected',
+        timestamp: new Date().toLocaleTimeString(),
+        description: `Back after ${data.offlineSeconds ?? '?'} s offline. Events from the gap are replayed with their original times.`
+      });
+    });
+
+    // Module 5: a new capture was stored — show the latest screen capture on the student's tile.
+    connection.on('ScreenshotUploaded', (data: any) => {
+      if (data?.examId && data.examId !== activeExam.examId) return;
+      if (data.kind === 'Screen') {
+        monitoringApi.screenshotBlob(data.screenshotId)
+          .then(blob => {
+            const url = URL.createObjectURL(blob);
+            thumbnailUrls.current.add(url);
+            setThumbnails(prev => {
+              const next = new Map(prev);
+              const old = prev.get(data.userId);
+              if (old) {
+                URL.revokeObjectURL(old.url);
+                thumbnailUrls.current.delete(old.url);
+              }
+              next.set(data.userId, { url, capturedAt: data.capturedAt, trigger: data.trigger });
+              return next;
+            });
+          })
+          .catch(err => console.error('Failed to load screen capture', err));
+      }
+      if (data.trigger === 'Violation') {
+        addTimeline(data.userId, {
+          title: data.kind === 'Webcam' ? 'Webcam Snapshot' : 'Screen Captured',
+          timestamp: new Date().toLocaleTimeString(),
+          description: `Evidence captured for: ${violationLabel(data.triggerReason)}`
+        });
+      }
     });
 
     // Teacher extended time (possibly from another proctor's session) — resync countdown
@@ -667,7 +769,15 @@ export default function LiveMonitorPage() {
                   statusColor = 'border-slate-300 ring-transparent opacity-80';
                   heartColor = 'text-slate-400';
                   statusText = sessionStatusLabel(s.sessionStatus);
+                } else if (s.isDisconnected) {
+                  // Module 5: silent for 30 s. Violations still count, but the first thing to do is go and look.
+                  statusColor = 'border-slate-400 border-dashed ring-slate-100';
+                  heartColor = 'text-slate-500';
+                  statusText = 'Disconnected';
                 }
+                const thumbnail = thumbnails.get(s.userId);
+                const idle = formatIdle(s.idleSeconds);
+                const cameraLabel = s.cameraStatus ? CAMERA_LABEL[s.cameraStatus] : undefined;
 
                 return (
                   <div 
@@ -703,6 +813,31 @@ export default function LiveMonitorPage() {
                         )}
                       </div>
                     </div>
+
+                    {thumbnail && (
+                      <img
+                        data-testid="tile-thumbnail"
+                        src={thumbnail.url}
+                        alt={`Latest screen of ${s.studentName}`}
+                        title={`Captured ${new Date(thumbnail.capturedAt).toLocaleTimeString()}${thumbnail.trigger === 'Violation' ? ' (violation)' : ''}`}
+                        className="w-full aspect-video object-cover rounded-lg border border-slate-200 mb-2 bg-slate-100"
+                      />
+                    )}
+
+                    {(idle || cameraLabel) && !finalised && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {cameraLabel && (
+                          <span data-testid="tile-camera" className="px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 text-[9px] font-bold uppercase tracking-wider">
+                            {cameraLabel}
+                          </span>
+                        )}
+                        {idle && (
+                          <span data-testid="tile-idle" className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[9px] font-bold uppercase tracking-wider" title="No keyboard or mouse input on the PC">
+                            {idle}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {s.lastViolation && (
                       <p data-testid="tile-last-violation" className={`text-[10px] font-semibold mb-2 truncate ${heartColor}`} title={s.lastViolation}>

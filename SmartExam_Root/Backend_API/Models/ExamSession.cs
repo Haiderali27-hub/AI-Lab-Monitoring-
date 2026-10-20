@@ -21,6 +21,13 @@ public class ExamSession
     public string? ReceiptSha256 { get; set; }
     public int? ReceiptAnswerCount { get; set; }
 
+    // Module 5: liveness. Every heartbeat stamps LastHeartbeatAt; HeartbeatWatchdogService flags a running
+    // session whose client has been silent for Monitoring:DisconnectAfterSeconds (IsDisconnected + when),
+    // and the next heartbeat clears it again (a Reconnected event records how long it was offline).
+    public DateTime? LastHeartbeatAt { get; set; }
+    public bool IsDisconnected { get; set; }
+    public DateTime? DisconnectedAt { get; set; }
+
     // Navigation
     public Exam Exam { get; set; } = null!;
     public User Student { get; set; } = null!;

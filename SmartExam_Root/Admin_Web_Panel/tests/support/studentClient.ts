@@ -13,6 +13,8 @@ import { API_URL, uniqueTag } from './env';
  *   GET  /api/exams/sessions/{sessionId}/answers          (Module 6 crash recovery: saved answers + receipt)
  *   POST /api/monitoring/heartbeat  { examSessionId, isForegroundExamApp, activeWindowTitle, processListSnapshot }
  *   POST /api/monitoring/event      { eventType, examSessionId, payloadJson }   (focus loss → "Violation")
+ *   POST /api/monitoring/events/batch { examSessionId, events:[{clientEventId, eventType, payloadJson, recordedAt}] } (Module 5 outbox)
+ *   POST /api/monitoring/screenshots  multipart { examSessionId, kind, trigger, reason?, capturedAt, file }   (Module 5 captures)
  *   POST /api/exams/sessions/{sessionId}/submit           → { message, sessionId, submittedAt, answerCount, sha256 }
  *   GET  /api/notifications                               (teacher warnings / announcements)
  */
@@ -154,7 +156,9 @@ export class StudentClient {
   }
 
   // ── live monitoring ─────────────────────────────────────────────────────
-  heartbeat(opts: { isForegroundExamApp?: boolean; activeWindowTitle?: string; processListSnapshot?: string; sessionId?: string | null } = {}) {
+  /** `idleSeconds` / `cameraStatus` are what the Module 5 client adds (input idle time, webcam state); omitted = older client. */
+  heartbeat(opts: { isForegroundExamApp?: boolean; activeWindowTitle?: string; processListSnapshot?: string; sessionId?: string | null;
+    idleSeconds?: number; cameraStatus?: 'Off' | 'Ok' | 'Covered' | 'Frozen' | 'Unavailable' } = {}) {
     return this.request.post(`${API_URL}/api/monitoring/heartbeat`, {
       headers: this.headers(),
       data: {
@@ -162,6 +166,8 @@ export class StudentClient {
         isForegroundExamApp: opts.isForegroundExamApp ?? true,
         activeWindowTitle: opts.activeWindowTitle ?? 'SmartExam - Exam Window',
         processListSnapshot: opts.processListSnapshot ?? 'SmartExam,code,explorer',
+        idleSeconds: opts.idleSeconds,
+        cameraStatus: opts.cameraStatus,
       },
     });
   }
@@ -177,6 +183,51 @@ export class StudentClient {
   /** Focus-loss violation exactly as LiveMonitoringService reports it. */
   violation(reason = 'FocusLoss', activeWindow = 'Google Chrome', sessionId: string | null = this.sessionId || null) {
     return this.event('Violation', { reason, activeWindow, atUtc: new Date().toISOString() }, sessionId);
+  }
+
+  /**
+   * Module 5: one capture, as ScreenshotService/ApiClient.UploadCaptureAsync sends it (multipart). The default body is
+   * the smallest well-formed JPEG (SOI + JFIF APP0 + EOI) — the server decides the type by these magic bytes.
+   */
+  screenshot(opts: { bytes?: Buffer; kind?: 'Screen' | 'Webcam'; trigger?: 'Interval' | 'Violation'; reason?: string; sessionId?: string } = {}) {
+    const multipart: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = {
+      examSessionId: opts.sessionId ?? this.sessionId,
+      kind: opts.kind ?? 'Screen',
+      trigger: opts.trigger ?? 'Interval',
+      capturedAt: new Date().toISOString(),
+      file: { name: 'capture.jpg', mimeType: 'image/jpeg', buffer: opts.bytes ?? StudentClient.tinyJpeg() },
+    };
+    if (opts.reason) multipart.reason = opts.reason;
+    return this.request.post(`${API_URL}/api/monitoring/screenshots`, { headers: this.headers(), multipart });
+  }
+
+  /** A real 16×9 JPEG (one flat colour), so a browser can render the tile thumbnail. */
+  static tinyJpeg(): Buffer {
+    return Buffer.from(
+      '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYU' +
+      'GBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAAJABAD' +
+      'ASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKB' +
+      'kaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZ' +
+      'mqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQF' +
+      'BgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5' +
+      'OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX' +
+      '2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDweiiiv3M/LD//2Q==', 'base64');
+  }
+
+  /** Module 5: queued events flushed in one call (LiveMonitoringService → POST /api/monitoring/events/batch). */
+  eventBatch(events: { clientEventId: string; eventType: string; payload?: unknown; recordedAt?: string }[], sessionId = this.sessionId) {
+    return this.request.post(`${API_URL}/api/monitoring/events/batch`, {
+      headers: this.headers(),
+      data: {
+        examSessionId: sessionId,
+        events: events.map(e => ({
+          clientEventId: e.clientEventId,
+          eventType: e.eventType,
+          payloadJson: JSON.stringify(e.payload ?? {}),
+          recordedAt: e.recordedAt ?? new Date().toISOString(),
+        })),
+      },
+    });
   }
 
   async notifications(): Promise<{ unreadCount: number; notifications: any[] }> {

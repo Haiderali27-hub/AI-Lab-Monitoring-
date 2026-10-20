@@ -29,7 +29,10 @@ public static class ViolationClassifier
         MonitoringEventType.VirtualMachine,
         MonitoringEventType.LockdownDegraded,
         MonitoringEventType.SeatMismatch,
-        MonitoringEventType.BackupTampered
+        MonitoringEventType.BackupTampered,
+        MonitoringEventType.CameraCovered,
+        MonitoringEventType.CameraFrozen,
+        MonitoringEventType.CameraUnavailable
     };
 
     private enum Severity { Warning = 1, Suspicious = 2, Violation = 3 }
@@ -37,11 +40,15 @@ public static class ViolationClassifier
     private static Severity SeverityOf(MonitoringEventType type) => type switch
     {
         MonitoringEventType.FocusLost or MonitoringEventType.KeyBlocked or MonitoringEventType.ClipboardBlocked
+            // The required camera stopped delivering frames: often a driver or USB hiccup, so a warning first.
+            or MonitoringEventType.CameraUnavailable
             => Severity.Warning,
         MonitoringEventType.UnauthorizedProcess or MonitoringEventType.MultiMonitor
             or MonitoringEventType.VirtualMachine or MonitoringEventType.LockdownDegraded
             // Someone edited the encrypted answer backup on the PC: suspicious, but the server copy is authoritative.
             or MonitoringEventType.BackupTampered
+            // Lens covered, or a feed that never changes (looped image / virtual camera): deliberate more often than not.
+            or MonitoringEventType.CameraCovered or MonitoringEventType.CameraFrozen
             => Severity.Suspicious,
         // ProcessKilled = the student actually launched a forbidden app; USB/RDP = evidence risk;
         // SeatMismatch = someone sitting at the wrong workstation (possible impersonation);
@@ -52,16 +59,40 @@ public static class ViolationClassifier
     public static bool IsViolation(MonitoringEventType type) => ViolationTypes.Contains(type);
 
     /// <summary>
+    /// Types only the server records (heartbeats, the seat check, the liveness watchdog). A client that sends
+    /// one of these names gets the generic fallback instead, so it can neither forge nor hide server findings.
+    /// </summary>
+    public static readonly MonitoringEventType[] ServerOnlyTypes =
+    {
+        MonitoringEventType.Heartbeat,
+        MonitoringEventType.SeatMismatch,
+        MonitoringEventType.Disconnected,
+        MonitoringEventType.Reconnected
+    };
+
+    /// <summary>Severity name for timelines: Info (not a violation), Warning, Suspicious or Violation.</summary>
+    public static string SeverityName(MonitoringEventType type) =>
+        !IsViolation(type) ? "Info" : SeverityOf(type) switch
+        {
+            Severity.Warning => Warning,
+            Severity.Suspicious => Suspicious,
+            _ => Violation
+        };
+
+    /// <summary>
     /// Resolves the stored event type. Accepts a specific type name directly ("ProcessKilled")
     /// or the client's generic form: "Violation" with a payload { "reason": "ProcessKilled" }.
-    /// Unknown names fall back to WindowFocus (non-violation) as before.
+    /// Unknown names fall back to WindowFocus (non-violation) as before; server-only names
+    /// (<see cref="ServerOnlyTypes"/>) are treated like unknown ones.
     /// </summary>
     public static MonitoringEventType Resolve(string? eventType, string? payloadJson)
     {
         if (string.Equals(eventType, "Violation", StringComparison.OrdinalIgnoreCase))
-            return TryParseType(ReasonFrom(payloadJson), out var specific) ? specific : MonitoringEventType.Violation;
+            return TryParseType(ReasonFrom(payloadJson), out var specific) && !ServerOnlyTypes.Contains(specific)
+                ? specific
+                : MonitoringEventType.Violation;
 
-        return TryParseType(eventType, out var parsed) && parsed != MonitoringEventType.Heartbeat
+        return TryParseType(eventType, out var parsed) && !ServerOnlyTypes.Contains(parsed)
             ? parsed
             : MonitoringEventType.WindowFocus;
     }
