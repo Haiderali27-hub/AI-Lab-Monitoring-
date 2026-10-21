@@ -194,7 +194,9 @@ public class Module11EvaluationAcceptanceTests : IDisposable
     [DockerFact]
     public async Task M11_I_05_Sandbox_MemoryLimit_KillsAndFailsCase()
     {
-        using var host = new TestHost(b => b.UseSetting("Grading:Runner", "Docker"));
+        // Generous time limit: on a loaded machine filling 256 MB can take longer than the 2 s default,
+        // and the case must be stopped by the memory limit, not the clock.
+        using var host = new TestHost(b => b.UseSetting("Grading:Runner", "Docker").UseSetting("Grading:DefaultTimeLimitMs", "10000"));
         const string hog = """
             #include <stdlib.h>
             #include <string.h>
