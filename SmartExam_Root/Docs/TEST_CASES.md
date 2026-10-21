@@ -611,6 +611,7 @@ xUnit: `Backend_API.Tests/Tests/Acceptance/Module12AuditAcceptanceTests.cs` (tes
 | D-46 | M10-I-22 (verifier) | `PATCH /api/student/notifications/{id}/read` cleared a proctor warning (it then left the heartbeat ack) without the `PROCTOR_WARNING_ACKNOWLEDGED` audit the other two paths write | **Fixed** — audited (`via: student-portal`) |
 | D-47 | M5-I-23 (verifier) | A session's timeline listed every proctor warning sent to the student during the session's time, including another exam's (overlapping practice session) | **Fixed** — only warnings whose `RelatedEntityId` is this session |
 | D-48 | M12 implementation | `GET /api/analytics/reports/{file}` always read from `./Reports/`, ignoring `Analytics:ReportOutputPath` that the generator writes to, so a configured output folder made every report download 404 (and every file was served as `application/pdf`) | **Fixed** — one `ReportDirectory` for both; content type by extension (PDF / xlsx / zip), streamed |
+| D-49 | M11-I-05 (final regression) | On a loaded PC the 1 GB memory-hog program in the Docker sandbox ran past the 2 s case time limit before reaching the 256 MB memory limit, so the case was graded as a timeout instead of a memory breach (test-only: the sandbox limits were correct) | **Fixed** — the test gives that case a 10 s time limit so the memory limit always fires first |
 
 ---
 

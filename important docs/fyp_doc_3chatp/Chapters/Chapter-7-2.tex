@@ -4,7 +4,7 @@ This section lists the test cases by level: unit (UT), integration (IT) and syst
 
 \subsection{Unit Testing}\label{subsec:unit_tests}
 
-Unit tests check one class at a time without a database, network or user interface, in the xUnit projects for the WPF client (233 tests, all passed) and the server (489 passed, 12 skipped, together with its API tests). Time-dependent logic uses a fake clock, the registry is an in-memory fake, and webcam frames are generated in code. The skipped backend tests belong to Module~12 (audit hash chain, audit of monitoring events and report exports), which is not finished, and are not counted here.
+Unit tests check one class at a time without a database, network or user interface, in the xUnit projects for the WPF client (233 tests) and the server (508 tests, together with its API tests), all of which passed. Time-dependent logic uses a fake clock, the registry is an in-memory fake, and webcam frames are generated in code.
 
 Table~\ref{tab:ut_auth} covers password hashing on the server, token refresh in the desktop client and the hardware fingerprint (HWID) that binds a student to one lab PC.
 
@@ -185,4 +185,23 @@ Table~\ref{tab:ut_similarity} covers static analysis, TF-IDF grading of theory a
 UT-35 & Estimate complexity, flag hard-coding & 1. Analyse nested loops and recursion. \newline 2. Analyse 12 if statements. & C++ snippets; sum(arr, n) \newline {\footnotesize\textit{Ref: M11-U-14}} & O(1) to O(n$^3$+); recursion found; hard-coding High. & Pass\\ \hline
 UT-36 & Grade theory answers with TF-IDF & 1. Grade an answer identical to the model. \newline 2. Grade a partial and an unrelated answer. & Identical: ``A stack is LIFO and a queue is FIFO.'' (model and answer) \newline Model (other cases): ``Stack is LIFO, queue is FIFO.'' \newline {\footnotesize\textit{Ref: M11-U-07, M11-U-15}} & 10 marks, High; partial 3--7, Medium; unrelated 0. & Pass\\ \hline
 UT-37 & Detect copies, separate algorithms & 1. Compare a renamed and a commented copy. \newline 2. Compare a recursive version. & sum(arr, n) vs addAll(values, count) \newline {\footnotesize\textit{Ref: M11-U-08 to M11-U-10}} & $\geq$ 90\%, $\geq$ 95\% and $<$ 30\%. & Pass\\ \hline
+\end{longtable}}
+
+Table~\ref{tab:ut_audit_chain} covers the hash chain that makes the audit log tamper-evident (FR12): each row stores the previous row's hash, so a changed or deleted row breaks the chain.
+
+{\small\setlength{\tabcolsep}{4pt}
+\begin{longtable}{|P{1.1cm}|P{2.5cm}|P{3.6cm}|P{2.6cm}|P{2.9cm}|P{1.2cm}|}
+\caption{Unit Test Cases for the Audit Hash Chain}\label{tab:ut_audit_chain}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endfirsthead
+\multicolumn{6}{c}{\tablename~\thetable{} -- continued from previous page}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endhead
+\hline \multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\hline
+\endlastfoot
+UT-38 & Link each audit entry to the previous one & 1. Write three audit entries. \newline 2. Recompute every hash. & Three entries; first PrevHash is 64 zeros \newline {\footnotesize\textit{Ref: M12-U-01, M12-U-05}} & Sequence 1, 2, 3 with no gap; each PrevHash equals the previous Hash; every Hash recomputes. & Pass\\ \hline
+UT-39 & Detect a changed or deleted entry & 1. Change the details of row 2 and verify. \newline 2. Remove row 2 and verify. & Chain of three entries \newline {\footnotesize\textit{Ref: M12-U-02, M12-U-03}} & Broken at row 2 when changed; broken at row 3 (sequence gap) when deleted. & Pass\\ \hline
+UT-40 & Hash does not depend on JSON key order & 1. Hash the same details with the keys reordered. \newline 2. Change one value. & \{a:1, b:2\} and \{b:2, a:1\} \newline {\footnotesize\textit{Ref: M12-U-04}} & Same hash for both orders; a changed value gives a different hash. & Pass\\ \hline
 \end{longtable}}

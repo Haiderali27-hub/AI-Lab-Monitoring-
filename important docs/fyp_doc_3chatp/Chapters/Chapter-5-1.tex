@@ -187,7 +187,7 @@ After submission (Figure~\ref{fig:activity_grading}) MCQ answers are checked aga
 \label{fig:activity_grading}
 \end{figure}
 
-For a report (Figure~\ref{fig:activity_report}) the API renders a QuestPDF document with summary statistics, per-question performance and the score distribution, records it in \texttt{ExamReports} and returns a download link; report generation is not audited. Controllers write audit entries explicitly through \texttt{AuditService}, saving refused actions at once and staging others with the change they record, and admins read them on the audit page (Figure~\ref{fig:activity_audit}).
+For a report (Figure~\ref{fig:activity_report}) the API renders a QuestPDF document with summary statistics, per-question performance and the score distribution, records it in \texttt{ExamReports} and returns a download link. The attendance, violations and scores PDFs, the Excel file and the evidence ZIP are produced by \texttt{ReportExportService} and audited as \texttt{REPORT\_GENERATED} with the file's SHA-256. Controllers write audit entries explicitly through \texttt{AuditService}, saving refused actions at once and staging others with the change they record. \texttt{SaveChanges} then seals each new row into a hash chain (sequence number, previous hash, SHA-256 of the row), one writer at a time, and admins read the log and its verification status on the audit page (Figure~\ref{fig:activity_audit}).
 
 \begin{figure}[!htbp]
 \centering

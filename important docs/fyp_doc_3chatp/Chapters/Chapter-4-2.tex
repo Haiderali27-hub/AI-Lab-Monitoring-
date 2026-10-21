@@ -31,7 +31,7 @@ Exams (M8--M10) & Exams, Questions, TestCases, ExamAssignments, ExamProctors & A
 Exam run (M2, M3, M6) & ReadinessChecks, ExamSessions, Answers & Sessions hold status, extra minutes and the receipt hash; answers carry a revision. \\
 Monitoring (M5, M10) & MonitoringEvents, Screenshots, Incidents & Events have a JSON payload; screenshots store path, size and SHA-256; incidents hold a proctor's note, severity and status (Open, Escalated, Resolved). \\
 Evaluation (M11) & AiGradingResults, TestCaseResults, TeacherGradeOverrides, PlagiarismResults & Suggested mark and confidence, per-test-case result, teacher override, and similarity per student pair. \\
-Audit (M12) & AuditLogs, ExamReports, Notifications & Notifications also carry invigilator warnings. \\
+Audit (M12) & AuditLogs, ExamReports, Notifications & Audit rows are hash-chained; notifications also carry invigilator warnings. \\
 \hline\hline
 \end{tabularx}}
 \end{table}

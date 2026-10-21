@@ -135,7 +135,7 @@ The device-binding page (Figure~\ref{fig:ui_device_bindings}) lists each student
 \label{fig:ui_device_bindings}
 \end{figure}
 
-In the student portal (Figure~\ref{fig:ui_student_performance}) a student sees exams taken, average and best score, integrity flags, a score trend and an exam timeline. The read-only audit page (Figure~\ref{fig:ui_audit_logs}) lists \texttt{AuditLogs} rows (time, actor, event, entity, JSON details) such as logins, readiness results, warnings, incidents and grade overrides (FR12).
+In the student portal (Figure~\ref{fig:ui_student_performance}) a student sees exams taken, average and best score, integrity flags, a score trend and an exam timeline. The read-only audit page (Figure~\ref{fig:ui_audit_logs}) lists \texttt{AuditLogs} rows (time, actor, event, entity, JSON details) such as logins, grade overrides, completed AI grading and submissions (FR12). The badge at the top shows that the hash chain over these rows verifies.
 
 \begin{figure}[H]
 \centering
@@ -191,7 +191,7 @@ AiGradingResults & Suggested mark of an answer & ResultId, AnswerId (unique), St
 TestCaseResults & Per-case outcome of a grading run & TestCaseResultId, ResultId, Passed \\
 TeacherGradeOverrides & Final mark set by the teacher & OverrideId, AnswerId (unique), TeacherId \\
 PlagiarismResults & Similar answer pairs & PlagId, QuestionId, UserIdA, UserIdB \\
-AuditLogs & Security and admin actions & LogId, ActorId, EventType, Details \\
+AuditLogs & Security and admin actions, hash-chained & LogId, ActorId, EventType, Details, Sequence, PrevHash, Hash \\
 ExamReports & Generated PDF reports & ReportId, ExamId, ReportType, FilePath \\
 Notifications & In-app notifications & NotificationId, RecipientId, IsRead \\
 \end{longtable}

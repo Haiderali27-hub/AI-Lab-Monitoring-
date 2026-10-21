@@ -1,6 +1,6 @@
 \subsection{System Testing}\label{subsec:system_tests}
 
-System tests check complete user flows in the Playwright \texttt{chromium} project: the web panel runs in headless Chromium, and the desktop-client simulator sends the HTTP calls of the WPF client in the same test, so one action can be followed from the student PC to the teacher's screen and back. Each test creates its own students and exam. Of the 113 tests, 111 passed, none failed, and M12-E-04 and M12-E-05 were skipped and are not listed. One system test case may combine several catalogue tests of the same flow; all the tests it cites passed.
+System tests check complete user flows in the Playwright \texttt{chromium} project: the web panel runs in headless Chromium, and the desktop-client simulator sends the HTTP calls of the WPF client in the same test, so one action can be followed from the student PC to the teacher's screen and back. Each test creates its own students and exam. All 113 tests passed. One system test case may combine several catalogue tests of the same flow; all the tests it cites passed.
 
 Table~\ref{tab:st_admin} covers signing in, token refresh, logout and role separation in the web panel.
 
@@ -79,10 +79,11 @@ ST-12 & Force-submit all or one session & 1. A simulator saves a draft; teacher 
 ST-13 & Show grading suggestions, let the teacher decide & 1. Submit non-compiling, then correct code; open Review. \newline 2. Override a theory mark; in another exam, accept AI suggestions. & \texttt{arr}, \texttt{n} undeclared; override 7 \newline {\footnotesize\textit{Ref: M11-E-01, M11-E-04, M11-E-02, M11-E-06}} & ``Compilation failed'', 0 / 20, two test-case rows, the first Not run; 20 / 20; 7/10 Overridden; ``Accepted 2 suggestion(s)''. & Pass\\ \hline
 ST-14 & Show plagiarism between submissions & 1. Three students submit the same answer; open Analytics. \newline 2. Two submit a program and a renamed copy. & Rename \texttt{best}$\rightarrow$\texttt{top} \newline {\footnotesize\textit{Ref: M11-E-03, M11-E-05}} & 3$\times$3 heat map, cell 0-1 shows 100; flag ``100\% Similarity Match''. & Pass\\ \hline
 ST-15 & Review the audit log, generate a PDF report & 1. Admin filters Audit Logs and searches by email. \newline 2. Teacher clicks Generate New Report. & \texttt{LOGIN\_\allowbreak{}SUCCESS}; teacher@\allowbreak{}smartexam.\allowbreak{}com \newline {\footnotesize\textit{Ref: M7-E-03, M12-E-01, M12-E-02}} & Only \texttt{LOGIN\_\allowbreak{}SUCCESS} rows; teacher found; a Download button and a \texttt{.pdf} row. & Pass\\ \hline
+ST-16 & Show the chain status and export evidence & 1. Admin opens Audit Logs. \newline 2. Teacher opens Reports and clicks Evidence ZIP. & Seeded exam with submitted sessions \newline {\footnotesize\textit{Ref: M12-E-04, M12-E-05}} & Badge ``Chain verified''; a \texttt{.zip} download starts. & Pass\\ \hline
 \end{longtable}}
 
 \subsubsection*{Pending Lab Verification}
-Checks that need a real lab PC (WPF windows, keyboard and USB events, a webcam, a network cable or 30 machines) are on the manual lab checklist (layers D, M and P) and were not executed, so Table~\ref{tab:st_pending} lists them as Pending. Their decision logic is mostly covered by the unit and integration tests above. The Module~12 hash-chain and report-export tests are also not run, because those features are not finished.
+Checks that need a real lab PC (WPF windows, keyboard and USB events, a webcam, a network cable or 30 machines) are on the manual lab checklist (layers D, M and P) and were not executed, so Table~\ref{tab:st_pending} lists them as Pending. Their decision logic is mostly covered by the unit and integration tests above.
 
 {\small\setlength{\tabcolsep}{4pt}
 \begin{longtable}{|P{2.6cm}|P{3.0cm}|P{3.8cm}|P{3.6cm}|P{1.4cm}|}
@@ -108,7 +109,7 @@ M5-P-01 & Load: 30 clients per lab & k6: 30 virtual students send heartbeats eve
 
 \section{Bugs Report}\label{sec:bugs}
 
-In total 47 defects (D-01 to D-47) were recorded in the test catalogue, each with the test or review that found it. Six (D-07, D-16, D-19, D-20, D-22, D-26) were found by code review, and one (D-33) was a flaky test rather than a product defect. Table~\ref{tab:bugs} lists the 20 with the largest effect on exam integrity, data access and reliability; every test named in it is kept as a regression test and passed in the final run. Severity is Critical for a leak of exam content or credentials or a bypass of the desktop client, High for a broken access rule or a loss of exam time or data, and Medium for a fault with a limited effect. No defect is open.
+In total 49 defects (D-01 to D-49) were recorded in the test catalogue, each with the test or review that found it. Six (D-07, D-16, D-19, D-20, D-22, D-26) were found by code review, and two (D-33, D-49) were timing-sensitive tests rather than product defects. Table~\ref{tab:bugs} lists the 20 with the largest effect on exam integrity, data access and reliability; every test named in it is kept as a regression test and passed in the final run. Severity is Critical for a leak of exam content or credentials or a bypass of the desktop client, High for a broken access rule or a loss of exam time or data, and Medium for a fault with a limited effect. No defect is open.
 
 {\small\setlength{\tabcolsep}{4pt}
 \begin{longtable}{|P{1.0cm}|P{2.0cm}|P{8.5cm}|P{1.6cm}|P{1.2cm}|}
@@ -144,4 +145,4 @@ D-44 & M9-I-21 & Teachers could assign other teachers' students. & High & Fixed\
 D-45 & M9-I-22 & A web token could act in the lab PC's session. & Critical & Fixed\\ \hline
 \end{longtable}}
 
-Most serious defects were access-control faults that appear only when two users of the same role meet, or failure paths of the desktop client (crash, network loss, camera error) found by unit tests with fakes. In summary, SmartExam was tested at three levels with 915 automated tests, of which 900 passed, none failed and 15 were skipped, and every test case marked Pass in this chapter is backed by a passing test from that run. The 47 defects recorded during testing are all fixed; those found by a test are kept as regression tests. The checks that need a real lab PC, the load test and the unfinished Module~12 features (audit hash chain and report exports) are still pending and are reported as such.
+Most serious defects were access-control faults that appear only when two users of the same role meet, or failure paths of the desktop client (crash, network loss, camera error) found by unit tests with fakes. In summary, SmartExam was tested at three levels with 922 automated tests, of which 921 passed, none failed and one was skipped (SEC-A-01, covered by SEC-I-04), and every test case marked Pass in this chapter is backed by a passing test from that run. The 49 defects recorded during testing are all fixed; those found by a test are kept as regression tests. The checks that need a real lab PC and the load test are still pending and are reported as such.

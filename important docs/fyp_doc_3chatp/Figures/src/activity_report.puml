@@ -5,7 +5,8 @@ skinparam ArrowFontSize 11
 ' PDF report (Module analytics): ReportsPage -> POST /api/analytics/exams/{examId}/report (AnalyticsController,
 ' Roles Admin,SuperAdmin,Teacher), ExamAccessService.DenyUnlessAsync(Owner), AnalyticsService.GetExamSummaryAsync
 ' + GenerateExamReportPdfAsync (QuestPDF; file in Reports/, row in ExamReports), GET /api/analytics/exams/{examId}/reports,
-' GET /api/analytics/reports/{fileName}. Report generation itself is not audited.
+' GET /api/analytics/reports/{fileName}. The summary PDF is not audited; the Module 12 exports
+' (POST /api/analytics/reports/{type}) are audited as REPORT_GENERATED with the file's SHA-256.
 ' Two columns joined by connector A.
 
 split
@@ -19,6 +20,15 @@ split
   :POST /api/analytics
   /exams/{examId}/report
   (AnalyticsController);
+  note right
+    Exports use POST
+    /reports/{type}:
+    attendance, violations,
+    scores, excel,
+    evidence-zip; each is
+    audited as REPORT_
+    GENERATED + SHA-256
+  end note
   :ExamAccessService
   .DenyUnlessAsync
   (Owner);

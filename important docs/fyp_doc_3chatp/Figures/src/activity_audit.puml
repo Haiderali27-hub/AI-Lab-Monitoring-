@@ -6,7 +6,9 @@ skinparam ArrowFontSize 11
 ' call AuditService explicitly (no middleware). Add() stages a row that the caller's SaveChanges commits with the
 ' change itself (also SEAT_MISMATCH: SeatGuard.ReportMismatchAsync + explicit SaveChanges in CheckSeatOnStartAsync);
 ' LogAsync() saves at once for standalone events (LOGIN_FAILED, DEVICE_MISMATCH ...).
-' AuditLog: LogId, ActorId, EventType, EntityType, EntityId, Details (JSON), CreatedAt.
+' AuditLog: LogId, ActorId, EventType, EntityType, EntityId, Details (JSON), CreatedAt, Sequence, PrevHash, Hash.
+' Module 12: AppDbContext.SaveChanges[Async] seals every new row through AuditChain (one writer at a time:
+' in-process lock + Postgres advisory lock); GET /api/audit-logs/verify walks the chain (AuditLogsPage badge).
 ' Viewing: /admin/audit-logs (PrivateRoute Admin,SuperAdmin) -> GET /api/audit-logs (AuditController, Admin,SuperAdmin).
 
 split
@@ -43,6 +45,13 @@ split
   EntityType, EntityId,
   Details JSON,
   CreatedAt;
+  :<b>SaveChanges</b> seals
+  it (one writer at
+  a time): next
+  Sequence, PrevHash is
+  the previous Hash,
+  Hash is SHA-256 of
+  PrevHash + fields;
   stop
 split again
   -[hidden]->
@@ -68,6 +77,16 @@ split again
   :Page filters by
   event type and
   search text;
+  :GET /api/audit-logs
+  /verify recomputes
+  every Hash;
+  if (Chain\nintact?) then (yes)
+    :Badge "Chain
+    verified";
+  else (no)
+    :Badge "Chain
+    broken at #n";
+  endif
   stop
 end split
 @enduml

@@ -7,7 +7,8 @@ skinparam defaultFontSize 13
 ' (Roles "Admin,SuperAdmin,Teacher", DenyUnlessOwnerAsync = exam owner or admin) GenerateReport / DownloadReport
 ' (Path.GetFileName check 400, ExamReport lookup 404, owner 403, file under Reports/ 404);
 ' Services/Analytics/AnalyticsService.GenerateExamReportPdfAsync (GetExamSummaryAsync, QuestPDF, ExamReports row).
-' Report generation is not written to AuditLogs.
+' The exam summary PDF is not audited; the Module 12 exports (POST /api/analytics/reports/{type},
+' ReportExportService) are written to AuditLogs as REPORT_GENERATED with the file's SHA-256.
 hide footbox
 skinparam ParticipantPadding 0
 skinparam sequence {
@@ -39,4 +40,9 @@ AC -> DB : ExamReport by file name\n(else 404)
 AC -> AC : owner or\nadmin?\n(else 403)
 AC --> RP : application/pdf
 RP --> T : PDF\nsaved
+note over RP, DB
+  Exports (attendance, violations, scores PDF, Excel, evidence ZIP):
+  POST /api/analytics/reports/{type} -> ReportExportService builds the file
+  and adds a REPORT_GENERATED audit row carrying its SHA-256.
+end note
 @enduml
