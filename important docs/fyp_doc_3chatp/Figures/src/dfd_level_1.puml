@@ -1,0 +1,157 @@
+@startuml
+!include style.iuml
+' DFD level 1. Gane-Sarson style: square boxes = external entities,
+' rounded boxes = processes, open boxes "Dn" (top and bottom lines only)
+' = data stores named after the real tables.
+' Top-to-bottom tiers: Student / processes 1.0-3.0 / stores / 4.0, 5.0 /
+' staff. Wide (about 3:1): meant for a rotated [p] float.
+skinparam dpi 80
+skinparam defaultFontSize 22
+skinparam ArrowFontSize 21
+skinparam nodesep 4
+skinparam ranksep 22
+skinparam defaultTextAlignment center
+skinparam rectangle<<entity>> {
+  BorderThickness 2
+  RoundCorner 0
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle<<process>> {
+  RoundCorner 25
+  BackgroundColor #F2F2F2
+}
+' Data stores are labels: no frame, the ---- separators draw the
+' top and bottom lines of an open store box.
+skinparam label {
+  BorderColor #333333
+  FontSize 21
+}
+skinparam rectangle<<optional>> {
+  RoundCorner 0
+  BorderStyle dashed
+  BackgroundColor #FFFFFF
+}
+hide stereotype
+
+rectangle "Admin /\nSuperAdmin" <<entity>> as ADM
+rectangle "Student\n(WPF client +\nweb portal)" <<entity>> as STU
+rectangle "Teacher" <<entity>> as TEA
+rectangle "Invigilator" <<entity>> as INV
+rectangle "LLM grader\n(optional, off)" <<optional>> as LLM
+rectangle "Email server\n(SMTP)" <<entity>> as SMTP
+
+rectangle "**1.0**\nAuthenticate and\nbind device" <<process>> as P1
+rectangle "**2.0**\nConfigure exams\nand run sessions" <<process>> as P2
+rectangle "**3.0**\nLockdown and\ntelemetry" <<process>> as P3
+rectangle "**4.0**\nLive\nproctoring" <<process>> as P4
+rectangle "**5.0**\nEvaluation and\nreporting" <<process>> as P5
+
+label D1 [
+----
+**D1** | Users, DeviceBindings,
+UserSessions, RefreshTokens
+----
+]
+label D2 [
+----
+**D2** | Exams, Questions,
+TestCases
+----
+]
+label D3 [
+----
+**D3** | Departments, Courses,
+Sections, SectionEnrollments,
+Labs, Workstations,
+AttendanceRecords,
+ExamAssignments, ExamProctors
+----
+]
+label D4 [
+----
+**D4** | ExamSessions,
+Answers, ReadinessChecks
+----
+]
+label D5 [
+----
+**D5** | MonitoringEvents,
+Screenshots, Incidents
+----
+]
+label D6 [
+----
+**D6** | AiGradingResults,
+TestCaseResults,
+PlagiarismResults,
+TeacherGradeOverrides,
+ExamReports
+----
+]
+label D7 [
+----
+**D7** | Notifications
+----
+]
+label D8 [
+----
+**D8** | AuditLogs
+----
+]
+
+' ---- top: student and admin ----
+STU --> P1 : credentials,\nHWID fingerprint
+STU <-- P1 : JWT +\nrefresh token
+P1 <--- ADM : users, roles,\nbinding reset
+STU --> P2 : readiness, start,\nanswers, submit
+STU <-- P2 : rules, questions,\nreceipt hash
+P2 <--- ADM : labs, workstations,\ndepartments, courses
+STU --> P3 : heartbeats, event\nbatches, screenshots
+STU <-- P3 : heartbeat ack (warnings,\ntime, unlock)
+
+' ---- processes to stores ----
+P1 --> D1 : hashes,\ntokens
+P1 --> D8 : login, device\nevents
+P2 --> D2 : exam, questions,\nAllowedApps
+P2 --> D3 : eligibility,\nseats, proctors
+P2 --> D4 : session,\nanswers
+P2 --> D7 : announcements,\neligibility, grade notices
+P2 --> SMTP : notification\ne-mails
+P2 --> P5 : submitted session\n(FinalizeAsync)
+P3 <-- D3 : assigned\nseat
+P3 <-- D4 : own\nsession
+P3 <-- D7 : unread\nwarnings
+P3 <-- D5 : violation\ntypes
+P3 --> D5 : events,\nscreenshots
+P3 --> D4 : liveness\n(LastHeartbeatAt)
+P3 --> D1 : LastSeenAt
+P3 --> D8 : SEAT_MISMATCH
+P3 ---> P4 : heartbeats, classed events,\nscreenshot and seat alerts
+
+D3 --> P4 : ExamProctors
+D5 --> P4 : timeline,\nscreenshots
+D5 <-- P4 : incidents
+D7 <-- P4 : warning
+D4 <-- P4 : extra time, unlock,\nforce-submit
+D8 <-- P4 : staff\nactions
+
+D2 --> P5 : questions,\ntest cases
+D4 --> P5 : submitted\nanswers
+D5 --> P5 : violation\ncounts
+D7 --> P5 : notifications
+D8 --> P5 : audit\nentries
+P5 -right-> D6 : marks, pairs,\nreports
+
+' ---- bottom: staff ----
+P4 --> TEA : live status (SignalR),\ntimeline, screenshots
+P4 <-- TEA : warn, extend, unlock,\nforce-submit, incident
+P4 --> INV : live status (SignalR),\ntimeline, screenshots
+P4 <-- INV : warn, extend, unlock,\nforce-submit, incident
+P2 <--- TEA : exam settings, attendance,\nseats, proctors, announcements
+P5 --> TEA : suggested marks,\nmatrix, PDF
+P5 <-- TEA : accept /\noverride
+STU <-- P5 : results, violation history,\nnotifications (web portal)
+P5 ..> LLM : theory + model answer,\nrubric, code evidence\n(if enabled)
+P5 <.. LLM : suggested mark,\ncode summary
+P5 --> ADM : audit log,\nsystem analytics
+@enduml

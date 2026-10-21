@@ -1,0 +1,27 @@
+@startuml
+!include style.iuml
+hide footbox
+skinparam ParticipantPadding 0
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+
+actor Student
+participant "ExamDashboard\n(WPF)" as UI
+participant "AuthController" as AC
+participant "RefreshToken\nService" as RT
+database "AppDbContext" as DB
+
+Student -> UI : Logout
+UI -> UI : stop LiveMonitoring\nService
+UI -> AC : POST /api/auth/logout\n(Bearer JWT)
+note over AC, DB : JWT middleware rejects a revoked UserSession (401)
+AC -> RT : RevokeFamilyByJtiAsync\n(jti, Logout)
+RT -> DB : family of jti: RefreshTokens\nRevokedAt = now
+RT -> DB : that family's UserSessions\nIsRevoked = true
+AC -> DB : UserSession(jti).IsRevoked = true;\nAuditLog LOGOUT; SaveChanges
+AC --> UI : 200 "Logged out\nsuccessfully."
+UI -> UI : SessionStore.Clear()
+UI --> Student : show\nLoginWindow
+@enduml

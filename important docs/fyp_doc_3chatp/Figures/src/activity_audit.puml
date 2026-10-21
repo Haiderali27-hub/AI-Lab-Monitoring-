@@ -1,0 +1,73 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 13
+skinparam ArrowFontSize 11
+' Audit logging: controllers, MonitoringHub and services (SeatGuard, SessionTimeoutService, RefreshTokenService)
+' call AuditService explicitly (no middleware). Add() stages a row that the caller's SaveChanges commits with the
+' change itself (also SEAT_MISMATCH: SeatGuard.ReportMismatchAsync + explicit SaveChanges in CheckSeatOnStartAsync);
+' LogAsync() saves at once for standalone events (LOGIN_FAILED, DEVICE_MISMATCH ...).
+' AuditLog: LogId, ActorId, EventType, EntityType, EntityId, Details (JSON), CreatedAt.
+' Viewing: /admin/audit-logs (PrivateRoute Admin,SuperAdmin) -> GET /api/audit-logs (AuditController, Admin,SuperAdmin).
+
+split
+  -[hidden]->
+  start
+  :<b>Controller, hub or</b>
+  <b>service</b> action, e.g.
+  DEVICE_BOUND,
+  PASSWORD_CHANGED,
+  GRADE_OVERRIDDEN,
+  SESSION_FORCE_
+  SUBMITTED;
+  :Call AuditService
+  with actor (or null =
+  System), event type,
+  entity, details;
+  if (Standalone event,\nnothing else\nto save?) then (yes)
+    :LogAsync: add
+    row and save
+    at once (LOGIN_
+    FAILED, DEVICE_
+    MISMATCH);
+  else (no)
+    :Add: stage the
+    row, caller's
+    SaveChanges
+    commits it with
+    the change, e.g.
+    SEAT_MISMATCH;
+  endif
+  :<b>AuditLogs</b> row:
+  ActorId (null =
+  System), EventType,
+  EntityType, EntityId,
+  Details JSON,
+  CreatedAt;
+  stop
+split again
+  -[hidden]->
+  start
+  :<b>Signed-in user</b>
+  opens /admin/audit-
+  logs (AuditLogsPage);
+  if (Role Admin or\nSuperAdmin?) then (no)
+    :PrivateRoute
+    redirects,
+    API returns 403;
+    stop
+  else (yes)
+  endif
+  :GET /api/audit-logs
+  ?eventType=
+  &take=200;
+  :<b>AuditController</b>:
+  newest first, take
+  limited to 1-1000,
+  actor name
+  or System;
+  :Page filters by
+  event type and
+  search text;
+  stop
+end split
+@enduml

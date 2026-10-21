@@ -1,0 +1,27 @@
+@startuml
+!include style.iuml
+' Teacher exam wizard (Admin_Web_Panel pages/teacher/CreateExamPage.tsx, routes /teacher/create-exam and
+' /teacher/exams/:examId/edit) and ExamsController.CreateExam / UpdateExam / ValidateExamPayloadAsync /
+' RefuseOtherTeachersStudentsAsync / MapQuestions
+
+|Web Panel (Teacher)|
+start
+:Open /teacher/create-exam\n(edit: /teacher/exams/{id}/edit);
+:1 Basic Info: title, section,\ndate, start time, duration;
+:2 Questions: MCQ (options,\ncorrect answer), Theory,\nCoding (public or hidden\ntest cases);
+:3 Rules & Settings: allowed\napps, lockdown mode,\nwebcam, mic, readiness,\nIsMock, seat, capture\nintervals;
+:4 Assign Students\n(each step checked\nbefore Next);
+repeat
+  :POST /api/exams\n(edit: PUT\n/api/exams/{id});
+  |Server|
+  :(PUT first: 404, 403 if not\nown section, 409 if not\nScheduled)\nValidateExamPayloadAsync:\nown section, >= 1 question,\nmarks > 0, MCQ >= 2 options,\ncoding has a test case,\nC/C++ only (400/403/404);
+  :RefuseOtherTeachersStudents-\nAsync (Teacher role; PUT:\nadded students only):\nstudents of own sections,\nelse 403 STUDENT_NOT_\nIN_YOUR_SECTIONS;
+  |Web Panel (Teacher)|
+backward :Show server message,\nfix the step;
+repeat while (Valid?) is (no) not (yes)
+|Server|
+:Save Exam (Scheduled,\nAllowedApps as JSON\nlist), Questions,\nTestCases, Exam-\nAssignments; 201 Created\n(PUT: 200 OK);
+|Web Panel (Teacher)|
+:Return to dashboard;
+stop
+@enduml

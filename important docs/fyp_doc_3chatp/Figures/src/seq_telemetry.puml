@@ -1,0 +1,57 @@
+@startuml
+!include style.iuml
+hide footbox
+skinparam ParticipantPadding 0
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+
+participant "Dashboard\nViewModel\n(WPF)" as VM
+participant "LiveMonitoring\nService (WPF)" as LM
+participant "Exams\nController" as EC
+participant "Monitoring\nController" as MC
+participant "Heartbeat\nWatchdog\nService" as WD
+database "AppDbContext" as DB
+participant "Monitoring\nHub group\nexam:{id}" as HUB
+participant "LiveMonitor\nPage (Web)" as WEB
+
+WEB -> HUB : JoinExamGroup\n(examId), access\nchecked
+VM -> EC : POST /api/exams/student/start
+EC -> DB : assignment, seat and readiness gates;\ninsert ExamSession (Status = InProgress)
+EC --> VM : 200 {id, status,\nstartedAtUtc}
+VM -> LM : Start(token,\nsessionId, allowedApps,\ncapture)
+
+par
+  loop every 10 s
+    LM -> MC : POST /api/monitoring/heartbeat\n{examSessionId,\nisForegroundExamApp,\nactiveWindowTitle, idleSeconds,\ncameraStatus, ...}
+    MC -> DB : LastHeartbeatAt; Heartbeat\nevent (on change or every\n60 s); seat check
+    MC -> HUB : StudentHeartbeat
+    HUB -> WEB : StudentHeartbeat
+    MC --> LM : HeartbeatAck {remainingSeconds,\nsessionStatus, warnings, ...}
+  end
+else
+  loop outbox every 5 s (at once on a violation)
+    LM -> MC : POST /api/monitoring/events/batch\n{examSessionId, events[...]}
+    MC -> DB : insert MonitoringEvents\n(dedup on ClientEventId)
+    MC -> HUB : ViolationEvent
+    HUB -> WEB : ViolationEvent
+    MC --> LM : {accepted, duplicates}
+  end
+else
+  loop screen every ScreenshotIntervalSeconds +/- 50% (default 30-90 s),\nwebcam every WebcamIntervalSeconds if RequireWebcam,\nand on each violation; queue uploaded every 5 s
+    LM -> MC : POST /api/monitoring/screenshot\n(multipart JPEG, kind =\nScreen | Webcam, trigger)
+    MC -> DB : Screenshots row (image\nfile saved to disk by\nEvidenceStorage.SaveAsync)
+    MC -> HUB : ScreenshotUploaded
+    HUB -> WEB : Screenshot\nUploaded
+  end
+end
+
+loop sweep every 5 s
+  WD -> DB : InProgress, no\nheartbeat for 30 s
+  WD -> DB : IsDisconnected = true;\nDisconnected event
+  WD -> HUB : StudentDisconnected
+  HUB -> WEB : Student\nDisconnected
+end
+note over LM, MC : The next heartbeat clears IsDisconnected\nand sends StudentReconnected.
+@enduml

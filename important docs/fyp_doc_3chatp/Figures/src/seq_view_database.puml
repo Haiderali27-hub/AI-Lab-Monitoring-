@@ -1,0 +1,41 @@
+@startuml
+!include style.iuml
+hide footbox
+skinparam ParticipantPadding 0
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+
+actor "Teacher /\nInvigilator /\nAdmin" as U
+participant "StudentDrawer +\nScreenshotCarousel\n(Live Monitor)" as UI
+participant "MonitoringEvidence\nController" as MC
+participant "ExamAccess\nService" as EA
+participant "Evidence\nStorage" as ES
+database "AppDbContext" as DB
+
+U -> UI : open a student's tile
+UI -> MC : GET /api/exams/{examId}/\nsessions/{sessionId}/\ntimeline?after=
+note over MC, DB : [Authorize(Roles = "Teacher,Admin,SuperAdmin,Invigilator")]
+MC -> EA : DenyUnlessAsync(user, examId, Proctor)
+EA -> DB : Exam -> Section.TeacherId,\nExamProctors(examId, userId)
+break unknown exam, or not owner teacher, assigned proctor or admin
+  EA --> MC : 404 "Exam not found." |\n403 "You are not assigned\nto supervise this exam."
+  UI <-- MC : 404 / 403
+end
+EA --> MC : null (go ahead)
+MC -> DB : ExamSessions (sessionId, examId)
+MC -> DB : MonitoringEvents (no Heartbeat), Screenshots,\nNotifications (warnings), Incidents, AuditLogs
+MC -> MC : merge, newest first,\nlimit 200 (max 500)
+MC --> UI : 200 [TimelineItem]
+UI -> MC : GET /api/exams/{examId}/\nsessions/{sessionId}/\nscreenshots
+MC -> EA : DenyUnlessAsync (same rule)
+MC -> DB : session belongs to exam (else 404);\nScreenshots of session, newest first
+MC --> UI : 200 [{screenshotId, kind,\ntrigger, capturedAt, contentUrl}]
+UI -> MC : GET /api/screenshots/\n{id}/content
+MC -> EA : GetAsync(user, shot.ExamId)\n!= None (else 403)
+MC -> ES : OpenRead(StoragePath)
+ES --> MC : image stream
+MC --> UI : JPEG/PNG blob\n(Cache-Control: private)
+UI --> U : timeline + captures
+@enduml

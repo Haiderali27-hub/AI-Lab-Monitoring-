@@ -1,15 +1,15 @@
 \section{Objectives}
 
-We designed SmartExam for replacement of the manual paper based examination with a centralized and auditable online solution. The objectives for SmartExam are the following:
+We want to replace the manual running of lab exams with one central and auditable system. Our objectives are:
 
-\textbf{Objective 1 --- Unified Admin.} We aim to provide a centralized system for administrative tasks such as, managing the exam schedule, all users of the system (e.g. Administrators, Teacher, Invigilator), lab rooms and their specifications, as well as their configuration, to reduce dependency of manual methods.
+\textbf{Objective 1 --- Central administration.} Manage users, roles (SuperAdmin, Admin, Teacher, Invigilator, Student), labs, workstations and exam schedules from one web panel, with role-based access control on every API call \cite{rbac1}.
 
-\textbf{Objective 2 --- Live System View.} We aspire to develop a dashboard to show real-time system status. We aim to provide a live focused list for all computers with an immediate visualization of the active applications, a focus on student engagement through a detailed activity feed, and immediate alerts upon focusing switches, to reduce the number of visual monitoring actions of physical invigilators \cite{rbac1}.
+\textbf{Objective 2 --- Live visibility.} Give invigilators a live dashboard with one tile per student. Each tile shows focus, running processes, screenshots and violation status, so staff do not have to walk behind every seat.
 
-\textbf{Objective 3 --- Trusted Evidencing.} When any suspicious activity occurs, the instructor must have detailed evidence to justify a fair marking decision, including every submitted answer. All evidence submitted via the platform will be tied to the corresponding student, the HWID of the associated hardware, and recorded into the system activity log \cite{elicit1}.
+\textbf{Objective 3 --- Reliable evidence.} Store every answer, monitoring event and staff action with the student, the session and the workstation hardware ID, so that a marking decision can be backed by records.
 
-\textbf{Objective 4 --- Level Field.} Providing fair opportunities and ensuring a standard examination environment for every student. SmartExam will allow restricting the use of unauthorized programs by implementing a fully blocked student-client experience and restricting student logins to only authorized machines. Hardware ID of all allowed machine will be saved.
+\textbf{Objective 4 --- Equal exam conditions.} Give every student the same locked environment. Students can only log in from their bound workstation and can only use the applications the teacher allows.
 
-\textbf{Objective 5 --- Automation.} The system should reduce the workload on teachers/instructors and invigilators by automating tasks like attendance, collection, marking/grading, etc. Resulting into lesser manpower requirement and reducing manual intervention.
+\textbf{Objective 5 --- Less manual work.} Automate attendance-based eligibility, answer collection, grading of coding and theory answers, plagiarism checks and reports, while the teacher keeps the final say on marks.
 
-\textbf{Objective 6 --- Achievable FYP Project Scope.} The prototype must be developed within the two-semester time frame. We want to ensure that our design remains flexible and extensible for future projects without any need for database refactoring.
+\textbf{Objective 6 --- Achievable scope.} Deliver a working prototype in two semesters, built as modules that later teams can extend.

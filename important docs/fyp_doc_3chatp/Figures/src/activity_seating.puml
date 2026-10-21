@@ -1,0 +1,82 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 12
+' Seat assignment and enforcement (Module 9): LabsController POST /api/labs/{labId}/workstations
+' (Admin,SuperAdmin; 409 duplicate machine number, 400 invalid IP, audit WORKSTATION_CREATED),
+' ExamsController PUT /api/exams/{examId}/assignments/{userId}/workstation (EligibilityPage),
+' ExamsController student/start -> CheckSeatOnStartAsync (SeatGuard.RefusesClient: 403
+' DESKTOP_CLIENT_REQUIRED when Exams:RequireDesktopClientForStart, default true, D-45),
+' MonitoringController.Heartbeat, SeatGuard.Check / ReportMismatchAsync (audit SEAT_MISMATCH, hub ViolationEvent).
+' Two columns joined by connector A.
+
+split
+  -[hidden]->
+  start
+  :<b>Admin / SuperAdmin</b>
+  (LabsPage) adds a
+  workstation:
+  MachineNumber,
+  HostName, IpAddress;
+  :<b>LabsController</b>
+  POST .../workstations;
+  if (Number unique\nin lab and\nIP valid?) then (no)
+    :409 / 400;
+    stop
+  else (yes)
+    :Save, audit
+    WORKSTATION_
+    CREATED;
+  endif
+  :<b>Teacher</b> (Eligibility
+  Page) picks the seat:
+  PUT .../workstation;
+  if (Seat taken\nin this\nexam?) then (yes)
+    :409 Conflict;
+    stop
+  else (no)
+    :Save WorkstationId,
+    audit WORKSTATION_
+    ASSIGNED;
+  endif
+  :<b>Student</b>: POST
+  /api/exams
+  /student/start;
+  (A)
+  detach
+split again
+  -[hidden]->
+  (A)
+  if (Desktop client\ntoken?) then (no)
+    :403 DESKTOP_
+    CLIENT_REQUIRED;
+    stop
+  else (yes)
+  endif
+  :<b>SeatGuard.Check</b>
+  machine claim or
+  request IP (SeatMatch);
+  if (EnforceSeat\nand seat\ndiffers?) then (yes)
+    :403 SEAT_
+    MISMATCH,
+    audit, hub
+    ViolationEvent;
+    stop
+  else (no)
+    :Create
+    ExamSession;
+  endif
+  repeat
+    :Heartbeat (10 s):
+    SeatGuard.Check
+    again;
+    if (Mismatch?) then (yes)
+      :SeatMismatch
+      event, alert
+      proctors;
+    else (no)
+    endif
+  repeat while (InProgress?) is (yes) not (no)
+  stop
+end split
+@enduml

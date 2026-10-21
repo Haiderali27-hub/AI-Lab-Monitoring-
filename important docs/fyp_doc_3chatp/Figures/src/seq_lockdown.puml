@@ -1,0 +1,44 @@
+﻿@startuml
+!include style.iuml
+skinparam ArrowFontSize 13
+skinparam defaultFontSize 13
+' Lockdown enforcement (Module 4): Views/ExamWindow (Window_Loaded -> LockdownCoordinator.Start, Window_Closing -> Dispose),
+' Services/Lockdown/LockdownCoordinator (Report: 15 s cooldown keyed on reason|detail; OnCrash / OnProcessExit /
+' OnDispatcherCrash -> Stop), TaskManagerRegistryGuard, KeyboardHookService, ClipboardGuardService,
+' ProcessGuardService (2 s scan), DeviceGuardService (VirtualMachine, UsbInserted, MultiMonitor / RemoteSession);
+' LiveMonitoringService.ReportViolation (MonitoringSpool outbox + evidence capture);
+' MonitoringController.PushEventBatch (POST /api/monitoring/events/batch), hub "ViolationEvent".
+hide footbox
+skinparam ParticipantPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+skinparam maxMessageSize 300
+
+participant "Exam\nWindow" as EW
+participant "Lockdown\nCoordinator" as LC
+participant "Guard\nservices" as G
+participant "LiveMonitoring\nService" as LMS
+participant "Monitoring\nController" as MC
+
+EW -> LC : Start(window);\nskipped if\nmode is Off
+LC -> G : Apply TaskManager\npolicy; install\nkeyboard hook;\nstart Clipboard /\nProcess (2 s) /\nDevice guards
+opt registry or hook fails
+  LC -> LMS : LockdownDegraded\n(exam goes on)
+end
+== during the exam ==
+G -> LC : KeyBlocked,\nUnauthorizedProcess,\nProcessKilled\n(Enforce),\nClipboardBlocked,\nUsbInserted,\nMultiMonitor,\nVirtualMachine
+note over LC, G
+Guards swallow Alt+Tab,
+Win, Alt+F4, Ctrl+Esc,
+PrtScn; coordinator:
+15 s cooldown per
+reason + detail
+end note
+LC -> LMS : ReportViolation\n(reason, detail)
+LMS -> MC : encrypted\noutbox +\nevidence;\nPOST /api/\nmonitoring/\nevents/batch
+MC --> LMS : Monitoring-\nEvents saved;\nhub\n"ViolationEvent"
+== submit / force-submit, or crash ==
+EW -> LC : Window_Closing:\nDispose() ->\nStop() (or\ncrash / exit\nhandler)
+LC -> G : restore TaskManager\npolicy, unhook,\nstop guards
+@enduml

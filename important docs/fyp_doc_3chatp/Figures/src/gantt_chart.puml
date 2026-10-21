@@ -1,0 +1,105 @@
+@startgantt
+' SmartExam project Gantt chart -- 8 sprints x 4 weeks (Weeks 1-32)
+' Matches Chapter-1-8 (sprint steps), Chapter-2-2 (tab:timeframe) and
+' Chapter-3-3 (tab:cpm, activities A-I). One time unit = one project week.
+' Render: java -jar plantuml.jar -tpng gantt_chart.puml
+skinparam dpi 150
+<style>
+ganttDiagram {
+  BackgroundColor white
+  FontName Arial
+  task {
+    FontName Arial
+    FontSize 10
+    FontColor black
+    BackGroundColor #BDBDBD
+    LineColor #4D4D4D
+  }
+  milestone {
+    FontName Arial
+    FontSize 10
+    FontStyle bold
+    FontColor #B03A2E
+    BackGroundColor #B03A2E
+    LineColor #B03A2E
+  }
+  separator {
+    FontName Arial
+    FontSize 10
+    FontStyle bold
+    LineColor #9E9E9E
+  }
+  timeline {
+    FontName Arial
+    FontSize 9
+    BackgroundColor #F5F5F5
+  }
+  arrow {
+    LineColor #9E9E9E
+  }
+  title {
+    FontName Arial
+    FontSize 13
+    FontStyle bold
+  }
+}
+footer {
+  FontName Arial
+  FontSize 10
+  FontColor #333333
+  HorizontalAlignment left
+  Margin 4
+}
+</style>
+title SmartExam Schedule: 8 Sprints x 4 Weeks (timeline in project weeks 1-32)
+
+-- Sprint 1 (Weeks 1-4) --
+[A: Requirements, use cases, backlog, architecture, scope approval] as [A] lasts 4 days
+
+-- Sprint 2 (Weeks 5-8) --
+[B: M1 Authentication and device binding (HWID, JWT)] as [B] lasts 4 days
+[B] starts at [A]'s end
+[C: M7 User and role management (2 weeks + 2 weeks float)] as [C] lasts 2 days
+[C] starts at [A]'s end
+[C] is colored in #E6E6E6/#4D4D4D
+
+-- Sprint 3 (Weeks 9-12) --
+[D: M8 Exam creation and configuration] as [D1] lasts 4 days
+[D1] starts at [B]'s end
+[D: M9 Eligibility, attendance and seats] as [D2] lasts 4 days
+[D2] starts at [B]'s end
+
+-- Sprint 4 (Weeks 13-16) --
+[E: M2 Readiness check and practice exams] as [E1] lasts 4 days
+[E1] starts at [D1]'s end
+[E: M3 Student exam dashboard] as [E2] lasts 4 days
+[E2] starts at [D1]'s end
+[E: M4 Secure exam environment (lockdown)] as [E3] lasts 4 days
+[E3] starts at [D1]'s end
+[FYP-1 mid-project review (Week 16)] happens at [E1]'s end
+
+-- Sprint 5 (Weeks 17-20) --
+[F: M5 Monitoring client (heartbeats, screenshots)] as [F1] lasts 4 days
+[F1] starts at [E1]'s end
+[F: M10 Live proctoring dashboard (SignalR)] as [F2] lasts 4 days
+[F2] starts at [E1]'s end
+
+-- Sprint 6 (Weeks 21-24) --
+[G: M6 Autosave, encrypted backup, submission] as [G1] lasts 4 days
+[G1] starts at [F1]'s end
+[G: M11 Test-case grading, TF-IDF, plagiarism] as [G2] lasts 4 days
+[G2] starts at [F1]'s end
+
+-- Sprint 7 (Weeks 25-28) --
+[H: M12 Audit logs, analytics, QuestPDF reports] as [H] lasts 4 days
+[H] starts at [G1]'s end
+
+-- Sprint 8 (Weeks 29-32) --
+[I: Integration and system testing (M1-M12)] as [I1] lasts 4 days
+[I1] starts at [H]'s end
+[I: Bug fixing, final report and demonstration] as [I2] lasts 4 days
+[I2] starts at [H]'s end
+[Final submission and demo (Week 32)] happens at [I2]'s end
+
+footer Grey bars: work on the critical path (A-B-D-E-F-G-H-I). Light bar: C has 2 weeks of float. Red diamonds: milestones.
+@endgantt

@@ -1,0 +1,93 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 12
+' Live monitoring (Module 5/10): LiveMonitorPage -> MonitoringHub.JoinExamGroup; LiveMonitoringService
+' (heartbeat 10 s, encrypted outbox -> POST /api/monitoring/events/batch, EvidenceCaptureService random 30-90 s
+' and on violation -> POST /api/monitoring/screenshots, WebcamMonitorService: YuNet + YOLOX-Nano, started by
+' ApplyWebcamRequirement only when Exam.RequireWebcam is set);
+' MonitoringController pushes StudentHeartbeat / ViolationEvent / ScreenshotUploaded to group exam:{id};
+' hub SendWarning / ExtendStudentTime / ForceSubmitSessionById, delivered to the desktop in the heartbeat ack;
+' HeartbeatWatchdogService (PeriodicTimer sweep 5 s over InProgress, not yet disconnected sessions;
+' 30 s without heartbeat -> Disconnected, StudentDisconnected).
+' Two columns: desktop/web client (to connector A) with the watchdog loop below it, server (from A).
+
+split
+  -[hidden]->
+  start
+  :<b>Web Panel</b>
+  (LiveMonitorPage):
+  JoinExamGroup
+  (examId);
+  :<b>Desktop App</b>:
+  session starts
+  lockdown, and
+  webcam AI (YuNet,
+  YOLOX) if
+  RequireWebcam;
+  fork
+    :POST
+    heartbeat
+    (10 s);
+  fork again
+    :Flag to
+    encrypted
+    outbox,
+    POST
+    events
+    /batch;
+  fork again
+    :Screen
+    shot at
+    30-90 s or
+    violation,
+    POST
+    screen
+    shots;
+  end merge
+  (A)
+  detach
+  start
+  repeat
+    :<b>HeartbeatWatchdogService</b>
+    sweep (every 5 s);
+    if (InProgress, no\nheartbeat for 30 s?) then (yes)
+      :Disconnected event,
+      hub StudentDisconnected;
+    else (no)
+    endif
+  repeat while (Server\nrunning?) is (yes) not (no)
+  stop
+split again
+  -[hidden]->
+  (A)
+  :<b>Monitoring</b>
+  <b>Controller</b> stores
+  MonitoringEvents,
+  Screenshots;
+  :Hub pushes
+  StudentHeartbeat,
+  ViolationEvent,
+  ScreenshotUploaded
+  to group exam:{id};
+  :<b>Web Panel</b>
+  updates
+  student tile;
+  if (Staff\naction?) then (yes)
+    :Hub SendWarning,
+    ExtendStudentTime
+    or ForceSubmit
+    SessionById;
+    :Next heartbeat
+    ack: warnings,
+    remainingSeconds,
+    session Status;
+    :<b>Desktop App</b>
+    shows warning,
+    resyncs timer or
+    closes the exam;
+  else (no)
+  endif
+  stop
+end split
+@enduml

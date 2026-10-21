@@ -1,0 +1,107 @@
+@startuml
+!include style.iuml
+' dpi only sets resolution; printed text size = fontSize * 72 * W_in / layout width.
+skinparam dpi 120
+' Deployment diagram. Matches Program.cs, appsettings*.json, Admin_Web_Panel/src/utils/constants.ts,
+' Student_Desktop_App/appsettings.desktop.json + Student_Desktop_App.csproj (Models\*.onnx),
+' Services/Grading/* (DockerCodeRunner, LocalMingwCodeRunner, LlmClient), Services/Notifications/EmailService.cs.
+' Sized for \includegraphics width 0.97\linewidth (>= 7 pt printed).
+skinparam defaultFontSize 20
+skinparam ArrowFontSize 20
+skinparam nodesep 14
+skinparam ranksep 46
+skinparam defaultTextAlignment left
+skinparam artifact {
+  BorderColor #333333
+  BackgroundColor #FFFFFF
+}
+skinparam node<<optional>> {
+  BorderStyle dashed
+  BackgroundColor #FFFFFF
+}
+hide <<optional>> stereotype
+
+node WS [
+  <b>Lab workstation</b>
+  (Windows, one per seat)
+  ----
+  <<artifact>> Student_Desktop_App.exe
+  (WPF, .NET 9)
+  <<artifact>> YuNet + YOLOX-Nano
+  .onnx (OpenCvSharp4 DNN)
+  <<file>> DPAPI-encrypted outbox,
+  answer backup
+  <<device>> webcam
+]
+
+node PC [
+  <b>Staff / student PC</b>
+  ----
+  <<browser>> Admin_Web_Panel
+  (React + Vite SPA,
+  served by Vite :5173)
+  Teacher, Invigilator, Admin,
+  SuperAdmin; Student (results)
+]
+
+node "Application server" as SRV {
+  node API [
+    <b>ASP.NET Core 9 (Kestrel :5050)</b>
+    ----
+    <<artifact>> Backend_API
+    REST controllers  /api/*
+    SignalR MonitoringHub
+    /hubs/monitoring
+    ----
+    hosted: GradingWorker,
+    HeartbeatWatchdogService,
+    SessionTimeoutService,
+    EvidenceRetentionService
+  ]
+  node DOCKER [
+    <b>Docker Engine</b>
+    ----
+    container gcc:13
+    --network none,
+    read-only
+  ]
+  artifact MINGW [
+    Local MinGW g++
+    (fallback,
+    not isolated)
+  ]
+  artifact FILES [
+    Evidence folder
+    (Storage:
+    EvidencePath),
+    Reports/ PDF
+    (QuestPDF)
+  ]
+}
+
+database DB [
+  <b>Neon PostgreSQL</b>
+  (cloud, neondb)
+  29 tables
+]
+node SMTP [
+  <b>SMTP server</b>
+  smtp.gmail.com:587
+]
+node LLM <<optional>> [
+  <b>LLM API</b>
+  (Groq / Gemini)
+  optional, off
+  by default
+]
+
+WS -down-> API : HTTP(S) REST + JWT:\nheartbeat every 10 s,\nevent batches,\ncaptures, answers
+PC -down-> API : HTTP(S) REST + JWT,\nSignalR WebSocket
+API -down-> DOCKER : docker run
+API -down-> MINGW : g++, run
+API -down-> FILES : writes
+API -right-> DB : Npgsql / EF Core\nSSL Mode=Require
+API -down-> SMTP : MailKit\nSTARTTLS
+API ..> LLM : HTTPS
+SMTP -[hidden]right- LLM
+@enduml

@@ -1,0 +1,42 @@
+﻿@startuml
+!include style.iuml
+skinparam ArrowFontSize 13
+skinparam defaultFontSize 13
+' Report export (Module 12): Admin_Web_Panel/src/pages/analytics/ReportsPage.tsx (analyticsApi.getReportHistory,
+' generateReport, getReportDownloadUrl + fetch with Bearer token); Controllers/Analytics/AnalyticsController
+' (Roles "Admin,SuperAdmin,Teacher", DenyUnlessOwnerAsync = exam owner or admin) GenerateReport / DownloadReport
+' (Path.GetFileName check 400, ExamReport lookup 404, owner 403, file under Reports/ 404);
+' Services/Analytics/AnalyticsService.GenerateExamReportPdfAsync (GetExamSummaryAsync, QuestPDF, ExamReports row).
+' Report generation is not written to AuditLogs.
+hide footbox
+skinparam ParticipantPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+skinparam maxMessageSize 300
+
+actor "Teacher /\nAdmin /\nSuperAdmin" as T
+participant "Reports\nPage (web)" as RP
+participant "Analytics\nController" as AC
+participant "Analytics\nService" as AS
+database "AppDb\nContext" as DB
+
+T -> RP : Generate\nreport
+RP -> AC : POST /api/analytics/\nexams/{id}/report
+AC -> AC : owner or\nadmin?\n(else 403)
+AC -> AS : GenerateExam-\nReportPdfAsync
+AS -> DB : GetExamSummary-\nAsync: sessions,\nanswers, grades,\nevents
+AS -> AS : QuestPDF:\nA4 PDF in\nReports/
+AS -> DB : add ExamReport
+AS --> AC : file path
+AC --> RP : downloadUrl\n(.../reports/\n{fileName})
+RP -> AC : GET .../exams/\n{id}/reports
+AC --> RP : report list
+T -> RP : Download
+RP -> AC : GET /api/analytics/\nreports/{fileName}
+AC -> AC : bare file\nname?\n(else 400)
+AC -> DB : ExamReport by file name\n(else 404)
+AC -> AC : owner or\nadmin?\n(else 403)
+AC --> RP : application/pdf
+RP --> T : PDF\nsaved
+@enduml

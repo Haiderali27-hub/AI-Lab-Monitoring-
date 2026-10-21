@@ -1,0 +1,50 @@
+@startuml
+!include style.iuml
+skinparam ArrowFontSize 13
+skinparam defaultFontSize 13
+' Practice (mock) exam, Module 2: Views/ExamDashboard.PracticeButton_OnClick (refusal -> MessageBox), ApiClient.GetPracticeExamsAsync /
+' StartSessionAsync, ExamsController.GetPracticeExams (GET /api/exams/student/practice), StartSession
+' (POST /api/exams/{id}/start-session: 403 not assigned, 400 not eligible / ended, seat check, InProgress resumed,
+' 400 READINESS_REQUIRED), SaveAnswer, Submit; SubmissionService.FinalizeAsync (no plagiarism check
+' when Exam.IsMock). Same calls as a real exam; lockdown is forced to Report mode and the webcam is not used.
+hide footbox
+skinparam ParticipantPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+skinparam maxMessageSize 300
+
+actor Student
+participant "ExamDashboard\n/ ExamWindow" as UI
+participant "Exams\nController" as EC
+participant "Submission\nService" as SS
+database "AppDb\nContext" as DB
+
+UI -> EC : GET /api/exams/\nstudent/practice
+EC -> DB : IsMock exams, eligible
+EC --> UI : PracticeExam-\nSummary list
+Student -> UI : Practice
+UI -> EC : POST /api/exams/\n{id}/start-session
+EC -> EC : assigned,\neligible, open,\nseat, readiness\n(if required)
+alt refused
+  EC --> UI : 403 / 400 message
+  UI --> Student : MessageBox
+else attempt InProgress
+  EC --> UI : same SessionId
+else new attempt
+  EC -> DB : new ExamSession
+  EC --> UI : SessionId
+end
+UI -> UI : ExamWindow:\nlockdown Report,\nno webcam
+loop while answering
+  UI -> EC : POST sessions/\n{sid}/save-answer
+  EC -> DB : upsert Answer
+end
+Student -> UI : Submit
+UI -> EC : POST sessions/\n{sid}/submit
+EC -> SS : FinalizeAsync\n(Submitted)
+SS -> DB : [AiEvaluation]\ngrading; receipt;\nno plagiarism\n(IsMock)
+SS --> EC : receipt
+EC --> UI : sha256, answerCount
+UI --> Student : receipt; list\nrefreshed
+@enduml

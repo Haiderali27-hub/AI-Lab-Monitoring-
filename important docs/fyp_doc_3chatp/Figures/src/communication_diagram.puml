@@ -1,0 +1,55 @@
+@startuml
+!include style.iuml
+' dpi only sets resolution; printed text size = fontSize * 72 * W_in / layout width.
+skinparam dpi 120
+' Communication diagram: a violation reaches the live monitor; a proctor answers with a warning
+' (or force-submit); the WPF client (no SignalR) picks the answer up from its next heartbeat ack.
+' Sources: Services/Lockdown/LockdownCoordinator.cs, Services/LiveMonitoringService.cs (WarningsReceived,
+' SessionStatusUpdated), Views/ExamDashboard.xaml.cs, Controllers/MonitoringController.cs (PushEvent, Heartbeat,
+' PendingWarningsAsync), Hubs/MonitoringHub.cs (SendWarning, ForceSubmitSessionById, ForceSubmitAsync),
+' Services/ExamAccessService.cs, Services/SubmissionService.cs (FinalizeAsync -> SessionFinalized via IHubContext),
+' Admin_Web_Panel/src/pages/teacher/LiveMonitorPage.tsx.
+' Sized for \includegraphics width 0.97\linewidth (>= 7 pt printed).
+skinparam defaultFontSize 20
+skinparam ArrowFontSize 20
+skinparam nodesep 12
+skinparam ranksep 44
+skinparam rectangle {
+  BackgroundColor #F2F2F2
+}
+
+actor "Teacher /\nInvigilator" as STAFF
+rectangle "<u>:LiveMonitorPage</u>\n(web panel)" as WEB
+rectangle "<u>:MonitoringHub</u>" as HUB
+rectangle "<u>:ExamAccessService</u>" as ACC
+rectangle "<u>:SubmissionService</u>" as SUB
+rectangle "<u>:MonitoringController</u>" as CTRL
+rectangle "<u>:AppDbContext</u>\n(PostgreSQL)" as DB
+rectangle "<u>:LockdownCoordinator</u>\n(WPF)" as LOCK
+rectangle "<u>:LiveMonitoringService</u>\n(WPF)" as LMS
+rectangle "<u>:ExamDashboard</u>\n(WPF)" as EDB
+rectangle "<u>:ExamWindow</u>\n(WPF)" as WIN
+
+STAFF -down-> WEB : 2: Warn /\nForce submit
+WEB -down-> HUB : 3: SendWarning(\nstudentId,\nmessage) [or]\n4: ForceSubmit\nSessionById(\nsessionId)
+HUB -up-> WEB : 3.3: Proctor\nWarningSent
+HUB -down-> ACC : 3.1, 4.1:\nGetAsync(user,\nexamId) != None
+HUB -down-> SUB : 4.3: FinalizeAsync(\nsession, Force\nSubmitted)
+HUB -down-> DB : 3.2: Notifications\n.Add(Warning),\nAudit PROCTOR_\nWARNING_SENT,\nSaveChanges()\n4.2: Audit SESSION_\nFORCE_SUBMITTED\n(staged)
+SUB -down-> DB : 4.3.1: Status =\nForceSubmitted,\nreceipt,\nSaveChanges()
+SUB -up-> WEB : 4.3.2: Session\nFinalized\n(IHubContext)
+LOCK -down-> CTRL : 1: POST /api/\nmonitoring/event\n(Violation)
+CTRL -up-> WEB : 1.2: Violation\nEvent (IHub\nContext, group\nexam:{examId})
+CTRL -down-> DB : 1.1: Monitoring\nEvents.Add,\nSaveChanges()\n5.1: unread\nWarning\nNotifications,\nsession Status
+LMS -up-> CTRL : 5: POST /api/\nmonitoring/\nheartbeat\n(every 10 s)
+CTRL -down-> LMS : 5.2: ack\n{warnings[],\nsessionStatus}
+LMS -down-> EDB : 5.3: Warnings\nReceived /\nSessionStatus\nUpdated
+EDB -down-> WIN : 5.3.1: ShowProctor\nWarnings() / OnServer\nSessionStatus()
+
+note left of WIN
+  A warning comes back in
+  every ack until the student
+  acknowledges it (PATCH /api/
+  notifications/{id}/read).
+end note
+@enduml

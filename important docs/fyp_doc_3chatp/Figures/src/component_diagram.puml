@@ -1,0 +1,185 @@
+@startuml
+!include style.iuml
+' dpi only sets resolution; printed text size = fontSize * 72 * W_in / layout width.
+skinparam dpi 110
+' Component diagram (three tiers). Names are the real classes / folders:
+' Student_Desktop_App/Views, ViewModels, Services/*, Core/*; Admin_Web_Panel/src/*;
+' Backend_API/Controllers, Hubs/MonitoringHub.cs, Services/*, Data/AppDbContext.cs.
+' IHubContext<MonitoringHub> pushes: MonitoringController (ViolationEvent ...), SubmissionService (SessionFinalized),
+' SeatGuard (ViolationEvent), HeartbeatWatchdogService (StudentDisconnected), GradingService (GradingCompleted).
+' AppDbContext is injected into controllers, MonitoringHub and services alike.
+' Sized for includegraphics width 0.92 linewidth (about 7 pt printed, about 8.9 in tall).
+skinparam defaultFontSize 20
+skinparam ArrowFontSize 20
+skinparam nodesep 10
+skinparam ranksep 26
+skinparam defaultTextAlignment left
+set separator none
+skinparam package {
+  BorderColor #555555
+  BackgroundColor #FFFFFF
+  FontSize 20
+}
+
+package "Client: Student_Desktop_App (WPF)" {
+  component VIEWS [
+    <b>Views + ViewModels</b>
+    LoginWindow,
+    ExamDashboard,
+    ExamWindow
+  ]
+  component READY [
+    <b>ReadinessCheck</b>
+    <b>Service</b>
+    ReadinessPolicy
+  ]
+  component LOCK [
+    <b>LockdownCoordinator</b>
+    KeyboardHookService,
+    ProcessGuardService,
+    ClipboardGuardService,
+    DeviceGuardService,
+    TaskManagerRegistryGuard
+  ]
+  component LMS [
+    <b>LiveMonitoring</b>
+    <b>Service</b>
+    MonitoringSpool,
+    EventBatcher,
+    WarningInbox
+  ]
+  component CAP [
+    <b>Capture + vision</b>
+    EvidenceCaptureService,
+    WebcamMonitorService,
+    WebcamVision
+    (YuNet, YOLOX-Nano)
+  ]
+  component APIC [
+    <b>ApiClient</b>
+    TokenRefreshGate
+  ]
+}
+package "Client: Admin_Web_Panel (React)" {
+  component PAGES [
+    <b>Pages</b>
+    admin, teacher,
+    analytics, student
+  ]
+  component AXIOS [
+    <b>api/client.ts</b>
+    axios + JWT
+    refresh
+  ]
+  component SIG [
+    <b>LiveMonitorPage</b>
+    @microsoft/
+    signalr
+  ]
+}
+
+package "Server" as SRV {
+  component CTRL [
+    <b>Backend_API REST controllers</b>
+    /api/*:
+    Auth, Users, Labs, Departments,
+    Courses, Attendance, Exams,
+    Monitoring, MonitoringEvidence,
+    Incidents, Grading, Analytics,
+    Audit, Notifications,
+    StudentPortal, AdminMaintenance
+  ]
+  component HUB [
+    <b>MonitoringHub</b>
+    /hubs/monitoring
+    JoinExamGroup, SendWarning,
+    ForceSubmitSessionById,
+    ExtendStudentTime,
+    UnlockSession, RelockSession
+  ]
+  package "Services" as SVC {
+    component DOM [
+      <b>Domain services</b>
+      SubmissionService,
+      ExamAccessService,
+      SeatGuard, AuditService,
+      RefreshTokenService,
+      ViolationClassifier,
+      EligibilityCalculator,
+      NotificationService,
+      EmailService,
+      AnalyticsService,
+      EvidenceStorage
+    ]
+    component BG [
+      <b>Hosted services</b>
+      GradingWorker,
+      HeartbeatWatchdogService,
+      SessionTimeoutService,
+      EvidenceRetentionService
+    ]
+    component GRD [
+      <b>Grading (Module 11)</b>
+      GradingService,
+      GradingQueue,
+      CodeRunnerResolver:
+      DockerCodeRunner /
+      LocalMingwCodeRunner,
+      TheoryGrader (TF-IDF),
+      PlagiarismService
+      (winnowing),
+      LlmGrader (optional)
+    ]
+  }
+}
+
+package "Data tier" {
+  component EF [
+    <b>AppDbContext</b>
+    EF Core + Npgsql
+  ]
+  database PG [
+    <b>Neon PostgreSQL</b>
+    29 tables
+  ]
+  folder EVD [
+    Evidence files,
+    Reports/ PDFs
+  ]
+}
+
+VIEWS --> READY
+VIEWS --> LOCK
+VIEWS --> LMS
+VIEWS --> APIC
+LMS --> CAP
+LOCK --> APIC
+LMS --> APIC
+READY --> APIC
+CAP -right-> APIC
+PAGES --> AXIOS
+PAGES --> SIG
+AXIOS -[hidden]down- SIG
+VIEWS -[hidden]right- PAGES
+APIC -[hidden]down- CTRL
+
+EVD -[hidden]right- PG
+
+APIC --> CTRL : REST\n+ JWT
+AXIOS --> CTRL : REST\n+ JWT
+SIG --> HUB : SignalR\nWebSocket
+CTRL .right.> HUB : IHubContext\npush
+CTRL --> DOM
+CTRL --> GRD
+HUB --> DOM
+DOM -right-> GRD : stage grading,\nplagiarism,\nenqueue
+BG -up-> DOM
+BG -up-> GRD
+BG --> EVD : purge
+DOM .up.> HUB : IHubContext\npush
+BG .up.> HUB
+GRD .up.> HUB
+SRV --> EF : controllers, hub\nand services
+EF -left-> PG
+DOM --> EVD
+@enduml

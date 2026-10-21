@@ -1,0 +1,62 @@
+﻿@startuml
+!include style.iuml
+skinparam ArrowFontSize 13
+skinparam defaultFontSize 13
+' Auto-save and crash recovery (Module 6): ViewModels/ExamSessionViewModel (OnAnswerEdited; SyncTickAsync every 1 s:
+' AutosaveScheduler.TakeDue -> SendAsync, then FlushOfflineAsync when the 5 s OfflineRetryDelay has passed, then
+' WriteBackupIfDirty; SaveAnswerAsync on question change / focus lost; RestoreAnswersAsync),
+' Core/Submission/AutosaveScheduler (10 s), OfflineSaveQueue (passive: FlushAsync(SendPendingAsync), oldest first),
+' AnswerMerge (always runs; with a tampered backup only the server copy is merged),
+' Core/Backup/AnswerBackupStore (AES-256-GCM, BackupLoadStatus.Tampered);
+' DashboardViewModel.StartExamAsync -> ExamsController.StartStudentExam (POST /api/exams/student/start returns the
+' InProgress session, D-43), GetSessionAnswers, SaveAnswer (409 STALE_REVISION).
+hide footbox
+skinparam ParticipantPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+skinparam maxMessageSize 300
+
+actor Student
+participant "ExamSession\nViewModel" as VM
+participant "Answer\nBackupStore" as BS
+participant "Offline\nSaveQueue" as Q
+participant "Exams\nController" as EC
+
+Student -> VM : edit answer
+VM -> VM : Revision+1; Autosave-\nScheduler.MarkDirty
+loop 1 s sync tick
+  opt 10 s after edit (TakeDue); the same call is\nsent at once on question change / focus lost
+    VM -> EC : POST sessions/{sid}/save-answer {revision}
+    alt reachable
+      EC --> VM : 200, or 409 STALE_REVISION
+    else offline
+      VM -> Q : Enqueue(save)
+    end
+  end
+  opt queue not empty
+    VM -> Q : FlushAsync(send)
+    VM -> EC : POST sessions/{sid}/save-answer\n(oldest first; retry 5 s if still offline)
+  end
+  VM -> BS : Save snapshot if dirty\n(AES-256-GCM)
+end
+== app crash or power cut; relaunch ==
+note over VM, EC
+DashboardViewModel: POST /api/exams/student/start
+-> same InProgress SessionId;
+ExamWindow + ExamSessionViewModel created
+end note
+VM -> EC : GET sessions/{sid}/answers
+EC --> VM : answers + revisions
+VM -> BS : Load(sessionId)
+alt GCM tag fails (Tampered)
+  VM -> VM : ignore backup; report\nBackupTampered;\nserver copy wins
+else valid
+  VM -> VM : AnswerMerge: higher\nrevision wins
+end
+opt answers server lacks
+  VM -> Q : Enqueue; FlushAsync(send)
+  VM -> EC : save-answer (replay)
+end
+VM --> Student : exam\ncontinues
+@enduml

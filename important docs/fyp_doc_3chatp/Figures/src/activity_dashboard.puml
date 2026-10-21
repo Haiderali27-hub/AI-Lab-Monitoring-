@@ -1,0 +1,39 @@
+@startuml
+!include style.iuml
+' Active exam workspace (Views/ExamWindow, Services/Lockdown/LockdownCoordinator + ProcessGuardService +
+' DeviceGuardService, Services/LiveMonitoringService (ApplyWebcamRequirement -> WebcamMonitorService),
+' events/batch + CaptureForViolation, MonitoringController, hub ViolationEvent)
+
+|Desktop App|
+start
+:Full-screen ExamWindow;\nLockdownCoordinator starts\nkeyboard, process, clipboard,\ndevice guards (not if Off);\nwebcam monitor if\nRequireWebcam;
+repeat
+  fork
+    :Answer\n(auto-\nsaved);
+  fork again
+    :Heartbeat\nevery 10 s\n(focus check);
+  end fork
+  if (Blocked key, clipboard,\napp not allowed, focus\nlost, device or webcam\nissue?) then (yes)
+    if (Enforce and\napp not\nallowed?) then (yes)
+      :Kill process\n(ProcessKilled);
+    else (no: report\nonly)
+    endif
+    :Spool event + screenshot,\nPOST /api/monitoring/\nevents/batch;
+    note right
+      Webcam (YuNet,
+      YOLOX-Nano): NoFace,
+      MultipleFaces,
+      LookingAway,
+      PhoneDetected,
+      CameraCovered/
+      Frozen/Unavailable
+    end note
+    |Server|
+    :Store event,\nhub "Violation-\nEvent" to\nlive monitor;
+    |Desktop App|
+  else (no)
+  endif
+repeat while (Submitted,\ntimed out or\nforce-submitted?) is (no) not (yes)
+:Stop guards,\nrestore desktop;
+stop
+@enduml

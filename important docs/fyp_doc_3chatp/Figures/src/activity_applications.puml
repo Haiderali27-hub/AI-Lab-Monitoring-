@@ -1,0 +1,77 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 13
+skinparam ArrowFontSize 11
+' Allowed applications: CreateExamPage + AllowedAppsPicker (utils/allowedApps.ts), ExamsController POST/PUT
+' (Exam.AllowedApps JSON, Exam.LockdownMode), GET /api/exams/student/current, LockdownCoordinator,
+' LockdownPolicy.Evaluate, ProcessGuardService (2 s scan, own Windows session only),
+' LiveMonitoringService.ReportViolation.
+' Two columns joined by connector A (configuration, then enforcement on the desktop).
+
+split
+  -[hidden]->
+  start
+  repeat
+    :<b>Teacher</b>
+    (CreateExamPage):
+    pick a catalogue
+    app or type
+    an .exe name;
+  repeat while (Valid exe\nname?) is (no) not (yes)
+  :Choose
+  LockdownMode
+  Off, Report
+  or Enforce;
+  :<b>ExamsController</b>
+  POST/PUT /api/exams
+  saves Exam.
+  AllowedApps (JSON)
+  + LockdownMode;
+  :<b>Desktop App</b>
+  GET /api/exams
+  /student/current
+  returns allowedApps,
+  lockdownMode;
+  :Exam starts:
+  LockdownCoordinator
+  builds
+  LockdownPolicy;
+  if (Mode =\nOff?) then (yes)
+    stop
+  else (no)
+    (A)
+    detach
+  endif
+split again
+  -[hidden]->
+  (A)
+  repeat
+    :<b>ProcessGuardService</b>
+    scan every 2 s; allow
+    own app, AllowedApps,
+    shell processes and
+    windowless apps (except
+    browsers, remote tools,
+    Task Manager);
+    if (Unauthorized\napp?) then (yes)
+      if (Mode?) then (Enforce)
+        :Kill process
+        tree: Process
+        Killed (if it
+        fails: Unauthorized
+        Process);
+      else (Report)
+        :Report once
+        (Unauthorized
+        Process);
+      endif
+      :Queue Violation
+      event, capture
+      screenshot;
+    else (no)
+    endif
+  repeat while (Session\nrunning?) is (yes) not (no)
+  :Stop all guards;
+  stop
+end split
+@enduml

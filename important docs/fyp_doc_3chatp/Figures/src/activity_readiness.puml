@@ -1,0 +1,27 @@
+@startuml
+!include style.iuml
+' Practice (mock) exam: Exam.IsMock = true, same exam window and endpoints as a real exam
+' (ExamDashboard.PracticeButton_OnClick, ExamsController.GetPracticeExams / StartSession,
+' SubmissionService.FinalizeAsync)
+
+|Desktop App|
+start
+:GET /api/exams/student/\npractice; pick an IsMock\nexam, press Practice:\nPOST /api/exams/{id}/\nstart-session;
+|Server|
+if (Eligible, open,\nseat OK, readiness\n(if required)?) then (yes)
+  :Running attempt or\na new ExamSession;
+else (no)
+  :400/403 with\nmessage (EXAM_\nNOT_STARTED,\nSEAT_MISMATCH,\nREADINESS_\nREQUIRED);
+  |Desktop App|
+  :Show message\nbox;
+  stop
+endif
+|Desktop App|
+:Start monitoring (no\nwebcam), open Exam-\nWindow, lockdown =\nReport (apps only\nreported);
+:Answer, auto-save via\nsave-answer, then POST\n/api/exams/sessions/\n{sid}/submit;
+|Server|
+:FinalizeAsync: receipt,\ngrading (if AI evaluation\non), no plagiarism\ncheck (IsMock);
+|Desktop App|
+:Show receipt,\nattempts + 1;
+stop
+@enduml

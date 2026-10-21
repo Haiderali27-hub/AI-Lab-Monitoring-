@@ -1,0 +1,53 @@
+@startuml
+!include style.iuml
+hide footbox
+skinparam ParticipantPadding 0
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+
+participant "Submission\nService" as SS
+participant "Grading\nService" as GS
+participant "Plagiarism\nService" as PS
+participant "Plagiarism\nEngine" as PE
+database "AppDbContext" as DB
+participant "Grading\nController" as GC
+actor "Teacher /\nAdmin" as T
+
+[-> SS : FinalizeAsync\n(session, status)
+opt Exam.AiEvaluationEnabled
+  SS -> GS : StageAsync(answers)
+  loop each Theory answer
+    alt LLM grader enabled and answer\nnot empty (optional, off by default)
+      GS -> DB : AiGradingResult Pending (queued for GradingWorker)
+    else default (offline)
+      GS -> GS : TheoryGrader.Grade(...):\n0.7 x TF-IDF cosine vs\nReferenceAnswer + 0.3 x\nkey-term coverage\n(RubricKeywords, else top\n5 terms; no reference ->\nkeywords only; neither -> 0)
+      GS -> DB : AiGradingResult (marks, confidence, justification)
+    end
+  end
+end
+opt exam is not a mock (IsMock = false)
+  SS -> PS : DetectAsync(session, answers)
+  loop each non-MCQ answer
+    PS -> DB : same question's answers in other finalised sessions
+    loop each other non-empty answer
+      PS -> PE : Fingerprint(text, isCode)\n(cached) + Compare
+      PE -> PE : tokenise (code:\nids -> ID), 5-grams,\nwinnowing w = 4;\nJaccard x 100
+      PE --> PS : Similarity, segments
+      opt Similarity >= Exam.PlagiarismThreshold\nand pair not stored yet
+        PS -> DB : PlagiarismResult(UserIdA, UserIdB,\nSimilarityScore, MatchingSegments)
+      end
+    end
+  end
+end
+SS -> DB : SaveChanges
+
+== later: teacher or admin opens the heat map ==
+T -> GC : GET /api/exams/\n{examId}/\nplagiarism/matrix
+note over GC : owner teacher\nor admin only;\nmock exam -> 400\nMOCK_EXAM
+GC -> PS : BuildMatrixAsync(examId, questionId)
+PS -> PE : Compare each pair\nof finalised sessions
+PS --> GC : students x students matrix
+GC --> T : {students,\nquestions, matrix,\nthreshold}
+@enduml

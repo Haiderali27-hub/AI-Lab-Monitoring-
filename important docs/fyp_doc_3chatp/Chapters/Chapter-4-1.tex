@@ -1,297 +1,198 @@
 \chapter{FUNCTIONAL ANALYSIS AND MODELING}
 
-Our approach is to transform the raw requirements collected from our stakeholders into functional models. The process is critically important for SmartExam as it works with low-level Windows API hooks, real-time telemetry, and WebSockets. Lack of clear boundary definition will cause the system to crash during a live, high load examination. Use-case tables and data flow diagrams are helpful in navigating this complexity.
-
-The chapter is divided into 2 sections, the first deals with User Case modeling whereas the second section with Functional modeling. We begin with identifying our users and user stories to detail the different ways a Student, Teacher, and Administrator interact with the system, following this we present our data modeling by building an Entity Relationship Diagram and Data flow Diagrams to illustrate the data flow between client and back-end (ASP. Net Core).
-
 \section{Use Case Modeling}
 
-Use-case modeling is used for expressing the scope of the system from the end user's point of view \cite{uml_systems_analysis}. This allows us to focus on what the SmartExam system actually does, prior to the creation of code, and avoid ``scope creep'' as much as possible, so that both the student client, and teacher panel should remain on same page during implementation.
+A use case model describes the system from the user's side \cite{uml_systems_analysis}. It fixed the scope early, so that the student client and the web panel were built against the same set of actions.
 
-Our system consists of 3 Human actors: ``Student'', ``Teacher'', and ``Administrator''. It also has one automated Service Actor which is ``AI grader''. Figure~\ref{fig:usecase_diagram} shows the UML Use Case diagram for these roles.
+The actors are the five roles of the \texttt{UserRole} enum in the backend. A \textbf{Student} sits exams in the WPF desktop client and uses the web portal for results, violations, performance and notifications. An \textbf{Invigilator} supervises only the exams they are assigned to through the \texttt{ExamProctors} table, and cannot edit or grade. A \textbf{Teacher} can also configure exams, eligibility, seating and announcements and review marks and the similarity matrix. An \textbf{Admin} manages users, departments, courses, labs and device bindings and reads the audit log and system analytics, and only a \textbf{SuperAdmin} manages Admin and SuperAdmin accounts. The staff roles therefore form a generalisation chain. Figure~\ref{fig:usecase_diagram} shows the use cases, each tagged with its requirement.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.55\linewidth]{Figures/use_case_diagram.png}
-\caption{Use Case Diagram of the AI-Driven Lab Exam Monitoring System}
+\includegraphics[height=0.86\textheight]{Figures/use_case_diagram.png}
+\caption{Use Case Diagram of SmartExam}
 \label{fig:usecase_diagram}
 \end{figure}
 
-As shown in Figure~\ref{fig:usecase_diagram}, the roles are strictly separated. Students will have access to client-side features such as hardware diagnostics and the exam environment. Teachers manage configurations, review grading, and monitor WebSockets feeds. The admins manage the user profiles and audits. This rigid separation helps us enforce security restrictions at the database and API level.
+\begin{sloppypar}
+The API enforces this separation. Role attributes (\texttt{[Authorize(Roles=...)]}) restrict the endpoints, and \texttt{ExamAccessService} checks who may supervise a given exam.
+\end{sloppypar}
 
 \subsection{User Stories}
 
-User stories were used to keep the Scrum team focused on user value \cite{user_stories_applied}. We used these stories for sprint planning and as a definition of done.
+We wrote user stories to plan sprints and to define when a feature was done \cite{user_stories_applied}. Each story names the requirement it serves.
 
-The user stories for the AI-Driven Lab Exam Monitoring and Management System are arranged by actor roles, covering the entire lifecycle of an examination from setup to monitoring, submission, evaluation, and reporting:
-
-\subsubsection{Student User Stories}
-\begin{enumerate}
-    \item \textbf{Account Security:} As a student, I want to be reminded to create a secure password after initial account registration, so that my profile information is protected from unauthorized access.
-    \item \textbf{Initial Setup and Biometric Enrollment (Optional):} As a student, I want the option to securely enroll biometric data (e.g., fingerprint, facial scan) during setup for improved authentication security, so that accessing the platform becomes quick and convenient while maintaining data integrity.
-    \item \textbf{Pre-Exam Readiness Check:} As a student, I want the workstation client to perform a thorough pre-exam check, verifying the webcam, microphones, network connectivity, and essential system processes, so that I can confidently start my examination knowing all configurations are optimal.
-    \item \textbf{Mock Test Simulation:} As a student, I want to have access to short mock tests that mimic the locked-down environment and time constraints of the actual exam, so that I can familiarize myself with the restrictions and practice my problem-solving under simulated conditions.
-    \item \textbf{Guided Exam Interface:} As a student I want the exam interface to be clear and intuitive with the countdown timer, current question, instructions and workspace clearly demarcated so that I can focus on answering questions without confusion.
-    \item \textbf{Lockdown Compliance:} As a student, I would like the workstation client to automatically enforce lockdown restrictions by disabling Alt+Tab, the Windows key, and preventing the execution of unauthorized applications and external displays, so that I can focus on the exam and adhere to academic integrity standards.
-    \item \textbf{Real-time Auto-Save:} As a student, I want my progress, including written answers and code, to be automatically saved to the server at frequent intervals (e.g., every 10 seconds), so that I am protected from data loss in case of system crashes or power outages.
-    \item \textbf{Controlled and Forced Submission:} As a student, I want the option to manually submit my work before the timer expires, but also ensure that my completed exam is automatically submitted if I exceed the allowed time, so that my performance is accurately recorded for grading regardless of my actions.
+\subsubsection{Student}
+\begin{enumerate}[nosep]
+    \item As a student, I log in from the client and my account is bound to my lab PC, so nobody can sit my exam from another machine (FR1).
+    \item As a student, I run a system check and an ungraded practice exam before the real one, so problems with my PC show up early (FR2).
+    \item As a student, I see only the exams I am eligible for, with the start countdown and my check status (FR3).
+    \item As a student, I sit the exam in a locked fullscreen window where only the allowed tools run, so every candidate works under the same rules (FR4).
+    \item As a student, my answers are saved every 10 seconds and kept on the PC while the network is down, and I get a receipt hash when I submit (FR6).
+    \item As a student, I see an invigilator's warning or extra time on my screen during the exam (FR10).
 \end{enumerate}
 
-\subsubsection{Teacher User Stories}
-\begin{enumerate}
-    \item \textbf{Course and Exam Creation:} As a teacher, I want to easily create and manage courses, define exam templates with specific question types (coding, theoretical), durations, points, and set a grade percentage, so that I can structure my evaluations precisely.
-    \item \textbf{Programming Environment Configuration:} As a teacher, I want to specify the allowed programming languages, libraries, and versions, and set up a whitelist of permitted desktop applications (e.g., specific IDEs, debuggers), so that students have the tools they need without unauthorized distractions.
-    \item \textbf{Candidate Management and Scheduling:} As a teacher, I want to import candidates, assign them to specific exams, allocate them to particular labs or workstations, and set specific time windows for their participation, so that the exam process is organized and controlled.
-    \item \textbf{Live Session Monitoring:} As a teacher, I want to have access to a real-time dashboard displaying a live status card for each student, including their focus on the application, webcam feed, keyboard and mouse activity, and process list, so that I can effectively invigilate the class.
-    \item \textbf{Violation Detection and Alerts:} As a teacher, I want to receive instant alerts for potential academic integrity violations, such as attempted task switching, use of prohibited applications, or tampering with the webcam feed, so that I can immediately address any issues.
-    \item \textbf{Manual Invigilation Actions:} As a teacher, I want to have the ability to pause or resume a student's exam timer, grant extensions, temporarily unlock their workstation for necessary assistance, or terminate a session if violations persist, so that I can manage special circumstances.
-    \item \textbf{Automated Grading and Analysis:} As a teacher, I want the system to automatically compile coding submissions, run provided test cases, analyze theoretical answers for correctness and originality using semantic similarity checks, and identify instances of plagiarism, so that grading is efficient and accurate.
-    \item \textbf{Performance Reporting and Auditing:} As a teacher, I want to generate comprehensive, exportable PDF reports that include every student's grade, invigilation logs (violations, extensions), AI grading feedback, and session summaries, so that I can review and archive assessment results.
+\subsubsection{Teacher}
+\begin{enumerate}[nosep,resume]
+    \item As a teacher, I create an exam with MCQ, coding and theory questions, test cases, an allowed-apps list and a lockdown mode (FR8).
+    \item As a teacher, I import attendance, override eligibility with a logged reason, and assign each student a workstation (FR9).
+    \item As a teacher, I get screenshots at random 30--90~s intervals and on each violation, plus idle time and webcam status, as evidence (FR5).
+    \item As a teacher, I watch live student tiles, open a student's timeline and screenshots, and warn, extend time or force-submit (FR10).
+    \item As a teacher, coding answers are run against weighted test cases and theory answers get a suggested mark, which I can accept or override (FR11.1, FR11.2).
+    \item As a teacher, I see a similarity matrix of submissions so that I can review likely copying myself (FR11.3).
+    \item As a teacher, I export a PDF report of an exam's results (FR12).
 \end{enumerate}
 
-\subsubsection{Administrator User Stories}
-\begin{enumerate}
-    \item \textbf{User and Role Management:} As an administrator, I want to create, update, and remove user accounts (students, teachers) and assign them specific roles with defined permissions, so that the system access is secure and aligns with institutional policies.
-    \item \textbf{System Configuration and Setup:} As an administrator, I want to configure global system settings, including the IP address ranges for labs, default workstation parameters, database connection strings, and external service credentials, so that the system runs optimally across the institution.
-    \item \textbf{Hardware Device Management:} As an administrator, I want to view and manage hardware device registrations and bindings, and have the ability to forcefully de-register devices if necessary, so that unauthorized hardware cannot be used for examinations.
-    \item \textbf{Audit Trail Review:} As an administrator, I want to access and review detailed audit logs of critical system actions, such as user logins, role changes, system setting modifications, and invigilator overrides, so that accountability is maintained and issues can be resolved.
-    \item \textbf{System Performance Monitoring:} As an administrator, I want to monitor key system performance metrics (CPU usage, memory, network traffic) on the server and client applications, so that I can proactively address potential bottlenecks or issues.
-    \item \textbf{Data Retention and Cleanup:} As an administrator, I want to configure data retention policies and run cleanup routines for old exam data, log files, and temporary files, so that the system's storage remains manageable.
+\subsubsection{Invigilator}
+\begin{enumerate}[nosep,resume]
+    \item As an invigilator, I see only the exams I am assigned to and can warn students, extend time and force a submission, but not grade (FR10).
 \end{enumerate}
 
-The user stories have been categorized to cover all 12 functional modules for AI-Driven Lab Exam Monitoring and Management System. The requirement for the student client, as well as the web panel, are addressed by these stories which allowed them to be developed in parallel within the agile sprints.
+\subsubsection{Admin and SuperAdmin}
+\begin{enumerate}[nosep,resume]
+    \item As an admin, I create, import, deactivate and sign out users and assign their roles (FR7).
+    \item As an admin, I reset a student's device binding when a lab PC is replaced (FR1).
+    \item As an admin, I register labs and workstations with their PC names and IP addresses so that seats can be enforced (FR9).
+    \item As an admin, I filter the audit log by event type to check logins, device bindings and eligibility overrides (FR12).
+\end{enumerate}
 
-\subsection{Individual Actor Use Cases}
+\subsection{Use Case Descriptions}
 
-The user stories are expanded into detailed formal use case tables below. Each table depicts the necessary preconditions for a use case, triggers the use case, traces the primary flow, and presents the exception cases \cite{use_case_definition}. All tables use our unique project double-hline formatting.
-
-Table~\ref{tab:uct_auth_device} describes the user authentication process. Using native Windows APIs, we read CPU, motherboard details from the client machine which form the HWID binding to prevent students login through any personal machine, or another machine in the lab, during the exam.
-
-The Table~\ref{tab:uct_pre_exam_check} elaborates on the process to be done for each pre-exam check. We identify the status of the web cam, its connectivity and process list of the students along with its delay with our server. After all checks we record a baseline face of the student to compare it for authentication later.
-
-Table~\ref{tab:uct_lockdown_telemetry} describes the locking down mechanism for the student's workstations. We use keyboard hooks at the low level to prevent use of Alt+Tab, Windows key and also block secondary monitor. We compress the screen shots from telemetric data to minimize the band width usage at random intervals.
-
-Table~\ref{tab:uct_exam_config} focuses on exam setup features for a teacher. They have ability to upload code based tests and upload their respective Test cases along with other theory based questions, can configure applications that would be white-listed and select students to their assigned physical locations and IPs.
-
-The Table~\ref{tab:uct_live_proctoring} demonstrates how the live session tracking by the teacher is designed. Live focus log and images is streamed from student clients to the teacher web dashboard using WebSockets. We color-coded user information at the teacher dashboard where Red indicates some lock-down violations, green signals for active usage.
-
-Table~\ref{tab:uct_compilation_evaluation} explains the flow of automatic grading system. Each student's submitted code is first run inside a sand-boxed docker container, as they may contain a lot of infinite or blocking loops which can easily take down the backend server. Semantic similarity model is applied on theory answers.
-
-Our Table~\ref{tab:uct_audit_report} demonstrates reporting capability of our system. After collection of all required data such as scores, HWIDs, web-socket based violations etc, we combine it into a single JSON payload, following which we call QuestPDF layout engine to produce a printable PDF document.
+Tables~\ref{tab:uct_auth_device} to~\ref{tab:uct_audit_report} describe the main use cases \cite{use_case_definition}; endpoint names are those of the backend.
 
 \begin{table}[H]
 \centering
-\caption{Use Case Table of User Authentication and Device Binding}
+\caption{UC-01: Log In and Verify Device Binding}
 \label{tab:uct_auth_device}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lp{10.6cm}}
+{\small\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
 \hline\hline
-\textbf{Field} & \textbf{Details} \\
+Actors & Student; \texttt{AuthController} \\
+Pre-condition & Active student account; client running on a lab PC. \\
+Main flow & 1.~Student enters email or roll number and password.\newline
+2.~Client reads the BIOS, system-disk and baseboard serials through WMI and sends them with the PC name to \texttt{POST /api/auth/student-login}.\newline
+3.~Server checks the PBKDF2 password hash and hashes the fingerprint with SHA-256.\newline
+4.~If the account has no \texttt{DeviceBinding}, the hash is stored (audit \texttt{DEVICE\_BOUND}); otherwise it must match.\newline
+5.~Server returns a JWT and a refresh token (audit \texttt{LOGIN\_SUCCESS}). \\
+Exceptions & Wrong password: \texttt{LOGIN\_FAILED}. Inactive account: denied. Different PC: 401 \texttt{DEVICE\_MISMATCH}, logged; an admin must reset the binding. \\
+Post-condition & Student is signed in on the bound PC. \\
 \hline\hline
-\textbf{UCT ID} & UCT-01 \\
-\textbf{Case Name} & Authenticate User and Verify Device Binding \\
-\textbf{Overview} & Allows students to log in while validating their Hardware ID (HWID) to prevent proxy exam attempts. \\
-\textbf{Actors} & Student, System (ASP.NET Core REST API) \\
-\textbf{Pre-Conditions} & WPF client is running, network is active, and student profile is registered. \\
-\textbf{Triggers} & Student launches the application and enters credentials on the login screen. \\
-\textbf{Steps} & \begin{minipage}[t]{10.6cm}
-1. Student enters registered email and password.\\
-2. Client queries local APIs to fetch the unique workstation HWID.\\
-3. Client transmits credentials and HWID to the REST API.\\
-4. System validates credentials and compares HWID against stored binding.\\
-5. System returns a secure JWT and redirects student to the dashboard.
-\end{minipage} \\
-\textbf{Post-Conditions} & The student is authenticated and device binding is verified. \\
-\textbf{Exception Flow} & \begin{minipage}[t]{10.6cm}
-1. Incorrect Credentials: System displays an error and prompts for retry.\\
-2. HWID Mismatch: System blocks access and logs a security violation event.
-\end{minipage} \\
-\hline\hline
-\end{tabular}
+\end{tabularx}}
 \end{table}
 
 \begin{table}[H]
 \centering
-\caption{Use Case Table of Pre-Exam System Verification}
+\caption{UC-02: Pass the Readiness Check and Start the Exam}
 \label{tab:uct_pre_exam_check}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lp{10.6cm}}
+{\small\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
 \hline\hline
-\textbf{Field} & \textbf{Details} \\
+Actors & Student; \texttt{ExamsController} \\
+Pre-condition & Student is signed in and eligible for a scheduled exam (UC-01). \\
+Main flow & 1.~Dashboard calls \texttt{GET /api/exams/student/current} for the exam, server time, check status and seat status.\newline
+2.~Student runs the system check: API latency under 2~s, clock skew under 60~s, screen capture, webcam and microphone if the exam needs them, one monitor, no RDP or VM, keyboard hook, 200~MB free disk.\newline
+3.~Client posts the result to \texttt{/api/exams/\{id\}/readiness}; the server recomputes the pass and stores a \texttt{ReadinessChecks} row.\newline
+4.~Start unlocks at the opening time, measured on the server clock.\newline
+5.~Student presses Start; the server checks eligibility, the seat, the exam window and, when the exam requires it, a passing check from the last 30 minutes, then creates an \texttt{ExamSession}. \\
+Exceptions & Failed check: Retry, Start stays disabled. Server refusals: \texttt{READINESS\_REQUIRED}, \texttt{EXAM\_NOT\_STARTED}, \texttt{EXAM\_CLOSED}, or 403 \texttt{SEAT\_MISMATCH} (audited and shown on the live monitor). \\
+Post-condition & Session is \texttt{InProgress}. \\
 \hline\hline
-\textbf{UCT ID} & UCT-02 \\
-\textbf{Case Name} & Perform Pre-Exam System Verification \\
-\textbf{Overview} & Guides the student through hardware checks to ensure webcam, screen, and process compliance. \\
-\textbf{Actors} & Student, System (WPF Client and REST API) \\
-\textbf{Pre-Conditions} & Student is successfully authenticated and the exam session is scheduled. \\
-\textbf{Triggers} & Student clicks ``Start Diagnostics'' on the client application interface. \\
-\textbf{Steps} & \begin{minipage}[t]{10.6cm}
-1. Client initializes and checks webcam, microphone, and screen sharing status.\\
-2. Client scans active process lists for blacklisted applications.\\
-3. Client performs a network connection latency and bandwidth test.\\
-4. Client prompts the student to capture a webcam reference snapshot.\\
-5. Client uploads diagnostics status and reference photo to the server.
-\end{minipage} \\
-\textbf{Post-Conditions} & Diagnostics logs are stored and student is cleared to launch the exam workspace. \\
-\textbf{Exception Flow} & \begin{minipage}[t]{10.6cm}
-1. Diagnostic Failure: System flags errors and disables the exam launch button.\\
-2. Blocked Process: Client lists running blacklisted apps and prompts user to close them.
-\end{minipage} \\
-\hline\hline
-\end{tabular}
+\end{tabularx}}
 \end{table}
 
 \begin{table}[H]
 \centering
-\caption{Use Case Table of Workstation Lockdown and Telemetry Tracking}
+\caption{UC-03: Sit the Locked Exam and Submit}
 \label{tab:uct_lockdown_telemetry}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lp{10.6cm}}
+{\small\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
 \hline\hline
-\textbf{Field} & \textbf{Details} \\
+Actors & Student; \texttt{MonitoringController}, \texttt{SubmissionService} \\
+Pre-condition & Session is \texttt{InProgress} (UC-02). \\
+Main flow & 1.~Exam window opens fullscreen and topmost; a low-level keyboard hook blocks Alt+Tab, the Windows key and Ctrl+Shift+Esc, and Task Manager is disabled.\newline
+2.~Guards check processes every 2~s against the allowed apps (report or close, by lockdown mode) and watch the clipboard, USB, monitors, RDP and VMs.\newline
+3.~Client sends a heartbeat every 10~s with focus, idle time and camera status; violations go in event batches with a screen capture; screenshots follow at random 30--90~s intervals.\newline
+4.~Answers are autosaved every 10~s and written to an encrypted local backup.\newline
+5.~Student submits; the server locks the session, returns a SHA-256 receipt, which the client checks, and queues the answers for grading. \\
+Exceptions & Network loss: saves and events are queued and replayed later. Crash: answers are restored from the backup. Deadline: client auto-submits; the server times the session out 2 minutes after its end. \\
+Post-condition & Session is \texttt{Submitted} or \texttt{TimedOut} with a stored receipt. \\
 \hline\hline
-\textbf{UCT ID} & UCT-03 \\
-\textbf{Case Name} & Lockdown Workstation and Stream Telemetry \\
-\textbf{Overview} & Restricts desktop task-switching and streams periodic screenshots and logs to the server. \\
-\textbf{Actors} & Student, System (WPF Client and REST API) \\
-\textbf{Pre-Conditions} & Student has passed diagnostics, and the scheduled exam session is launched. \\
-\textbf{Triggers} & Student launches the locked exam screen. \\
-\textbf{Steps} & \begin{minipage}[t]{10.6cm}
-1. Client enters fullscreen mode and blocks hotkeys (Alt+Tab, Win Key) via hooks.\\
-2. Client detects and disables secondary monitor connections.\\
-3. Client starts background threads to monitor active processes and focus states.\\
-4. Client captures screenshots at randomized intervals (30 to 90 seconds).\\
-5. Client packages and streams focus logs and screenshots to the server via WebSocket.
-\end{minipage} \\
-\textbf{Post-Conditions} & Workstation remains locked, and telemetry data is continuously saved. \\
-\textbf{Exception Flow} & \begin{minipage}[t]{10.6cm}
-1. Lockdown Bypass: Client detects hook evasion, sounds an alarm, and locks screen.\\
-2. Network Interruption: Client caches telemetry in encrypted local store.
-\end{minipage} \\
-\hline\hline
-\end{tabular}
+\end{tabularx}}
 \end{table}
 
 \begin{table}[H]
 \centering
-\caption{Use Case Table of Exam Configuration and Access Control}
+\caption{UC-04: Configure an Exam and Its Access Rules}
 \label{tab:uct_exam_config}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lp{10.6cm}}
+{\small\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
 \hline\hline
-\textbf{Field} & \textbf{Details} \\
+Actors & Teacher (or Admin); \texttt{ExamsController} \\
+Pre-condition & Teacher is signed in; the course section exists. \\
+Main flow & 1.~Teacher enters title, start time, duration and instructions in the create-exam wizard.\newline
+2.~Teacher adds MCQ, coding and theory questions with marks, test cases (public or hidden) and reference answers.\newline
+3.~Teacher sets allowed apps, lockdown mode, readiness, webcam and microphone options, early join, minimum attendance and seat enforcement.\newline
+4.~On the Eligibility page the teacher imports attendance (CSV), recalculates eligibility, overrides where needed and assigns workstations.\newline
+5.~Teacher assigns invigilators to the exam. \\
+Exceptions & Invalid fields are rejected. Bad CSV rows are reported per line. Recalculation after the exam has ended returns 409. \\
+Post-condition & Exam is \texttt{Scheduled}; overrides are audited (\texttt{ELIGIBILITY\_OVERRIDDEN}). \\
 \hline\hline
-\textbf{UCT ID} & UCT-04 \\
-\textbf{Case Name} & Configure Exam and Seating Access Controls \\
-\textbf{Overview} & Enables teachers to design exam templates, whitelists, and map laboratory seating. \\
-\textbf{Actors} & Teacher, System (React Admin Panel and REST API) \\
-\textbf{Pre-Conditions} & Teacher is authenticated and has administrative rights over the course. \\
-\textbf{Triggers} & Teacher selects ``Create New Exam'' on the web-based console. \\
-\textbf{Steps} & \begin{minipage}[t]{10.6cm}
-1. Teacher enters exam metadata, questions, and allowed application whitelist.\\
-2. Teacher uploads public and hidden test cases for coding tasks.\\
-3. Teacher configures proctoring levels (screenshot intervals, webcam checks).\\
-4. Teacher maps candidate registrations to physical lab IP ranges and seat IDs.\\
-5. Teacher saves the configuration to the central database.
-\end{minipage} \\
-\textbf{Post-Conditions} & The exam template is developed, access policies are set, and the exam is scheduled. \\
-\textbf{Exception Flow} & \begin{minipage}[t]{10.6cm}
-1. Syntax Error: System flags failing test case syntax and requests correction.\\
-2. Seat Conflict: System alerts about collisions for overlapping mappings.
-\end{minipage} \\
-\hline\hline
-\end{tabular}
+\end{tabularx}}
 \end{table}
 
 \begin{table}[H]
 \centering
-\caption{Use Case Table of Live Proctoring and Violation Alerting}
+\caption{UC-05: Supervise a Live Exam}
 \label{tab:uct_live_proctoring}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lp{10.6cm}}
+{\small\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
 \hline\hline
-\textbf{Field} & \textbf{Details} \\
+Actors & Teacher or Invigilator; \texttt{MonitoringHub} (\texttt{/hubs/monitoring}) \\
+Pre-condition & Exam is running; the staff member owns or is assigned to it. \\
+Main flow & 1.~Staff member picks the exam on the Live Monitor; the page joins the exam's SignalR group.\newline
+2.~Tiles update from \texttt{StudentHeartbeat}; events arrive as \texttt{ViolationEvent}, classed as Warning, Suspicious or Violation.\newline
+3.~Staff member opens a student's drawer to see the event timeline and screenshots.\newline
+4.~Staff member sends a warning (\texttt{SendWarning}), adds time (\texttt{ExtendStudentTime}), force-submits (\texttt{ForceSubmitSessionById}), unlocks the PC for up to 30 minutes (\texttt{UnlockSession}) or records an incident. \\
+Exceptions & No heartbeat for 30~s: tile shows Disconnected until the student reconnects. Staff not assigned to the exam: the hub refuses the action. \\
+Post-condition & Actions are stored and audited; the student sees the warning or new time. \\
 \hline\hline
-\textbf{UCT ID} & UCT-05 \\
-\textbf{Case Name} & Monitor Live Proctoring and Handle Alerts \\
-\textbf{Overview} & Provides teachers with a live dashboard of student statuses, logs, and violation alerts. \\
-\textbf{Actors} & Teacher, System (React Admin Panel, WebSocket Hub) \\
-\textbf{Pre-Conditions} & The exam session is active, and students are logged in via the WPF client. \\
-\textbf{Triggers} & Teacher accesses the active exam monitoring dashboard. \\
-\textbf{Steps} & \begin{minipage}[t]{10.6cm}
-1. Dashboard establishes a secure WebSocket link to the central server.\\
-2. Dashboard displays a visual grid of active student status cards.\\
-3. System pushes real-time telemetry logs and alerts to the dashboard.\\
-4. Teacher views logs, screenshots, and active processes for flagged students.\\
-5. Teacher resolves alerts or issues manual overrides (pause timer, force submit).
-\end{minipage} \\
-\textbf{Post-Conditions} & The teacher maintains oversight, and alerts are resolved or acted upon. \\
-\textbf{Exception Flow} & \begin{minipage}[t]{10.6cm}
-1. Connection Lost: Dashboard displays offline status and attempts to reconnect.\\
-2. Student Disconnects: Grid card marks student as offline and flags a warning.
-\end{minipage} \\
-\hline\hline
-\end{tabular}
+\end{tabularx}}
 \end{table}
 
 \begin{table}[H]
 \centering
-\caption{Use Case Table of Process Code Compilation and Evaluation}
+\caption{UC-06: Grade Submissions and Review Plagiarism}
 \label{tab:uct_compilation_evaluation}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lp{10.6cm}}
+{\small\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
 \hline\hline
-\textbf{Field} & \textbf{Details} \\
+Actors & Teacher; grading services \\
+Pre-condition & Sessions are submitted, force-submitted or timed out. \\
+Main flow & 1.~MCQ answers are marked by key.\newline
+2.~C++ answers are compiled and run against each test case in a Docker \texttt{gcc:13} container; marks follow the weights of the passed cases.\newline
+3.~Theory answers are compared with the reference answer by TF-IDF similarity, giving a suggested mark and a confidence (an external semantic grader is optional and off by default).\newline
+4.~Answers in the exam are compared pairwise by k-gram winnowing; pairs above the threshold go to \texttt{PlagiarismResults} and the similarity matrix.\newline
+5.~Teacher reviews the suggestions and the matrix and overrides marks where needed. \\
+Exceptions & Compile error or time-out: the test case fails and the message is shown to the teacher. \\
+Post-condition & Suggested marks in \texttt{AiGradingResults}; teacher changes in \texttt{TeacherGradeOverrides}. \\
 \hline\hline
-\textbf{UCT ID} & UCT-06 \\
-\textbf{Case Name} & Process Code Compilation and Semantic Evaluation \\
-\textbf{Overview} & Automatically compiles programming tasks, grades theory questions via AI, and checks plagiarism. \\
-\textbf{Actors} & System (REST API and AI Grading Microservice), Teacher \\
-\textbf{Pre-Conditions} & Students have submitted their exams, and the grading phase is initiated. \\
-\textbf{Triggers} & System receives an exam submission or teacher initiates auto-grading. \\
-\textbf{Steps} & \begin{minipage}[t]{10.6cm}
-1. System pulls submitted code and theory answers from the database.\\
-2. System compiles code inside isolated containers against test cases.\\
-3. System sends theory answers to the AI Semantic Engine for evaluation.\\
-4. System runs plagiarism analysis across all student files.\\
-5. System consolidates scores and plagiarism flags into a grade sheet.
-\end{minipage} \\
-\textbf{Post-Conditions} & Submissions are compiled, AI semantic grades are computed, and marks are saved. \\
-\textbf{Exception Flow} & \begin{minipage}[t]{10.6cm}
-1. Compilation Error: Code is recorded with zero test pass score and error details.\\
-2. AI Service Offline: System caches requests and flags questions as pending review.
-\end{minipage} \\
-\hline\hline
-\end{tabular}
+\end{tabularx}}
 \end{table}
 
 \begin{table}[H]
 \centering
-\caption{Use Case Table of Audit Logging and Report Export}
+\caption{UC-07: Review the Audit Log and Export a Report}
 \label{tab:uct_audit_report}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lp{10.6cm}}
+{\small\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
 \hline\hline
-\textbf{Field} & \textbf{Details} \\
+Actors & Admin (audit log); Teacher or Admin (report) \\
+Pre-condition & Exam has ended and marks are reviewed. \\
+Main flow & 1.~Admin opens the audit log (\texttt{GET /api/audit-logs}), filtered by event type.\newline
+2.~Teacher requests \texttt{POST /api/analytics/exams/\{id\}/report}.\newline
+3.~QuestPDF builds a PDF with summary statistics, per-question performance and the score distribution.\newline
+4.~The report is stored as an \texttt{ExamReports} row and downloaded. \\
+Exceptions & Unknown exam: no report is generated. \\
+Post-condition & Report file is available for download. \\
 \hline\hline
-\textbf{UCT ID} & UCT-07 \\
-\textbf{Case Name} & Generate Audit Logs and Export Reports \\
-\textbf{Overview} & Records system events and exports attendance, grades, and violation logs as a PDF report. \\
-\textbf{Actors} & Teacher, Administrator, System \\
-\textbf{Pre-Conditions} & The exam session has concluded, and grading reviews are finalized. \\
-\textbf{Triggers} & Teacher or admin clicks ``Export Session PDF'' on the dashboard. \\
-\textbf{Steps} & \begin{minipage}[t]{10.6cm}
-1. System queries database for attendance, HWIDs, scores, and violation events.\\
-2. System extracts immutable audit logs of administrator and teacher overrides.\\
-3. System packages data into JSON and invokes the QuestPDF engine.\\
-4. QuestPDF generates a styled PDF document with score charts and timelines.\\
-5. System logs the export event and downloads the PDF to the user's browser.
-\end{minipage} \\
-\textbf{Post-Conditions} & A secure, styled PDF report is downloaded and the event is logged. \\
-\textbf{Exception Flow} & \begin{minipage}[t]{10.6cm}
-1. Data Inconsistency: System displays error details and logs a critical warning.\\
-2. Missing Records: System generates the report with empty fields for missing data.
-\end{minipage} \\
-\hline\hline
-\end{tabular}
+\end{tabularx}}
 \end{table}

@@ -3,10 +3,8 @@
 \chapter*{\centering Project Overview}
 \addcontentsline{toc}{chapter}{Project Overview}
 
-Running a practical lab exam is surprisingly chaotic. There are dozens of students coding, a couple of invigilators trying to watch all the screens and no real way of tracking what everyone is up to. Teachers end up having to use WhatsApp to coordinate schedules and USB drives to collect code files.
+A practical lab exam is hard to supervise. One or two invigilators watch 30 to 40 screens, attendance is marked on paper, and code is collected on USB drives. SmartExam replaces this with one system made of three parts: a WPF client on each lab PC, a React web panel for staff, and an ASP.NET Core 9 API backed by Neon PostgreSQL.
 
-We developed SmartExam to solve this problem. It's a single platform that manages the entire exam lifecycle in one place. Teachers can create exams, whitelists and seating plans. When students log in, our WPF desktop client locks down their workstation and streams real-time focus logs Post-exam, the system gathers the code drafts, does an automatic grading against the test cases, performs a plagiarism check, and produces a detailed PDF report. 
+Students can log in only from their registered workstation, identified by a hardware ID. After a readiness check, the client locks the PC: fullscreen window, blocked shortcuts, clipboard guard and a check for unapproved programs. It then sends heartbeats, focus and process data, screenshots and webcam checks to the server. A rule-based classifier rates each student, and invigilators follow every seat on a live SignalR dashboard. Answers autosave every 10 seconds with an encrypted local backup.
 
-Existing tools like Respondus LockDown Browser or MOSS only cover small pieces of the puzzle. None of them have scheduling, device binding, live dashboards, and grading in one workflow.
-
-SmartExam is composed of three parts: a WPF client for student machines, a React web panel for teachers and an ASP.NET Core API server that runs on a Neon PostgreSQL database. We built this prototype in an Agile model in eight four-week sprints, starting with core login security, then telemetry, and compilation. Our final prototype provides a secure and fully auditable environment for lab assessments.
+After the exam, coding answers run against the teacher's test cases in a Docker container, theory answers get a TF-IDF similarity score, and a plagiarism matrix flags similar code. The teacher reviews every suggested mark. We built the system in eight four-week Agile sprints.

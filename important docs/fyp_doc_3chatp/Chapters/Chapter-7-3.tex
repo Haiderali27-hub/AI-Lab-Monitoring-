@@ -1,0 +1,166 @@
+% Chapter 7.4.2 -- Integration Testing (from TEST_CASES.md and the final run of 2026-10-21)
+\subsection{Integration Testing}
+\label{sec:it_cases}
+
+Integration testing checks that the API controllers, the database, the role policies, the background workers and the SignalR hub work together. The xUnit acceptance tests (layer I) start the full ASP.NET Core pipeline in memory with a seeded database; the Playwright \texttt{api} tests (layer A) send black-box HTTP requests to a separately started backend. Accounts ending in \texttt{@test.com} belong to the xUnit seed and accounts ending in \texttt{@smartexam.com} to the Playwright seed. Every row passed in the final run of 21 October 2026.
+
+Table~\ref{tab:it_auth} covers login with device binding and the refresh-token store (FR1).
+
+{\small\setlength{\tabcolsep}{4pt}
+\begin{longtable}{|P{1.1cm}|P{2.5cm}|P{3.6cm}|P{2.6cm}|P{2.9cm}|P{1.2cm}|}
+\caption{Integration Testing for Authentication and Device Binding}\label{tab:it_auth}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endfirsthead
+\multicolumn{6}{c}{\tablename~\thetable{} -- continued from previous page}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endhead
+\hline \multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\hline
+\endlastfoot
+IT-01 & Bind the first PC and refuse a second & 1. A new student signs in through \texttt{student-\allowbreak{}login}. \newline 2. The student signs in from another PC. & HWID-X, then HWID-Y \newline {\footnotesize\textit{Ref: M1-A-03, M1-A-04}} & 200 with \texttt{device\allowbreak{}Bound=\allowbreak{}true}; then 401 \texttt{DEVICE\_\allowbreak{}MISMATCH}, audited. & Pass\\ \hline
+IT-02 & Replayed refresh token revokes the family & 1. Refresh with R1 to get R2. \newline 2. Send R1 again, then use R2. & student@\allowbreak{}test.com \newline {\footnotesize\textit{Ref: M1-I-03}} & Rotation 200; replay 401; R2 then 401; \texttt{REFRESH\_\allowbreak{}TOKEN\_\allowbreak{}REUSE} audited. & Pass\\ \hline
+IT-03 & Binding reset signs the old PC out & 1. Student signs in on OLD-PC. \newline 2. Admin deletes the binding; old tokens are used. \newline 3. Student signs in on NEW-PC. & \texttt{TEST\_\allowbreak{}HWID\_\allowbreak{}HASH\_\allowbreak{}ABC123} \newline {\footnotesize\textit{Ref: M1-I-14}} & Old tokens 401; \texttt{DEVICE\_\allowbreak{}BINDING\_\allowbreak{}RESET} audited; NEW-PC 200. & Pass\\ \hline
+\end{longtable}}
+
+Table~\ref{tab:it_users_exams} checks how the role rules of User and Role Management (FR7) apply to accounts and to exams of Exam Creation and Configuration (FR8).
+
+{\small\setlength{\tabcolsep}{4pt}
+\begin{longtable}{|P{1.1cm}|P{2.5cm}|P{3.6cm}|P{2.6cm}|P{2.9cm}|P{1.2cm}|}
+\caption{Integration Testing for User and Role Management and Exam Configuration}\label{tab:it_users_exams}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endfirsthead
+\multicolumn{6}{c}{\tablename~\thetable{} -- continued from previous page}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endhead
+\hline \multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\hline
+\endlastfoot
+IT-04 & Only a Super\allowbreak{}Admin creates administrators & 1. Admin creates a user with role Admin. \newline 2. Super\allowbreak{}Admin sends the same request. & admin@\allowbreak{}smartexam.\allowbreak{}com \newline root@\allowbreak{}smartexam.\allowbreak{}com \newline {\footnotesize\textit{Ref: M7-A-05}} & Admin 403 \texttt{SUPERADMIN\_\allowbreak{}REQUIRED}; Super\allowbreak{}Admin 201. & Pass\\ \hline
+IT-05 & Invigilator sees only the assigned exam, without its key & 1. Invigilator opens the exam before, during and after assignment. & Exam with one hidden case \newline {\footnotesize\textit{Ref: M7-I-07}} & 404; 200 without answer key or hidden case; 404 again. & Pass\\ \hline
+IT-06 & MCQ with an invalid key is refused & 1. Teacher posts an exam with the MCQ below. & Options A, B; key index 5 \newline {\footnotesize\textit{Ref: M8-A-02}} & 400; the message names the correct option. & Pass\\ \hline
+\end{longtable}}
+
+Table~\ref{tab:it_eligibility_start} joins Eligibility and Access Control (FR9) with the start rules of the Student Exam Dashboard (FR3).
+
+{\small\setlength{\tabcolsep}{4pt}
+\begin{longtable}{|P{1.1cm}|P{2.5cm}|P{3.6cm}|P{2.6cm}|P{2.9cm}|P{1.2cm}|}
+\caption{Integration Testing for Eligibility, Seat Assignment and Start Gate}\label{tab:it_eligibility_start}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endfirsthead
+\multicolumn{6}{c}{\tablename~\thetable{} -- continued from previous page}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endhead
+\hline \multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\hline
+\endlastfoot
+IT-07 & Low attendance makes the student ineligible & 1. Teacher imports attendance and recalculates. \newline 2. Student starts the exam. & student@\allowbreak{}test.com: 24 of 40 \newline Minimum 75\% \newline {\footnotesize\textit{Ref: M9-I-02}} & Ineligible, note ``Attendance 60\% $<$ 75\%''; start 400. & Pass\\ \hline
+IT-08 & Start from the wrong seat is refused & 1. Student assigned to PC-01 signs in on PC-02. \newline 2. Student starts the exam. & Seat PC-01; machine PC-02 \newline {\footnotesize\textit{Ref: M9-I-06}} & 403 \texttt{SEAT\_\allowbreak{}MISMATCH}; audited; alert to the exam group; no session. & Pass\\ \hline
+IT-09 & Both start paths follow the exam window & 1. Start an exam that opens in 1 h. \newline 2. Call \texttt{student/\allowbreak{}start} at +3 min (5 min early join) and after the end. & Start +1 h, +3 min, $-$2 h \newline {\footnotesize\textit{Ref: M3-I-01, M3-I-05}} & 400 \texttt{EXAM\_\allowbreak{}NOT\_\allowbreak{}STARTED}; 200; 400 \texttt{EXAM\_\allowbreak{}CLOSED}. & Pass\\ \hline
+\end{longtable}}
+
+Table~\ref{tab:it_readiness} checks that the readiness result sent by the desktop client (FR2) controls the exam start.
+
+{\small\setlength{\tabcolsep}{4pt}
+\begin{longtable}{|P{1.1cm}|P{2.5cm}|P{3.6cm}|P{2.6cm}|P{2.9cm}|P{1.2cm}|}
+\caption{Integration Testing for Readiness Check and Exam Start}\label{tab:it_readiness}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endfirsthead
+\multicolumn{6}{c}{\tablename~\thetable{} -- continued from previous page}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endhead
+\hline \multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\hline
+\endlastfoot
+IT-10 & Passing readiness result is stored and audited & 1. Student posts a result with all checks passed. & Network 120 ms, clock 2 s, camera ok, 12 GB free \newline {\footnotesize\textit{Ref: M2-I-01}} & 200; check stored with \texttt{Passed\allowbreak{}All=\allowbreak{}true}; \texttt{READINESS\_\allowbreak{}PASSED} audited. & Pass\\ \hline
+IT-11 & Missing or stale check blocks the start & 1. Start without a check. \newline 2. Start with a check 31 min old. & \texttt{require\allowbreak{}Readiness=\allowbreak{}true} \newline {\footnotesize\textit{Ref: M2-I-02, M2-I-05}} & 400 \texttt{READINESS\_\allowbreak{}REQUIRED} both times. & Pass\\ \hline
+IT-12 & Required webcam check cannot be skipped & 1. Client claims all passed without a camera result. \newline 2. Student starts the exam. & \texttt{require\allowbreak{}Webcam=\allowbreak{}true}; results: Network only \newline {\footnotesize\textit{Ref: M2-I-10}} & \texttt{passed\allowbreak{}All=\allowbreak{}false}, Camera missing; start 400 \texttt{READINESS\_\allowbreak{}REQUIRED}. & Pass\\ \hline
+\end{longtable}}
+
+Table~\ref{tab:it_monitoring} follows monitoring data from the client service (FR5) to the Live Monitor (FR10).
+
+{\small\setlength{\tabcolsep}{4pt}
+\begin{longtable}{|P{1.1cm}|P{2.5cm}|P{3.6cm}|P{2.6cm}|P{2.9cm}|P{1.2cm}|}
+\caption{Integration Testing for Live Monitoring and Live Proctoring Dashboard}\label{tab:it_monitoring}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endfirsthead
+\multicolumn{6}{c}{\tablename~\thetable{} -- continued from previous page}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endhead
+\hline \multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\hline
+\endlastfoot
+IT-13 & Batch sent twice is stored once & 1. Client posts a batch of 20 events. \newline 2. Client posts the same batch again. & 20 events with unique \texttt{client\allowbreak{}Event\allowbreak{}Id}s \newline {\footnotesize\textit{Ref: M5-I-06}} & Both 200; 20 events stored. & Pass\\ \hline
+IT-14 & Silent client is flagged, then reconnects & 1. Student sends one heartbeat, then stops. \newline 2. Student sends a heartbeat again. & Disconnect after 2 s (production 30 s) \newline {\footnotesize\textit{Ref: M5-I-08}} & \texttt{Student\allowbreak{}Disconnected} to the exam group within 15 s, then \texttt{Student\allowbreak{}Reconnected}. & Pass\\ \hline
+IT-15 & Webcam findings reach the board and timeline & 1. Client sends MultipleFaces and PhoneDetected. \newline 2. Heartbeat reports the camera status. & Looking\allowbreak{}Away; Smiling (unknown) \newline {\footnotesize\textit{Ref: M5-A-06}} & Tile Looking\allowbreak{}Away, 2 violations; events on the timeline; unknown status dropped. & Pass\\ \hline
+IT-16 & Proctor warning reaches the student until read & 1. Teacher sends a warning through the hub. \newline 2. Client sends heartbeats, then marks it read. & ``Eyes on your own screen'' \newline {\footnotesize\textit{Ref: M10-I-09}} & Warning in each heartbeat reply until read; sending and reading audited. & Pass\\ \hline
+IT-17 & Board lists students with evidence & 1. A student sends a heartbeat, an event and a capture. \newline 2. Teacher files an incident and opens the board. & Key\allowbreak{}Blocked (Alt+Tab) \newline {\footnotesize\textit{Ref: M10-I-11}} & One tile, status Warning, with apps, capture and incident; other teacher 403. & Pass\\ \hline
+\end{longtable}}
+
+Table~\ref{tab:it_submission_grading} covers the path from a saved answer to a final mark, from Submission and Backup (FR6) to the grading queue of AI-Assisted Evaluation (FR11).
+
+{\small\setlength{\tabcolsep}{4pt}
+\begin{longtable}{|P{1.1cm}|P{2.5cm}|P{3.6cm}|P{2.6cm}|P{2.9cm}|P{1.2cm}|}
+\caption{Integration Testing for Submission and Backup and AI-Assisted Evaluation}\label{tab:it_submission_grading}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endfirsthead
+\multicolumn{6}{c}{\tablename~\thetable{} -- continued from previous page}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endhead
+\hline \multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\hline
+\endlastfoot
+IT-18 & Older revision does not overwrite a newer one & 1. Client saves revision 3. \newline 2. Client saves revision 2. & ``rev 3 text'', ``rev 2 text'' \newline {\footnotesize\textit{Ref: M6-I-01}} & 200, then 409 \texttt{STALE\_\allowbreak{}REVISION}; ``rev 3 text'' kept. & Pass\\ \hline
+IT-19 & Submission returns a receipt & 1. Student saves two answers and submits. \newline 2. Teacher opens the results. & C++ and theory answers \newline {\footnotesize\textit{Ref: M6-I-02}} & 200, \texttt{answer\allowbreak{}Count=\allowbreak{}2}, 64-character SHA-256; teacher sees the same hash. & Pass\\ \hline
+IT-20 & Extra time applies only to one student & 1. Student 1 gets 10 extra minutes. \newline 2. Exam end is set 5 min ago; both students save. & Extra 10 min; grace 2 min \newline {\footnotesize\textit{Ref: M6-I-07}} & Student 1: 200; student 2: 400. & Pass\\ \hline
+IT-21 & Submit returns before grading finishes & 1. Student submits a coding answer. \newline 2. Teacher opens the results. & Fake runner, 5,000 ms delay \newline {\footnotesize\textit{Ref: M11-I-01}} & Submit 200 in under 1 s; grading Pending. & Pass\\ \hline
+IT-22 & Hidden test results stay hidden from the student & 1. Student submits a coding answer. \newline 2. After the end, student and teacher open results. & Hidden output HIDDEN-\allowbreak{}EXPECTED-\allowbreak{}424242 \newline {\footnotesize\textit{Ref: M11-I-03}} & Student sees one case, never the hidden output; the teacher sees it. & Pass\\ \hline
+IT-23 & Teacher override is the final mark & 1. Theory answer is graded. \newline 2. Teacher overrides twice; student opens the result. & Overrides 3.5, then 4.0 \newline {\footnotesize\textit{Ref: M11-I-08}} & 4.0 is final for teacher and student; the AI suggestion is kept. & Pass\\ \hline
+\end{longtable}}
+
+Table~\ref{tab:it_audit_reports} checks the audit log and report endpoints of Logs, Analytics and Audit Trail (FR12). The hash-chain, event-audit and report-export tests (M12-I-01 to M12-I-09) were skipped in the final run because those features are not finished, so they are not listed.
+
+{\small\setlength{\tabcolsep}{4pt}
+\begin{longtable}{|P{1.1cm}|P{2.5cm}|P{3.6cm}|P{2.6cm}|P{2.9cm}|P{1.2cm}|}
+\caption{Integration Testing for Audit Trail and Reports}\label{tab:it_audit_reports}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endfirsthead
+\multicolumn{6}{c}{\tablename~\thetable{} -- continued from previous page}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endhead
+\hline \multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\hline
+\endlastfoot
+IT-24 & Audit log is admin-only & 1. Teacher, then admin, calls \texttt{GET /\allowbreak{}api/\allowbreak{}audit-\allowbreak{}logs}. & teacher@\allowbreak{}smartexam.\allowbreak{}com \newline admin@\allowbreak{}smartexam.\allowbreak{}com \newline {\footnotesize\textit{Ref: M12-A-01}} & Teacher 403; admin 200. & Pass\\ \hline
+IT-25 & Exam report is produced as a PDF & 1. Teacher generates the exam report. \newline 2. Teacher downloads the file. & Exam with one submitted session \newline {\footnotesize\textit{Ref: M12-A-03}} & 200; type application/pdf, content starts with \%PDF; listed in report history. & Pass\\ \hline
+IT-26 & Report download cannot leave its folder & 1. Teacher requests crafted file names. & \texttt{.\allowbreak{}.\allowbreak{}\%2F\allowbreak{}.\allowbreak{}.\allowbreak{}\%2F\allowbreak{}appsettings.\allowbreak{}json} \newline \texttt{\%2E\allowbreak{}\%2E\allowbreak{}\%2F\allowbreak{}appsettings.\allowbreak{}json} \newline {\footnotesize\textit{Ref: M12-A-04}} & 400 or 404; no response contains connection strings. & Pass\\ \hline
+\end{longtable}}
+
+Table~\ref{tab:it_security} groups a security test with the regression tests for defects D-39 and D-41 to D-45 (Table~\ref{tab:bugs}).
+
+{\small\setlength{\tabcolsep}{4pt}
+\begin{longtable}{|P{1.1cm}|P{2.5cm}|P{3.6cm}|P{2.6cm}|P{2.9cm}|P{1.2cm}|}
+\caption{Integration Testing for Security and Exam Ownership}\label{tab:it_security}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endfirsthead
+\multicolumn{6}{c}{\tablename~\thetable{} -- continued from previous page}\\ \hline
+\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/\allowbreak{}Fail}\\ \hline
+\endhead
+\hline \multicolumn{6}{r}{Continued on next page}\\
+\endfoot
+\hline
+\endlastfoot
+IT-27 & Repeated failed logins are rate-limited & 1. Send four failed logins from one IP. \newline 2. Log in correctly from it and another IP. & Limit 3 per minute \newline {\footnotesize\textit{Ref: SEC-I-04}} & 401 three times, then 429 even for the right password; other IP 200. & Pass\\ \hline
+IT-28 & Per-exam endpoints refused to other teachers (D-39) & 1. Another section's teacher calls each per-exam endpoint. \newline 2. Same calls with unknown ids. & ``Test Exam'', section BSCS-6A \newline {\footnotesize\textit{Ref: M10-I-18}} & 403 each, nothing changed; unknown ids 404; owner and admin 200. & Pass\\ \hline
+IT-29 & Hub stops working after sign-out (D-41) & 1. Teacher joins the exam group. \newline 2. Admin force-logs the teacher out. \newline 3. Socket calls Unlock\allowbreak{}Session. & Unlock 5 min \newline {\footnotesize\textit{Ref: M10-I-21}} & Call refused and connection closed; the session is not unlocked. & Pass\\ \hline
+IT-30 & Questions only while sitting the exam (D-42) & 1. Student opens the exam before, during and after the sitting. & Exam in 3 days; open exam \newline {\footnotesize\textit{Ref: M3-I-08}} & Questions only during the sitting; the teacher always sees them. & Pass\\ \hline
+IT-31 & Finished session cannot be restarted (D-43) & 1. Student submits, then calls \texttt{student/\allowbreak{}start}. \newline 2. A force-submitted student does the same. & Two students, one open exam \newline {\footnotesize\textit{Ref: M6-I-21}} & 409 \texttt{ALREADY\_\allowbreak{}SUBMITTED} for both; one session each. & Pass\\ \hline
+IT-32 & Teacher cannot assign another teacher's students (D-44) & 1. Teacher B creates an exam with teacher A's student. \newline 2. Teacher B adds that student later. & BSCS-6A (A), BSCS-6B (B) \newline {\footnotesize\textit{Ref: M9-I-21}} & 403 \texttt{STUDENT\_\allowbreak{}NOT\_\allowbreak{}IN\_\allowbreak{}YOUR\_\allowbreak{}SECTIONS} both times. & Pass\\ \hline
+IT-33 & Web token cannot act in the desktop session (D-45) & 1. Student starts on PC-01. \newline 2. The same account saves and submits from the web. & PC-01; web portal \newline {\footnotesize\textit{Ref: M9-I-22}} & 403 \texttt{DESKTOP\_\allowbreak{}CLIENT\_\allowbreak{}REQUIRED}; desktop answer kept; desktop submit 200. & Pass\\ \hline
+\end{longtable}}

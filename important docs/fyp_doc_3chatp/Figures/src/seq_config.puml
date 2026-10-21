@@ -1,0 +1,59 @@
+﻿@startuml
+!include style.iuml
+skinparam ArrowFontSize 13
+skinparam defaultFontSize 13
+' Exam configuration (Module 3): Admin_Web_Panel/src/pages/teacher/CreateExamPage.tsx (examsApi.getSections, then
+' getById in edit mode, then getSectionStudents(selectedSectionId), create, update); ExamsController.CreateExam
+' (POST /api/exams) / UpdateExam (PUT /api/exams/{id}: 404 not found, 403 CanManage(exam.Section), 409 not Scheduled,
+' then validation), [Authorize(Roles = "Teacher,Admin,SuperAdmin")], ValidateExamPayloadAsync (400 / 404 section / 403),
+' MapQuestions.
+hide footbox
+skinparam ParticipantPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+skinparam maxMessageSize 300
+
+actor Teacher
+participant "CreateExam\nPage (web)" as P
+participant "Exams\nController" as EC
+database "AppDb\nContext" as DB
+
+Teacher -> P : New exam / Edit
+P -> EC : GET /api/exams/sections
+EC --> P : own sections
+opt edit
+  P -> EC : GET /api/exams/{id}
+  EC --> P : exam + questions
+end
+P -> EC : GET sections/{id}/\nstudents (selected)
+EC --> P : students
+Teacher -> P : fill form
+note over P, EC
+schedule, lockdown, readiness,
+capture intervals, questions +
+test cases, students
+end note
+P -> EC : POST /api/exams or\nPUT /api/exams/{id}\n(CreateExamDto)
+opt PUT
+  EC -> EC : exists (404), own\nsection (403),\nScheduled (409)?
+end
+EC -> EC : ValidateExam-\nPayloadAsync
+note over EC, DB
+title, duration > 0,
+>= 1 question; MCQ >= 2
+options; Coding >= 1 test
+case, C/C++; weights,
+time limits
+end note
+alt invalid
+  EC --> P : 400 (message)
+else section missing / not own\nsection or students
+  EC --> P : 404 / 403
+else valid
+  EC -> EC : MapQuestions
+  EC -> DB : save Exam, Questions,\nTestCases,\nExamAssignments
+  EC --> P : 201 {examId} or 200 updated
+  P --> Teacher : back to dashboard
+end
+@enduml

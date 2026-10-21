@@ -1,0 +1,52 @@
+@startuml
+!include style.iuml
+hide footbox
+skinparam ParticipantPadding 0
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+
+participant "Submission\nService" as SS
+participant "GradingQueue /\nGradingWorker" as GQ
+participant "GradingService" as GS
+database "AppDbContext" as DB
+participant "DockerCodeRunner\n(or LocalMingw\nCodeRunner)" as DR
+participant "MonitoringHub\ngroup exam:{id}" as HUB
+
+[-> SS : POST /api/exams/\nsessions/{id}/submit\n-> FinalizeAsync\n(session, Submitted)
+opt Exam.AiEvaluationEnabled
+  SS -> GS : StageAsync(answers)
+  GS -> DB : coding answer, Runner != None:\nAiGradingResult (Pending)\n+ Pending TestCaseResult\nper case
+  GS --> SS : answerIds to queue\n(coding; theory too if LLM on)
+end
+SS -> DB : SaveChanges
+SS -> GQ : Enqueue(answerId)
+[<-- SS : receipt (no wait)
+
+== background worker (Grading:MaxParallel) ==
+GQ -> GS : ProcessAsync(answerId)
+GS -> DB : Pending row, Answer, TestCases
+GS -> GS : CodeRunnerResolver\n.ResolveAsync(): Docker,\nelse local MinGW, else none
+alt no runner, or not C/C++
+  GS -> DB : 0 marks, Low confidence,\n"Not compiled - teacher review"
+else runner available (Docker shown)
+  GS -> DR : RunAsync(CodeJob:\nsource, cases, limits)
+  DR -> DR : docker run (sandbox);\ncompile once, run\neach case with its\nown time limit
+  note over DB, DR
+    Sandbox: ~--rm ~--network none ~--read-only
+    ~--cap-drop ALL ~--memory ~--pids-limit ~--user 65534;
+    gcc -std=c11 / g++ -std=c++17, -O0.
+    LocalMingwCodeRunner: same harness with g++ in a
+    Windows Job Object when Docker is absent (not isolated).
+  end note
+  alt RunReport returned
+    DR --> GS : RunReport (exit code,\nduration, output per case)
+    GS -> GS : TestCaseScorer.Score\n(OutputComparer) +\nCodeAnalyzer.Analyze
+    GS -> DB : AiGradingResult\n(SuggestedMarks, Confidence,\nJustification, CompileOutput)\n+ TestCaseResults
+  else exception on all MaxAttempts\n(retry, 2 s x attempt back-off)
+    GS -> DB : 0 marks, Low, Status =\nFailed; cases NotRun\n(teacher review)
+  end
+end
+GS -> HUB : GradingCompleted {examId,\nsessionId, answerId, status}
+@enduml

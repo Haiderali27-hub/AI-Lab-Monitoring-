@@ -1,0 +1,32 @@
+@startuml
+!include style.iuml
+' Auto-save and crash recovery (ViewModels/ExamSessionViewModel, Core/Submission/AutosaveScheduler,
+' OfflineSaveQueue, AnswerMerge, Core/Backup/AnswerBackupStore + AnswerBackupCodec,
+' ExamsController.SaveAnswer / StudentStart / GetSessionAnswers)
+
+|Desktop App|
+start
+repeat
+  :Edit answer (Revision + 1);\nbackup .seb rewritten\nwithin 1 s (AES-256-GCM,\nDPAPI-wrapped key);
+  :10 s after first unsaved\nedit, on question change\nor focus loss: POST\nsave-answer;
+  if (Server\nreachable?) then (no)
+    :OfflineSaveQueue\nkeeps it, replays\nin order;
+  else (yes)
+    |Server|
+    :save-answer: keep\nnewer revision;\n200 OK or 409\nSTALE_REVISION;
+    |Desktop App|
+  endif
+repeat while (Exam window\nopen?) is (yes) not (crash /\npower cut)
+:Relaunch, log in,\npress Resume Exam;
+|Server|
+:student/start: same\nInProgress session;
+:GET /api/exams/\nsessions/{sid}/answers;
+|Desktop App|
+if (Backup passes\nAES-GCM tag\ncheck?) then (yes)
+  :AnswerMerge: higher\nrevision wins; replay\nwhat server lacks;
+else (no)
+  :Use server copy,\nreport\nBackupTampered;
+endif
+:Continue the exam;
+stop
+@enduml

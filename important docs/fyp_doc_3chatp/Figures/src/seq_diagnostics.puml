@@ -1,0 +1,57 @@
+﻿@startuml
+!include style.iuml
+skinparam ArrowFontSize 13
+skinparam defaultFontSize 13
+' Pre-exam readiness check (Module 2):
+' ViewModels/DashboardViewModel.RunReadinessAsync / RetryReadinessItemAsync / ReportReadinessAsync,
+' UpdateStartEligibility (CanStartExam = CanResumeExam || (gateOpen && AttendanceConfirmed && (!RequireReadiness || ReadinessPassed))),
+' Services/Readiness/ReadinessCheckService, Core/Readiness/ReadinessPolicy (EvaluateCamera, EvaluateSecureMode),
+' Controllers/ExamsController.SubmitReadiness (POST /api/exams/{id}/readiness), hub "ReadinessUpdated".
+hide footbox
+skinparam ParticipantPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+skinparam maxMessageSize 300
+
+actor Student
+participant "Dashboard\nViewModel" as VM
+participant "Readiness\nCheckService" as RCS
+participant "Exams\nController" as EC
+database "AppDb\nContext" as DB
+
+VM -> EC : GET /api/exams/student/current
+EC --> VM : RequireWebcam,\nRequireMic, BlockMulti-\nMonitor, LockdownMode
+Student -> VM : Run check
+loop 7 checks
+  VM -> RCS : RunAsync(check)
+  RCS --> VM : ReadinessItem-\nResult
+end
+note over VM, EC
+Network: /api/health <= 2 s
+ClockSkew <= 60 s; ScreenCapture
+Camera*: not dark; 1 face (YuNet)
+Microphone*: device found
+SecureMode (if not Off): 1 monitor
+  if blocked, no RDP / VM, hook OK
+Disk >= 200 MB   (*) if required
+end note
+VM -> EC : POST /api/exams/{id}/readiness\n{passedAll, results}
+EC -> EC : all passed;\nrequired\nCamera / Mic\npresent?
+EC -> DB : save Readiness-\nCheck, AuditLog
+EC -> EC : hub\n"ReadinessUpdated"
+EC --> VM : passedAll,\nvalidUntil (+30 min)
+alt passedAll
+  VM --> Student : Readiness-\nPassed: true
+  note over VM, EC
+  Start enabled only once checked in
+  and the exam window is open
+  end note
+else a check failed
+  VM --> Student : failed rows
+  Student -> VM : Retry item
+  VM -> RCS : RunAsync(check)
+  VM -> EC : POST .../readiness
+  EC --> VM : passedAll, validUntil
+end
+@enduml

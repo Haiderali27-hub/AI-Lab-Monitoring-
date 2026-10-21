@@ -1,220 +1,329 @@
 \chapter{SYSTEM INTERFACE AND PHYSICAL DESIGN}
 \label{chap:system_interface_physical_design}
 
-In this chapter, we translate our logical designs into physical components. We describe the user interfaces (UI) designed for students and teachers, and define the SQL schema for our persistent database tables. The UIs establish the interactive views that make SmartExam usable and accessible. The database schema defines how we store logs, scores, and templates inside Neon PostgreSQL. Together, these pieces ensure that our prototype is both secure and performant under class-wide testing.
-
 \section{System User Interfaces}
-The user interface is the gateway through which users interact with SmartExam \cite{user_interface_guide}. We split our UI design into two separate front-ends: a native Windows WPF desktop client for student exam-taking and a responsive React web dashboard for teacher invigilation. We kept the layouts clean and consistent to reduce cognitive load during high-stress exams.
+SmartExam has two front ends \cite{user_interface_guide}: a WPF desktop client (.NET~9) in which students sit the exam, and a React web panel with one route group per role (\texttt{/admin}, \texttt{/teacher}, \texttt{/invigilator}, \texttt{/student}). All figures use the seeded demo data. The web figures are captured from the running panel by a Playwright script (\texttt{Admin\_Web\_Panel/tests/docs}) against the in-memory backend. The desktop figures are rendered off-screen from the client's own XAML views, because the lockdown window cannot be captured safely on a development PC.
 
-Below, we walk through the core screens of both applications.
-
-\subsection{Student Login and Device Binding Interface}
-The WPF client starts with the login screen (Figure~\ref{fig:ui_student_login}). Students enter their institutional credentials. The client queries local Windows hardware APIs to compute a unique HWID hash, binding their profile to that specific machine.
+\subsection{Student Desktop Client}
+The student signs in with email or roll number (Figure~\ref{fig:ui_student_login}). The client reads the BIOS, system-disk and baseboard serials; the server hashes them with SHA-256 and keeps only the hash in \texttt{DeviceBindings}, so a login from another PC is refused (FR1). The exam dashboard (Figure~\ref{fig:ui_student_diagnostics}) shows only exams the student is eligible for, with instructions, permitted applications, lab, seat and remaining time (FR3). It runs the readiness checks (FR2): network, clock skew, screen capture, webcam, microphone, secure mode (monitors, remote session, virtual machine, keyboard hook) and disk space. Here secure mode fails because a second monitor is attached, so \emph{Start Exam} stays disabled; an exam with \texttt{RequireReadiness} needs a passing check less than 30 minutes old.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.6\linewidth]{Figures/ui_student_login.png}
-\caption{WPF Student Client Login and Device Verification Interface}
+\begin{minipage}[b]{0.3\linewidth}
+\centering
+\includegraphics[width=\linewidth]{Figures/ui_student_login.png}
+\caption{Desktop client login}
 \label{fig:ui_student_login}
-\end{figure}
-
-\subsection{Pre-Exam Workstation Diagnostics Interface}
-Before opening the exam questions, students must run a hardware and environment scan (Figure~\ref{fig:ui_student_diagnostics}). Green and red indicators tell the user if their webcam, mic, and running processes meet lockdown requirements.
-
-\begin{figure}[H]
+\end{minipage}\hfill
+\begin{minipage}[b]{0.66\linewidth}
 \centering
-\includegraphics[width=0.6\linewidth]{Figures/ui_student_diagnostics.png}
-\caption{WPF Student Client Pre-Exam System Diagnostics Interface}
+\includegraphics[width=\linewidth]{Figures/ui_student_diagnostics.png}
+\caption{Exam dashboard with readiness checks}
 \label{fig:ui_student_diagnostics}
+\end{minipage}
 \end{figure}
 
-\subsection{Student Exam Lockdown Workspace}
-The exam workspace (Figure~\ref{fig:ui_student_workspace}) locks the desktop to full-screen mode, blocking Alt+Tab and Task Manager. It displays a question list on the left, an input editor in the center, and a countdown timer with an auto-save indicator at the top.
+The exam window (Figure~\ref{fig:ui_student_workspace}) opens maximized, borderless and topmost (FR4). A low-level keyboard hook blocks the Windows and menu keys, PrintScreen, Alt+Tab, Alt+F4, Alt+Esc, Ctrl+Esc and Ctrl+Shift+Esc, while guard services watch processes, the clipboard and USB drives. The student picks a question from the list on the left and types the answer; coding answers go into a monospace text box. Every edit is kept in an AES-GCM encrypted backup on disk and sent to the server within 10~s; saves made offline are queued and replayed (FR6). The footer shows the last save time.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.6\linewidth]{Figures/ui_student_workspace.png}
-\caption{WPF Student Client Active Exam Lockdown Workspace}
+\includegraphics[width=0.8\linewidth]{Figures/ui_student_workspace.png}
+\caption{Desktop exam window (coding question)}
 \label{fig:ui_student_workspace}
 \end{figure}
 
-\subsection{Teacher Proctoring Dashboard Overview}
-The React web panel opens to a dashboard overview (Figure~\ref{fig:ui_teacher_dashboard}). Instructors view quick stats, such as active sessions, pending unbind requests, and whitelist configuration tabs.
+A warning sent by a proctor appears as a banner above the question (Figure~\ref{fig:ui_student_warning}). Further warnings wait in a queue, and the student's \emph{Acknowledge} is written to the audit log (FR10).
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.6\linewidth]{Figures/ui_teacher_dashboard.png}
-\caption{React Web Panel Teacher Dashboard Overview Interface}
+\includegraphics[width=0.8\linewidth]{Figures/ui_student_warning.png}
+\caption{Proctor warning in the exam window}
+\label{fig:ui_student_warning}
+\end{figure}
+
+\subsection{Exam Setup}
+The teacher dashboard (Figure~\ref{fig:ui_teacher_dashboard}) counts the teacher's exams, the running ones and the ended exams waiting for grade review. It lists scheduled exams with \emph{Manage}, \emph{Edit} and \emph{Delete}, and links each ended exam to \emph{Review Grades}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\linewidth]{Figures/ui_teacher_dashboard.png}
+\caption{Teacher dashboard}
 \label{fig:ui_teacher_dashboard}
 \end{figure}
 
-\subsection{Live Telemetry Ingestion and Monitoring Interface}
-The active monitoring view (Figure~\ref{fig:ui_teacher_live_monitoring}) streams live telemetry from student clients using WebSockets. Color-coded cards flag students who lose window focus, run blocked apps, or cover their webcams.
+A four-step wizard creates an exam: basic information, questions (MCQ, coding with test cases, theory), rules, and students (FR8). Step~3 (Figure~\ref{fig:ui_create_exam_rules}) holds the integrity rules: allowed applications, lockdown mode (Off, Report, Enforce), multi-monitor flag, required readiness, webcam and microphone, practice exam, early join, minimum attendance, capture intervals, seat enforcement, AI evaluation and the plagiarism threshold.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.6\linewidth]{Figures/ui_teacher_live_monitoring.png}
-\caption{React Web Panel Live Telemetry Proctoring and Alerts Dashboard}
+\includegraphics[width=\linewidth]{Figures/ui_create_exam_rules.png}
+\caption{Create-exam wizard, rules step}
+\label{fig:ui_create_exam_rules}
+\end{figure}
+
+On the eligibility page (Figure~\ref{fig:ui_eligibility}) the teacher uploads an attendance CSV and clicks \emph{Recalculate}; students below the exam's minimum attendance become ineligible (FR9). Each row shows where its decision came from (\emph{Attendance} in the figure); a saved toggle for a single student becomes a \emph{Manual} override, which survives recalculation and is audited. The same page maps each student to a workstation (seat) and assigns invigilators, who then see only this exam.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{Figures/ui_eligibility.png}
+\caption{Eligibility, seats and invigilators}
+\label{fig:ui_eligibility}
+\end{figure}
+
+\subsection{Live Proctoring}
+The desktop client posts heartbeats, events and screen captures to \url{/api/monitoring}, and the server pushes updates to the live monitor (Figure~\ref{fig:ui_teacher_live_monitoring}) over the SignalR hub \url{/hubs/monitoring} (FR5, FR10). Through \texttt{ExamProctors}, invigilators see only the exams assigned to them. Each tile shows the student's seat and PC, readiness, latest capture, latest alert, progress and a status (Stable, Warning, Suspicious, Critical, Submitted); the header shows the remaining time with \emph{Extend Time} and \emph{Force End Exam}. The thumbnails here were uploaded by a scripted test client.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{Figures/ui_teacher_live_monitoring.png}
+\caption{Live monitor}
 \label{fig:ui_teacher_live_monitoring}
 \end{figure}
 
-\subsection{Code Compilation and AI Evaluation Panel}
-Once exams finish, teachers review auto-grading outcomes (Figure~\ref{fig:ui_teacher_ai_grading}). The panel displays Docker test case compilation results, semantic feedback for text answers, and pairwise plagiarism flags.
+Clicking a tile opens the student drawer (Figure~\ref{fig:ui_live_drawer}): latest captures, the readiness result, the applications on the PC, open incidents with \emph{Escalate} and \emph{Mark resolved}, and the activity timeline. From it the proctor sends a warning, records an incident, unlocks the PC for five minutes, grants extra time or force-submits the session (FR10).
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.6\linewidth]{Figures/ui_teacher_ai_grading.png}
-\caption{React Web Panel Automated Code Evaluation and Plagiarism Panel}
+\includegraphics[width=0.55\linewidth]{Figures/ui_live_drawer.png}
+\caption{Student drawer: evidence and actions (left), incident and timeline (right)}
+\label{fig:ui_live_drawer}
+\end{figure}
+
+\subsection{Evaluation}
+The results page lists each submission with its score and SHA-256 receipt. Opening one (Figure~\ref{fig:ui_teacher_ai_grading}) shows every answer next to its AI evaluation: suggested mark, confidence, engine, justification, test-case results (hidden cases marked) and code-analysis signals. C++ answers are compiled and run against weighted test cases in a Docker \texttt{gcc:13} container (FR11.1); theory answers get a TF-IDF similarity score (FR11.2). The teacher accepts the mark or saves an override, stored in \texttt{TeacherGradeOverrides}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\linewidth]{Figures/ui_teacher_ai_grading.png}
+\caption{AI evaluation of a coding answer}
 \label{fig:ui_teacher_ai_grading}
 \end{figure}
 
-\subsection{Labs and Workstations Seating Map Interface}
-Instructors use the seating map panel (Figure~\ref{fig:ui_labs_workstations}) to map lab layouts. They configure machine IP boundaries to restrict exam launches to authorized workstations.
+The \emph{Plagiarism Flags} tab (Figure~\ref{fig:ui_plagiarism}) shows a pairwise heat map built by k-gram winnowing, which ignores identifiers and comments in code (FR11.3). A pair at or above the exam's threshold gets a card with both answers side by side and the matched lines highlighted; the teacher records the decision as a grade override.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.6\linewidth]{Figures/ui_labs_workstations.png}
-\caption{React Web Panel Labs and Workstations Seating Configuration Interface}
+\includegraphics[width=0.68\linewidth]{Figures/ui_plagiarism.png}
+\caption{Plagiarism heat map and matched pair}
+\label{fig:ui_plagiarism}
+\end{figure}
+
+\subsection{Administration and Student Portal}
+Admins manage departments and courses (Figure~\ref{fig:ui_academics}); department names are unique, a course code is unique within its department, and a department or course still in use cannot be deleted (FR7).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\linewidth]{Figures/ui_academics.png}
+\caption{Departments and courses}
+\label{fig:ui_academics}
+\end{figure}
+
+Admins register labs and workstations (machine number, Windows PC name, IP address) in Figure~\ref{fig:ui_labs_workstations}; each seat shows the student signed in on it. With \texttt{EnforceSeat} on, a student with a seat can start the exam only from that PC (FR9).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\linewidth]{Figures/ui_labs_workstations.png}
+\caption{Labs and workstations}
 \label{fig:ui_labs_workstations}
 \end{figure}
 
-\subsection{Device Bindings and Hardware Identifier Interface}
-The bindings panel (Figure~\ref{fig:ui_device_bindings}) lists student accounts alongside registered HWID hashes. Instructors can reset bindings when a student needs to switch machines due to technical failure.
+The device-binding page (Figure~\ref{fig:ui_device_bindings}) lists each student's bound PC, Windows user and last-seen time (FR1). \emph{Reset Binding} (\texttt{DELETE /api/users/\{id\}/device-binding}) removes the binding and revokes all the student's tokens, so the next login binds a new PC; \emph{Force Logout} only revokes the tokens.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.6\linewidth]{Figures/ui_device_bindings.png}
-\caption{React Web Panel Device Bindings and HWID Management Interface}
+\includegraphics[width=\linewidth]{Figures/ui_device_bindings.png}
+\caption{Device bindings}
 \label{fig:ui_device_bindings}
 \end{figure}
 
-\subsection{Student Performance and Analytics Dashboard}
-The student portal (Figure~\ref{fig:ui_student_performance}) provides candidates with feedback. It displays compiler outputs, AI similarity scores, and class averages.
+In the student portal (Figure~\ref{fig:ui_student_performance}) a student sees exams taken, average and best score, integrity flags, a score trend and an exam timeline. The read-only audit page (Figure~\ref{fig:ui_audit_logs}) lists \texttt{AuditLogs} rows (time, actor, event, entity, JSON details) such as logins, readiness results, warnings, incidents and grade overrides (FR12).
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.6\linewidth]{Figures/ui_student_performance.png}
-\caption{React Web Student Portal Performance and Analytics Dashboard}
+\includegraphics[width=0.7\linewidth]{Figures/ui_student_performance.png}
+\caption{Student performance page}
 \label{fig:ui_student_performance}
 \end{figure}
 
-\subsection{Security Audit Logs Interface}
-The admin portal includes a read-only audit log (Figure~\ref{fig:ui_audit_logs}). It registers every unbind request, override action, and credential change with timestamps and IP addresses for full accountability.
-
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.6\linewidth]{Figures/ui_audit_logs.png}
-\caption{React Web Panel System Security Audit Logs Interface}
+\includegraphics[width=0.85\linewidth]{Figures/ui_audit_logs.png}
+\caption{Audit log page}
 \label{fig:ui_audit_logs}
 \end{figure}
 
 \section{Physical Database Tables}
-We translate our logical ERD design into physical SQL tables on Neon PostgreSQL. Here, we define the concrete data types, lengths, default values, primary/foreign keys, and null constraints \cite{users_table_budibase}. To speed up lookups during exams, we add database indexes to columns that are frequently filtered, like user email and session IDs.
+EF Core migrations create the PostgreSQL tables from \texttt{Backend\_API/Models} and \texttt{AppDbContext}. Keys are GUIDs (\texttt{uuid}); \texttt{ExamProctors} has a composite key of two. Enums are stored as their names, and defaults are set by the application. Table~\ref{tab:physical_tables} lists all 29 tables; evidence (\texttt{Screenshots}) came with M5, \texttt{Incidents} and \texttt{ExamProctors} with M10, and \texttt{TestCaseResults} with M11. The five core tables follow (\texttt{timestamptz} = timestamp with time zone).
 
-Below, we detail the schemas for our five core tables, formatted in SZABIST standard double-hline layout.
+{\small
+\begin{longtable}{@{}>{\ttfamily\raggedright}p{4.3cm}>{\raggedright}p{5.1cm}>{\ttfamily\raggedright\arraybackslash}p{5.6cm}@{}}
+\caption{Database tables}\label{tab:physical_tables}\\
+\hline\hline
+\textrm{\textbf{Table}} & \textbf{Purpose} & \textrm{\textbf{Key columns}} \\ \hline\hline
+\endfirsthead
+\hline\hline
+\textrm{\textbf{Table}} & \textbf{Purpose} & \textrm{\textbf{Key columns}} \\ \hline\hline
+\endhead
+\hline\hline
+\endfoot
+Users & Accounts of all five roles & UserId, Email (unique), RollNumber (unique), Role \\
+DeviceBindings & The one PC bound to a student & BindingId, UserId (unique), HwidHash \\
+UserSessions & Issued access tokens, for revocation & SessionId, UserId, Jti (unique), IsRevoked \\
+RefreshTokens & Rotating refresh tokens, stored hashed & TokenId, UserId, FamilyId, TokenHash (unique) \\
+Departments & Academic departments & DeptId, Name (unique) \\
+Courses & Courses of a department & CourseId, DeptId, Code (unique per dept.) \\
+Sections & A teacher's class in a course & SectionId, CourseId, TeacherId \\
+SectionEnrollments & Students of a section & EnrollmentId, SectionId, UserId \\
+Labs & Computer labs & LabId, Name, Location \\
+Workstations & Lab PCs used as seats & WorkstationId, LabId, IpAddress, HostName \\
+Exams & Schedule and integrity rules & ExamId, SectionId, Status \\
+Questions & MCQ, coding or theory question & QuestionId, ExamId, Type, Marks \\
+TestCases & Weighted cases of a coding question & TestCaseId, QuestionId, IsHidden, Weight \\
+ExamAssignments & Roster, eligibility and seat & AssignmentId, ExamId, UserId, WorkstationId \\
+ExamProctors & Invigilators of an exam & (ExamId, UserId), AssignedBy \\
+AttendanceRecords & Imported attendance & AttendanceId, (SectionId, UserId) unique \\
+ReadinessChecks & Pre-exam check results & Id, ExamId, UserId, PassedAll, CheckedAt \\
+ExamSessions & One student's attempt & SessionId, ExamId, UserId, Status \\
+Answers & Latest answer per question & AnswerId, (SessionId, QuestionId) unique \\
+MonitoringEvents & Heartbeats and violations & EventId, ExamSessionId, EventType \\
+Screenshots & Screen and webcam evidence & ScreenshotId, SessionId, Kind, Sha256 \\
+Incidents & Incidents recorded by proctors & IncidentId, SessionId, Severity, Status \\
+AiGradingResults & Suggested mark of an answer & ResultId, AnswerId (unique), Status \\
+TestCaseResults & Per-case outcome of a grading run & TestCaseResultId, ResultId, Passed \\
+TeacherGradeOverrides & Final mark set by the teacher & OverrideId, AnswerId (unique), TeacherId \\
+PlagiarismResults & Similar answer pairs & PlagId, QuestionId, UserIdA, UserIdB \\
+AuditLogs & Security and admin actions & LogId, ActorId, EventType, Details \\
+ExamReports & Generated PDF reports & ReportId, ExamId, ReportType, FilePath \\
+Notifications & In-app notifications & NotificationId, RecipientId, IsRead \\
+\end{longtable}
+}
 
-\subsection{Users Table (Users)}
-The \texttt{Users} table is the main credential store in our database. It stores basic profiles and links users to access levels via \texttt{RoleId}. The email column is indexed to accelerate login lookups. Table~\ref{tab:users_table} defines the users schema.
+\subsection{Users}
+\texttt{Email} is unique; \texttt{RollNumber} is unique when set (Table~\ref{tab:users_table}) \cite{users_table_budibase}. A student's PC is kept in \texttt{DeviceBindings} (one row per student, deleted with the user).
 
 \begin{table}[H]
 \centering
-\caption{Physical Database Schema for User Accounts (Users)}
+\caption{Users table}
 \label{tab:users_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\ttfamily}l l c X@{}}
 \hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-Email & Primary user contact and login email & Varchar & 100 & - & Yes \\
-PasswordHash & BCrypt encrypted credentials hash & Varchar & 255 & - & Yes \\
-FullName & Full legal name of the user & Varchar & 100 & - & Yes \\
-RoleId & Foreign key referencing Roles table & Integer & - & - & Yes \\
-CreatedAt & Timestamp when account was created & Timestamp & - & NOW() & Yes \\
+\textrm{\textbf{Column}} & \textbf{Type} & \textbf{Null} & \textbf{Notes} \\ \hline\hline
+UserId & uuid & No & Primary key \\
+Name & text & No & Display name \\
+Email & text & No & Unique; login for all roles \\
+RollNumber & varchar(32) & Yes & Unique when set; stored upper-case \\
+PasswordHash & text & No & PBKDF2-SHA256, 210{,}000 iterations \\
+Salt & text & No & 32 random bytes \\
+Role & text & No & SuperAdmin, Admin, Teacher, Invigilator, Student \\
+IsActive & boolean & No & Default true \\
+CreatedAt & timestamptz & No & \\
 \hline\hline
-\end{tabular}
+\end{tabularx}
 \end{table}
 
-\subsection{Device Bindings Table (DeviceBindings)}
-The \texttt{DeviceBindings} table maps a student's \texttt{UserId} to their workstation's CPU and motherboard hash (\texttt{HWID}). The unique constraint on \texttt{UserId} enforces a strict one-to-one relationship, preventing proxy testing. Table~\ref{tab:device_bindings_table} lists the schema details.
+\subsection{Exams}
+Each exam belongs to a section and carries the rules the client enforces (Table~\ref{tab:exams_table}). Boolean switches complete it: \texttt{BlockMultiMonitor}, \texttt{RequireReadiness}, \texttt{RequireWebcam}, \texttt{RequireMic}, \texttt{EnforceSeat}, \texttt{IsMock} and \texttt{AiEvaluationEnabled}.
 
 \begin{table}[H]
 \centering
-\caption{Physical Database Schema for Device Bindings (DeviceBindings)}
-\label{tab:device_bindings_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
-\hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-UserId & Foreign key referencing Users table & Integer & - & Unique & Yes \\
-HWID & Unique hashed hardware identifier & Varchar & 255 & Unique & Yes \\
-DeviceDetails & Device motherboard and CPU model text & Text & - & - & No \\
-BoundAt & Timestamp when binding was established & Timestamp & - & NOW() & Yes \\
-\hline\hline
-\end{tabular}
-\end{table}
-
-\subsection{Exams Table (Exams)}
-The \texttt{Exams} table acts as our assessment configuration template. It holds titles, durations, active schedules, and links to whitelists and questions. Table~\ref{tab:exams_table} outlines this schema.
-
-\begin{table}[H]
-\centering
-\caption{Physical Database Schema for Exams (Exams)}
+\caption{Exams table (main columns)}
 \label{tab:exams_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\ttfamily}l l c X@{}}
 \hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-Title & Title header of the exam & Varchar & 100 & - & Yes \\
-Description & Explanatory instructions for candidates & Text & - & - & No \\
-Duration & Time duration limit in minutes & Integer & - & - & Yes \\
-StartTime & Scheduled opening timestamp & Timestamp & - & - & Yes \\
-EndTime & Scheduled closing timestamp & Timestamp & - & - & Yes \\
-IsActive & Flag indicating exam accessibility & Boolean & - & False & Yes \\
-CreatedBy & Foreign key referencing Users table & Integer & - & - & Yes \\
+\textrm{\textbf{Column}} & \textbf{Type} & \textbf{Null} & \textbf{Notes} \\ \hline\hline
+ExamId & uuid & No & Primary key \\
+SectionId & uuid & No & FK to \texttt{Sections} \\
+Title & text & No & \\
+Instructions & text & Yes & Shown before start \\
+StartTime & timestamptz & No & \\
+DurationMinutes & integer & No & \\
+EarlyJoinMinutes & integer & No & Start allowed this early \\
+AllowedApps & text & No & JSON list of executables \\
+LockdownMode & varchar(16) & No & Off, Report or Enforce \\
+MinAttendancePercent & double precision & No & Default 75 \\
+ScreenshotIntervalSeconds & integer & No & Mean interval, default 60 \\
+WebcamIntervalSeconds & integer & No & Mean interval, default 60 \\
+PlagiarismThreshold & integer & No & Percent, default 70 \\
+Status & text & No & Scheduled, Active or Ended \\
 \hline\hline
-\end{tabular}
+\end{tabularx}
 \end{table}
 
-\subsection{Monitoring Events Table (MonitoringEvents)}
-The \texttt{MonitoringEvents} table logs WebSocket telemetry data streamed from workstations during exams. It records events like window focus loss, blocked application launches, and screenshot file references. Table~\ref{tab:monitoring_events_table} lists the schema details.
+\subsection{ExamSessions}
+One row per attempt (Table~\ref{tab:exam_sessions_table}). \texttt{Status} is a concurrency token, so a student's submit and the timeout sweeper cannot both finalize a session; an index on (\texttt{Status}, \texttt{LastHeartbeatAt}) serves the heartbeat watchdog.
 
 \begin{table}[H]
 \centering
-\caption{Physical Database Schema for Telemetry Events (MonitoringEvents)}
+\caption{ExamSessions table}
+\label{tab:exam_sessions_table}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\ttfamily}l l c X@{}}
+\hline\hline
+\textrm{\textbf{Column}} & \textbf{Type} & \textbf{Null} & \textbf{Notes} \\ \hline\hline
+SessionId & uuid & No & Primary key \\
+ExamId & uuid & No & FK to \texttt{Exams} \\
+UserId & uuid & No & FK to \texttt{Users} (student) \\
+StartedAt & timestamptz & No & \\
+SubmittedAt & timestamptz & Yes & \\
+Status & text & No & InProgress, Submitted, ForceSubmitted, TimedOut \\
+ExtraMinutes & integer & No & Extra time from a proctor \\
+ReceiptSha256 & varchar(64) & Yes & Receipt hash over the stored answers \\
+ReceiptAnswerCount & integer & Yes & Answers covered by the receipt \\
+LastHeartbeatAt & timestamptz & Yes & Latest heartbeat \\
+IsDisconnected & boolean & No & Set by the watchdog \\
+DisconnectedAt & timestamptz & Yes & When the watchdog marked it \\
+UnlockedUntil & timestamptz & Yes & Lockdown suspended by a proctor until then \\
+\hline\hline
+\end{tabularx}
+\end{table}
+
+\subsection{MonitoringEvents}
+Events from the client or the server (Table~\ref{tab:monitoring_events_table}). Images go to the \texttt{Screenshots} table with a path and SHA-256. A partial unique index on (\texttt{ExamSessionId}, \texttt{ClientEventId}) stops a replayed offline batch from being stored twice.
+
+\begin{table}[H]
+\centering
+\caption{MonitoringEvents table}
 \label{tab:monitoring_events_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\ttfamily}l l c X@{}}
 \hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-SessionId & Foreign key referencing ExamSessions & Integer & - & - & Yes \\
-EventType & Warning type (e.g., FocusLoss) & Varchar & 50 & - & Yes \\
-EventDetails & Additional description of the alert & Text & - & - & No \\
-ScreenshotUrl & File reference path to screenshot asset & Varchar & 255 & - & No \\
-Timestamp & Timestamp when event occurred & Timestamp & - & NOW() & Yes \\
+\textrm{\textbf{Column}} & \textbf{Type} & \textbf{Null} & \textbf{Notes} \\ \hline\hline
+EventId & uuid & No & Primary key \\
+ExamSessionId & uuid & No & FK to \texttt{ExamSessions} \\
+EventType & text & No & One of 28 types, e.g.\ FocusLost, UsbInserted, PhoneDetected \\
+Payload & text & No & JSON details \\
+RecordedAt & timestamptz & No & Client time \\
+ClientEventId & uuid & Yes & Client id for offline replay \\
+ReceivedAt & timestamptz & Yes & Server time \\
 \hline\hline
-\end{tabular}
+\end{tabularx}
 \end{table}
 
-\subsection{AI Grading Results Table (AiGradingResults)}
-The \texttt{AiGradingResults} table stores compilation summaries, sandbox execution runtimes, and semantic evaluation feedback generated by our NLP similarity microservice. Table~\ref{tab:ai_grading_table} defines the columns.
+\subsection{AiGradingResults}
+Each answer (one per session and question in \texttt{Answers}) has at most one suggestion (Table~\ref{tab:ai_grading_table}). Coding answers are queued as \texttt{Pending} for the background worker, and each test case's outcome goes to \texttt{TestCaseResults}. A teacher override in \texttt{TeacherGradeOverrides} takes precedence over \texttt{SuggestedMarks}.
 
 \begin{table}[H]
 \centering
-\caption{Physical Database Schema for AI Grading (AiGradingResults)}
+\caption{AiGradingResults table}
 \label{tab:ai_grading_table}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{l|ccccc}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\ttfamily}l l c X@{}}
 \hline\hline
-\textbf{Field Name} & \textbf{Description} & \textbf{Type} & \textbf{Length} & \textbf{Default} & \textbf{Not Null} \\ \hline\hline
-Id & Auto-incrementing identifier & Serial & - & PK & Yes \\
-AnswerId & Foreign key referencing Answers table & Integer & - & - & Yes \\
-AutoGrade & Computed code execution pass grade & Integer & - & 0 & Yes \\
-ExecutionTime & Microservice sandbox compilation runtime & Float & - & 0.0 & Yes \\
-SemanticSimilarityScore & Cosine similarity grading score & Float & - & 0.0 & Yes \\
-AiFeedback & Semantic and error logs text & Text & - & - & No \\
+\textrm{\textbf{Column}} & \textbf{Type} & \textbf{Null} & \textbf{Notes} \\ \hline\hline
+ResultId & uuid & No & Primary key \\
+AnswerId & uuid & No & FK to \texttt{Answers}; unique \\
+SuggestedMarks & double precision & No & \\
+Justification & text & No & Shown to the teacher \\
+Confidence & text & No & High, Medium or Low \\
+Status & varchar(16) & No & Pending, Graded or Failed \\
+Engine & varchar(64) & Yes & e.g.\ MCQ, TF-IDF, Docker (gcc:13, isolated) \\
+CompileOutput & varchar(4104) & Yes & Compiler messages (truncated) \\
+DurationMs & integer & Yes & Run time of the sandbox run \\
+AnalysisJson & text & Yes & Code-analysis signals \\
+LlmSummary & text & Yes & Optional LLM summary (off by default) \\
+QueueVersion & integer & No & Concurrency token for regrades \\
+GradedAt & timestamptz & No & \\
 \hline\hline
-\end{tabular}
+\end{tabularx}
 \end{table}

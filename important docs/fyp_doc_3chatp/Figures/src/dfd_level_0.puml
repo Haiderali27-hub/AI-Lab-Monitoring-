@@ -1,0 +1,53 @@
+@startuml
+!include style.iuml
+' DFD level 0 (context diagram). Gane-Sarson style:
+' square boxes = external entities, rounded box = process.
+skinparam defaultFontSize 15
+skinparam ArrowFontSize 14
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam rectangle<<entity>> {
+  BorderThickness 2
+  RoundCorner 0
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle<<process>> {
+  RoundCorner 30
+  BackgroundColor #F2F2F2
+  FontSize 16
+}
+skinparam rectangle<<optional>> {
+  RoundCorner 0
+  BorderStyle dashed
+  BackgroundColor #FFFFFF
+}
+hide stereotype
+left to right direction
+skinparam defaultTextAlignment center
+
+rectangle "Student\n(WPF client +\nweb portal)" <<entity>> as STU
+rectangle "Admin / SuperAdmin\n(web panel)" <<entity>> as ADM
+rectangle "Teacher\n(web panel)" <<entity>> as TEA
+rectangle "Invigilator\n(web panel)" <<entity>> as INV
+rectangle "LLM grader (Groq / Gemini)\noptional, off by default" <<optional>> as LLM
+rectangle "Email server\n(SMTP, MailKit)" <<entity>> as SMTP
+
+rectangle "**0**\n\nSmartExam\nsystem\n(ASP.NET Core API)" <<process>> as P0
+
+STU --> P0 : credentials + hardware fingerprint,\nreadiness results, heartbeats,\nevent batches, screenshots, answers\n(HTTPS REST)
+P0 --> STU : JWT + refresh token, exam rules\nand questions, warnings, extra time\nand unlock (heartbeat ack), receipt hash;\nresults, violation history,\nnotifications (web portal)
+
+ADM --> P0 : users, roles, departments, courses,\nlabs, workstations, device-binding reset
+ADM <-- P0 : audit logs,\nsystem analytics
+
+P0 <-- TEA : exam settings, attendance CSV,\nseats, proctors, announcements,\nstaff actions, mark overrides
+TEA <-- P0 : live status and violations (SignalR),\ntimeline, screenshots, suggested marks,\nsimilarity matrix, PDF report
+
+P0 <-- INV : warning, extra time, unlock,\nforce-submit, incident\n(assigned exams only)
+INV <-- P0 : live status and violations\n(SignalR), timeline, screenshots
+
+P0 ..> LLM : theory answer, model answer,\nrubric keywords; code test evidence
+LLM ..> P0 : suggested mark,\ncode summary (JSON)
+
+P0 --> SMTP : exam scheduled, grades released,\nannouncement e-mails
+@enduml

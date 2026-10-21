@@ -1,0 +1,42 @@
+﻿@startuml
+!include style.iuml
+skinparam ArrowFontSize 13
+skinparam defaultFontSize 13
+' Exam submission (Module 6): Views/ExamWindow.DoSubmit / ShowReceipt / Window_Closing (LockdownCoordinator.Dispose),
+' ViewModels/ExamSessionViewModel.SubmitAsync (flush OfflineSaveQueue first, D-19), Core/Submission/ReceiptHasher;
+' ExamsController.Submit (POST /api/exams/sessions/{sid}/submit: SeatGuard.DesktopRequired D-45, NotFound for a
+' foreign/missing session, 400 when not InProgress), SubmissionService.FinalizeAsync (reads Answers, sets Status and
+' ReceiptSha256 in memory, GradingService.StageAsync only if AiEvaluationEnabled, PlagiarismService.DetectAsync only
+' if !IsMock, one SaveChangesAsync, then GradingQueue.Enqueue, hub "SessionFinalized").
+hide footbox
+skinparam ParticipantPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+skinparam maxMessageSize 300
+
+actor Student
+participant "ExamWindow\n+ ViewModel" as UI
+participant "Exams\nController" as EC
+participant "Submission\nService" as SS
+database "AppDb\nContext" as DB
+
+Student -> UI : Submit (or\ntimer at 0)
+UI -> EC : flush: save-answer\nper unsent edit
+alt an answer not delivered
+  UI --> Student : "Waiting for\nnetwork";\nwindow open
+else all answers on server
+  UI -> EC : POST /api/exams/\nsessions/{sid}/\nsubmit
+  EC -> EC : desktop token?\nown session\n(else 404)?\nInProgress\n(else 400)?
+  EC -> SS : FinalizeAsync\n(Submitted)
+  SS -> DB : load Answers\nof session
+  SS -> SS : Status =\nSubmitted;\nReceiptSha256 =\nReceiptHasher
+  SS -> DB : [AiEvaluation]\nstage grading;\n[not IsMock]\nplagiarism;\nSaveChanges-\nAsync (1 write)
+  SS -> SS : GradingQueue\n.Enqueue; hub\n"SessionFinalized"
+  SS --> EC : Submission-\nReceipt
+  EC --> UI : sha256,\nanswerCount,\nsubmittedAt
+  UI -> UI : ReceiptHasher:\nlocal hash =\nserver hash?
+  UI --> Student : Verified or\nMismatch
+  UI -> UI : close window;\nlockdown\nreleased
+end
+@enduml

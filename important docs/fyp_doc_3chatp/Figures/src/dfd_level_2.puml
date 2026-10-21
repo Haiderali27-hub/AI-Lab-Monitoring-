@@ -1,0 +1,192 @@
+@startuml
+!include style.iuml
+' DFD level 2: (a) process 3.0 and (b) process 5.0 of level 1.
+' Same entities, process numbers and stores (D1..D8) as level 1.
+' Dashed rounded boxes = level-1 processes outside the expanded one.
+' Open boxes "Dn" (top and bottom lines only) = data stores.
+skinparam dpi 105
+skinparam defaultFontSize 15
+skinparam ArrowFontSize 14
+skinparam nodesep 10
+skinparam ranksep 28
+skinparam defaultTextAlignment center
+skinparam rectangle<<entity>> {
+  BorderThickness 2
+  RoundCorner 0
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle<<process>> {
+  RoundCorner 25
+  BackgroundColor #F2F2F2
+}
+skinparam rectangle<<ref>> {
+  RoundCorner 25
+  BorderStyle dashed
+  BackgroundColor #FFFFFF
+}
+' Data stores are labels: no frame, the ---- separators draw the
+' top and bottom lines of an open store box.
+skinparam label {
+  BorderColor #333333
+  FontSize 14
+}
+skinparam rectangle<<optional>> {
+  RoundCorner 0
+  BorderStyle dashed
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle<<frame>> {
+  BorderColor #999999
+  BackgroundColor #FFFFFF
+  FontStyle bold
+  FontSize 16
+}
+hide stereotype
+
+' Level-1 process 4.0 sits outside the 3.0 boundary it receives from.
+rectangle "**4.0**\nLive\nproctoring" <<ref>> as P4
+
+
+rectangle "(a) Process 3.0  Lockdown and telemetry" <<frame>> {
+  rectangle "Student\n(WPF client)\nAllowedApps checked\non the PC by\nProcessGuardService" <<entity>> as STU
+  label D3 [
+----
+**D3** | Departments, Courses,
+Sections, SectionEnrollments,
+Labs, Workstations,
+AttendanceRecords,
+ExamAssignments, ExamProctors
+----
+]
+  label D4a [
+----
+**D4** | ExamSessions,
+Answers, ReadinessChecks
+----
+]
+  label D7 [
+----
+**D7** | Notifications
+----
+]
+  label D5a [
+----
+**D5** | MonitoringEvents,
+Screenshots, Incidents
+----
+]
+  label D8a [
+----
+**D8** | AuditLogs
+----
+]
+  label D1 [
+----
+**D1** | Users, DeviceBindings,
+UserSessions, RefreshTokens
+----
+]
+
+  rectangle "**3.1**\nReceive telemetry\n(MonitoringController)" <<process>> as P31
+  rectangle "**3.2**\nRecord heartbeat\nand process list" <<process>> as P32
+  rectangle "**3.3**\nClassify events\n(ViolationClassifier)" <<process>> as P33
+  rectangle "**3.4**\nSave, de-duplicate\nby ClientEventId" <<process>> as P34
+}
+
+rectangle "(b) Process 5.0  Evaluation and reporting" <<frame>> {
+  rectangle "**2.0**\nConfigure exams and\nrun sessions (submit /\nforce-submit)" <<ref>> as P2
+  label D2 [
+----
+**D2** | Exams, Questions,
+TestCases
+----
+]
+  label D4b [
+----
+**D4** | ExamSessions,
+Answers, ReadinessChecks
+----
+]
+  label D5b [
+----
+**D5** | MonitoringEvents,
+Screenshots, Incidents
+----
+]
+  label D6 [
+----
+**D6** | AiGradingResults,
+TestCaseResults,
+PlagiarismResults,
+TeacherGradeOverrides,
+ExamReports
+----
+]
+  label D7b [
+----
+**D7** | Notifications
+----
+]
+  label D8 [
+----
+**D8** | AuditLogs
+----
+]
+  rectangle "LLM grader\n(optional, off)" <<optional>> as LLM
+  rectangle "Teacher" <<entity>> as TEA
+  rectangle "Admin /\nSuperAdmin" <<entity>> as ADM
+  rectangle "Student\n(web portal)" <<entity>> as STUW
+
+  rectangle "**5.1**\nRun code against\ntest cases (sandbox)\n+ static analysis" <<process>> as P51
+  rectangle "**5.2**\nScore MCQ by key,\ntheory by TF-IDF" <<process>> as P52
+  rectangle "**5.3**\nCompare answers\n(k-gram winnowing)" <<process>> as P53
+  rectangle "**5.4**\nSave marks, pairs,\noverrides" <<process>> as P54
+  rectangle "**5.5**\nBuild PDF (QuestPDF),\naudit log, analytics,\nstudent results" <<process>> as P55
+}
+
+' ---------- (a) 3.0 ----------
+STU --> P31 : heartbeat, event\nbatch, screenshot\n(HTTPS)
+STU <-- P31 : ack: warnings,\nextra time, unlock
+D4a --> P31 : own\nsession
+D3 --> P31 : assigned seat\n(SeatGuard)
+D7 --> P31 : unread\nwarnings
+P31 --> P32 : focus, window,\nprocesses, idle,\ncamera status
+P31 --> P33 : UnauthorizedProcess,\nProcessKilled, FocusLost,\nUsbInserted, NoFace ...
+P31 --> D5a : screenshot (Screenshots),\nSeatMismatch event
+P31 --> D8a : SEAT_MISMATCH
+P4 <-- P31 : ScreenshotUploaded,\nViolationEvent (seat)
+P33 --> P34 : resolved MonitoringEventType\n(IsViolation -> live push)
+D5a --> P32 : violation types ->\ntile status (Classify)
+P32 --> D5a : Heartbeat event\n(when changed or 60 s)
+P32 --> D4a : LastHeartbeatAt,\nreconnect
+P32 --> D1 : LastSeenAt
+P34 --> D5a : new\nevents
+P32 --> P4 : StudentHeartbeat,\nStudentReconnected
+P34 --> P4 : ViolationEvent
+
+' ---------- (b) 5.0 ----------
+P2 --> P52 : submitted answers\n(if AiEvaluationEnabled)
+P2 --> P51 : code answers (GradingQueue,\nif AiEvaluationEnabled)
+P2 --> P53 : submitted session\n(not practice exams)
+D2 --> P51 : test cases\n(weights)
+D2 --> P52 : model answer,\nkeywords, MCQ key
+D4b --> P53 : answers of\nthe same exam
+P51 ..> LLM : test results +\nanalysis (if enabled)
+P51 <.. LLM : code\nsummary
+P52 ..> LLM : theory answer, model\nanswer, rubric keywords\n(if enabled)
+P52 <.. LLM : suggested\nmark
+P51 --> P54 : test-case\nresults
+P52 --> P54 : suggested mark,\nconfidence
+P53 --> P54 : similarity\npairs
+P54 --> D6 : marks, pairs,\noverrides
+P54 <-- TEA : accept /\noverride
+P54 --> TEA : suggested marks,\nsimilarity matrix
+D6 --> P55 : marks
+D5b --> P55 : violation\ncounts
+D7b --> P55 : notifications
+D8 --> P55 : audit\nentries
+P55 --> D6 : ExamReports
+P55 --> TEA : PDF report
+P55 --> ADM : audit log,\nsystem analytics
+P55 --> STUW : results, violation\nhistory, notifications
+@enduml

@@ -1,0 +1,28 @@
+@startuml
+!include style.iuml
+' Student login with HWID v2 device binding
+' (AuthController.StudentLogin, Core/DeviceFingerprint, Services/SessionStore, AuthController.Refresh)
+!pragma useVerticalIf on
+
+|Desktop App|
+start
+:Enter email or\nroll number and\npassword; POST\n/api/auth/student-\nlogin + v2 finger-\nprint (BIOS, disk,\nbaseboard serials\nread via WMI);
+|Server|
+if (AuthController:\ncredentials OK,\naccount active?) then (no)
+  :401 UNAUTH-\nORIZED, audit\nLOGIN_FAILED;
+elseif (Role Student,\nHWID sent?) then (no)
+  :401 FORBIDDEN\nor 400 BAD_\nREQUEST;
+elseif (Device-\nBinding\nexists?) then (no)
+  :Save binding\n(SHA-256 of\nfingerprint),\naudit DEVICE_\nBOUND and\nLOGIN_SUCCESS;\nissue JWT, User-\nSession and\nrefresh token;
+elseif (Hash\nmatches?) then (no)
+  :401, audit\nDEVICE_\nMISMATCH;
+else (yes)
+  :Update Last-\nSeenAt, audit\nLOGIN_SUCCESS;\nissue JWT, User-\nSession and\nrefresh token;
+endif
+|Desktop App|
+if (Login\nOK?) then (yes)
+  :Store tokens\n(SessionStore;\nrenewed by\n/api/auth\n/refresh), open\ndashboard;
+else (no: show\nmessage)
+endif
+stop
+@enduml

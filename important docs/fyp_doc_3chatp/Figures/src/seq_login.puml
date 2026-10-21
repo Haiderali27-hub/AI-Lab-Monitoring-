@@ -1,0 +1,53 @@
+@startuml
+!include style.iuml
+hide footbox
+skinparam ParticipantPadding 0
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+}
+
+actor Student
+participant "WPF client\n(LoginViewModel,\nApiClient)" as VM
+participant "AuthController" as AC
+participant "RefreshToken\nService" as RT
+database "AppDbContext" as DB
+
+Student -> VM : email or roll no.\n+ password
+VM -> VM : CreateRawFingerprintV2()\n+ CreateRawFingerprint()\nv2|BIOS|DISK|BOARD, v1 legacy
+VM -> AC : POST /api/auth/student-login\n{usernameOrEmail, password,\nhardwareFingerprint (v2),\nlegacyHardwareFingerprint (v1), ...}
+AC -> DB : active User + DeviceBinding (by Email or RollNumber)
+break user missing or PBKDF2 hash wrong
+  AC -> DB : AuditLog LOGIN_FAILED
+  AC --> VM : 401 UNAUTHORIZED
+else Role != Student
+  AC --> VM : 401 FORBIDDEN
+end
+alt no DeviceBinding yet (first login)
+  AC -> DB : insert DeviceBinding(HwidHash = SHA-256(v2));\nAuditLog DEVICE_BOUND
+else v1 binding and legacy fingerprint matches
+  AC -> DB : rebind HwidHash to v2; AuditLog DEVICE_REBOUND
+else SHA-256(v2) != HwidHash: stop
+  AC -> DB : AuditLog DEVICE_MISMATCH
+  AC --> VM : 401 DEVICE_MISMATCH
+end
+AC -> AC : JwtHelper.GenerateToken -> JWT + jti
+AC -> RT : IssueForLoginAsync\n(user, jti, StudentClient)
+RT -> DB : insert RefreshToken\n(new FamilyId, hash only)
+RT --> AC : raw refresh token
+AC -> DB : insert UserSession(Jti); AuditLog LOGIN_SUCCESS
+AC --> VM : 200 TokenResponse {accessToken,\nrefreshToken, user, deviceBound}
+VM --> Student : SessionStore.Set;\ndashboard
+== later: token near expiry or a 401 (TokenRefreshGate) ==
+VM -> AC : POST /api/auth/refresh {refreshToken}
+AC -> RT : RotateAsync(refreshToken)
+alt token already rotated (replay)
+  RT -> DB : revoke family + UserSessions;\nAuditLog REFRESH_TOKEN_REUSE
+  AC --> VM : 401 REFRESH_TOKEN_REUSED
+else revoked, unknown or expired
+  AC --> VM : 401 INVALID_REFRESH_TOKEN\n| REFRESH_TOKEN_EXPIRED
+else valid
+  RT -> DB : old token Rotated; successor\n(same family) + new UserSession
+  AC --> VM : 200 TokenResponse (new pair)
+end
+@enduml

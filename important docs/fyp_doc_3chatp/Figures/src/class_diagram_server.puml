@@ -1,0 +1,118 @@
+@startuml
+!include style.iuml
+' Class diagram, part 3 of 3 (server) from Backend_API Controllers, Hubs/MonitoringHub.cs and Services (incl. Services/Grading).
+' Part 1 (entities) is class_diagram.puml. Controller members are listed in part 2 (class_diagram_client.puml).
+' Only key members; parameters abbreviated as (..).
+' Arrows: --> holds / injects, ..> calls or uses, ..|> implements.
+hide empty members
+hide circle
+skinparam classAttributeIconSize 0
+skinparam nodesep 16
+skinparam ranksep 30
+skinparam class {
+  FontSize 13
+  AttributeFontSize 12
+}
+skinparam ArrowFontSize 11
+skinparam stereotypeFontSize 10
+
+class ExamsController <<api/exams>> #FFF6E0
+class MonitoringController <<api/monitoring>> #FFF6E0
+class MonitoringHub <<SignalR /hubs/monitoring>> #FFF6E0 {
+  +JoinExamGroup(examId)
+  +SendWarning(studentId, msg)
+  +ForceSubmitSessionById(..)
+  +ExtendStudentTime(..)
+  +UnlockSession(..)
+}
+class ExamAccessService #FFF6E0 {
+  +GetAsync(user, examId) : ExamAccess
+  +GetForSessionAsync(..) : ExamAccess
+}
+enum ExamAccess <<enumeration>> #FFF6E0 {
+  None
+  Proctor
+  Owner
+  Admin
+}
+class SeatGuard #FFF6E0 {
+  +Check(assignment, user, http)
+  +ReportMismatchAsync(..)
+}
+class ViolationClassifier <<static>> #FFF6E0 {
+  +Resolve(type, payload)
+  +IsViolation(type) : bool
+  +Classify(events) : string
+}
+class SubmissionService #FFF6E0 {
+  +FinalizeAsync(session, status)
+  +{static} RemainingSeconds(..)
+  +{static} IsClosed(..)
+}
+class PlagiarismService #FFF6E0 {
+  +DetectAsync(session, answers)
+  +BuildMatrixAsync(examId, ..)
+}
+class GradingQueue #FFF6E0 {
+  +Reader : ChannelReader<Guid>
+  +Enqueue(answerId)
+  +MarkStarted(answerId)
+}
+class GradingWorker <<BackgroundService>> #FFF6E0
+class GradingService #FFF6E0 {
+  +StageAsync(answers)
+  +ProcessAsync(answerId, ct)
+}
+class LlmGrader #FFF6E0 {
+  +IsEnabled : bool
+  +GradeTheoryAsync(..)
+  +SummariseCodeAsync(..)
+}
+class TheoryGrader <<static>> #FFF6E0 {
+  +Grade(question, answer)
+}
+class CodeRunnerResolver #FFF6E0 {
+  +ResolveAsync(ct) : ICodeRunner?
+}
+interface ICodeRunner <<interface>> #FFF6E0 {
+  +Engine : string
+  +Isolated : bool
+  +RunAsync(job, ct) : RunReport
+}
+class DockerCodeRunner #FFF6E0
+class LocalMingwCodeRunner #FFF6E0
+
+ExamsController --> ExamAccessService
+ExamsController --> SeatGuard
+ExamsController --> SubmissionService
+ExamsController ..> MonitoringHub
+MonitoringController --> SeatGuard
+MonitoringController ..> ViolationClassifier
+MonitoringController ..> SubmissionService : RemainingSeconds\n(static)
+MonitoringController ..> MonitoringHub : "ViolationEvent"
+MonitoringHub --> ExamAccessService
+MonitoringHub --> SubmissionService
+ExamAccessService .right.> ExamAccess
+MonitoringHub <.. SubmissionService
+MonitoringHub <.. SeatGuard : seat mismatch:\nViolationEvent
+SubmissionService --> GradingService
+SubmissionService --> GradingQueue : Enqueue
+SubmissionService --> PlagiarismService
+GradingWorker --> GradingQueue : reads Reader
+GradingWorker ..> GradingService : ProcessAsync
+MonitoringHub <.. GradingService
+GradingService --> CodeRunnerResolver
+GradingService --> LlmGrader : optional\n(off by default)
+GradingService ..> TheoryGrader : fallback /\noffline
+CodeRunnerResolver ..> ICodeRunner
+DockerCodeRunner .up.|> ICodeRunner
+LocalMingwCodeRunner .up.|> ICodeRunner
+ExamsController -[hidden]right- MonitoringController
+SeatGuard -[hidden]down- GradingWorker
+skinparam legendFontSize 11
+legend bottom left
+  Dashed arrows into MonitoringHub: the class injects IHubContext<MonitoringHub>
+  and pushes live updates to the web panel (MonitoringController and SeatGuard send "ViolationEvent").
+  Solid arrow = holds / injects, dashed = calls / uses, hollow triangle = implements.
+endlegend
+@enduml

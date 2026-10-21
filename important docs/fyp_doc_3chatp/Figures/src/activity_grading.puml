@@ -1,0 +1,128 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 13
+skinparam ArrowFontSize 11
+' AI-assisted grading (Module 11): SubmissionService.FinalizeAsync -> GradingService.StageAsync (MCQ key,
+' TheoryGrader TF-IDF or queued for the optional LLM grader, coding -> Pending rows) and
+' PlagiarismService.DetectAsync (PlagiarismEngine winnowing); SaveChanges, then GradingQueue.Enqueue;
+' GradingWorker -> GradingService.ProcessAsync (CodeRunnerResolver: DockerCodeRunner gcc:13 or
+' LocalMingwCodeRunner, OutputComparer, TestCaseScorer, CodeAnalyzer), hub GradingCompleted;
+' teacher: POST /api/exams/{id}/grading/accept-ai (AI_SUGGESTIONS_ACCEPTED) or
+' POST /api/answers/{id}/override (GRADE_OVERRIDDEN).
+' Two columns joined by connector A.
+
+split
+  -[hidden]->
+  start
+  :<b>SubmissionService</b>
+  <b>.FinalizeAsync</b>
+  (Submitted, Force
+  Submitted or TimedOut);
+  if (AiEvaluation\nEnabled?) then (yes)
+    :<b>GradingService</b>
+    <b>.StageAsync</b>
+    for each answer;
+    switch (Question type?)
+    case (MCQ)
+      :Compare
+      with
+      Correct
+      Option
+      Index;
+    case (Theory)
+      :TheoryGrader
+      TF-IDF: 0.7 x
+      cosine + 0.3 x
+      key-term
+      coverage (LLM
+      grader optional,
+      off by default,
+      if on, queued
+      instead);
+    case (Coding)
+      :Pending
+      row +
+      Pending
+      test-case
+      rows;
+    endswitch
+  else (no)
+  endif
+  if (Mock exam?) then (no)
+    :<b>PlagiarismService</b>:
+    normalised tokens,
+    k-gram winnowing
+    (k = 5, w = 4), store
+    PlagiarismResults at
+    or above threshold;
+  else (yes)
+  endif
+  :SaveChanges, then
+  GradingQueue.Enqueue
+  for each queued answer;
+  (A)
+  detach
+split again
+  -[hidden]->
+  (A)
+  while (Queued\nanswer?) is (yes)
+    if (Theory\nanswer?) then (yes)
+      :<b>GradingWorker</b>:
+      LLM grader
+      (TheoryGrader
+      fallback);
+    else (Coding)
+      :<b>GradingWorker</b>:
+      CodeRunnerResolver
+      picks Docker gcc:13
+      (no network, memory
+      and time limits)
+      or MinGW;
+      if (Runner found\nand C/C++?) then (no)
+        :0 marks, Low,
+        not compiled,
+        teacher review;
+      else (yes)
+        if (Compiles?) then (no)
+          :0 marks, High,
+          compiler output;
+        else (yes)
+          :Run each test
+          case, Output
+          Comparer, then
+          TestCaseScorer:
+          marks x passed
+          weight over total;
+        endif
+        :CodeAnalyzer
+        (loops, recursion,
+        hard-coding);
+      endif
+    endif
+    :Save AiGradingResults,
+    TestCaseResults (run
+    failing MaxAttempts
+    times: Failed, 0, Low),
+    hub GradingCompleted;
+  endwhile (queue empty)
+  :<b>Teacher</b> (Results
+  Page), at any time,
+  reviews AI
+  suggestions and
+  plagiarism heat map;
+  if (Accept?) then (yes)
+    :POST .../grading
+    /accept-ai (all
+    Graded rows,
+    Pending ones are
+    notReady), audit
+    AI_SUGGESTIONS_
+    ACCEPTED;
+  else (no)
+    :POST /api/answers
+    /{id}/override, audit
+    GRADE_OVERRIDDEN;
+  endif
+  stop
+end split
+@enduml

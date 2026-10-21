@@ -1,0 +1,23 @@
+@startuml
+!include style.iuml
+' Pre-exam readiness check (Core/Readiness/ReadinessPolicy, Services/Readiness/ReadinessCheckService,
+' DashboardViewModel.RunReadinessAsync / RetryReadinessItemAsync / ReportReadinessAsync /
+' UpdateStartEligibility, Core/Dashboard/StartGate, ExamsController.SubmitReadiness / OpensAt)
+skinparam defaultTextAlignment left
+
+|Desktop App|
+start
+:GET /api/exams/student\n/current (requirements),\nstudent presses Run check;
+repeat
+  :ReadinessCheckService:\n<b>Network</b> <= 2 s\n<b>ClockSkew</b> <= 60 s\n<b>ScreenCapture</b> works\n<b>Camera</b> (a): not dark,\n  one face (YuNet)\n<b>Microphone</b> (a) present\n<b>SecureMode</b> (b): one\n  monitor if BlockMulti-\n  Monitor, no RDP, no\n  VM, keyboard hook OK\n<b>Disk</b> >= 200 MB free\n(a) if exam requires it\n(b) skipped if lockdown Off\nRetry: only the failed item\nre-runs, all results re-sent;
+  |Server|
+  :POST /api/exams\n/{id}/readiness:\nExamsController\nrecomputes passedAll,\nsaves ReadinessCheck,\naudits READINESS_\nPASSED/FAILED, hub\n"ReadinessUpdated";
+  |Desktop App|
+repeat while (passedAll, or\nRequireReadiness\noff?) is (no: fix it,\npress Retry) not (yes)
+if (Checked in?) then (no)
+  :Press Check In\n(Attendance event);
+else (yes)
+endif
+:Enable Start Exam once the\nexam opens (StartTime -\nEarlyJoinMinutes); pass valid\n30 min, else student/start\nREADINESS_REQUIRED;
+stop
+@enduml

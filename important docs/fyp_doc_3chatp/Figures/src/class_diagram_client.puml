@@ -1,0 +1,87 @@
+@startuml
+!include style.iuml
+' Class diagram, part 2 of 3 (desktop client) from Student_Desktop_App/Services and the two API controllers it calls.
+' Part 1 (EF Core entities) is class_diagram.puml, part 3 (server services) is class_diagram_server.puml.
+' Only key members; parameters abbreviated as (..). Arrows: --> holds / injects, ..> calls or uses, *-- owns.
+hide empty members
+hide circle
+skinparam classAttributeIconSize 0
+skinparam nodesep 26
+skinparam ranksep 30
+skinparam class {
+  FontSize 13
+  AttributeFontSize 12
+}
+skinparam ArrowFontSize 11
+skinparam stereotypeFontSize 10
+
+class LockdownCoordinator #E8F0FB {
+  -_keyboard : KeyboardHookService
+  -_processes : ProcessGuardService
+  -_clipboard : ClipboardGuardService
+  -_devices : DeviceGuardService
+  -_taskManager : TaskManagerGuard?
+  -_violationSink : Action<string,string>?
+  +Start(window) / Stop()
+  +Suspend() / Resume()
+}
+class ReadinessCheckService #E8F0FB {
+  +RunAllAsync(req, ct)
+}
+class LiveMonitoringService #E8F0FB {
+  -_captures : EvidenceCaptureService?
+  -_webcam : WebcamMonitorService?
+  +Start(token, sessionId, ..)
+  +ReportViolation(reason, detail)
+  +ReportEvent(type, payload, ..)
+}
+class WebcamMonitorService #E8F0FB {
+  +Start() / Stop()
+  +event IssueChanged
+}
+class WebcamVision #E8F0FB {
+  +FaceModelFile = "face_detection_yunet_2023mar.onnx"
+  +PhoneModelFile = "yolox_nano.onnx"
+  +Analyze(frame) : VisionResult?
+}
+class ApiClient #E8F0FB {
+  +ProbeHealthAsync(ct)
+  +StartExamAsync(..)
+  +StartSessionAsync(..)
+  +SaveAnswerAsync(..)
+  +SubmitExamAsync(..)
+  +SendHeartbeatAsync(..)
+  +SendMonitoringEventAsync(..)
+  +SendEventBatchAsync(..)
+  +UploadCaptureAsync(..)
+}
+
+class ExamsController <<Backend_API: api/exams>> #FFF6E0 {
+  +StartStudentExam()  [student/start]
+  +StartSession(id)  [{id}/start-session, practice]
+  +SaveAnswer(sessionId, req)  [sessions/{sessionId}/save-answer]
+  +Submit(sessionId)  [sessions/{sessionId}/submit]
+}
+class MonitoringController <<Backend_API: api/monitoring>> #FFF6E0 {
+  +Heartbeat(..)  [heartbeat]
+  +PushEvent(..)  [event]
+  +PushEventBatch(..)  [events/batch]
+  +UploadScreenshot(..)  [screenshot]
+}
+
+LockdownCoordinator ..> LiveMonitoringService : ReportViolation\n(violationSink)
+LockdownCoordinator --> ApiClient : fallback
+LiveMonitoringService *-right- WebcamMonitorService
+WebcamMonitorService ..> WebcamVision
+LiveMonitoringService --> ApiClient
+ReadinessCheckService --> ApiClient : ProbeHealthAsync\n(GET api/health)
+
+ApiClient ..> ExamsController : HTTPS
+ApiClient ..> MonitoringController : HTTPS
+
+skinparam legendFontSize 11
+legend bottom right
+  <back:#E8F0FB>      </back>  Student<U+005F>Desktop<U+005F>App (WPF client)
+  <back:#FFF6E0>      </back>  Backend<U+005F>API (server side, see part 3)
+endlegend
+@enduml

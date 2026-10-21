@@ -1,0 +1,73 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 13
+skinparam ArrowFontSize 11
+' PDF report (Module analytics): ReportsPage -> POST /api/analytics/exams/{examId}/report (AnalyticsController,
+' Roles Admin,SuperAdmin,Teacher), ExamAccessService.DenyUnlessAsync(Owner), AnalyticsService.GetExamSummaryAsync
+' + GenerateExamReportPdfAsync (QuestPDF; file in Reports/, row in ExamReports), GET /api/analytics/exams/{examId}/reports,
+' GET /api/analytics/reports/{fileName}. Report generation itself is not audited.
+' Two columns joined by connector A.
+
+split
+  -[hidden]->
+  start
+  :<b>Teacher / Admin /</b>
+  <b>SuperAdmin</b>
+  (ReportsPage) selects
+  an exam, Generate
+  New Report;
+  :POST /api/analytics
+  /exams/{examId}/report
+  (AnalyticsController);
+  :ExamAccessService
+  .DenyUnlessAsync
+  (Owner);
+  if (Exam exists\nand caller is\nowner, Admin or\nSuperAdmin?) then (no)
+    :404 or 403;
+    stop
+  else (yes)
+  endif
+  :<b>AnalyticsService</b>
+  GetExamSummaryAsync:
+  marks = override,
+  else AI suggestion,
+  buckets, per-question
+  averages, violation
+  counts;
+  (A)
+  detach
+split again
+  -[hidden]->
+  (A)
+  :<b>QuestPDF</b>
+  document:
+  Summary Statistics,
+  Per-Question
+  Performance,
+  Score Distribution;
+  :Write Exam_Report_
+  ...pdf to Reports,
+  insert ExamReports
+  row (ReportType =
+  ExamSummary,
+  GeneratedBy,
+  FilePath);
+  :Return downloadUrl,
+  page reloads
+  history
+  (GET .../reports);
+  :Download: GET
+  /api/analytics
+  /reports/{fileName};
+  if (Bare file\nname, row in\nExamReports,\nowner?) then (yes)
+    :Return
+    the PDF
+    (application
+    /pdf);
+  else (no)
+    :400, 404
+    or 403;
+  endif
+  stop
+end split
+@enduml

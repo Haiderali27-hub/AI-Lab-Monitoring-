@@ -1,0 +1,93 @@
+@startuml
+!include style.iuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam defaultFontSize 13
+skinparam usecase {
+  FontSize 13
+}
+skinparam nodesep 6
+skinparam dpi 140
+skinparam ranksep 30
+
+actor "Student" as STU
+
+actor "Invigilator\n(exams in ExamProctors)" as INV
+actor "Teacher" as TEA
+actor "Admin" as ADM
+actor "SuperAdmin" as SUP
+
+rectangle "SmartExam" {
+  rectangle "Student desktop client (WPF)" {
+    usecase "Log in and bind device (FR1)" as UC1
+    usecase "Run readiness check (FR2)" as UC2
+    usecase "Take practice exam (FR2)" as UC3
+    usecase "View eligible exams (FR3)" as UC4
+    usecase "Sit locked exam (FR4)" as UC5
+    usecase "Send heartbeats and\nscreenshots (FR5)" as UC6
+    usecase "Autosave and submit answers (FR6)" as UC7
+    usecase "See warning, extra time\nor unlock (FR10)" as UC8
+  }
+  rectangle "Web panel (React)" {
+    usecase "Log in, change password, log out (FR1)" as UC19
+    usecase "View results, violations, performance\nand notifications (FR12)" as UC9
+
+    usecase "Supervise exam live, see readiness (FR10)" as UC20
+    usecase "View timeline and screenshots (FR10)" as UC21
+    usecase "Warn, extend time, unlock, force-submit,\nlog incident (FR10)" as UC22
+
+    usecase "Create and configure exam (FR8)" as UC10
+    usecase "Import attendance, set eligibility (FR9)" as UC11
+    usecase "Assign workstations and invigilators (FR9)" as UC12
+    usecase "Announce exam, notify schedule\nand grades (FR8)" as UC16
+    usecase "Review suggested marks: accept,\noverride, regrade (FR11.1, FR11.2)" as UC13
+    usecase "Review similarity matrix (FR11.3)" as UC14
+    usecase "Export PDF exam report (FR12)" as UC15
+
+    usecase "Manage users and roles (FR7)" as UC30
+    usecase "Manage departments and courses (FR9)" as UC34
+    usecase "Reset device binding (FR1)" as UC31
+    usecase "Register labs and workstations (FR9)" as UC32
+    usecase "Read audit log (FR12)" as UC33
+    usecase "View system analytics (FR12)" as UC35
+    usecase "Manage Admin and SuperAdmin accounts (FR7)" as UC40
+  }
+}
+
+STU -- UC1
+STU -- UC2
+STU -- UC3
+STU -- UC4
+STU -- UC5
+STU -- UC7
+STU -- UC8
+STU -- UC19
+STU -- UC9
+UC5 .right.> UC6 : <<include>>
+
+UC19 --- INV
+UC20 --- INV
+UC21 --- INV
+UC22 --- INV
+
+UC10 --- TEA
+UC11 --- TEA
+UC12 --- TEA
+UC16 --- TEA
+UC13 --- TEA
+UC14 --- TEA
+UC15 --- TEA
+
+UC30 --- ADM
+UC34 --- ADM
+UC31 --- ADM
+UC32 --- ADM
+UC33 --- ADM
+UC35 --- ADM
+
+UC40 --- SUP
+
+INV <|-right- TEA
+TEA <|-right- ADM
+ADM <|-right-- SUP
+@enduml

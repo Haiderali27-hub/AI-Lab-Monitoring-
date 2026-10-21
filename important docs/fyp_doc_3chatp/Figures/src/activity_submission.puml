@@ -1,0 +1,42 @@
+@startuml
+!include style.iuml
+' Exam submission (Views/ExamWindow.DoSubmit + _submitRetry, ExamSessionViewModel.SubmitCoreAsync,
+' ExamsController.Submit, SubmissionService.FinalizeAsync, ReceiptHasher, SessionTimeoutService)
+' One flush attempt per submit; SubmitStatus.Offline / other failure keep the window open and
+' DoSubmit retries (auto: _submitRetry 10 s, manual: student presses Submit again).
+!pragma useVerticalIf on
+
+|Desktop App|
+start
+:Submit pressed or\ntimer reaches 0;
+note right
+  No submit arrives:
+  server's Session-
+  TimeoutService runs
+  FinalizeAsync (Timed-
+  Out) every 30 s
+end note
+repeat
+  :Save current answer,\nflush OfflineSaveQueue\n(one attempt);
+  if (All answers\nflushed?) then (yes)
+    :POST /api/exams/\nsessions/{sid}/submit;
+    |Server|
+    if (Session\nInProgress?) then (yes)
+      :FinalizeAsync:\nSubmitted,\nReceiptSha256;
+      :Grading (if AI\nevaluation on),\nplagiarism (not\nIsMock), hub\n"SessionFinalized";
+    else (no: 400\n"Session is\nnot active")
+    endif
+    |Desktop App|
+    if (Submit\nresult?) then ([200 Submitted])
+      :ReceiptHasher:\nVerified or\nMismatch;
+    elseif (GET answers:\nnot InProgress?) then (yes)
+      :Show "already\nforce-submitted\nor timed out";
+    else (no)
+    endif
+  else (no: offline)
+  endif
+backward :Window stays\nopen, answers\nin backup.\nAuto: retry\nin 10 s. Man-\nual: press\nSubmit again;
+repeat while (Submitted or\nalready ended?) is (no) not (yes)
+:Release lockdown,\nclose ExamWindow;
+stop
+@enduml

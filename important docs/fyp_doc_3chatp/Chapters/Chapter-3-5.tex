@@ -1,15 +1,38 @@
-\section{Managerial Process Plan}
+\section{Managerial Process}
 
-Even with only three people involved, it is important to develop directives for the coordinated, supervised and managed change of the twelve interrelated modules of SmartExam \cite{spp1}. These processes help to limit overlap, stop documentation drift and handle unexpected project scope creep.
+Our three-member team follows a few simple rules for priorities, communication and change \cite{spp1}.
 
-\subsection{Communication and Coordination}
+\subsection{Objectives and Priorities}
 
-The project team will meet at the start and finish of each sprint. At the beginning of each sprint, a meeting outlines the major goals for each four-week cycle. At the end of the sprint, a review meeting looks at what was deployed, what wasn’t, and why. Regular daily communication is conducted using asynchronous check-ins \cite{scrum1}. Any blockages not addressed within 24 hours trigger a team discussion for proactive resolution. Documentation efforts run in parallel with module development, preventing the FYP report from diverging from the developed prototype by incorporating updates into the same sprint \cite{spp1}.
+Our objective is a system that lets a teacher run a fair lab exam from start to finish. When time is short, we protect work in this order:
+\begin{enumerate}
+    \item \textbf{Exam integrity:} device binding, eligibility and seat checks, and lockdown (M1, M9, M4).
+    \item \textbf{No lost work:} autosave, encrypted backup and server deadline enforcement (M6).
+    \item \textbf{Live supervision:} monitoring client and proctoring dashboard (M5, M10).
+    \item \textbf{Evaluation support:} test-case grading, theory scoring and plagiarism checks (M11).
+    \item \textbf{Reporting:} audit logs, analytics and PDF reports (M12).
+\end{enumerate}
+Lower items are cut first.
 
-\subsection{Review and Feedback Integration}
+\subsection{Assumptions and Constraints}
 
-Supervisor feedback is treated as the highest priority input. All identified SRS gaps, design inconsistencies, or scope drifts will be addressed in the following sprint without deferment to the end of the project \cite{agile1}. Modules are subject to individual testing before integration, checking functionality against specifications \cite{agile1}, ensuring clean execution and compilation with no bugs \cite{spp1}, and requiring at least one unit test to execute successfully \cite{agile1}.
+\textbf{Assumptions}
+\begin{itemize}
+    \item Lab PCs run Windows 10 or 11, and we can install the client with administrator rights.
+    \item Each PC reaches the API over HTTPS; short outages may happen.
+    \item Each student uses one assigned workstation, with a webcam when the exam needs one.
+    \item Teachers supply test cases and model answers for automated grading.
+\end{itemize}
 
-\subsection{Change Management}
+\textbf{Constraints}
+\begin{itemize}
+    \item Three members and 32 weeks over two semesters.
+    \item No budget for paid services: we use the Neon free tier, and AI features run offline on the CPU (TF-IDF scoring, OpenCV YuNet face detection). LLM grading is off by default.
+    \item The client is Windows-only (WPF) and cannot block Ctrl+Alt+Del.
+    \item Code execution needs Docker on the grading server.
+    \item For privacy, there is no face recognition and no stored biometric data.
+\end{itemize}
 
-While expecting change is characteristic of Agile, not all proposed adjustments can be incorporated. Evaluation of any proposed change is based on three factors: its improvement to the overall academic content, its inclusion fitting within the sprint budget, and its potential to destabilize existing modules \cite{agile1}. Approved changes enter the next sprint's backlog, while those failing these criteria are added to the future-work record for subsequent consideration \cite{spp1}.
+\subsection{Communication, Review and Change Control}
+
+We meet at the start of each sprint to set goals and at the end to review the results. Between meetings we post short written check-ins \cite{scrum1}, and a blocker unsolved after 24 hours goes to a team discussion. Supervisor feedback goes into the next sprint's backlog. A proposed change is accepted only if it improves the project, fits in the sprint and does not put a working module at risk. Otherwise it goes to the future-work list.

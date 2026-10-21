@@ -1,0 +1,280 @@
+@startuml
+!include style.iuml
+' ERD generated from Backend_API/Data/AppDbContext.cs (29 DbSets at HEAD) and the EF model snapshot.
+' Every table has a uuid (Guid) primary key except ExamProctors (composite key ExamId + UserId).
+' Only PK / FK and a few key columns are shown. Columns marked (ref) hold an id without a database FK.
+hide circle
+hide empty methods
+skinparam nodesep 16
+skinparam ranksep 30
+hide stereotype
+skinparam entity {
+  FontSize 13
+  AttributeFontSize 12
+}
+skinparam ArrowColor #444444
+
+entity Users <<Id>> #E8F0FB {
+  * UserId <<PK>>
+  --
+  Email <<UQ>>
+  Role (enum)
+  RollNumber <<UQ>>
+}
+entity DeviceBindings <<Id>> #E8F0FB {
+  * BindingId <<PK>>
+  --
+  UserId <<FK, UQ>>
+  HwidHash
+}
+entity UserSessions <<Id>> #E8F0FB {
+  * SessionId <<PK>>
+  --
+  UserId <<FK>>
+  Jti <<UQ>>
+  IsRevoked
+}
+entity RefreshTokens <<Id>> #E8F0FB {
+  * TokenId <<PK>>
+  --
+  UserId <<FK>>
+  FamilyId
+  TokenHash <<UQ>>
+}
+entity Notifications <<Gr>> #F1EAF8 {
+  * NotificationId <<PK>>
+  --
+  RecipientId <<FK>>
+  Type
+  IsRead
+}
+entity AuditLogs <<Gr>> #F1EAF8 {
+  * LogId <<PK>>
+  --
+  ActorId <<FK, null>>
+  EventType
+  EntityType
+}
+
+entity Departments <<Ac>> #EAF6EA {
+  * DeptId <<PK>>
+  --
+  Name <<UQ>>
+}
+entity Courses <<Ac>> #EAF6EA {
+  * CourseId <<PK>>
+  --
+  DeptId <<FK>>
+  Code <<UQ with DeptId>>
+}
+entity Sections <<Ac>> #EAF6EA {
+  * SectionId <<PK>>
+  --
+  CourseId <<FK>>
+  TeacherId <<FK>>
+  Semester
+}
+entity SectionEnrollments <<Ac>> #EAF6EA {
+  * EnrollmentId <<PK>>
+  --
+  SectionId <<FK>>
+  UserId <<FK>>
+}
+entity AttendanceRecords <<Ac>> #EAF6EA {
+  * AttendanceId <<PK>>
+  --
+  SectionId <<FK>>
+  UserId <<FK>>
+  AttendedClasses
+  UQ (SectionId, UserId)
+}
+entity Labs <<Ac>> #EAF6EA {
+  * LabId <<PK>>
+  --
+  Name
+}
+entity Workstations <<Ac>> #EAF6EA {
+  * WorkstationId <<PK>>
+  --
+  LabId <<FK>>
+  MachineNumber
+  IpAddress, HostName
+}
+
+entity Exams <<Ex>> #FFF6E0 {
+  * ExamId <<PK>>
+  --
+  SectionId <<FK>>
+  StartTime, DurationMinutes
+  AllowedApps (JSON)
+  Status, LockdownMode
+}
+entity Questions <<Ex>> #FFF6E0 {
+  * QuestionId <<PK>>
+  --
+  ExamId <<FK>>
+  Type, Marks
+}
+entity TestCases <<Ex>> #FFF6E0 {
+  * TestCaseId <<PK>>
+  --
+  QuestionId <<FK>>
+  Weight, IsHidden
+}
+entity ExamAssignments <<Ex>> #FFF6E0 {
+  * AssignmentId <<PK>>
+  --
+  ExamId <<FK>>
+  UserId <<FK>>
+  WorkstationId <<FK, null>>
+  IsEligible
+}
+entity ExamProctors <<Ex>> #FFF6E0 {
+  * ExamId <<PK, FK>>
+  * UserId <<PK, FK>>
+  --
+  AssignedBy (ref)
+}
+entity ReadinessChecks <<Ex>> #FFF6E0 {
+  * Id <<PK>>
+  --
+  ExamId <<FK>>
+  UserId <<FK>>
+  PassedAll
+}
+entity ExamSessions <<Ex>> #FFF6E0 {
+  * SessionId <<PK>>
+  --
+  ExamId <<FK>>
+  UserId <<FK>>
+  Status, ExtraMinutes
+  ReceiptSha256
+}
+entity Answers <<Ex>> #FFF6E0 {
+  * AnswerId <<PK>>
+  --
+  SessionId <<FK>>
+  QuestionId <<FK>>
+  Revision
+  UQ (SessionId, QuestionId)
+}
+
+entity MonitoringEvents <<Mo>> #FBE9E9 {
+  * EventId <<PK>>
+  --
+  ExamSessionId <<FK>>
+  EventType
+  Payload (JSON)
+}
+entity Screenshots <<Mo>> #FBE9E9 {
+  * ScreenshotId <<PK>>
+  --
+  SessionId <<FK>>
+  ExamId (ref)
+  Kind, Sha256
+}
+entity Incidents <<Mo>> #FBE9E9 {
+  * IncidentId <<PK>>
+  --
+  SessionId <<FK>>
+  ExamId (ref)
+  Severity, Status
+}
+
+entity AiGradingResults <<Gr>> #F1EAF8 {
+  * ResultId <<PK>>
+  --
+  AnswerId <<FK, UQ>>
+  SuggestedMarks
+  Confidence, Status
+}
+entity TestCaseResults <<Gr>> #F1EAF8 {
+  * TestCaseResultId <<PK>>
+  --
+  ResultId <<FK>>
+  TestCaseId (ref)
+  Passed
+}
+entity TeacherGradeOverrides <<Gr>> #F1EAF8 {
+  * OverrideId <<PK>>
+  --
+  AnswerId <<FK, UQ>>
+  TeacherId <<FK>>
+  FinalMarks
+}
+entity PlagiarismResults <<Gr>> #F1EAF8 {
+  * PlagId <<PK>>
+  --
+  ExamId <<FK>>
+  QuestionId <<FK>>
+  UserIdA <<FK>> (student A)
+  UserIdB <<FK>> (student B)
+  SimilarityScore
+}
+entity ExamReports <<Gr>> #F1EAF8 {
+  * ReportId <<PK>>
+  --
+  ExamId <<FK>>
+  GeneratedBy <<FK>>
+  ReportType
+}
+
+
+' ---- Identity (drawn above Users)
+Users ||-up-o| DeviceBindings
+Users ||-up-o{ UserSessions
+Users ||-up-o{ RefreshTokens
+Users ||-up-o{ Notifications
+Users |o-up-o{ AuditLogs
+
+' ---- Academic and labs
+Departments ||--o{ Courses
+Courses ||--o{ Sections
+Users ||--o{ Sections : teaches
+Sections ||--o{ SectionEnrollments
+Users ||--o{ SectionEnrollments
+Sections ||--o{ AttendanceRecords
+Users ||--o{ AttendanceRecords
+Labs ||--o{ Workstations
+
+' ---- Exam
+Sections ||--o{ Exams
+Exams ||--o{ Questions
+Questions ||--o{ TestCases
+Exams ||--o{ ExamAssignments
+Users ||--o{ ExamAssignments
+Workstations |o--o{ ExamAssignments
+Exams ||--o{ ExamProctors
+Users ||--o{ ExamProctors
+Exams ||--o{ ReadinessChecks
+Users ||--o{ ReadinessChecks
+Exams ||--o{ ExamSessions
+Users ||--o{ ExamSessions
+ExamSessions ||--o{ Answers
+Questions ||--o{ Answers
+
+' ---- Monitoring
+ExamSessions ||--o{ MonitoringEvents
+ExamSessions ||--o{ Screenshots
+ExamSessions ||--o{ Incidents
+
+' ---- Grading and reports
+Answers ||--o| AiGradingResults
+AiGradingResults ||--o{ TestCaseResults
+Answers ||--o| TeacherGradeOverrides
+Users ||--o{ TeacherGradeOverrides
+Exams::ExamId ||--o{ PlagiarismResults::ExamId
+Questions::QuestionId ||--o{ PlagiarismResults::QuestionId
+Users::UserId ||--o{ PlagiarismResults::UserIdA
+Users::UserId ||--o{ PlagiarismResults::UserIdB
+Exams ||--o{ ExamReports
+Users ||--o{ ExamReports::GeneratedBy
+
+skinparam legendFontSize 12
+legend bottom right
+  <back:#E8F0FB> Identity </back>  <back:#EAF6EA> Academic / Labs </back>  <back:#FFF6E0> Exam </back>  <back:#FBE9E9> Monitoring </back>  <back:#F1EAF8> Grading / Audit </back>
+  PK = primary key (uuid; ExamProctors has a composite key)
+  FK = foreign key, UQ = unique index (single or composite), null = optional
+  (ref) = id column without a foreign-key constraint
+endlegend
+@enduml
