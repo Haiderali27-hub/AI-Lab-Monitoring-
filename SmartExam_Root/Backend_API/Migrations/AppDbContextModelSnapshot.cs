@@ -213,9 +213,23 @@ namespace Backend_API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Hash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("PrevHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long?>("Sequence")
+                        .HasColumnType("bigint");
+
                     b.HasKey("LogId");
 
                     b.HasIndex("ActorId");
+
+                    b.HasIndex("Sequence")
+                        .IsUnique();
 
                     b.ToTable("AuditLogs");
                 });
@@ -1277,16 +1291,6 @@ namespace Backend_API.Migrations
                     b.Navigation("Section");
 
                     b.Navigation("Student");
-                });
-
-            modelBuilder.Entity("Backend_API.Models.AuditLog", b =>
-                {
-                    b.HasOne("Backend_API.Models.User", "Actor")
-                        .WithMany()
-                        .HasForeignKey("ActorId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Actor");
                 });
 
             modelBuilder.Entity("Backend_API.Models.Course", b =>

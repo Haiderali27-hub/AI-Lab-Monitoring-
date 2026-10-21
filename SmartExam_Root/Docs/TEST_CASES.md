@@ -524,30 +524,38 @@ Built in S7. Coding answers are compiled and run in a background queue: the Dock
 
 ## M12 — Logs, Analytics & Audit Trail
 
+xUnit: `Backend_API.Tests/Tests/Acceptance/Module12AuditAcceptanceTests.cs` (test names `M12_<id>_…`). Playwright: `tests/e2e/analytics.spec.ts`, `tests/api/m11-m12-evaluation-audit.spec.ts`.
+
 | ID | Title | Steps | Expected | Status |
 |----|-------|-------|----------|--------|
-| M12-U-01 | Hash chain computation | 3 entries | Each Hash = SHA256(prev‖fields) | 📋 |
-| M12-U-02 | Verify detects modified row | Change Details of row 2 | Broken at row 2 | 📋 |
-| M12-U-03 | Verify detects deleted row | Remove row 2 | Broken at row 3 (sequence gap) | 📋 |
-| M12-U-04 | Canonical JSON stable | Same object, different key order | Same hash | 📋 |
+| M12-U-01 | Hash chain computation | 3+ entries | Each Hash = SHA256(prev‖fields), sequence gap-free, PrevHash = previous Hash (`M12_U_01_HashChain_EachEntryLinksToPrevious`) | ✅ |
+| M12-U-02 | Verify detects modified row | Change Details of row 2 | Broken at row 2 (`M12_U_02_Verify_DetectsModifiedRow_AtThatRow`) | ✅ |
+| M12-U-03 | Verify detects deleted row | Remove row 2 | Broken at row 3 (sequence gap) (`M12_U_03_Verify_DetectsDeletedRow_AtNextRow`) | ✅ |
+| M12-U-04 | Canonical JSON stable | Same object, different key order | Same hash; changed value / sequence → different hash; microsecond timestamps (`M12_U_04_CanonicalJson_KeyOrderDoesNotChangeTheHash`) | ✅ |
+| M12-U-05 | Hash formula + genesis | Chain after traffic | Row 1 has sequence 1 and 64-zero PrevHash; every Hash recomputes (`M12_U_05_Hash_IsSha256OverPrevHashAndFields_GenesisIsZeros`) | ✅ |
 | M12-A-01 | Audit logs admin-only | Teacher GET audit-logs | 403 | ✅ |
 | M12-A-02 | Exam summary analytics | Teacher GET summary | Totals present | ✅ |
 | M12-A-03 | PDF report generate + download | POST generate, GET download | `application/pdf`, starts `%PDF` | ✅ |
 | M12-A-04 | Report download path traversal | download `../../appsettings.json` | 400/404 | ✅ |
-| M12-I-01 | Verify endpoint OK | GET verify on clean chain | `{valid:true}` | ⏳ |
-| M12-I-02 | Verify endpoint broken | Tamper row in DB | `{valid:false, brokenAt}` | ⏳ |
-| M12-I-03 | Concurrent writes keep chain | 50 parallel audit writes | Chain valid | ⏳ |
-| M12-I-04 | Attendance report | POST reports/attendance | PDF | ⏳ |
-| M12-I-05 | Violations report | | PDF with evidence thumbnails | ⏳ |
-| M12-I-06 | Scores Excel | reports/excel | `.xlsx` with one row per student | ⏳ |
-| M12-I-07 | Evidence ZIP manifest | reports/evidence-zip | ZIP with manifest SHA-256 matching files | ⏳ |
-| M12-I-08 | App-switch events audited | Violation posted | Visible in audit/events | ⏳ |
-| M12-I-09 | Backfill existing rows | Run migration job | Chain valid over old rows | ⏳ |
+| M12-A-05 | Exports: access + audit | Other teacher / student / unknown type / unknown exam; scores PDF | 403 / 403 / 400 / 404; `REPORT_GENERATED` carries the file's SHA-256; listed in history (`M12_A_05_ReportExports_OwnerOnly_UnknownType400_Audited`) | ✅ |
+| M12-I-01 | Verify endpoint OK | GET verify on clean chain | `{valid:true}`; teacher 403 (`M12_I_01_VerifyCleanChain_ReturnsValidTrue`) | ✅ |
+| M12-I-02 | Verify endpoint broken | Tamper row in DB | `{valid:false, brokenAt}` (`M12_I_02_VerifyAfterTamper_ReturnsValidFalse_WithBrokenAt`) | ✅ |
+| M12-I-03 | Concurrent writes keep chain | 50 parallel audit writes | Chain valid, sequences unique (`M12_I_03_FiftyParallelAuditWrites_ChainStillValid`; also rehearsed on PostgreSQL 16 with the advisory lock) | ✅ |
+| M12-I-04 | Attendance report | POST reports/attendance | PDF (`M12_I_04_AttendanceReport_IsPdf`) | ✅ |
+| M12-I-05 | Violations report | | PDF with evidence thumbnails (`M12_I_05_ViolationsReport_IsPdf`, thumbnails: M12-I-13) | ✅ |
+| M12-I-06 | Scores Excel | reports/excel | `.xlsx` with one row per student (`M12_I_06_ScoresExcel_HasOneRowPerStudent`) | ✅ |
+| M12-I-07 | Evidence ZIP manifest | reports/evidence-zip | ZIP with manifest SHA-256 matching files (`M12_I_07_EvidenceZip_ManifestHashesMatchFiles`) | ✅ |
+| M12-I-08 | App-switch events audited | Violation posted | Visible in audit/events (`M12_I_08_PostedViolation_IsVisibleInAuditLog`) | ✅ |
+| M12-I-09 | Backfill existing rows | Run backfill | Chain valid over old rows (`M12_I_09_Backfill_ExistingRows_ProducesValidChain`) | ✅ |
+| M12-I-10 | Post-migration state | All rows without chain columns; verify, backfill twice | `valid:false` + unsealed count, brokenAt null; backfill seals all, second run seals 0, one `AUDIT_CHAIN_BACKFILLED`; teacher 403 (`M12_I_10_LegacyRowsWithoutHash_VerifyReportsUnsealed_BackfillSealsOnce`) | ✅ |
+| M12-I-11 | Deleted user keeps the chain | User logs in, admin deletes them | Chain valid; their rows keep the id, shown as "Deleted user" (`M12_I_11_DeletingAUser_KeepsTheirAuditRows_AndTheChainValid`) | ✅ |
+| M12-I-12 | Batched violations audited | Batch with 2 violations + 1 non-violation | One `MONITORING_VIOLATION` row, count 2 (`M12_I_12_BatchedViolations_AuditedOncePerBatch_WithCount`) | ✅ |
+| M12-I-13 | Screenshot evidence | Violation + PNG capture + undecodable JPEG | Violations PDF draws the PNG, skips the bad file; ZIP has both captures (upload hash matches), audit extract, chain valid (`M12_I_13_Screenshots_InEvidenceZip_AndViolationsPdfCopesWithUndecodableImage`) | ✅ |
 | M12-E-01 | Audit logs page | Admin → Audit Logs | Rows + filters | ✅ |
 | M12-E-02 | Reports page generates PDF | Teacher → Reports → Generate | Download link appears | ✅ |
 | M12-E-03 | System analytics page | Admin → Analytics | Charts render | ✅ |
-| M12-E-04 | Chain verified badge | Admin → Audit Logs | "Chain verified" | ⏳ |
-| M12-E-05 | Evidence ZIP download | Reports → Evidence | Download starts | ⏳ |
+| M12-E-04 | Chain verified badge | Admin → Audit Logs | "Chain verified" (`audit-chain-status`) | ✅ |
+| M12-E-05 | Evidence ZIP download | Reports → Evidence ZIP | Download of a `.zip` starts | ✅ |
 
 ---
 
@@ -602,6 +610,7 @@ Built in S7. Coding answers are compiled and run in a background queue: the Dock
 | D-45 | M9-I-22, M9-U-07, M9-A-05 (verifier) | Only the start was desktop-only, and only when configured (default off): a web-portal token with the student's password could read the paper and write answers into the session running on the lab PC (no device binding, seat or lockdown) | **Fixed** — `Exams:RequireDesktopClientForStart` defaults to true and covers the whole exam: questions, save-answer, answers, submit, heartbeat, events, batch, captures (403 `DESKTOP_CLIENT_REQUIRED`) |
 | D-46 | M10-I-22 (verifier) | `PATCH /api/student/notifications/{id}/read` cleared a proctor warning (it then left the heartbeat ack) without the `PROCTOR_WARNING_ACKNOWLEDGED` audit the other two paths write | **Fixed** — audited (`via: student-portal`) |
 | D-47 | M5-I-23 (verifier) | A session's timeline listed every proctor warning sent to the student during the session's time, including another exam's (overlapping practice session) | **Fixed** — only warnings whose `RelatedEntityId` is this session |
+| D-48 | M12 implementation | `GET /api/analytics/reports/{file}` always read from `./Reports/`, ignoring `Analytics:ReportOutputPath` that the generator writes to, so a configured output folder made every report download 404 (and every file was served as `application/pdf`) | **Fixed** — one `ReportDirectory` for both; content type by extension (PDF / xlsx / zip), streamed |
 
 ---
 

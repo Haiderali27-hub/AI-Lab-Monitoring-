@@ -27,9 +27,13 @@ public sealed class GradingService(
     LlmGrader llm,
     IHubContext<MonitoringHub> hub,
     IOptions<GradingOptions> options,
+    AuditService audit,
     ILogger<GradingService> logger)
 {
     public const string EngineMcq = "MCQ";
+    // Module 12: every finished grading run (offline engine, sandbox or LLM) is part of the audit trail.
+    public const string GradedAuditEvent = "AI_GRADING_COMPLETED";
+    public const string FailedAuditEvent = "AI_GRADING_FAILED";
     public const string EngineNone = "None";
     public const int MaxEngineLength = 64;
 
@@ -178,6 +182,7 @@ public sealed class GradingService(
             }
 
             status = row.Status;
+            AuditRun(row, examId, sessionId, question.QuestionId);
             await db.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateConcurrencyException)
@@ -220,6 +225,7 @@ public sealed class GradingService(
             $"Automatic grading failed (internal error: {error.GetType().Name}) — teacher review required.", row.Engine ?? EngineNone);
         row.Status = AiGradingResult.StatusFailed;
         foreach (var r in row.TestCaseResults) r.Status = TestCaseResult.StatusNotRun;
+        audit.Add(null, FailedAuditEvent, "Answer", answerId.ToString(), new { error = error.GetType().Name, queueVersion });
         try
         {
             await db.SaveChangesAsync();
@@ -363,6 +369,18 @@ public sealed class GradingService(
         row.TestCaseResults.Clear();
         row.AnalysisJson = JsonSerializer.Serialize(CodeAnalyzer.Analyze(source, CodeLanguages.Resolve(question.Language, source)), Json);
     }
+
+    private void AuditRun(AiGradingResult row, Guid examId, Guid sessionId, Guid questionId) =>
+        audit.Add(null, row.Status == AiGradingResult.StatusFailed ? FailedAuditEvent : GradedAuditEvent, "Answer", row.AnswerId.ToString(), new
+        {
+            examId,
+            sessionId,
+            questionId,
+            status = row.Status,
+            engine = row.Engine,
+            suggestedMarks = row.SuggestedMarks,
+            confidence = row.Confidence
+        });
 
     private static void Set(AiGradingResult row, double marks, string confidence, string justification, string engine)
     {

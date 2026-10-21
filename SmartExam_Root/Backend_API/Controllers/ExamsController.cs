@@ -259,6 +259,16 @@ public class ExamsController : ControllerBase
         }
 
         _db.Exams.Add(exam);
+        _audit.Add(CurrentUserId, "EXAM_CREATED", "Exam", exam.ExamId.ToString(), new
+        {
+            exam.Title,
+            exam.SectionId,
+            exam.StartTime,
+            exam.DurationMinutes,
+            exam.IsMock,
+            questions = exam.Questions.Count,
+            students = exam.Assignments.Count
+        });
         await _db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetById), new { id = exam.ExamId }, new { exam.ExamId, exam.Title });
@@ -331,6 +341,16 @@ public class ExamsController : ControllerBase
             _db.ExamAssignments.Add(newAssignment);
         }
 
+        _audit.Add(CurrentUserId, "EXAM_UPDATED", "Exam", exam.ExamId.ToString(), new
+        {
+            exam.Title,
+            exam.SectionId,
+            exam.StartTime,
+            exam.DurationMinutes,
+            questions = exam.Questions.Count,
+            students = requested.Count,
+            studentsRemoved = removed.Count
+        });
         await _db.SaveChangesAsync();
         return Ok(new { exam.ExamId, exam.Title, message = "Exam updated successfully." });
     }
@@ -349,6 +369,7 @@ public class ExamsController : ControllerBase
         // Proctor rows cascade in Postgres; removed explicitly so the InMemory provider leaves no orphans.
         _db.ExamProctors.RemoveRange(_db.ExamProctors.Where(p => p.ExamId == id));
         _db.Exams.Remove(exam);
+        _audit.Add(CurrentUserId, "EXAM_DELETED", "Exam", exam.ExamId.ToString(), new { exam.Title, exam.SectionId, exam.StartTime });
         await _db.SaveChangesAsync();
         return Ok(new { message = "Exam deleted successfully." });
     }

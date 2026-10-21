@@ -1,10 +1,12 @@
 using System.IO.Compression;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Backend_API.Models;
+using Backend_API.Services;
 using Backend_API.Tests.Helpers;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -66,7 +68,7 @@ public class Module12AuditAcceptanceTests : IDisposable
 
     // ── U rows expressed through the API ─────────────────────────────────────
 
-    [Fact(Skip = "Pending: M12-U-01 — audit hash chain")]
+    [Fact]
     public async Task M12_U_01_HashChain_EachEntryLinksToPrevious()
     {
         await GenerateSomeAuditTrafficAsync();
@@ -82,7 +84,7 @@ public class Module12AuditAcceptanceTests : IDisposable
         }
     }
 
-    [Fact(Skip = "Pending: M12-U-02 — verify detects a modified row")]
+    [Fact]
     public async Task M12_U_02_Verify_DetectsModifiedRow_AtThatRow()
     {
         await GenerateSomeAuditTrafficAsync();
@@ -100,7 +102,7 @@ public class Module12AuditAcceptanceTests : IDisposable
         verify.GetProperty("brokenAt").GetInt64().Should().Be(Convert.ToInt64(Planned.Get(row2, "Sequence")));
     }
 
-    [Fact(Skip = "Pending: M12-U-03 — verify detects a deleted row")]
+    [Fact]
     public async Task M12_U_03_Verify_DetectsDeletedRow_AtNextRow()
     {
         await GenerateSomeAuditTrafficAsync();
@@ -120,7 +122,7 @@ public class Module12AuditAcceptanceTests : IDisposable
 
     // ── I rows ───────────────────────────────────────────────────────────────
 
-    [Fact(Skip = "Pending: M12-I-01 — audit chain verify endpoint")]
+    [Fact]
     public async Task M12_I_01_VerifyCleanChain_ReturnsValidTrue()
     {
         await GenerateSomeAuditTrafficAsync();
@@ -130,7 +132,7 @@ public class Module12AuditAcceptanceTests : IDisposable
         (await (await _host.AsTeacher()).GetAsync("/api/audit-logs/verify")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
-    [Fact(Skip = "Pending: M12-I-02 — audit chain verify endpoint (tampered)")]
+    [Fact]
     public async Task M12_I_02_VerifyAfterTamper_ReturnsValidFalse_WithBrokenAt()
     {
         await GenerateSomeAuditTrafficAsync();
@@ -147,7 +149,7 @@ public class Module12AuditAcceptanceTests : IDisposable
         brokenAt.ValueKind.Should().NotBe(JsonValueKind.Null);
     }
 
-    [Fact(Skip = "Pending: M12-I-03 — serialized audit writer keeps chain under concurrency")]
+    [Fact]
     public async Task M12_I_03_FiftyParallelAuditWrites_ChainStillValid()
     {
         var tasks = Enumerable.Range(0, 50).Select(i =>
@@ -159,14 +161,14 @@ public class Module12AuditAcceptanceTests : IDisposable
         (await ChainAsync()).Select(l => Planned.Get(l, "Sequence")).Should().OnlyHaveUniqueItems();
     }
 
-    [Fact(Skip = "Pending: M12-I-04 — attendance report")]
+    [Fact]
     public async Task M12_I_04_AttendanceReport_IsPdf()
     {
         var pdf = await GenerateReportAsync("attendance", "application/pdf");
         Encoding.ASCII.GetString(pdf, 0, 4).Should().Be("%PDF");
     }
 
-    [Fact(Skip = "Pending: M12-I-05 — violations report with evidence")]
+    [Fact]
     public async Task M12_I_05_ViolationsReport_IsPdf()
     {
         await SubmittedSessionWithViolationAsync();
@@ -174,7 +176,7 @@ public class Module12AuditAcceptanceTests : IDisposable
         Encoding.ASCII.GetString(pdf, 0, 4).Should().Be("%PDF");
     }
 
-    [Fact(Skip = "Pending: M12-I-06 — scores Excel export")]
+    [Fact]
     public async Task M12_I_06_ScoresExcel_HasOneRowPerStudent()
     {
         await SubmittedSessionWithViolationAsync();
@@ -185,11 +187,12 @@ public class Module12AuditAcceptanceTests : IDisposable
         sheet.Should().NotBeNull();
         using var reader = new StreamReader(sheet!.Open());
         var xml = await reader.ReadToEndAsync();
-        var rows = System.Text.RegularExpressions.Regex.Matches(xml, "<row[ >]").Count;
+        // <row> or a namespace-prefixed <x:row> (ClosedXML writes the SpreadsheetML namespace with a prefix).
+        var rows = System.Text.RegularExpressions.Regex.Matches(xml, @"<(\w+:)?row[ >]").Count;
         rows.Should().Be(1 + 2, "header + one row per assigned student");
     }
 
-    [Fact(Skip = "Pending: M12-I-07 — evidence ZIP with manifest")]
+    [Fact]
     public async Task M12_I_07_EvidenceZip_ManifestHashesMatchFiles()
     {
         await SubmittedSessionWithViolationAsync();
@@ -215,7 +218,7 @@ public class Module12AuditAcceptanceTests : IDisposable
         }
     }
 
-    [Fact(Skip = "Pending: M12-I-08 — monitoring/app-switch events audited")]
+    [Fact]
     public async Task M12_I_08_PostedViolation_IsVisibleInAuditLog()
     {
         var student = await _host.AsStudent();
@@ -227,7 +230,7 @@ public class Module12AuditAcceptanceTests : IDisposable
                                    && l.GetRawText().Contains(sid.ToString()));
     }
 
-    [Fact(Skip = "Pending: M12-I-09 — backfill hash chain over pre-existing rows")]
+    [Fact]
     public async Task M12_I_09_Backfill_ExistingRows_ProducesValidChain()
     {
         // Rows written before the migration have no Sequence/Hash.
@@ -242,5 +245,179 @@ public class Module12AuditAcceptanceTests : IDisposable
 
         (await VerifyAsync()).GetProperty("valid").GetBoolean().Should().BeTrue();
         (await ChainAsync()).Should().OnlyContain(l => !string.IsNullOrEmpty((string?)Planned.Get(l, "Hash")));
+    }
+
+    // ── Added in the Module 12 implementation (beyond the original catalogue rows) ──
+
+    [Fact]
+    public void M12_U_04_CanonicalJson_KeyOrderDoesNotChangeTheHash()
+    {
+        AuditChain.CanonicalJson("{\"b\":1,\"a\":{\"y\":[1,{\"q\":2,\"p\":3}],\"x\":\"s\"}}")
+            .Should().Be(AuditChain.CanonicalJson("{ \"a\": { \"x\": \"s\", \"y\": [1, { \"p\": 3, \"q\": 2 }] }, \"b\": 1 }"));
+
+        var at = new DateTime(2026, 10, 21, 9, 30, 15, DateTimeKind.Utc).AddTicks(1234567);
+        AuditLog Row(string details) => new()
+        {
+            LogId = Guid.Parse("0f8fad5b-d9cb-469f-a165-70867728950e"), ActorId = null, EventType = "E", EntityType = "T",
+            EntityId = "1", Details = details, CreatedAt = at
+        };
+        var h1 = AuditChain.ComputeHash(Row("{\"b\":1,\"a\":2}"), 7, AuditChain.GenesisHash);
+        AuditChain.ComputeHash(Row("{\"a\":2, \"b\":1}"), 7, AuditChain.GenesisHash).Should().Be(h1);
+        AuditChain.ComputeHash(Row("{\"a\":3,\"b\":1}"), 7, AuditChain.GenesisHash).Should().NotBe(h1, "a changed value changes the hash");
+        AuditChain.ComputeHash(Row("{\"a\":2,\"b\":1}"), 8, AuditChain.GenesisHash).Should().NotBe(h1, "the sequence is hashed");
+
+        // Hashed at microsecond precision (what PostgreSQL keeps), so a read-back row verifies.
+        var stored = Row("{}");
+        stored.CreatedAt = AuditChain.NormalizeTimestamp(at);
+        AuditChain.ComputeHash(stored, 1, AuditChain.GenesisHash).Should().Be(AuditChain.ComputeHash(Row("{}"), 1, AuditChain.GenesisHash));
+    }
+
+    [Fact]
+    public async Task M12_U_05_Hash_IsSha256OverPrevHashAndFields_GenesisIsZeros()
+    {
+        await GenerateSomeAuditTrafficAsync();
+        var chain = await ChainAsync();
+        chain[0].Sequence.Should().Be(1);
+        chain[0].PrevHash.Should().Be(AuditChain.GenesisHash);
+        foreach (var row in chain)
+            row.Hash.Should().Be(AuditChain.ComputeHash(row, row.Sequence!.Value, row.PrevHash!));
+    }
+
+    [Fact]
+    public async Task M12_I_10_LegacyRowsWithoutHash_VerifyReportsUnsealed_BackfillSealsOnce()
+    {
+        await GenerateSomeAuditTrafficAsync();
+        // The state right after the migration: rows exist with no chain columns.
+        await _host.WithDbAsync(async db =>
+        {
+            foreach (var row in await db.AuditLogs.ToListAsync())
+                (row.Sequence, row.PrevHash, row.Hash) = (null, null, null);
+            await db.SaveChangesAsync();
+        });
+        var legacy = await _host.WithDbAsync(db => db.AuditLogs.CountAsync());
+
+        var before = await VerifyAsync();   // its own login is chained from sequence 1
+        before.GetProperty("valid").GetBoolean().Should().BeFalse();
+        before.GetProperty("unsealed").GetInt32().Should().Be(legacy);
+        before.GetProperty("brokenAt").ValueKind.Should().Be(JsonValueKind.Null, "the sealed part of the chain is intact");
+
+        var admin = await _host.AsAdmin();
+        var backfill = await TestHost.DataAsync(await admin.PostAsync("/api/audit-logs/backfill", null));
+        backfill.GetProperty("sealed").GetInt32().Should().Be(legacy);
+        backfill.GetProperty("valid").GetBoolean().Should().BeTrue();
+
+        (await TestHost.DataAsync(await admin.PostAsync("/api/audit-logs/backfill", null))).GetProperty("sealed").GetInt32().Should().Be(0);
+        (await _host.AuditLogsAsync("AUDIT_CHAIN_BACKFILLED")).Should().ContainSingle();
+        (await VerifyAsync()).GetProperty("valid").GetBoolean().Should().BeTrue();
+
+        (await (await _host.AsTeacher()).PostAsync("/api/audit-logs/backfill", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task M12_I_11_DeletingAUser_KeepsTheirAuditRows_AndTheChainValid()
+    {
+        var (userId, email, password) = await _host.CreateUserAsync("Teacher");
+        await _host.LoginAsync(email, password);
+        (await (await _host.AsAdmin()).DeleteAsync($"/api/users/{userId}")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await VerifyAsync()).GetProperty("valid").GetBoolean().Should().BeTrue();
+        var theirs = (await _host.AuditLogsAsync("LOGIN_SUCCESS")).Where(l => l.GetProperty("actorId").GetString() == userId.ToString()).ToList();
+        theirs.Should().NotBeEmpty("the deleted user's id stays on their rows");
+        theirs.Should().OnlyContain(l => l.GetProperty("actorName").GetString() == "Deleted user");
+    }
+
+    [Fact]
+    public async Task M12_I_12_BatchedViolations_AuditedOncePerBatch_WithCount()
+    {
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        var batch = new
+        {
+            examSessionId = sid,
+            events = new object[]
+            {
+                new { clientEventId = Guid.NewGuid(), eventType = "FocusLost", payloadJson = "{}", recordedAt = DateTime.UtcNow },
+                new { clientEventId = Guid.NewGuid(), eventType = "WindowFocus", payloadJson = "{}", recordedAt = DateTime.UtcNow },
+                new { clientEventId = Guid.NewGuid(), eventType = "Violation", payloadJson = "{\"reason\":\"ProcessKilled\"}", recordedAt = DateTime.UtcNow }
+            }
+        };
+        (await student.PostAsJsonAsync("/api/monitoring/events/batch", batch)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var rows = (await _host.AuditLogsAsync("MONITORING_VIOLATION")).Where(l => l.GetProperty("entityId").GetString() == sid.ToString()).ToList();
+        rows.Should().ContainSingle();
+        var details = JsonDocument.Parse(rows[0].GetProperty("details").GetString()!).RootElement;
+        details.GetProperty("count").GetInt32().Should().Be(2, "only the violations of the batch");
+        details.GetProperty("eventIds").GetArrayLength().Should().Be(2);
+    }
+
+    // 1x1 PNG (decodable) and a JPEG header that is not a decodable image: the PDF draws the first and skips the second.
+    private static readonly byte[] Png1x1 = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==");
+    private static readonly byte[] BrokenJpeg =
+        [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, (byte)'J', (byte)'F', (byte)'I', (byte)'F', 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xD9];
+
+    private static Task<HttpResponseMessage> UploadAsync(HttpClient student, Guid sid, byte[] bytes, string contentType, string trigger)
+    {
+        var form = new MultipartFormDataContent();
+        form.Add(new StringContent(sid.ToString()), "examSessionId");
+        form.Add(new StringContent("Screen"), "kind");
+        form.Add(new StringContent(trigger), "trigger");
+        form.Add(new StringContent(DateTime.UtcNow.ToString("O")), "capturedAt");
+        var file = new ByteArrayContent(bytes);
+        file.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        form.Add(file, "file", contentType == "image/png" ? "screen.png" : "screen.jpg");
+        return student.PostAsync("/api/monitoring/screenshot", form);
+    }
+
+    [Fact]
+    public async Task M12_I_13_Screenshots_InEvidenceZip_AndViolationsPdfCopesWithUndecodableImage()
+    {
+        var student = await _host.AsStudent();
+        var sid = await _host.StartSessionAsync(student, _host.Seed.ExamId);
+        (await TestHost.PostEventAsync(student, sid, "Violation", "{\"reason\":\"ProcessKilled\"}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await UploadAsync(student, sid, Png1x1, "image/png", "Violation")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await UploadAsync(student, sid, BrokenJpeg, "image/jpeg", "Interval")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var pdf = await GenerateReportAsync("violations", "application/pdf");
+        Encoding.ASCII.GetString(pdf, 0, 4).Should().Be("%PDF");
+        Encoding.Latin1.GetString(pdf).Should().Contain("/Subtype /Image", "the decodable capture is drawn as a thumbnail");
+
+        var bytes = await GenerateReportAsync("evidence-zip", "application/zip");
+        using var zip = new ZipArchive(new MemoryStream(bytes));
+        zip.Entries.Count(e => e.FullName.StartsWith("screenshots/")).Should().Be(2);
+        using var mr = new StreamReader(zip.GetEntry("manifest.json")!.Open());
+        var manifest = JsonDocument.Parse(await mr.ReadToEndAsync()).RootElement;
+        manifest.GetProperty("files").EnumerateArray()
+            .Where(f => f.GetProperty("path").GetString()!.StartsWith("screenshots/"))
+            .Should().OnlyContain(f => f.GetProperty("source").GetProperty("matchesUpload").GetBoolean());
+        manifest.GetProperty("auditChain").GetProperty("valid").GetBoolean().Should().BeTrue();
+
+        using var audit = new StreamReader(zip.GetEntry("audit.csv")!.Open());
+        (await audit.ReadToEndAsync()).Should().Contain("MONITORING_VIOLATION").And.Contain(sid.ToString());
+    }
+
+    [Fact]
+    public async Task M12_A_05_ReportExports_OwnerOnly_UnknownType400_Audited()
+    {
+        var (_, email, password) = await _host.CreateUserAsync("Teacher");
+        var outsider = await _host.LoginAsync(email, password);
+        (await outsider.PostAsJsonAsync("/api/analytics/reports/attendance", new { examId = _host.Seed.ExamId }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await (await _host.AsStudent()).PostAsJsonAsync("/api/analytics/reports/excel", new { examId = _host.Seed.ExamId }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var teacher = await _host.AsTeacher();
+        (await teacher.PostAsJsonAsync("/api/analytics/reports/payroll", new { examId = _host.Seed.ExamId }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await teacher.PostAsJsonAsync("/api/analytics/reports/scores", new { examId = Guid.NewGuid() }))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var pdf = await GenerateReportAsync("scores", "application/pdf");
+        var logged = (await _host.AuditLogsAsync("REPORT_GENERATED")).Should().ContainSingle().Subject;
+        JsonDocument.Parse(logged.GetProperty("details").GetString()!).RootElement.GetProperty("sha256").GetString()
+            .Should().Be(Convert.ToHexString(SHA256.HashData(pdf)).ToLowerInvariant(), "the audit row vouches for the exact file handed out");
+
+        var history = await TestHost.JsonAsync(await teacher.GetAsync($"/api/analytics/exams/{_host.Seed.ExamId}/reports"));
+        history.EnumerateArray().Select(r => r.GetProperty("reportType").GetString()).Should().Contain("Scores");
     }
 }

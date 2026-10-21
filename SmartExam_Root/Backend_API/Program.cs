@@ -69,6 +69,8 @@ builder.Services.AddHostedService<Backend_API.Services.Grading.GradingWorker>();
 
 // Module 4 — Analytics
 builder.Services.AddScoped<Backend_API.Services.Analytics.AnalyticsService>();
+// Module 12 — attendance / violations / scores PDFs, Excel and the evidence ZIP
+builder.Services.AddScoped<Backend_API.Services.Analytics.ReportExportService>();
 
 // Module 6 — Notifications
 builder.Services.AddScoped<Backend_API.Services.Notifications.EmailService>();

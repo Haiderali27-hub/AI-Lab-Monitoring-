@@ -85,14 +85,14 @@ test('M12-E-02 Reports page generates PDF', async ({ page, request }) => {
   await expect(page.locator('table tbody tr').first()).toContainText('.pdf');
 });
 
-test.fixme('M12-E-04 Chain verified badge', async ({ page }) => {
-  // Planned: GET /api/audit-logs/verify (M12-I-01) surfaced on the audit page.
+test('M12-E-04 Chain verified badge', async ({ page }) => {
+  // GET /api/audit-logs/verify (M12-I-01) surfaced on the audit page.
   await loginAs(page, ADMIN.email, ADMIN.password);
   await page.goto('/admin/audit-logs');
   await expect(page.getByTestId('audit-chain-status')).toHaveText(/chain verified/i);
 });
 
-test.fixme('M12-E-05 Evidence ZIP download', async ({ page, request }) => {
+test('M12-E-05 Evidence ZIP download', async ({ page, request }) => {
   const teacher = await StaffApi.teacher(request);
   await signInWeb(page, teacher);
   await page.goto('/teacher/reports');

@@ -28,11 +28,13 @@ public class SubmissionService
     private readonly GradingService _grading;
     private readonly GradingQueue _gradingQueue;
     private readonly PlagiarismService _plagiarism;
+    private readonly AuditService _audit;
 
     public SubmissionService(AppDbContext db, IHubContext<MonitoringHub> hub, GradingService grading, GradingQueue gradingQueue,
-        PlagiarismService plagiarism)
+        PlagiarismService plagiarism, AuditService audit)
     {
         _db = db;
+        _audit = audit;
         _hub = hub;
         _grading = grading;
         _gradingQueue = gradingQueue;
@@ -83,6 +85,16 @@ public class SubmissionService
         // Practice exams: shared answers are expected, not misconduct
         if (!session.Exam.IsMock)
             await _plagiarism.DetectAsync(session, answers);
+
+        // Module 12: the student's own submit is audited with its receipt (force-submit and time-out are audited by
+        // the proctor action / the sweeper that finalise the session).
+        if (finalStatus == SessionStatus.Submitted)
+            _audit.Add(session.UserId, "SESSION_SUBMITTED", "ExamSession", session.SessionId.ToString(), new
+            {
+                examId = session.ExamId,
+                answerCount = answers.Count,
+                receiptSha256 = session.ReceiptSha256
+            });
 
         await _db.SaveChangesAsync();
         foreach (var answerId in toGrade) _gradingQueue.Enqueue(answerId);

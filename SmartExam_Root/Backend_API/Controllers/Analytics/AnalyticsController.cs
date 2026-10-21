@@ -20,13 +20,17 @@ public class AnalyticsController : ControllerBase
     private const string NotOwnerMessage = "Only the exam's teacher or an admin can see its analytics and reports.";
 
     private readonly AnalyticsService _analytics;
+    private readonly ReportExportService _exports;
     private readonly ExamAccessService _access;
 
-    public AnalyticsController(AnalyticsService analytics, ExamAccessService access)
+    public AnalyticsController(AnalyticsService analytics, ReportExportService exports, ExamAccessService access)
     {
         _analytics = analytics;
+        _exports = exports;
         _access = access;
     }
+
+    public sealed record ReportRequest(Guid ExamId);
 
     private Task<IActionResult?> DenyUnlessOwnerAsync(Guid examId) =>
         _access.DenyUnlessAsync(User, examId, ExamAccess.Owner, NotOwnerMessage);
@@ -75,8 +79,36 @@ public class AnalyticsController : ControllerBase
         return Ok(new { message = "Report generated.", downloadUrl = $"/api/analytics/reports/{fileName}" });
     }
 
+    // POST /api/analytics/reports/{type}  body { examId }  — Module 12 exports:
+    // attendance | violations | scores (PDF), excel (scores + attendance .xlsx), evidence-zip (screenshots, events CSV,
+    // incidents, audit extract, manifest with SHA-256 per file). Returns the download URL like the exam report.
+    [HttpPost("reports/{type}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Teacher")]
+    public async Task<IActionResult> GenerateExport(string type, [FromBody] ReportRequest request, CancellationToken cancellationToken)
+    {
+        var kind = type.Trim().ToLowerInvariant();
+        if (!ReportExportService.Types.Contains(kind))
+            return BadRequest(new { message = $"Unknown report type. Use one of: {string.Join(", ", ReportExportService.Types)}." });
+        if (request.ExamId == Guid.Empty)
+            return BadRequest(new { message = "examId is required." });
+
+        var denied = await DenyUnlessOwnerAsync(request.ExamId);
+        if (denied is not null) return denied;
+
+        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var report = await _exports.GenerateAsync(kind, request.ExamId, userId, cancellationToken);
+        return Ok(new
+        {
+            message = "Report generated.",
+            report.ReportType,
+            report.FileName,
+            report.Sha256,
+            downloadUrl = $"/api/analytics/reports/{report.FileName}"
+        });
+    }
+
     // GET /api/analytics/reports/{fileName}
-    // Downloads the generated PDF file
+    // Downloads a generated report file (PDF, Excel or evidence ZIP)
     [HttpGet("reports/{fileName}")]
     [Authorize(Roles = "Admin,SuperAdmin,Teacher")]
     public async Task<IActionResult> DownloadReport(string fileName)
@@ -96,13 +128,15 @@ public class AnalyticsController : ControllerBase
         var denied = await DenyUnlessOwnerAsync(report.ExamId);
         if (denied is not null) return denied;
 
-        var outputDir = Path.GetFullPath("Reports/");
+        var outputDir = _analytics.ReportDirectory;
+        if (!outputDir.EndsWith(Path.DirectorySeparatorChar)) outputDir += Path.DirectorySeparatorChar;
         var filePath = Path.GetFullPath(Path.Combine(outputDir, safeName));
         if (!filePath.StartsWith(outputDir, StringComparison.Ordinal) || !System.IO.File.Exists(filePath))
             return NotFound(new { message = "Report not found." });
 
-        var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-        return File(bytes, "application/pdf", safeName);
+        // Streamed: an evidence ZIP can be large.
+        var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+        return File(stream, ReportExportService.ContentTypeFor(safeName), safeName);
     }
 
     // GET /api/analytics/exams/{examId}/reports

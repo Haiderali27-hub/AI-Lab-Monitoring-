@@ -25,6 +25,7 @@ public sealed class HeartbeatWatchdogService(
     public const string SweepSecondsKey = "Monitoring:DisconnectSweepSeconds";
     public const int DefaultDisconnectAfterSeconds = 30;
     public const int DefaultSweepSeconds = 5;
+    public const string DisconnectedAuditEvent = "SESSION_DISCONNECTED";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -80,9 +81,18 @@ public sealed class HeartbeatWatchdogService(
             .ToListAsync(cancellationToken);
         if (silent.Count == 0) return 0;
 
+        var audit = scope.ServiceProvider.GetRequiredService<AuditService>();
         foreach (var session in silent)
         {
             var lastSeen = session.LastHeartbeatAt ?? session.StartedAt;
+            // Module 12: a network drop is part of the audit trail (the reconnect is audited by the next heartbeat).
+            audit.Add(null, DisconnectedAuditEvent, "ExamSession", session.SessionId.ToString(), new
+            {
+                examId = session.ExamId,
+                userId = session.UserId,
+                lastHeartbeatAt = session.LastHeartbeatAt,
+                silentSeconds = (int)(utcNow - lastSeen).TotalSeconds
+            });
             session.IsDisconnected = true;
             session.DisconnectedAt = utcNow;
             db.MonitoringEvents.Add(new MonitoringEvent

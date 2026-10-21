@@ -1,7 +1,76 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import AppLayout from '../../components/layout/AppLayout';
 import { auditApi } from '../../api/audit.api';
-import type { AuditLogEntry } from '../../api/audit.api';
+import type { AuditChainStatus, AuditLogEntry } from '../../api/audit.api';
+import { useToast } from '../../context/ToastContext';
+
+// Module 12: the result of GET /api/audit-logs/verify as one badge (+ the one-off "seal legacy rows" action).
+function ChainStatusBadge({ status, checking, error, onRecheck, onBackfill, backfilling }: {
+  status: AuditChainStatus | null;
+  checking: boolean;
+  error: boolean;
+  onRecheck: () => void;
+  onBackfill: () => void;
+  backfilling: boolean;
+}) {
+  let tone = 'bg-slate-50 text-slate-600 border-slate-200';
+  let icon = 'hourglass_empty';
+  let label = 'Verifying chain…';
+  if (!checking && error) {
+    label = 'Chain check failed';
+    icon = 'error';
+  } else if (!checking && status) {
+    if (status.valid) {
+      tone = 'bg-green-50 text-green-700 border-green-200';
+      icon = 'verified';
+      label = `Chain verified ✓ (${status.checkedCount} entries)`;
+    } else if (status.brokenAt !== null) {
+      tone = 'bg-red-50 text-red-700 border-red-200';
+      icon = 'gpp_bad';
+      label = `Chain broken at #${status.brokenAt}`;
+    } else {
+      tone = 'bg-amber-50 text-amber-700 border-amber-200';
+      icon = 'pending';
+      label = `${status.unsealed} entr${status.unsealed === 1 ? 'y' : 'ies'} not sealed yet`;
+    }
+  }
+
+  const needsBackfill = !checking && status !== null && !status.valid && status.brokenAt === null && status.unsealed > 0;
+  const title = status
+    ? [status.reason, status.lastVerifiedHash ? `Last verified #${status.lastVerifiedSequence}: ${status.lastVerifiedHash}` : null]
+        .filter(Boolean).join('\n')
+    : undefined;
+
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        data-testid="audit-chain-status"
+        title={title}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold ${tone}`}
+      >
+        <span className="material-symbols-outlined text-[16px]">{icon}</span>
+        {label}
+      </span>
+      {needsBackfill && (
+        <button
+          onClick={onBackfill}
+          disabled={backfilling}
+          className="px-3 py-1.5 rounded-lg border border-amber-300 bg-white text-amber-700 text-xs font-semibold hover:bg-amber-50 disabled:opacity-50"
+        >
+          Seal legacy entries
+        </button>
+      )}
+      <button
+        onClick={onRecheck}
+        disabled={checking}
+        title="Verify the audit hash chain again"
+        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 disabled:opacity-50"
+      >
+        Re-verify
+      </button>
+    </div>
+  );
+}
 
 // Map an event type to a small colored badge style.
 function badgeForEvent(eventType: string): string {
@@ -23,6 +92,38 @@ export default function AuditLogsPage() {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [eventFilter, setEventFilter] = useState<string>('All');
+  const { showToast } = useToast();
+  const [chain, setChain] = useState<AuditChainStatus | null>(null);
+  const [chainChecking, setChainChecking] = useState(true);
+  const [chainError, setChainError] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+
+  const verifyChain = useCallback(() => {
+    setChainChecking(true);
+    setChainError(false);
+    auditApi
+      .verifyChain()
+      .then(setChain)
+      .catch(err => {
+        console.error('Failed to verify the audit chain', err);
+        setChainError(true);
+      })
+      .finally(() => setChainChecking(false));
+  }, []);
+
+  useEffect(() => verifyChain(), [verifyChain]);
+
+  const backfillChain = () => {
+    setBackfilling(true);
+    auditApi
+      .backfillChain()
+      .then(r => {
+        showToast('Audit chain', `Sealed ${r.sealed} legacy entr${r.sealed === 1 ? 'y' : 'ies'}.`, r.valid ? 'success' : 'error');
+        verifyChain();
+      })
+      .catch(() => showToast('Audit chain', 'Sealing the legacy entries failed.', 'error'))
+      .finally(() => setBackfilling(false));
+  };
 
   useEffect(() => {
     let active = true;
@@ -71,9 +172,19 @@ export default function AuditLogsPage() {
       <div className="max-w-[1280px] mx-auto pb-12">
 
         {/* Sub-header */}
-        <div className="mb-8">
-          <h3 className="text-xl font-bold text-slate-800">Security & Administrative Logs</h3>
-          <p className="text-sm text-slate-400 mt-0.5">Chronological record of system modifications, resets, and exam management actions.</p>
+        <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-bold text-slate-800">Security & Administrative Logs</h3>
+            <p className="text-sm text-slate-400 mt-0.5">Chronological record of system modifications, resets, and exam management actions. Every entry is hash-chained to the one before it, so a changed or deleted entry is detected.</p>
+          </div>
+          <ChainStatusBadge
+            status={chain}
+            checking={chainChecking}
+            error={chainError}
+            onRecheck={verifyChain}
+            onBackfill={backfillChain}
+            backfilling={backfilling}
+          />
         </div>
 
         {/* Searching & Filters Controls */}

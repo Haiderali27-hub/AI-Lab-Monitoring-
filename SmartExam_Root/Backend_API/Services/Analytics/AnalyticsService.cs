@@ -14,6 +14,9 @@ public class AnalyticsService
 
     public AppDbContext Db => _db;
 
+    /// <summary>Folder the generated report files are written to and downloaded from (config Analytics:ReportOutputPath).</summary>
+    public string ReportDirectory => Path.GetFullPath(_config["Analytics:ReportOutputPath"] ?? "Reports/");
+
     public AnalyticsService(AppDbContext db, IConfiguration config)
     {
         _db = db;
@@ -169,7 +172,7 @@ public class AnalyticsService
             .FirstAsync(e => e.ExamId == examId);
 
         // Ensure reports directory exists
-        var outputDir = _config["Analytics:ReportOutputPath"] ?? "Reports/";
+        var outputDir = ReportDirectory;
         Directory.CreateDirectory(outputDir);
 
         var fileName = $"Exam_Report_{examId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";

@@ -25,9 +25,17 @@ public class MonitoringController(
     SeatGuard seats,
     EvidenceStorage evidence,
     IConfiguration configuration,
+    AuditService audit,
     ILogger<MonitoringController> logger) : ControllerBase
 {
+    // Module 12: violations (app switch, blocked keys, …) and reconnects are also written to the audit trail.
+    public const string ViolationAuditEvent = "MONITORING_VIOLATION";
+    public const string ReconnectedAuditEvent = "SESSION_RECONNECTED";
+    // At most this many event ids are listed in the audit row of one synced batch (the count is always complete).
+    private const int MaxAuditedEventIds = 50;
+
     private readonly AppDbContext _db = db;
+    private readonly AuditService _audit = audit;
     private readonly IHubContext<MonitoringHub> _hubContext = hubContext;
     private readonly SeatGuard _seats = seats;
     private readonly EvidenceStorage _evidence = evidence;
@@ -313,6 +321,12 @@ public class MonitoringController(
             RecordedAt = now,
             ReceivedAt = now
         });
+        _audit.Add(session.UserId, ReconnectedAuditEvent, "ExamSession", session.SessionId.ToString(), new
+        {
+            examId = session.ExamId,
+            offlineSeconds,
+            disconnectedAt = session.DisconnectedAt
+        });
         session.IsDisconnected = false;
         session.DisconnectedAt = null;
         return offlineSeconds;
@@ -392,7 +406,7 @@ public class MonitoringController(
             if (session is null)
                 return NotFound(new ApiEnvelope<object>(false, "NOT_FOUND", "Session not found.", null));
 
-            _db.MonitoringEvents.Add(new MonitoringEvent
+            var monitoringEvent = new MonitoringEvent
             {
                 EventId = Guid.NewGuid(),
                 ExamSessionId = session.SessionId,
@@ -400,7 +414,17 @@ public class MonitoringController(
                 Payload = request.PayloadJson,
                 RecordedAt = now,
                 ReceivedAt = now
-            });
+            };
+            _db.MonitoringEvents.Add(monitoringEvent);
+            if (ViolationClassifier.IsViolation(eventType))
+                _audit.Add(studentId, ViolationAuditEvent, "ExamSession", session.SessionId.ToString(), new
+                {
+                    examId = session.ExamId,
+                    violationType = eventType.ToString(),
+                    reportedAs = request.EventType,
+                    count = 1,
+                    eventIds = new[] { monitoringEvent.EventId }
+                });
             await _db.SaveChangesAsync();
 
             if (ViolationClassifier.IsViolation(eventType))
@@ -531,6 +555,22 @@ public class MonitoringController(
                 _logger.LogInformation(ex, "Event batch for session {SessionId} raced a duplicate; retrying dedup.", session.SessionId);
                 foreach (var p in fresh) _db.Entry(p.Event).State = EntityState.Detached;
             }
+        }
+
+        // Module 12: one audit row per synced batch that carried violations (an offline backlog can hold many).
+        var violations = fresh.Where(p => ViolationClassifier.IsViolation(p.Event.EventType)).Select(p => p.Event).ToList();
+        if (violations.Count > 0)
+        {
+            await _audit.LogAsync(studentId, ViolationAuditEvent, "ExamSession", session.SessionId.ToString(), new
+            {
+                examId = session.ExamId,
+                violationType = violations.Count == 1 ? violations[0].EventType.ToString() : "Multiple",
+                types = violations.GroupBy(v => v.EventType.ToString()).ToDictionary(g => g.Key, g => g.Count()),
+                count = violations.Count,
+                eventIds = violations.Take(MaxAuditedEventIds).Select(v => v.EventId).ToList(),
+                firstRecordedAt = violations.Min(v => v.RecordedAt),
+                lastRecordedAt = violations.Max(v => v.RecordedAt)
+            });
         }
 
         // Live alerts only for fresh violations of a running session; an offline backlog shows up in the

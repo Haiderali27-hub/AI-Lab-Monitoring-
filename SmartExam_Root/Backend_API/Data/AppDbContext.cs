@@ -2,6 +2,7 @@ using Backend_API.Models;
 using Backend_API.Models.Enums;
 using Backend_API.Models.Analytics;
 using Backend_API.Models.Notifications;
+using Backend_API.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend_API.Data;
@@ -39,6 +40,44 @@ public class AppDbContext : DbContext
     public DbSet<Screenshot> Screenshots => Set<Screenshot>();
     public DbSet<Incident> Incidents => Set<Incident>();
     public DbSet<TestCaseResult> TestCaseResults => Set<TestCaseResult>();
+
+    // Module 12: new audit rows are linked into the hash chain as they are saved, one writer at a time (AuditChain).
+    private bool _chainingSuspended;
+
+    private List<AuditLog> AddedAuditRows() =>
+        _chainingSuspended
+            ? []
+            : ChangeTracker.Entries<AuditLog>().Where(e => e.State == EntityState.Added).Select(e => e.Entity).ToList();
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        var added = AddedAuditRows();
+        return added.Count == 0
+            ? base.SaveChanges(acceptAllChangesOnSuccess)
+            : AuditChain.SaveSealed(this, added, () => base.SaveChanges(acceptAllChangesOnSuccess));
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        var added = AddedAuditRows();
+        return added.Count == 0
+            ? base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken)
+            : AuditChain.SaveSealedAsync(this, added, () => base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken), cancellationToken);
+    }
+
+    /// <summary>For <see cref="AuditChain.BackfillAsync"/>, which seals its rows itself while holding the writer lock.</summary>
+    internal async Task<int> SaveChangesWithoutChainingAsync(CancellationToken cancellationToken)
+    {
+        _chainingSuspended = true;
+        try
+        {
+            return await base.SaveChangesAsync(true, cancellationToken);
+        }
+        finally
+        {
+            _chainingSuspended = false;
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -115,12 +154,13 @@ public class AppDbContext : DbContext
             .HasForeignKey(t => t.TeacherId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // AuditLog: optional actor FK
-        modelBuilder.Entity<AuditLog>()
-            .HasOne(a => a.Actor)
-            .WithMany()
-            .HasForeignKey(a => a.ActorId)
-            .OnDelete(DeleteBehavior.SetNull);
+        // AuditLog: ActorId is a plain indexed id, not a foreign key (Module 12): the row's hash covers it, so it must keep
+        // the deleted user's id instead of being nulled. Sequence is the hash chain's order (unique; null only for rows
+        // from before the chain, until the backfill seals them).
+        modelBuilder.Entity<AuditLog>().HasIndex(a => a.ActorId);
+        modelBuilder.Entity<AuditLog>().HasIndex(a => a.Sequence).IsUnique();
+        modelBuilder.Entity<AuditLog>().Property(a => a.PrevHash).HasMaxLength(64);
+        modelBuilder.Entity<AuditLog>().Property(a => a.Hash).HasMaxLength(64);
 
         // Answer → ExamSession: the scalar FK is named SessionId (not ExamSessionId),
         // so EF convention would otherwise create a stray shadow FK (ExamSessionSessionId)
