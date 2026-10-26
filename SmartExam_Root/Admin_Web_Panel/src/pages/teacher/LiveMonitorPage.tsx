@@ -655,15 +655,15 @@ export default function LiveMonitorPage() {
         </header>
 
         {/* Sub-header Bar */}
-        <div className="h-[72px] bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 z-30 shadow-sm">
+        <div className="min-h-[72px] py-3 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-8 shrink-0 z-30 shadow-sm">
           <div>
             <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">CURRENT EXAM</h2>
             <div className="flex items-center gap-2 mt-1">
-              <span className="font-bold text-slate-800 text-lg">
+              <span className="font-bold text-slate-800 text-lg whitespace-nowrap">
                 {activeExam ? activeExam.title : 'No active exam running'}
               </span>
               {activeExam && (
-                <span className="px-2 py-0.5 bg-blue-50 text-primary-600 border border-blue-100 text-[10px] font-bold rounded uppercase tracking-wider">
+                <span className="px-2 py-0.5 bg-blue-50 text-primary-600 border border-blue-100 text-[10px] font-bold rounded uppercase tracking-wider whitespace-nowrap">
                   {activeExam.courseName}
                 </span>
               )}
@@ -673,7 +673,7 @@ export default function LiveMonitorPage() {
                   aria-label="Exam"
                   value={activeExam?.examId ?? ''}
                   onChange={e => handleSelectExam(e.target.value)}
-                  className="ml-2 h-8 max-w-[260px] border border-slate-200 bg-white rounded-lg px-2 text-xs text-slate-700 focus:ring-2 focus:ring-primary-500 outline-none cursor-pointer"
+                  className="ml-2 h-8 max-w-[340px] border border-slate-200 bg-white rounded-lg pl-2 pr-8 text-xs text-slate-700 focus:ring-2 focus:ring-primary-500 outline-none cursor-pointer"
                   title={isInvigilator ? 'Exams you are assigned to supervise' : 'Running exams'}
                 >
                   {runningExams.map(e => (
@@ -692,15 +692,16 @@ export default function LiveMonitorPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-semibold">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-semibold whitespace-nowrap">
                   <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                  <span>{studentStatuses.size} Student(s) Active</span>
+                  {/* Active = still sitting the exam; submitted / force-submitted / timed-out tiles stay on the board but are not counted. */}
+                  <span>{Array.from(studentStatuses.values()).filter(st => !isFinalised(st.sessionStatus)).length} Student(s) Active</span>
                 </div>
                 {/* Extending or ending the whole exam is the teacher's / admin's call, not a proctor's. */}
                 {!isInvigilator && (<>
                 <button
                   onClick={handleExtendTime}
-                  className="px-4 py-2 bg-blue-50 text-primary-600 border border-blue-200 font-bold text-xs rounded-xl hover:bg-blue-100 transition-all active:scale-95 flex items-center gap-1.5"
+                  className="px-4 py-2 bg-blue-50 text-primary-600 border border-blue-200 font-bold text-xs rounded-xl hover:bg-blue-100 transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap"
                   title="Grant extra minutes to all students in this exam"
                 >
                   <span className="material-symbols-outlined text-[16px]">more_time</span>
@@ -708,7 +709,7 @@ export default function LiveMonitorPage() {
                 </button>
                 <button
                   onClick={handleForceSubmitAll}
-                  className="px-4 py-2 bg-red-600 text-white font-bold text-xs rounded-xl hover:bg-red-700 transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
+                  className="px-4 py-2 bg-red-600 text-white font-bold text-xs rounded-xl hover:bg-red-700 transition-all shadow-sm active:scale-95 flex items-center gap-1.5 whitespace-nowrap"
                 >
                   <span className="material-symbols-outlined text-[16px]">power_settings_new</span>
                   Force End Exam

@@ -58,6 +58,12 @@ public class SecurityHardeningTests : IDisposable
         PasswordHelper.VerifyPassword("Admin@123", salt, legacy).Should().BeTrue();
         PasswordHelper.VerifyPassword("Admin@124", salt, legacy).Should().BeFalse();
         PasswordHelper.NeedsRehash(legacy).Should().BeTrue();
+
+        // A PBKDF2 hash with an older iteration count (the previous 210,000) still verifies but is flagged.
+        var older = "pbkdf2$210000$" + Convert.ToBase64String(Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes("Admin@123"), Encoding.UTF8.GetBytes(salt), 210_000, HashAlgorithmName.SHA256, 32));
+        PasswordHelper.VerifyPassword("Admin@123", salt, older).Should().BeTrue();
+        PasswordHelper.NeedsRehash(older).Should().BeTrue();
     }
 
     [Fact]

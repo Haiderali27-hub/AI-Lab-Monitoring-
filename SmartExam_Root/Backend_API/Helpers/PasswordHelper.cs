@@ -8,7 +8,9 @@ public static class PasswordHelper
     // Hashes are stored as "pbkdf2$<iterations>$<base64 hash>"; the salt stays in User.Salt.
     // Hashes without the prefix are legacy single-round SHA-256 and are upgraded on next login.
     private const string Prefix = "pbkdf2$";
-    private const int Iterations = 210_000;
+    // OWASP Password Storage Cheat Sheet (2023): 600,000 iterations for PBKDF2-HMAC-SHA256.
+    // Hashes with fewer iterations still verify and are re-hashed at the next successful login.
+    private const int Iterations = 600_000;
     private const int HashBytes = 32;
 
     public static string GenerateSalt()

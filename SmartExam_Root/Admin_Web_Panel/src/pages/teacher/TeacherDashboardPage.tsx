@@ -5,6 +5,13 @@ import { useAuth } from '../../context/AuthContext';
 import { examsApi } from '../../api/exams.api';
 import type { Exam } from '../../types';
 
+/** "90 min", "2 h", "7 days": a practice exam stays open for days, so raw minutes (10080) read like a typo. */
+function formatDuration(minutes: number): string {
+  if (minutes >= 1440 && minutes % 1440 === 0) return `${minutes / 1440} day${minutes === 1440 ? '' : 's'}`;
+  if (minutes >= 120 && minutes % 60 === 0) return `${minutes / 60} h`;
+  return `${minutes} min`;
+}
+
 export default function TeacherDashboardPage() {
   const { user } = useAuth();
   const [exams, setExams] = useState<Exam[]>([]);
@@ -141,10 +148,12 @@ export default function TeacherDashboardPage() {
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <span>{exam.durationMinutes} Mins</span>
+                                <span>{exam.isMock ? `Open ${formatDuration(exam.durationMinutes)}` : formatDuration(exam.durationMinutes)}</span>
                               </div>
                               <div className="flex items-center gap-1.5 text-xs">
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 uppercase">Ready</span>
+                                {exam.isMock
+                                  ? <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 uppercase">Practice</span>
+                                  : <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 uppercase">Ready</span>}
                               </div>
                             </div>
                           </div>

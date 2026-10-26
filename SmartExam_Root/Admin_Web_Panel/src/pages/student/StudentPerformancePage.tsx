@@ -49,21 +49,16 @@ export default function StudentPerformancePage() {
   // Calculate if improving trend
   const isImproving = trend.length > 1 && trend[trend.length - 1].scorePercent > trend[0].scorePercent;
 
-  // Group trend data by course for the "Performance by Course" card
-  const courseGroups = trend.reduce((acc: Record<string, { total: number; count: number }>, item: any) => {
-    const title = item.title.split('—')[1]?.trim() || item.title.split('-')[0]?.trim() || 'General';
-    if (!acc[title]) {
-      acc[title] = { total: 0, count: 0 };
-    }
-    acc[title].total += item.scorePercent;
-    acc[title].count += 1;
-    return acc;
-  }, {});
-
-  const coursesList = Object.entries(courseGroups).map(([name, val]) => ({
-    name,
-    avg: Math.round(val.total / val.count)
+  // "Score by Exam" card: one bar per completed exam (the trend API carries no course, so nothing is grouped).
+  const coursesList = trend.map((item: any) => ({
+    name: item.title as string,
+    avg: Math.round(item.scorePercent)
   }));
+
+  // Short, distinct axis label: the part after an em dash ("Lab Quiz 1 — Arrays & Loops" -> "Arrays & Loops"),
+  // otherwise the title without a trailing "(Demo)"-style tag.
+  const shortTitle = (title: string) =>
+    title.split('—')[1]?.trim() || title.replace(/\s*\([^)]*\)\s*$/, '').trim() || title;
 
   // Simple SVG Line Chart Coordinates Generator
   const chartHeight = 160;
@@ -192,8 +187,8 @@ export default function StudentPerformancePage() {
               {/* X Axis Labels */}
               <div className="flex justify-between px-6 pt-2 border-t border-slate-100 bg-white mt-2 rounded">
                 {trend.map((t: any, i: number) => (
-                  <span key={i} className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate w-14 text-center">
-                    {t.title.split(' ')[0] || `Exam ${i + 1}`}
+                  <span key={i} title={t.title} className="text-[11px] font-semibold text-slate-500 truncate w-28 text-center">
+                    {shortTitle(t.title) || `Exam ${i + 1}`}
                   </span>
                 ))}
               </div>
@@ -204,9 +199,9 @@ export default function StudentPerformancePage() {
         {/* Bottom Grid: Course breakdown & Timeline */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* Performance by Course */}
+          {/* Score by Exam */}
           <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-800 mb-6">Performance by Course</h2>
+            <h2 className="text-lg font-bold text-slate-800 mb-6">Score by Exam</h2>
             <div className="space-y-5">
               {coursesList.map((course: any, idx: number) => (
                 <div key={idx}>
@@ -223,7 +218,7 @@ export default function StudentPerformancePage() {
                 </div>
               ))}
               {coursesList.length === 0 && (
-                <p className="text-xs text-slate-400 italic text-center py-6">No course data available.</p>
+                <p className="text-xs text-slate-400 italic text-center py-6">No graded exams yet.</p>
               )}
             </div>
           </div>

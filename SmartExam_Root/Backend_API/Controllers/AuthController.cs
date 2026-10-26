@@ -283,7 +283,8 @@ public class AuthController : ControllerBase
     public static string? NormalizeRollNumber(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
 
-    // Transparently migrate legacy SHA-256 hashes to PBKDF2 once we know the plaintext is correct.
+    // Transparently migrate legacy SHA-256 hashes, and PBKDF2 hashes with an older iteration count,
+    // to the current PBKDF2 setting once we know the plaintext is correct.
     // Persisted by the SaveChangesAsync that follows in the login flow.
     private static void UpgradePasswordHashIfNeeded(User user, string password)
     {

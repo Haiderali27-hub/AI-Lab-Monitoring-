@@ -1132,8 +1132,8 @@ export default function CreateExamPage() {
                     type="checkbox"
                     checked={aiEvaluationEnabled}
                     onChange={e => setAiEvaluationEnabled(e.target.checked)}
-                    className="rounded-full w-10 h-6 bg-slate-300 border-none text-primary-500 focus:ring-primary-500/20"
-                    style={{ appearance: 'checkbox' }} // Simplified UI check
+                    aria-label="Enable AI Evaluation"
+                    className="mt-1"
                   />
                 </div>
 

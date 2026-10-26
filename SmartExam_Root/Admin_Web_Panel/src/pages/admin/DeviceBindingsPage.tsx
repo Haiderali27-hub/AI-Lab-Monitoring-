@@ -115,14 +115,14 @@ export default function DeviceBindingsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Student Name</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Email</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Binding Status</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Machine (PC Name)</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Windows User</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Last Seen</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Registered Date</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Actions</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Student Name</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Email</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Binding Status</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Machine (PC Name)</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Windows User</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Last Seen</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Registered Date</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -135,16 +135,16 @@ export default function DeviceBindingsPage() {
                   ) : (
                     filteredStudents.map((student) => (
                       <tr key={student.userId} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-primary-500 font-bold text-xs">
                               {student.name.split(' ').map((n) => n[0]).join('')}
                             </div>
-                            <span className="text-sm font-semibold text-slate-700">{student.name}</span>
+                            <span className="text-sm font-semibold text-slate-700 whitespace-nowrap">{student.name}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-500">{student.email}</td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3 text-sm text-slate-500">{student.email}</td>
+                        <td className="px-4 py-3">
                           {student.deviceBound ? (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 border border-green-200 text-green-700">
                               <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
@@ -157,9 +157,9 @@ export default function DeviceBindingsPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           {student.machineName ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono font-semibold text-slate-700">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono font-semibold text-slate-700 whitespace-nowrap">
                               <svg className="w-3.5 h-3.5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                               </svg>
@@ -169,15 +169,15 @@ export default function DeviceBindingsPage() {
                             <span className="text-xs text-slate-300 italic">—</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-sm font-mono text-slate-600">
+                        <td className="px-4 py-3 text-sm font-mono text-slate-600">
                           {student.windowsUsername || <span className="text-xs text-slate-300 italic">—</span>}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-500">
+                        <td className="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
                           {student.deviceLastSeenAt
                             ? new Date(student.deviceLastSeenAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
                             : <span className="text-xs text-slate-300 italic">—</span>}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-500">
+                        <td className="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
                           {student.deviceRegisteredAt ? (
                             new Date(student.deviceRegisteredAt).toLocaleDateString('en-US', {
                               month: 'short',
@@ -188,19 +188,19 @@ export default function DeviceBindingsPage() {
                             'N/A'
                           )}
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
                             {student.deviceBound && (
                               <>
                                 <button
                                   onClick={() => setConfirmStudent(student)}
-                                  className="px-3 py-1.5 text-xs font-bold text-red-600 border border-red-200 rounded hover:bg-red-50 transition-all"
+                                  className="px-3 py-1.5 text-xs font-bold text-red-600 border border-red-200 rounded hover:bg-red-50 transition-all whitespace-nowrap"
                                 >
                                   Reset Binding
                                 </button>
                                 <button
                                   onClick={() => handleForceLogout(student.userId)}
-                                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 rounded hover:bg-slate-50 transition-all"
+                                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 rounded hover:bg-slate-50 transition-all whitespace-nowrap"
                                 >
                                   Force Logout
                                 </button>

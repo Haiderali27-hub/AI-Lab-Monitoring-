@@ -42,11 +42,11 @@ function ChainStatusBadge({ status, checking, error, onRecheck, onBackfill, back
     : undefined;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 shrink-0">
       <span
         data-testid="audit-chain-status"
         title={title}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold ${tone}`}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold whitespace-nowrap ${tone}`}
       >
         <span className="material-symbols-outlined text-[16px]">{icon}</span>
         {label}
@@ -64,7 +64,7 @@ function ChainStatusBadge({ status, checking, error, onRecheck, onBackfill, back
         onClick={onRecheck}
         disabled={checking}
         title="Verify the audit hash chain again"
-        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 disabled:opacity-50"
+        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 disabled:opacity-50 whitespace-nowrap"
       >
         Re-verify
       </button>
@@ -234,40 +234,40 @@ export default function AuditLogsPage() {
             <table className="w-full text-left border-collapse">
               <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                 <tr>
-                  <th className="px-6 py-4">Timestamp</th>
-                  <th className="px-6 py-4">Actor</th>
-                  <th className="px-6 py-4">Event</th>
-                  <th className="px-6 py-4">Entity</th>
-                  <th className="px-6 py-4">Details</th>
+                  <th className="px-4 py-4">Timestamp</th>
+                  <th className="px-4 py-4">Actor</th>
+                  <th className="px-4 py-4">Event</th>
+                  <th className="px-4 py-4">Entity</th>
+                  <th className="px-4 py-4">Details</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
                 {filteredLogs.map(log => (
                   <tr key={log.logId} className="hover:bg-slate-50/30 transition-colors">
-                    <td className="px-6 py-4 font-mono text-slate-400 whitespace-nowrap">
+                    <td className="px-4 py-4 font-mono text-slate-400 whitespace-nowrap">
                       {new Date(log.createdAt).toLocaleString()}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="font-semibold text-slate-800">{log.actorName}</div>
                       {log.actorEmail && (
                         <div className="text-[10px] text-slate-400 font-mono">{log.actorEmail}</div>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <span className={`px-2 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wider ${badgeForEvent(log.eventType)}`}>
                         {log.eventType}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       {log.entityType ? (
                         <span className="text-slate-600 font-semibold">{log.entityType}</span>
                       ) : (
                         <span className="text-slate-300">—</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 max-w-md">
+                    <td className="px-4 py-4 max-w-md">
                       {log.details ? (
-                        <span className="inline-block max-w-full truncate align-bottom font-mono text-[10px] bg-slate-50 border border-slate-200 text-slate-600 px-2 py-1 rounded" title={log.details}>
+                        <span className="block max-w-[22rem] truncate font-mono text-[10px] bg-slate-50 border border-slate-200 text-slate-600 px-2 py-1 rounded" title={log.details}>
                           {log.details}
                         </span>
                       ) : (

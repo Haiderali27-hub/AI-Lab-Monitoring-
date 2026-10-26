@@ -9,7 +9,7 @@ Companion to [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md). Paste-ready for
 | `I` | API integration (in-process) | xUnit + `WebApplicationFactory` — `Backend_API.Tests/Tests/Acceptance` |
 | `A` | Headless API (black-box HTTP) | Playwright `request` — `Admin_Web_Panel/tests/api` |
 | `E` | Headless browser E2E | Playwright chromium + student simulator — `Admin_Web_Panel/tests/e2e` |
-| `D` | Desktop UI automation | FlaUI — `Student_Desktop_App.UITests` |
+| `D` | Desktop UI check on a lab PC | Manual for now (FlaUI automation planned; no UI test project exists yet). Rows marked "logic ✅" have their decision logic covered by unit tests |
 | `M` | Manual lab check | Checklist, run before each demo |
 | `P` | Performance | k6 |
 
@@ -24,7 +24,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | ID | Title | Steps | Expected | Status |
 |----|-------|-------|----------|--------|
 | SEC-U-01 | PBKDF2 hash round-trip | Hash password, verify right/wrong | Prefix `pbkdf2$`; right=true, wrong=false | ✅ xUnit |
-| SEC-U-02 | Legacy SHA-256 still verifies | Verify legacy hash | true; `NeedsRehash`=true | ✅ xUnit |
+| SEC-U-02 | Legacy and older-iteration hashes still verify | Verify a legacy SHA-256 hash and a PBKDF2 hash with 210,000 iterations (current: 600,000) | true; `NeedsRehash`=true for both | ✅ xUnit |
 | SEC-I-01 | Login upgrades legacy hash | Set admin hash to legacy, login | Stored hash now `pbkdf2$` | ✅ xUnit |
 | SEC-I-02 | Swagger hidden in Production | GET `/swagger/v1/swagger.json` in Production | 404 | ✅ xUnit |
 | SEC-I-03 | Reset endpoint hidden in Production | Admin POST `/api/admin/reset-demo-data` in Production | 404 | ✅ xUnit |

@@ -132,7 +132,7 @@ public static class DbSeeder
             Instructions = "Answer all questions. Only the whitelisted applications may be used. Ask the invigilator if your workstation misbehaves.",
             StartTime = DateTime.UtcNow.AddMinutes(-2),
             DurationMinutes = 90,
-            AllowedApps = "[\"code.exe\",\"codeblocks.exe\",\"chrome.exe\"]",
+            AllowedApps = "[\"code.exe\",\"codeblocks.exe\"]",
             AiEvaluationEnabled = true,
             PlagiarismThreshold = 70,
             Status = ExamStatus.Scheduled
@@ -182,12 +182,12 @@ public static class DbSeeder
         // The demo invigilator supervises this exam only (Module 7 scoping).
         await db.ExamProctors.AddAsync(new ExamProctor { Exam = exam, User = invigilator, AssignedBy = teacher.UserId });
 
-        // --- Practice exam (Module 2): open for a week, unlimited attempts, never graded into stats ---
+        // --- Practice exam (Module 2): open for a week, unlimited attempts, never counted in results or stats ---
         var practice = new Exam
         {
             Section = section,
-            Title = "Practice Exam (Mock)",
-            Instructions = "Ungraded rehearsal. Try the exam window, timer and submit as often as you like.",
+            Title = "Practice Exam (Demo)",
+            Instructions = "Practice run: try the exam window, timer and submit as often as you like. It does not count towards your results.",
             StartTime = DateTime.UtcNow.AddMinutes(-5),
             DurationMinutes = 7 * 24 * 60,
             AllowedApps = "[]",
@@ -213,12 +213,12 @@ public static class DbSeeder
             new ExamAssignment { Exam = practice, Student = student2, IsEligible = true }
         );
 
-        // --- Demo exam #2: ended with one graded submission, so Results/Analytics pages have data ---
+        // --- Demo exam #2: an earlier lab exam (last week), ended with one ungraded submission, so Results/Analytics have data ---
         var examEnded = new Exam
         {
             Section = section,
-            Title = "Final Lab Exam (Demo)",
-            StartTime = DateTime.UtcNow.AddHours(-3),
+            Title = "Lab Exam 1 (Demo)",
+            StartTime = DateTime.UtcNow.AddDays(-7),
             DurationMinutes = 120,
             AllowedApps = "[\"code.exe\",\"codeblocks.exe\"]",
             AiEvaluationEnabled = true,
@@ -241,8 +241,8 @@ public static class DbSeeder
         {
             Exam = examEnded,
             Student = student1,
-            StartedAt = DateTime.UtcNow.AddHours(-3),
-            SubmittedAt = DateTime.UtcNow.AddHours(-2),
+            StartedAt = DateTime.UtcNow.AddDays(-7),
+            SubmittedAt = DateTime.UtcNow.AddDays(-7).AddHours(1),
             Status = SessionStatus.Submitted
         };
         await db.ExamSessions.AddAsync(sessionEnded);
@@ -252,8 +252,8 @@ public static class DbSeeder
             ExamSession = sessionEnded,
             Question = qEnded,
             AnswerText = "void reverse(string &s) { reverse(s.begin(), s.end()); }",
-            SubmittedAt = DateTime.UtcNow.AddHours(-2),
-            LastSavedAt = DateTime.UtcNow.AddHours(-2.5)
+            SubmittedAt = DateTime.UtcNow.AddDays(-7).AddHours(1),
+            LastSavedAt = DateTime.UtcNow.AddDays(-7).AddMinutes(30)
         };
         await db.Answers.AddAsync(answerEnded);
 

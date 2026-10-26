@@ -273,7 +273,7 @@ export default function EligibilityPage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2">
             <label className="text-xs font-bold tracking-wider text-slate-400 uppercase block">Select Examination</label>
-            <div className="relative w-full md:w-[320px]">
+            <div className="relative w-full md:w-[400px]">
               <select
                 value={selectedExamId}
                 onChange={(e) => {
@@ -324,7 +324,7 @@ export default function EligibilityPage() {
               <svg className="w-4.5 h-4.5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
-              <span className="font-bold text-primary-600 text-sm">{assignments.length} Students</span>
+              <span className="font-bold text-primary-600 text-sm whitespace-nowrap">{assignments.length} {assignments.length === 1 ? 'Student' : 'Students'}</span>
             </div>
             <button
               onClick={openImport}
@@ -377,14 +377,14 @@ export default function EligibilityPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Student Name</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Email</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Workstation</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">System Check</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Attendance</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Eligibility</th>
-                    <th className="px-6 py-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Note / Reason</th>
-                    <th className="px-6 py-4 w-14"></th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Student Name</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Email</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Workstation</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">System Check</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Attendance</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Eligibility</th>
+                    <th className="px-4 py-3 text-xs font-bold tracking-wider text-slate-400 uppercase">Note / Reason</th>
+                    <th className="px-4 py-3 w-14"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -407,41 +407,41 @@ export default function EligibilityPage() {
                           !item.isEligible ? 'bg-red-50/20 hover:bg-red-50/30' : ''
                         }`}
                       >
-                        <td className="px-6 py-4 flex items-center gap-3">
+                        <td className="px-4 py-3 flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
                             item.isEligible ? 'bg-blue-50 text-primary-500' : 'bg-red-100 text-red-600'
                           }`}>
                             {item.studentName.split(' ').map((n: string) => n[0]).join('')}
                           </div>
-                          <span className={`font-semibold text-sm ${!item.isEligible ? 'text-red-700' : 'text-slate-700'}`}>
+                          <span className={`font-semibold text-sm whitespace-nowrap ${!item.isEligible ? 'text-red-700' : 'text-slate-700'}`}>
                             {item.studentName}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-400">{item.studentEmail}</td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3 text-sm text-slate-400">{item.studentEmail}</td>
+                        <td className="px-4 py-3">
                           {/* Seat assignment (Module 9): server rejects double-booked seats */}
                           <select
                             value={item.workstationId || ''}
                             onChange={(e) => handleSeatChange(item.userId, e.target.value)}
-                            className="font-mono text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600 focus:ring-2 focus:ring-primary-500 outline-none cursor-pointer"
+                            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600 focus:ring-2 focus:ring-primary-500 outline-none cursor-pointer"
                           >
                             <option value="">Not Mapped</option>
                             {labs.map((lab) =>
                               lab.workstations.map((ws) => (
                                 <option key={ws.workstationId} value={ws.workstationId}>
-                                  {ws.machineNumber} — {lab.name}{ws.ipAddress ? ` (${ws.ipAddress})` : ''}
+                                  {ws.machineNumber} — {lab.name}
                                 </option>
                               ))
                             )}
                           </select>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           <ReadinessBadge result={readiness[item.userId]} />
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           <AttendanceCell item={item} min={minAttendance} />
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <label className="relative inline-flex items-center cursor-pointer">
                               <input
@@ -473,13 +473,13 @@ export default function EligibilityPage() {
                             ) : null}
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           {computedNote ? (
                             <button
                               type="button"
                               onClick={() => setEditingNotes(prev => new Set(prev).add(item.userId))}
                               title="Edit to override"
-                              className={`text-left text-sm ${!item.isEligible ? 'text-red-700 font-semibold' : 'text-slate-500'}`}
+                              className={`text-left text-sm whitespace-nowrap ${!item.isEligible ? 'text-red-700 font-semibold' : 'text-slate-500'}`}
                             >
                               {item.eligibilityNote}
                             </button>
@@ -495,7 +495,7 @@ export default function EligibilityPage() {
                             />
                           )}
                         </td>
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-4 py-3 text-right">
                           <button
                             onClick={() => handleRemoveStudent(item)}
                             title="Remove student from this exam"

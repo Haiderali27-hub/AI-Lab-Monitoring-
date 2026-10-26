@@ -22,8 +22,14 @@ import { acceptDialogs, signInStudentWeb, signInWeb } from '../support/scenario'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const OUT_DIR = process.env.SMARTEXAM_SHOTS_DIR ?? path.join(os.tmpdir(), 'smartexam-thesis-shots');
-const MAX_BYTES = 250 * 1024;
 const PASSWORD = 'Student@123';
+
+// Print legibility: the figures are about 6 in wide, so each capture is clipped to the region the text
+// discusses and taken on a 1024 px wide viewport (the panel's lg breakpoint) at 2x pixel density.
+// One clock for every figure: Pakistan time, as on the lab PCs (the server stores UTC).
+const VIEW = { width: 1024, height: 768 };
+const CONTEXT = { viewport: VIEW, deviceScaleFactor: 2, timezoneId: 'Asia/Karachi', locale: 'en-US' } as const;
+test.use(CONTEXT);
 
 test.describe.configure({ mode: 'serial' });
 
@@ -46,10 +52,115 @@ function innerOverflow(page: Page): Promise<number> {
 /**
  * Waits for fonts, spinners and toasts to settle, then saves `name`.png (or .jpg q85 if the PNG is over 250 KB).
  * `tall`: grows the viewport (up to 2400 px) so a page that scrolls inside its layout fits in one shot;
- * `width`: a wider viewport for tables that overflow 1440 px. The viewport is restored afterwards.
+ * `width`: a wider viewport for tables that overflow the base width. The viewport is restored afterwards.
  */
-async function snap(page: Page, name: string, opts: { fullPage?: boolean; tall?: boolean; width?: number; keepToasts?: boolean } = {}) {
-  const base = page.viewportSize() ?? { width: 1440, height: 900 };
+type Clip = { x: number; y: number; width: number; height: number };
+type ClipSpec = Clip | ((page: Page) => Promise<Clip>);
+
+/** Bounding box (CSS px) of the first element matching `selector`, grown by `pad`. */
+async function boxOf(page: Page, selector: string, pad = 0): Promise<Clip> {
+  const b = await page.locator(selector).first().boundingBox();
+  if (!b) throw new Error(`no box for ${selector}`);
+  return { x: Math.max(0, b.x - pad), y: Math.max(0, b.y - pad), width: b.width + 2 * pad, height: b.height + 2 * pad };
+}
+
+/** The staff layout's content area (right of the 240 px sidebar, below the 56 px top bar), as tall as its content. */
+async function mainArea(page: Page): Promise<Clip> {
+  return page.evaluate(() => {
+    const main = document.querySelector('main') as HTMLElement;
+    const r = main.getBoundingClientRect();
+    let bottom = r.top;
+    for (const c of Array.from(main.querySelectorAll<HTMLElement>('*'))) {
+      const cr = c.getBoundingClientRect();
+      if (cr.height > 0 && getComputedStyle(c).position !== 'fixed') bottom = Math.max(bottom, cr.bottom);
+    }
+    return { x: r.left, y: r.top, width: r.width, height: Math.min(r.height, bottom - r.top + 24) };
+  });
+}
+
+/** Grows the viewport to the document height (layouts that scroll the whole page, e.g. the student portal). */
+async function fitHeight(page: Page) {
+  const h = await page.evaluate(() => document.documentElement.scrollHeight);
+  await page.setViewportSize({ width: page.viewportSize()!.width, height: Math.min(2400, h) });
+  await page.waitForTimeout(400);
+}
+
+/** Live monitor: the exam bar and the tile grid (without the 64 px nav rail and the top bar). */
+async function liveBoard(page: Page): Promise<Clip> {
+  return page.evaluate(() => {
+    const grid = document.querySelector('[data-testid="student-tile"]')!.parentElement!.getBoundingClientRect();
+    return { x: 64, y: 56, width: window.innerWidth - 64, height: grid.bottom + 20 - 56 };
+  });
+}
+
+/** Student drawer: its scrolling body (between the student header and the action footer), down to the third timeline entry. */
+async function drawerBody(page: Page): Promise<Clip> {
+  return page.evaluate(() => {
+    const aside = document.querySelector('[data-testid="student-drawer"]')!;
+    const body = Array.from(aside.querySelectorAll<HTMLElement>('*')).find(e => getComputedStyle(e).overflowY === 'auto')!;
+    const r = body.getBoundingClientRect();
+    const items = Array.from(document.querySelector('[data-testid="activity-timeline"]')?.children ?? []);
+    const third = items[2]?.getBoundingClientRect();
+    const bottom = third ? Math.min(r.bottom, third.bottom + 16) : r.bottom;
+    return { x: r.left, y: r.top, width: r.width, height: bottom - r.top };
+  });
+}
+
+/** Union of the bordered cards that contain `fromText` and `toText` (inside <main>), padded by 16 px. */
+async function cardSpan(page: Page, fromText: string, toText: string, fromTop = false): Promise<Clip> {
+  return page.evaluate(([a, b, top]) => {
+    const main = document.querySelector('main')!;
+    const card = (text: string) => {
+      const hit = Array.from(main.querySelectorAll<HTMLElement>('*')).filter(e => e.textContent?.trim().startsWith(text)).pop();
+      let el: HTMLElement | null = hit ?? null;
+      while (el && el !== main && parseFloat(getComputedStyle(el).borderTopWidth) === 0) el = el.parentElement;
+      return (el ?? hit!).getBoundingClientRect();
+    };
+    const m = main.getBoundingClientRect(), r1 = card(a as string), r2 = card(b as string);
+    const y = top ? m.top : r1.top - 16;
+    return { x: m.left, y, width: m.width, height: r2.bottom + 16 - y };
+  }, [fromText, toText, fromTop] as const);
+}
+
+/** The main area without most of its 32 px padding (tables run edge to edge of the clip). */
+async function contentArea(page: Page, to?: string): Promise<Clip> {
+  const m = to ? await mainTo(page, to) : await mainArea(page);
+  return { x: m.x + 20, y: m.y, width: m.width - 40, height: m.height };
+}
+
+/** Main area from its top down to the bottom of the element matching `selector` (+ 16 px). */
+async function mainTo(page: Page, selector: string): Promise<Clip> {
+  const m = await mainArea(page);
+  const b = (await page.locator(selector).first().boundingBox())!;
+  return { ...m, height: b.y + b.height + 16 - m.y };
+}
+
+/**
+ * Print legibility for wide tables: hides the named columns (header text) of the tables in <main> and logs any
+ * table still wider than its box. Figure-only; the caption says which columns are left out.
+ */
+async function hideColumns(page: Page, headers: string[], css = '') {
+  const report = await page.evaluate(([hs, extra]) => {
+    const st = document.createElement('style');
+    st.textContent = '[data-thesis-hide]{display:none!important}' + extra;
+    document.head.appendChild(st);
+    const out: string[] = [];
+    for (const table of Array.from(document.querySelectorAll('main table'))) {
+      Array.from(table.querySelectorAll('thead th')).forEach((th, i) => {
+        if ((hs as string[]).includes(th.textContent!.trim()))
+          table.querySelectorAll(`tr > :nth-child(${i + 1})`).forEach(c => c.setAttribute('data-thesis-hide', ''));
+      });
+      const box = table.parentElement!;
+      out.push(`table ${Math.round(table.scrollWidth)} px in box ${box.clientWidth} px`);
+    }
+    return out.join('; ');
+  }, [headers, css] as const);
+  console.log(`hideColumns(${headers.join(', ') || '-'}): ${report}`);
+  await page.waitForTimeout(300);
+}
+
+async function snap(page: Page, name: string, opts: { fullPage?: boolean; tall?: boolean; width?: number; keepToasts?: boolean; clip?: ClipSpec } = {}) {
+  const base = page.viewportSize() ?? VIEW;
   if (opts.width) {
     await page.setViewportSize({ width: opts.width, height: base.height });
     await page.waitForTimeout(400);
@@ -69,30 +180,28 @@ async function snap(page: Page, name: string, opts: { fullPage?: boolean; tall?:
   await expect(page.getByText(/something went wrong|failed to load|cannot load/i)).toHaveCount(0);
   await page.waitForTimeout(400); // let transitions finish
   try {
-    await capture(page, name, !!opts.fullPage);
+    const clip = typeof opts.clip === 'function' ? await opts.clip(page) : opts.clip;
+    await capture(page, name, !!opts.fullPage, clip);
   } finally {
     if (opts.tall || opts.width) await page.setViewportSize(base);
   }
 }
 
-async function capture(page: Page, name: string, fullPage: boolean) {
+async function capture(page: Page, name: string, fullPage: boolean, clip?: Clip) {
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  const png = await page.screenshot({ fullPage, animations: 'disabled', caret: 'hide' });
-  let file = path.join(OUT_DIR, `${name}.png`);
-  let bytes = png.length;
-  if (bytes > MAX_BYTES) {
-    const jpg = await page.screenshot({ fullPage, animations: 'disabled', caret: 'hide', type: 'jpeg', quality: 85 });
-    file = path.join(OUT_DIR, `${name}.jpg`);
-    bytes = jpg.length;
-    fs.writeFileSync(file, jpg);
-    if (fs.existsSync(path.join(OUT_DIR, `${name}.png`))) fs.unlinkSync(path.join(OUT_DIR, `${name}.png`));
-  } else {
-    fs.writeFileSync(file, png);
-    if (fs.existsSync(path.join(OUT_DIR, `${name}.jpg`))) fs.unlinkSync(path.join(OUT_DIR, `${name}.jpg`));
-  }
   const vp = page.viewportSize()!;
+  if (clip) {
+    // Keep the clip inside the viewport, on whole CSS pixels.
+    const x = Math.max(0, Math.floor(clip.x)), y = Math.max(0, Math.floor(clip.y));
+    clip = { x, y, width: Math.min(vp.width - x, Math.ceil(clip.width)), height: Math.min(vp.height - y, Math.ceil(clip.height)) };
+  }
+  // Always PNG (sharp UI text); the thesis includes Figures/ui_*.png.
+  const png = await page.screenshot({ fullPage, clip, animations: 'disabled', caret: 'hide' });
+  const file = path.join(OUT_DIR, `${name}.png`);
+  fs.writeFileSync(file, png);
   const height = fullPage ? await page.evaluate(() => document.documentElement.scrollHeight) : vp.height;
-  shots.push({ name, file, kb: Math.round(bytes / 102.4) / 10, size: `${vp.width}x${Math.max(height, vp.height)}`, route: new URL(page.url()).pathname + new URL(page.url()).search });
+  const size = clip ? `${clip.width}x${clip.height}` : `${vp.width}x${Math.max(height, vp.height)}`;
+  shots.push({ name, file, kb: Math.round(png.length / 102.4) / 10, size, route: new URL(page.url()).pathname + new URL(page.url()).search });
 }
 
 /** Renders `html` at 1280×720 and returns it as a JPEG — the "student's screen" the simulated desktop client uploads. */
@@ -339,14 +448,16 @@ test('thesis screenshots', async ({ page, request, browser }) => {
       lockdownMode: 'Enforce', requireReadiness: true, requireWebcam: true, instructions: 'Closed book. Webcam required.',
     });
 
-    // The seeded ended "Final Lab Exam (Demo)": the teacher marks its one (ungraded) answer.
-    const finalExam = (await teacher.exams()).find(e => e.title === 'Final Lab Exam (Demo)')!;
+    // The seeded ended "Lab Exam 1 (Demo)" (last week): the teacher marks its one (ungraded) answer.
+    const finalExam = (await teacher.exams()).find(e => e.title === 'Lab Exam 1 (Demo)')!;
     const [finalRow] = await teacher.results(finalExam.examId);
     expect((await teacher.post(`/api/answers/${finalRow.answers[0].answerId}/override`,
       { finalMarks: 16, note: 'Correct use of std::reverse; no edge-case handling.' })).status()).toBe(200);
 
     // ── 6. the seeded Mid-Term (Demo): the teacher adds model answers (Scheduled exams are editable) and the roster,
-    //       then imports attendance, recalculates eligibility and maps seats ──
+    //       switches it to Enforce lockdown with a required system check and webcam (so the figures show what the client really
+    //       does: chrome is not on the allowed list and gets closed), then imports attendance, recalculates eligibility
+    //       and maps seats ──
     const mid = (await teacher.exams()).find(e => e.title === 'Mid-Term Lab Exam (Demo)')!;
     const midId: string = mid.examId;
     const seeded = await teacher.examDetail(midId);
@@ -356,6 +467,7 @@ test('thesis screenshots', async ({ page, request, browser }) => {
       title: seeded.title, instructions: seeded.instructions, sectionId: seeded.sectionId,
       startTime: new Date(seeded.startTime.endsWith('Z') ? seeded.startTime : `${seeded.startTime}Z`),
       durationMinutes: seeded.durationMinutes, allowedApps: seeded.allowedApps, plagiarismThreshold: seeded.plagiarismThreshold,
+      lockdownMode: 'Enforce', requireReadiness: true, requireWebcam: true,
       studentIds: roster,
       questions: seededQ.map((q: any) => ({
         type: q.type, bodyText: q.bodyText, marks: q.marks,
@@ -383,13 +495,16 @@ test('thesis screenshots', async ({ page, request, browser }) => {
     const qOf = (type: string) => midDetail.questions.find((q: any) => q.type === type).questionId as string;
     const [qCode, qTheory, qMcq] = [qOf('Coding'), qOf('Theory'), qOf('Mcq')];
 
-    // ── 7. readiness check, then start (start-session activates the exam) ──
-    for (const s of sitters) {
-      const overrides = s.key === 'fatima'
-        ? [{ name: 'Camera', passed: false, detail: 'No camera device found' }]
-        : [];
-      expect((await s.client.readiness(midId, overrides)).status()).toBe(200);
-    }
+    // Clock values for the off-screen desktop figures (wpfshot: Saved=, Warning=, *Remaining=), Pakistan time.
+    const examEnd = new Date(new Date(midDetail.startTime.endsWith('Z') ? midDetail.startTime : `${midDetail.startTime}Z`).getTime() + midDetail.durationMinutes * 60_000);
+    const left = (t: Date) => new Date(Math.max(0, examEnd.getTime() - t.getTime())).toISOString().slice(11, 19);
+    const pk = (t: Date, o: Intl.DateTimeFormatOptions) => t.toLocaleTimeString('en-US', { timeZone: 'Asia/Karachi', ...o });
+    console.log(`CLOCK DashboardRemaining=${left(new Date())}`);
+
+    // ── 7. readiness check (required for this exam: everyone must pass), then start (start-session activates the exam).
+    //       The exam needs the webcam, so the Camera check really ran (ReadinessPolicy.EvaluateCamera's pass text). ──
+    const camOk = [{ name: 'Camera', passed: true, detail: 'Integrated Webcam: picture OK, face detected' }];
+    for (const s of sitters) expect((await s.client.readiness(midId, camOk)).status()).toBe(200);
     for (const s of sitters) {
       await s.client.start(midId);
       s.active = true;
@@ -410,6 +525,7 @@ test('thesis screenshots', async ({ page, request, browser }) => {
     await save(by('usman'), qCode, CODE_USMAN);
     await save(by('ayesha'), qCode, CODE_AYESHA); await save(by('ayesha'), qMcq, '1');
     await save(by('fatima'), qCode, CODE_FATIMA);
+    { const t = new Date(); console.log(`CLOCK Saved=${pk(t, { hour: 'numeric', minute: '2-digit', second: '2-digit' })} ExamRemaining=${left(t)}`); }
 
     // Sara: blocked Alt+Tab → Warning.
     expect((await by('sara').client.violation('KeyBlocked', 'Alt+Tab')).status()).toBe(200);
@@ -420,7 +536,9 @@ test('thesis screenshots', async ({ page, request, browser }) => {
     expect((await u.client.event('Violation', { reason: 'UnauthorizedProcess', detail: 'chrome (Reported)' })).status()).toBe(200);
     await upload(u, await renderCapture(browser, browserScreen('c++ max element of array')), 'Violation', 'UnauthorizedProcess');
     expect((await u.client.event('Violation', { reason: 'ProcessKilled', detail: 'chrome (Killed)' })).status()).toBe(200);
-    u.beat = { ...u.beat, activeWindowTitle: 'SmartExam - Mid-Term Lab Exam (Demo)' };
+    // Chrome is gone after the kill: later heartbeats list only the exam app, VS Code and Explorer.
+    u.beat = { ...u.beat, processListSnapshot: 'SmartExam,code,explorer', activeWindowTitle: 'SmartExam - Mid-Term Lab Exam (Demo)' };
+    await u.client.heartbeat(u.beat);
     // Ayesha: the on-device webcam model sees a phone → Suspicious, camera badge on the tile.
     const a = by('ayesha');
     a.beat = { ...a.beat, cameraStatus: 'Phone' };
@@ -450,7 +568,7 @@ test('thesis screenshots', async ({ page, request, browser }) => {
     for (const n of ['Sara Khan', 'Usman Tariq', 'Ayesha Malik', 'Fatima Noor'])
       await expect(tile(n).getByTestId('tile-thumbnail')).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(1_500);
-    await snap(page, 'teacher_live_monitor', { tall: true });
+    await snap(page, 'teacher_live_monitor', { tall: true, clip: liveBoard });
 
     // Drawer for Usman: send a proctor warning, then show captures + readiness, and the incident + timeline.
     await tile('Usman Tariq').click();
@@ -458,19 +576,31 @@ test('thesis screenshots', async ({ page, request, browser }) => {
     await expect(drawer).toContainText('Usman Tariq');
     await drawer.getByTestId('warning-message-input').fill('Close all other applications and stay in the exam window.');
     await drawer.getByTestId('send-warning-button').click();
+    { const t = new Date(); console.log(`CLOCK Warning=${pk(t, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} WarningRemaining=${left(t)}`); }
     await expect(drawer.getByText('Warning Message Sent')).toBeVisible();
     await expect(drawer.getByTestId('activity-timeline')).toContainText('Close all other applications', { timeout: 15_000 });
     await expect(drawer.getByTestId('screenshot-carousel').locator('img')).toHaveCount(2, { timeout: 15_000 });
-    await snap(page, 'teacher_live_drawer');
-    await drawer.getByTestId('incident-list').evaluate(el => el.scrollIntoView({ block: 'start' }));
-    await snap(page, 'teacher_live_drawer_timeline');
+    // The drawer is a fixed 360 px column: a taller viewport shows captures, readiness and apps above the actions.
+    await page.setViewportSize({ width: VIEW.width, height: 960 });
+    await page.waitForTimeout(400);
+    await snap(page, 'teacher_live_drawer', { clip: p => boxOf(p, '[data-testid="student-drawer"]') });
+    // Second figure: the incident card and the activity timeline (scrolled so the "Incidents" heading shows).
+    await page.setViewportSize({ width: VIEW.width, height: 1040 });
+    await page.waitForTimeout(400);
+    await drawer.getByTestId('incident-list').evaluate(el => {
+      let body = el.parentElement;
+      while (body && getComputedStyle(body).overflowY !== 'auto') body = body.parentElement;
+      if (body) body.scrollTop += el.getBoundingClientRect().top - body.getBoundingClientRect().top - 40;
+    });
+    await snap(page, 'teacher_live_drawer_timeline', { clip: drawerBody });
+    await page.setViewportSize(VIEW);
     await drawer.getByRole('button').first().click().catch(() => undefined); // close (X)
 
     // Teacher + admin dashboards while the exam is running.
     await page.goto('/teacher/dashboard');
     await expect(page.getByText('End-Term Lab Exam').first()).toBeVisible();
-    await snap(page, 'teacher_dashboard');
-    const adminCtx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+    await snap(page, 'teacher_dashboard', { clip: mainArea });
+    const adminCtx = await browser.newContext(CONTEXT);
     const adminPage = await adminCtx.newPage();
     await adminPage.goto('/login');
     await adminPage.getByLabel(/email/i).fill(SEED.admin.email);
@@ -485,7 +615,13 @@ test('thesis screenshots', async ({ page, request, browser }) => {
     await expect(page.getByRole('heading', { name: 'Eligibility Management' })).toBeVisible();
     await expect(page.locator('tbody tr')).toHaveCount(6);
     await expect(page.locator('tbody tr').filter({ hasText: 'Hamza Iqbal' })).toContainText('60%');
-    await snap(page, 'teacher_eligibility', { tall: true, width: 1680 });
+    // The roster table is too wide for a portrait page even without the e-mail column: a landscape figure from a
+    // 1312 px viewport (Email and the remove button left out), so the 10-12 px table text still prints at 6-7 pt.
+    await page.setViewportSize({ width: 1312, height: VIEW.height });
+    await page.waitForTimeout(400);
+    await hideColumns(page, ['Email', '']);
+    await snap(page, 'teacher_eligibility', { tall: true, clip: p => contentArea(p) });
+    await page.setViewportSize(VIEW);
 
     // ── 8. everyone else submits; the teacher ends the exam (Fatima force-submitted) ──
     await save(by('sara'), qMcq, '1');
@@ -507,11 +643,21 @@ test('thesis screenshots', async ({ page, request, browser }) => {
     await expect(page.getByText('grading…')).toHaveCount(0, { timeout: 60_000 });
     await snap(page, 'teacher_results');
 
+    await page.setViewportSize({ width: 1280, height: 1400 });
     await row('Usman Tariq').getByRole('button', { name: 'Review' }).click();
     await expect(page.getByTestId('testcase-result').first()).toBeVisible({ timeout: 30_000 });
-    await page.locator('tbody tr').filter({ hasText: 'MAX 20 MARKS' }).first().evaluate(el => el.scrollIntoView({ block: 'start' }));
-    await page.mouse.wheel(0, -60);
-    await snap(page, 'teacher_ai_grading');
+    await row('Usman Tariq').first().evaluate(el => el.scrollIntoView({ block: 'start' }));
+    await page.waitForTimeout(400);
+    await snap(page, 'teacher_ai_grading', {
+      clip: async p => p.evaluate(() => {
+        const main = document.querySelector('main')!.getBoundingClientRect();
+        const tr = Array.from(document.querySelectorAll('tbody tr')).find(t => t.textContent?.includes('Usman Tariq'))!;
+        const block = (tr.nextElementSibling as HTMLElement).querySelector('div.grid')!.getBoundingClientRect();
+        const top = tr.getBoundingClientRect().top;
+        return { x: main.left, y: top, width: main.width, height: block.bottom + 16 - top };
+      }),
+    });
+    await page.setViewportSize(VIEW);
 
     // Override Usman's theory mark: the teacher reviews the AI suggestion and gives partial credit.
     const theoryBlock = page.locator('div.grid').filter({ has: page.getByRole('heading', { name: /stack and a queue/i }) }).last();
@@ -530,6 +676,13 @@ test('thesis screenshots', async ({ page, request, browser }) => {
     await snap(page, 'teacher_plagiarism');
     await page.getByTestId('plagiarism-pair').first().evaluate(el => el.scrollIntoView({ block: 'center' }));
     await snap(page, 'teacher_plagiarism_pair');
+    // Figure: the heat map card and the first flagged pair in one capture.
+    await page.setViewportSize({ width: VIEW.width, height: 2000 });
+    await page.getByTestId('plagiarism-heatmap').evaluate(el => el.scrollIntoView({ block: 'start' }));
+    await page.mouse.wheel(0, -120);
+    await page.waitForTimeout(400);
+    await snap(page, 'teacher_plagiarism_figure', { clip: p => cardSpan(p, 'Plagiarism heat map', 'Similarity is evidence') });
+    await page.setViewportSize(VIEW);
 
     // ═══ analytics / reports ═══
     await page.goto(`/teacher/analytics/${midId}`);
@@ -577,22 +730,35 @@ test('thesis screenshots', async ({ page, request, browser }) => {
     await page.getByRole('button', { name: /add allowed app/i }).click();
     await page.getByRole('option', { name: /visual studio code/i }).click();
     await blur();
-    await snap(page, 'teacher_create_exam_rules', { tall: true });
+    await snap(page, 'teacher_create_exam_rules', { tall: true, clip: mainArea });
+    // Two figures: the stepper + integrity switches, then the numbers, seat, AI and plagiarism settings.
+    await snap(page, 'teacher_create_exam_rules_a', { tall: true, clip: p => cardSpan(p, 'Rules & Integrity Settings', 'Practice exam', true) });
+    await snap(page, 'teacher_create_exam_rules_b', {
+      tall: true,
+      clip: async p => {
+        const m = await mainArea(p);
+        const from = (await p.getByText('Early join', { exact: false }).first().boundingBox())!;
+        const to = (await p.getByRole('button', { name: /next step/i }).boundingBox())!;
+        return { x: m.x, y: from.y - 20, width: m.width, height: to.y + to.height + 28 - (from.y - 20) };
+      },
+    });
 
     // ═══ student web portal (Ali) ═══
-    const studentCtx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+    const studentCtx = await browser.newContext(CONTEXT);
     const studentPage = await studentCtx.newPage();
     await signInStudentWeb(studentPage, request, ali);
     await studentPage.goto('/student/performance');
     await expect(studentPage.getByText('Mid-Term Lab Exam (Demo)').first()).toBeVisible({ timeout: 15_000 });
-    await snap(studentPage, 'student_performance', { fullPage: true });
+    await fitHeight(studentPage);
+    await snap(studentPage, 'student_performance', { clip: mainArea });
+    await studentPage.setViewportSize(VIEW);
     await studentPage.goto(`/student/exams/${midId}/result`);
     await expect(studentPage.getByText('Mid-Term Lab Exam (Demo)').first()).toBeVisible({ timeout: 15_000 });
     await snap(studentPage, 'student_exam_result', { fullPage: true });
     await studentCtx.close();
 
     // ═══ login + admin pages (last, so the audit log holds the whole story) ═══
-    const loginCtx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+    const loginCtx = await browser.newContext(CONTEXT);
     const loginPage = await loginCtx.newPage();
     await loginPage.goto('/login');
     await loginPage.getByLabel(/email/i).fill(SEED.teacher.email);
@@ -603,15 +769,26 @@ test('thesis screenshots', async ({ page, request, browser }) => {
 
     for (const [route, name, wait, tall, width] of [
       ['/admin/users', 'admin_users', 'Usman Tariq', true, undefined],
-      ['/admin/labs', 'admin_labs_workstations', 'LAB-A-PC03', false, undefined],
-      ['/admin/device-bindings', 'admin_device_bindings', 'LAB-A-PC03', true, 1680],
-      ['/admin/academics', 'admin_academics', 'Software Engineering', false, undefined],
-      ['/admin/audit-logs', 'admin_audit_logs', 'LOGIN_SUCCESS', false, undefined],
+      ['/admin/labs', 'admin_labs_workstations', 'LAB-A-PC03', true, undefined],
+      ['/admin/device-bindings', 'admin_device_bindings', 'LAB-A-PC03', true, undefined],
+      ['/admin/academics', 'admin_academics', 'Software Engineering', true, undefined],
+      ['/admin/audit-logs', 'admin_audit_logs', 'LOGIN_SUCCESS', true, undefined],
       ['/admin/analytics', 'admin_system_analytics', 'Exams Per Month', false, undefined],
     ] as const) {
       await adminPage.goto(route);
       await expect(adminPage.getByText(wait, { exact: false }).filter({ visible: true }).first()).toBeVisible({ timeout: 15_000 });
-      await snap(adminPage, name, { tall, width });
+      // The audit log is long: its header, filters and the newest twelve rows.
+      let clip: ClipSpec = mainArea;
+      // Wide tables on the 1024 px viewport: drop the columns the text does not use (the captions name them).
+      if (name === 'admin_device_bindings') {
+        await hideColumns(adminPage, ['Email', 'Windows User', 'Registered Date']);
+        clip = p => contentArea(p);
+      }
+      if (name === 'admin_audit_logs') {
+        await hideColumns(adminPage, ['Details']);
+        clip = p => contentArea(p, 'tbody tr:nth-child(12)');
+      }
+      await snap(adminPage, name, { tall, width, clip });
     }
     await adminCtx.close();
   } finally {

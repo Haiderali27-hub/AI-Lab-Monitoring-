@@ -430,7 +430,7 @@ export default function ResultsPage() {
                                                   />
                                                 </div>
                                                 <div className="col-span-2">
-                                                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Notes / Feedbacks</label>
+                                                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Notes / Feedback</label>
                                                   <input
                                                     type="text"
                                                     value={overrideNotes[answer.answerId] ?? answer.teacherOverride?.note ?? ''}
