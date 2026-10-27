@@ -2,40 +2,57 @@
 
 We identify risks early, rate them, and plan one response for each \cite{risk1}.
 
-\subsection{Risk Identification}
+\subsection{Risk Management Plan}
 
-We use four risk types: technical (R1--R7, R12), schedule (R8), academic (R9) and resource (R10, R11).
+\subsubsection{Purpose}
 
-\subsection{Risk Analysis}
+The plan sets how we find, rate, answer and track the risks that could stop a fair exam or delay the 32-week schedule, and who does each step.
 
-Table~\ref{tab:risk_matrix} rates each risk for likelihood and impact on a consequence/likelihood matrix \cite{iec31010}. With Low = 1, Medium = 2 and High = 3, the priority is likelihood $\times$ impact: 6--9 is High, 3--4 Medium and 1--2 Low. The owner is the team member responsible for that area (Section~\ref{sec:managerial}): Client, Backend, AI/QA (AI evaluation and quality assurance) or PM (project manager).
+\subsubsection{Roles and Responsibilities}
+
+\begin{description}
+    \item[Risk Manager and Project Manager:] Muhammad Haider Ali keeps the risk register (Table~\ref{tab:risk_matrix}) and owns the schedule, academic and staffing risks R8--R10 (owner PM).
+    \item[Risk Analysts and Owners:] each area owner rates the risks of that area and carries out their responses: Zain Ali Mehmood for the desktop client (Client), Muhammad Haider Ali for the API and database (Backend), and Roshaan Ali Shah for AI evaluation and quality assurance (AI/QA).
+    \item[Project Team Members:] all three members report a new risk at the written check-ins (Section~\ref{sec:managerial}).
+    \item[Stakeholders:] our supervisor, Ms.~Zainab Iftikhar Chaudhary, sees the re-rated risks at each Sprint Review.
+\end{description}
+
+\subsection{Risk Management Activities}
+
+\subsubsection{Risk Identification}
+
+We identified twelve risks and placed each in one of four categories: technical, schedule, academic or resource (the Category column of Table~\ref{tab:risk_matrix}).
+
+\subsubsection{Risk Analysis}
+
+Table~\ref{tab:risk_matrix} rates each risk for likelihood and impact on a consequence/likelihood matrix \cite{iec31010}. With Low = 1, Medium = 2 and High = 3, the priority is likelihood $\times$ impact: 6--9 is High, 3--4 Medium and 1--2 Low. The Owner column names the area from the roles above.
 
 \begin{table}[!tb]
 \centering
-\caption{Project Risk Rating Matrix}
+\caption{Risk Likelihood and Impact Assessment}
 \label{tab:risk_matrix}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{c|>{\raggedright\arraybackslash}p{5.6cm}|cccc}
+{\footnotesize\setlength{\tabcolsep}{3pt}\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{@{}c>{\raggedright\arraybackslash}Xlcccll@{}}
 \hline\hline
-\textbf{ID} & \textbf{Risk} & \textbf{Likelihood} & \textbf{Impact} & \textbf{Priority} & \textbf{Owner} \\ \hline
-R1  & Hardware ID spoofing or virtual machine use       & Medium & High   & High   & Client \\
-R2  & Lockdown bypass, or antivirus blocking the hooks  & Medium & High   & High   & Client \\
-R3  & Network loss during an exam                       & Medium & High   & High   & Client \\
-R4  & API or database overload during live monitoring   & Low    & High   & Medium & Backend \\
-R5  & Inconsistent automated grading                    & Medium & Medium & Medium & AI/QA \\
-R6  & Runtime or library end of support                 & Medium & Medium & Medium & Backend \\
-R7  & Exposure of student data or records               & Low    & High   & Medium & Backend \\
-R8  & Incomplete module integration before the deadline & Medium & High   & High   & PM \\
-R9  & Thesis text drifting from the implementation      & Medium & Medium & Medium & PM \\
-R10 & Team member unavailable during a critical sprint  & Low    & Medium & Low    & PM \\
-R11 & Lab workstations unavailable for testing          & Low    & High   & Medium & AI/QA \\
-R12 & False webcam alerts (lighting, camera angle, slow CPU) & Medium & Medium & Medium & Client \\ \hline\hline
-\end{tabular}
+\textbf{ID} & \textbf{Risk} & \textbf{Category} & \textbf{Likelihood} & \textbf{Impact} & \textbf{Priority} & \textbf{Owner} & \textbf{Response} \\ \hline
+R1 & Hardware ID spoofing or virtual machine use & Technical & Medium & High & High & Client & Mitigate \\
+R2 & Lockdown bypass, or antivirus blocking the hooks & Technical & Medium & High & High & Client & Mitigate \\
+R3 & Network loss during an exam & Technical & Medium & High & High & Client & Mitigate \\
+R4 & API or database overload during live monitoring & Technical & Low & High & Medium & Backend & Mitigate \\
+R5 & Inconsistent automated grading & Technical & Medium & Medium & Medium & AI/QA & Mitigate \\
+R6 & Runtime or library end of support & Technical & Medium & Medium & Medium & Backend & Mitigate \\
+R7 & Exposure of student data or records & Technical & Low & High & Medium & Backend & Mitigate \\
+R8 & Incomplete module integration before the deadline & Schedule & Medium & High & High & PM & Mitigate \\
+R9 & Thesis text drifting from the implementation & Academic & Medium & Medium & Medium & PM & Mitigate \\
+R10 & Team member unavailable during a critical sprint & Resource & Low & Medium & Low & PM & Mitigate \\
+R11 & Lab workstations unavailable for testing & Resource & Low & High & Medium & AI/QA & Mitigate \\
+R12 & False webcam alerts (lighting, camera angle, slow CPU) & Technical & Medium & Medium & Medium & Client & Mitigate \\ \hline\hline
+\end{tabularx}}
 \end{table}
 
-\subsection{Risk Mitigation Plan}
+\subsubsection{Risk Response Planning}
 
-Each response matches the risk with the same ID in Table~\ref{tab:risk_matrix}. The owners re-rate their risks at every Sprint Review.
+A risk can be avoided, transferred to another party, mitigated or accepted. All twelve of our responses are mitigations that lower the likelihood, the impact or both; no risk is passed to another party or left without action. Each response below matches the risk with the same ID in Table~\ref{tab:risk_matrix}.
 
 \begin{description}
     \item[R1:] The client reads the BIOS, system-disk and baseboard serials; the server hashes them with SHA-256 and binds the account to that hash at the first login. Logins from another device are refused (\texttt{DEVICE\_MISMATCH}). Virtual machines and Remote Desktop sessions fail the readiness Secure-mode check and are reported by \texttt{DeviceGuardService} during the exam.
@@ -51,3 +68,7 @@ Each response matches the risk with the same ID in Table~\ref{tab:risk_matrix}. 
     \item[R11:] Most tests run on our own PCs against an in-memory backend. Lab PCs are booked only for manual lockdown and webcam checks before each demo.
     \item[R12:] Frames are analysed on the PC, and each finding must persist before it is raised: no face for 5 s, several faces or the head turned away for 3 s, and a phone in two consecutive checks. The head turn is measured against the student's own baseline. An issue sends one event with a webcam snapshot; the classifier only labels it, no penalty is automatic, and the invigilator decides. The readiness check tests the camera before the exam.
 \end{description}
+
+\subsubsection{Risk Monitoring and Control}
+
+The owners re-rate their risks at every Sprint Review. A risk that rises to High is taken to the supervisor at that review with a recovery action, as for a sprint below the 80\% burn-down mark (Section~\ref{sec:schedule_control}). A new risk takes the next free ID, and a risk is closed when it can no longer occur; for example, R8 can be closed once the final regression run of Week 32 passes.

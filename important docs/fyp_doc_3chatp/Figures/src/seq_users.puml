@@ -1,0 +1,56 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' User and role management (Module 7, UC-23, UC-27), part (a): create one account.
+' Code: Admin_Web_Panel/src/pages/admin/UsersPage.tsx (handleSubmitUser), src/api/users.api.ts (usersApi.create),
+' src/utils/roles.ts (assignableRoles: Admin/SuperAdmin offered only to a SuperAdmin);
+' Backend_API/Controllers/UsersController.cs (Create, GuardPrivilegedAsync); Services/AuditService.cs (Add, LogAsync);
+' Helpers/PasswordHelper.cs.
+
+actor "Admin /\nSuperAdmin" as A
+participant "UsersPage\n(web)" as UI
+participant "Users\nController" as UC
+participant "AuditService" as AS
+database "AppDbContext" as DB
+
+A -> UI : Add User: name, email,\npassword, role (roll no.\nfor a student)
+activate UI
+UI -> UC : POST /api/users\n{name, email, password,\nrole, rollNumber}
+activate UC
+UC -> UC : Enum.IsDefined(role);\nGuardPrivilegedAsync\n("create", role)
+alt role not defined
+  UC --> UI : 400 "Unknown role."
+else role is Admin or SuperAdmin and caller is not SuperAdmin
+  UC -> AS : LogAsync(PRIVILEGED_\nACCOUNT_DENIED)
+  activate AS
+  AS -> DB : AuditLogs.Add;\nSaveChanges
+  AS --> UC
+  deactivate AS
+  UC --> UI : 403 {code: SUPERADMIN_REQUIRED}
+else email or roll number already in use
+  UC --> UI : 409 Conflict ({message})
+else allowed
+  UC -> UC : PasswordHelper:\nGenerateSalt, HashPassword\n(PBKDF2, 600,000 iterations)
+  UC -> DB : Users.Add(user)
+  UC -> AS : Add(USER_CREATED)
+  activate AS
+  AS -> DB : AuditLogs.Add (staged)
+  deactivate AS
+  UC -> DB : SaveChanges (audit row\nsealed into the chain)
+  UC --> UI : 201 Created\n{userId, name, email, role}
+end
+deactivate UC
+UI --> A : refreshed user list,\nor the error message
+deactivate UI
+note over UI, UC : The page offers Admin and SuperAdmin roles only to a SuperAdmin;\nthe API check also stops a direct call. PUT /api/users/{id}\n(USER_UPDATED) uses the same guard; an invalid roll number gives 400.
+@enduml

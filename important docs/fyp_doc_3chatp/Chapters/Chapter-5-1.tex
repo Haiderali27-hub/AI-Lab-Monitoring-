@@ -6,14 +6,15 @@
 \renewcommand{\topfraction}{0.9}
 \renewcommand{\textfraction}{0.1}
 
-The UML diagrams below use the class, endpoint and table names of the \texttt{Backend\_API}, \texttt{Admin\_Web\_Panel} and \texttt{Student\_Desktop\_App} projects.
+SmartExam has three parts: the WPF \texttt{Student\_Desktop\_App} on the lab workstations, the React \texttt{Admin\_Web\_Panel} for staff and students, and the ASP.NET Core \texttt{Backend\_API}, which keeps its data in PostgreSQL. Section~\ref{sec:structure_diagrams} gives their static structure in class, deployment and component diagrams, and Section~\ref{sec:behavioural_diagrams} their run-time behaviour, where each module from M1 to M12 is traced to at least one sequence diagram. The UML diagrams below use the real class, endpoint and table names of these three projects.
 
 \section{Structure Diagrams}
+\label{sec:structure_diagrams}
 Structure diagrams show the static parts of a system: its classes, components and machines \cite[Annex~A]{omg_uml251}. Agreeing on them early let us build the client, panel and API in parallel.
 
 \subsection{Class Diagram}
 \begin{sloppypar}
-A class diagram shows classes, their attributes and their associations \cite{class_diagram_uml, class_diagram_sparx}. The design is drawn in four parts; the three larger parts each take two figures, (a) and (b). Figure~\ref{fig:class_diagram} shows the core entities, which are Entity Framework Core classes in \texttt{Backend\_API/Models} (key entities only; the full 29-table schema is the ERD in Figures~\ref{fig:erd_diagram} and~\ref{fig:erd_diagram_b}). Each student has at most one \texttt{DeviceBinding}, which ties the account to one workstation. A teacher owns exams through the sections they teach, and \texttt{ExamProctor} links invigilators to exams; these two links give the \texttt{Owner} and \texttt{Proctor} access levels of \texttt{ExamAccessService}. \texttt{AuditLog} has no association: its \texttt{ActorId} is covered by the row hash and is not a foreign key.
+A class diagram shows classes, their attributes and their associations \cite{class_diagram_uml, class_diagram_sparx}. The design is drawn in four parts; the three larger parts each take two figures, (a) and (b). Figure~\ref{fig:class_diagram} shows the core entities, which are Entity Framework Core classes in \texttt{Backend\_API/Models} (key entities only; the full 29-table schema is the ERD in Figures~\ref{fig:erd_diagram} and~\ref{fig:erd_diagram_b}). These entities hold data only: their operations belong to the client, service and controller classes of Figures~\ref{fig:class_diagram_client} to~\ref{fig:class_diagram_server2_b}, and roles are values of the \texttt{UserRole} enumeration, not subclasses of \texttt{User}. Each student has at most one \texttt{DeviceBinding}, which ties the account to one workstation. A teacher owns exams through the sections they teach, and \texttt{ExamProctor} links invigilators to exams; these two links give the \texttt{Owner} and \texttt{Proctor} access levels of \texttt{ExamAccessService}. \texttt{AuditLog} has no association: its \texttt{ActorId} is covered by the row hash and is not a foreign key.
 \end{sloppypar}
 
 \begin{figure}[p]
@@ -102,6 +103,7 @@ Figure~\ref{fig:component_diagram} splits the system into client, server and dat
 
 \DiagramBarrier
 \section{Behavioural Diagrams}
+\label{sec:behavioural_diagrams}
 Behavioural diagrams show run-time behaviour: steps, messages and state changes \cite[Annex~A]{omg_uml251}.
 
 \DiagramBarrier
@@ -115,7 +117,7 @@ An activity diagram shows a workflow with its decisions and parallel branches \c
 \label{fig:activity_diagram}
 \end{figure}
 
-\subsubsection{Login and Pre-Exam Checks}
+\subsubsection{Login and Pre-Exam Checks (M1, M2; UC-01, UC-02)}
 \begin{sloppypar}
 In Figure~\ref{fig:activity_auth} the client sends the email or roll number, the password and a hardware fingerprint to \url{/api/auth/student-login}, which accepts 10 requests a minute per IP address and then returns 429. The v2 fingerprint joins the BIOS, system-disk and baseboard serials read through WMI; the server stores only its SHA-256 hash. Wrong credentials return 401 (\texttt{LOGIN\_FAILED}); a non-student account or a missing HWID is refused without an audit entry. The first login saves the hash as the student's \texttt{DeviceBinding} (\texttt{DEVICE\_BOUND}), an old v1 binding is upgraded when the legacy fingerprint matches (\texttt{DEVICE\_REBOUND}), and a login from another machine is refused with \texttt{DEVICE\_MISMATCH}. A successful login re-hashes a password stored with an older scheme, is audited as \texttt{LOGIN\_SUCCESS} and returns a JWT and a refresh token.
 \end{sloppypar}
@@ -138,7 +140,7 @@ Figure~\ref{fig:activity_diagnostics} shows the seven checks in \texttt{Readines
 \end{figure}
 
 \DiagramBarrier
-\subsubsection{Practice Exam and Exam Workspace}
+\subsubsection{Practice Exam and Exam Workspace (M2, M4, M5; UC-03, UC-06, UC-07)}
 \begin{sloppypar}
 Practice exams (\texttt{Exam.IsMock}) are picked from the dashboard's practice list and started with \texttt{POST} \url{/api/exams/{id}/start-session} instead of the real exam's \url{/api/exams/student/start}. They run in the same exam window, in Report mode and without the webcam, so students meet the editor and lockdown beforehand (Figure~\ref{fig:activity_readiness}). Practice exams do not count towards results: they are auto-marked when AI evaluation is on, but never checked for plagiarism and left out of the student's results and analytics.
 \end{sloppypar}
@@ -162,7 +164,7 @@ During an exam (Figure~\ref{fig:activity_dashboard}) the window runs fullscreen 
 \end{figure}
 
 \DiagramBarrier
-\subsubsection{Autosave, Recovery and Submission}
+\subsubsection{Autosave, Recovery and Submission (M6; UC-08)}
 An answer is saved 10 seconds after its first unsaved edit, on question change and on focus loss. Within a second, every edit also goes to a local backup encrypted with AES-256 in Galois/Counter Mode (AES-256-GCM) \cite{nist80038d}, whose key is protected by the Windows Data Protection API (DPAPI). Failed saves are queued and replayed when the network returns. If a crash or power cut closed the exam, the relaunched client resumes the same session and merges the backup with the server copy, the higher revision winning (Figure~\ref{fig:activity_recovery}).
 
 \begin{figure}[H]
@@ -182,7 +184,7 @@ Submission starts when the timer reaches zero or when the student confirms the d
 \end{figure}
 
 \DiagramBarrier
-\subsubsection{Exam Configuration}
+\subsubsection{Exam Configuration (M4, M8; UC-06, UC-13)}
 A teacher fills a four-step wizard (basic info, questions, rules, students) to create or edit an exam (Figure~\ref{fig:activity_config}). \texttt{ExamsController} validates the payload, for example requiring a test case for every coding question, and refuses students outside the teacher's sections; an exam can be edited only while it is Scheduled. The exam is saved together with its \texttt{EXAM\_CREATED} or \texttt{EXAM\_UPDATED} audit entry.
 
 \begin{figure}[p]
@@ -203,7 +205,7 @@ Allowed applications are stored as a JSON list of executable names in \texttt{Ex
 \label{fig:activity_applications}
 \end{figure}
 
-\subsubsection{Seating and Live Monitoring}
+\subsubsection{Seating and Live Monitoring (M9, M10; UC-04, UC-05, UC-10, UC-11, UC-15, UC-26)}
 \begin{sloppypar}
 Admins register lab workstations (machine number, host name, IP address), and the teacher or an admin assigns one to each student on the Eligibility page (Figure~\ref{fig:activity_seating}). A start from a non-desktop token is refused with \texttt{DESKTOP\_CLIENT\_REQUIRED}. When \texttt{Exam.EnforceSeat} is on, \texttt{SeatGuard} compares the machine name or IP with the assigned seat; a mismatch blocks the start with \texttt{SEAT\_MISMATCH} and alerts the invigilators on the live monitor, and each heartbeat re-checks the seat.
 \end{sloppypar}
@@ -227,7 +229,7 @@ In Figure~\ref{fig:activity_monitoring} the live monitor page joins the exam's g
 \label{fig:activity_monitoring}
 \end{sidewaysfigure}
 
-\subsubsection{Grading, Reports and Audit}
+\subsubsection{Grading, Reports and Audit (M11, M12; UC-16 to UC-18, UC-21)}
 \begin{sloppypar}
 After submission (Figure~\ref{fig:activity_grading}) MCQ answers are checked against the key, and theory answers are scored by TF-IDF \cite{salton1988} (0.7 cosine similarity plus 0.3 key-term coverage) or queued for the optional LLM grader. Plagiarism is checked pairwise with $k$-gram winnowing \cite{winnowing} ($k = 5$ tokens, window $w = 4$, so any shared run of 8 tokens is found) for non-practice exams. \texttt{GradingWorker} then hands each queued coding answer to \texttt{GradingService}, which runs it against its test cases \cite{alamutka2005} in Docker \texttt{gcc:13} (no network) or the MinGW fallback (not isolated); without a runner the answer is left for teacher review. The teacher can accept all suggested marks at once, which skips answers that need a manual mark, or override or regrade a single answer.
 \end{sloppypar}
@@ -275,7 +277,7 @@ A communication diagram shows the objects in one interaction and their numbered 
 A sequence diagram shows the messages between participants in time order \cite[Cl.~17.8]{omg_uml251}, \cite{sequence_diagram_vp}. Filled arrowheads are synchronous calls with dashed replies; open arrowheads are asynchronous messages such as SignalR pushes and queue hand-offs. A desktop lifeline that calls a controller does so through \texttt{ApiClient}, which some diagrams merge into the caller to save width; web-panel lifelines are React pages, not classes.
 \end{sloppypar}
 
-\subsubsection{Login, Token Refresh, Logout and Password Change}
+\subsubsection{Login, Token Refresh, Logout and Password Change (M1; UC-01, UC-12)}
 \begin{sloppypar}
 In Figures~\ref{fig:seq_login} and~\ref{fig:seq_login_b} \texttt{AuthController} checks the salted PBKDF2 hash \cite{rfc8018} of the password (600,000 iterations of HMAC-SHA256, as the Open Worldwide Application Security Project (OWASP) recommends \cite{owasp_pwd}), the Student role, the HWID and the device binding (first bind, upgrade of a v1 binding, or \texttt{DEVICE\_MISMATCH}), then returns a JWT \cite{rfc7519} and a refresh token. Because each hash stores its scheme and cost, an older hash is re-hashed at the next login \cite{nist80063b}.
 \end{sloppypar}
@@ -330,7 +332,7 @@ A staff password change from the web panel (Figures~\ref{fig:seq_change_password
 \end{figure}
 
 \DiagramBarrier
-\subsubsection{Session Timeline and Live Telemetry}
+\subsubsection{Session Timeline and Live Telemetry (M3, M5, M10; UC-04, UC-07, UC-09)}
 \begin{sloppypar}
 To view a student's record (Figures~\ref{fig:seq_view_database} and~\ref{fig:seq_view_database_b}), staff call \texttt{MonitoringEvidenceController}, which checks access through \texttt{ExamAccessService} (owner teacher, assigned invigilator or admin) and returns the session's events (without heartbeats), screenshots, warnings, incidents and audit entries, newest first; each image is then fetched through \texttt{EvidenceStorage}.
 \end{sloppypar}
@@ -366,7 +368,7 @@ In Figures~\ref{fig:seq_telemetry} and~\ref{fig:seq_telemetry_b} the start call 
 \end{figure}
 
 \DiagramBarrier
-\subsubsection{Grading, Code Execution and Plagiarism}
+\subsubsection{Grading, Code Execution and Plagiarism (M11; UC-16, UC-17)}
 \begin{sloppypar}
 Plagiarism is checked in two places. The teacher's heat map (Figure~\ref{fig:seq_plagiarism_matrix}) compares every pair of students on demand and refuses practice exams. On submit (Figures~\ref{fig:seq_ai_plagiarism} and~\ref{fig:seq_ai_plagiarism_b}) \texttt{FinalizeAsync} stages the answers: MCQ and theory answers are marked at once (theory by the TF-IDF grader unless the LLM grader is on), and coding answers are queued for the code runner unless blank or no runner is configured. For non-practice exams, coding and theory answers are compared pairwise with the same question's answers in other finalised sessions, and pairs at or above the exam's \texttt{PlagiarismThreshold} are stored in \texttt{PlagiarismResults}. The session, marks, pairs and \texttt{SESSION\_SUBMITTED} audit entry are saved together, and the receipt is returned without waiting for code grading.
 \end{sloppypar}
@@ -411,7 +413,7 @@ Plagiarism is checked in two places. The teacher's heat map (Figure~\ref{fig:seq
 \end{figure}
 
 \DiagramBarrier
-\subsubsection{Readiness Checks, Practice Exam, Lockdown and Recovery}
+\subsubsection{Readiness Checks, Practice Exam, Lockdown and Recovery (M2, M4, M6; UC-02, UC-03, UC-06, UC-08)}
 \begin{sloppypar}
 In Figures~\ref{fig:seq_diagnostics} and~\ref{fig:seq_diagnostics_b} the client runs the seven readiness checks and posts the result; the server re-checks it, stores a \texttt{ReadinessCheck} row with its audit entry and returns a pass valid for 30 minutes.
 \end{sloppypar}
@@ -495,7 +497,7 @@ Figures~\ref{fig:seq_recovery} and~\ref{fig:seq_recovery_b} show the save, offli
 \end{figure}
 
 \DiagramBarrier
-\subsubsection{Submission, Configuration and Report Export}
+\subsubsection{Submission, Configuration and Report Export (M6, M8, M12; UC-08, UC-13, UC-18, UC-21)}
 \begin{sloppypar}
 On submit (Figures~\ref{fig:seq_submission} to~\ref{fig:seq_submission_c}) the client first flushes unsent saves; while one is still offline the window stays open. The server checks that the session is the caller's own and in progress, then in one save sets it to Submitted with the receipt hash and stores the staged grades, the plagiarism pairs and the \texttt{SESSION\_SUBMITTED} audit entry; it then queues the coding answers. The client verifies the receipt and releases the lockdown.
 \end{sloppypar}
@@ -547,6 +549,69 @@ For an export (Figures~\ref{fig:seq_audit} and~\ref{fig:seq_audit_b}) \texttt{An
 \includegraphics[width=0.70\linewidth,height=325pt,keepaspectratio]{Figures/seq_audit_b.png}
 \caption{Sequence Diagram of Report Export and Audit-Chain Verification (b): Chain Verification}
 \label{fig:seq_audit_b}
+\end{figure}
+
+\DiagramBarrier
+\subsubsection{User Management and Eligibility (M7, M9; UC-20, UC-23, UC-25, UC-27)}
+\begin{sloppypar}
+Administrators manage accounts on the Users page through \texttt{UsersController}. An account is created on its own or in a batch that the page parses from a CSV file; the server skips each bad row with its line and reason and audits the batch as \texttt{USERS\_IMPORTED} (Figures~\ref{fig:seq_users} and~\ref{fig:seq_users_b}). When an Admin creates or acts on an Admin or SuperAdmin account, a single-account call is refused with 403 \texttt{SUPERADMIN\_REQUIRED} and a \texttt{PRIVILEGED\_ACCOUNT\_DENIED} entry is saved at once, while such a row in an import is skipped.
+\end{sloppypar}
+
+\begin{sloppypar}
+A device-binding reset and a forced logout both revoke the user's refresh tokens and sessions and save the change with its audit entry (\texttt{DEVICE\_BINDING\_RESET} or \texttt{FORCE\_LOGOUT}), so the user's next request is refused even with an unexpired JWT (Figures~\ref{fig:seq_users_c} and~\ref{fig:seq_users_d}). A forced logout also removes the user from any live-monitor groups.
+\end{sloppypar}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=\linewidth,height=560pt,keepaspectratio]{Figures/seq_users.png}
+\caption{Sequence Diagram of User and Role Management (a): Creating an Account}
+\label{fig:seq_users}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=460pt,keepaspectratio]{Figures/seq_users_b.png}
+\caption{Sequence Diagram of User and Role Management (b): CSV Import}
+\label{fig:seq_users_b}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=535pt,keepaspectratio]{Figures/seq_users_c.png}
+\caption{Sequence Diagram of User and Role Management (c): Device-Binding Reset}
+\label{fig:seq_users_c}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=515pt,keepaspectratio]{Figures/seq_users_d.png}
+\caption{Sequence Diagram of User and Role Management (d): Force Logout}
+\label{fig:seq_users_d}
+\end{figure}
+
+\begin{sloppypar}
+On the Eligibility page a teacher uploads the section's attendance CSV (at most 1~MB) to \texttt{AttendanceController}, which stores each student's total and attended classes and reports rejected rows by line (Figure~\ref{fig:seq_eligibility}). Recalculation (Figure~\ref{fig:seq_eligibility_b}) passes every assignment without a manual override to \texttt{EligibilityCalculator.Decide}, which compares the unrounded attendance percentage with the exam's \texttt{MinAttendancePercent} (75\% by default); a student with no attendance data keeps the earlier decision. A manual change (Figure~\ref{fig:seq_eligibility_c}) is audited per student as \texttt{ELIGIBILITY\_OVERRIDDEN}, and later recalculations skip that student until the override is cleared.
+\end{sloppypar}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/seq_eligibility.png}
+\caption{Sequence Diagram of Attendance Import and Eligibility (a): Attendance Import}
+\label{fig:seq_eligibility}
+\end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/seq_eligibility_b.png}
+\caption{Sequence Diagram of Attendance Import and Eligibility (b): Recalculation from Attendance}
+\label{fig:seq_eligibility_b}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=530pt,keepaspectratio]{Figures/seq_eligibility_c.png}
+\caption{Sequence Diagram of Attendance Import and Eligibility (c): Manual Override}
+\label{fig:seq_eligibility_c}
 \end{figure}
 
 \renewcommand{\floatpagefraction}{0.5}

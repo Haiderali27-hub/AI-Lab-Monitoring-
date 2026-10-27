@@ -1,0 +1,63 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' Attendance import and eligibility (Module 9, UC-20), part (a): attendance import.
+' Code: Admin_Web_Panel/src/pages/teacher/EligibilityPage.tsx (handleImport), src/api/exams.api.ts
+' (examsApi.importAttendance -> multipart POST /api/sections/{sectionId}/attendance/import);
+' Backend_API/Controllers/AttendanceController.cs (Import, AuthorizeSectionAsync, MaxUploadBytes = 1 MB);
+' Services/AttendanceCsvParser.cs (Parse); Services/AuditService.cs (Add).
+
+actor Teacher as T
+participant "EligibilityPage\n(web)" as UI
+participant "Attendance\nController" as AC
+participant "Attendance\nCsvParser" as P
+participant "AuditService" as AS
+database "AppDbContext" as DB
+
+T -> UI : Import attendance:\nchoose the CSV
+activate UI
+UI -> AC : POST /api/sections/{sectionId}/\nattendance/import (multipart "file")
+activate AC
+AC -> DB : Section (TeacherId)
+break section missing, or a teacher who does not teach it
+  AC --> UI : 404 / 403
+end
+break no file, or file over 1 MB
+  AC --> UI : 400 {message}
+end
+AC -> P : Parse(text)
+activate P
+P --> AC : Rows (line, email,\ntotal, attended,\nerror), HeaderError
+deactivate P
+break HeaderError (no email, total\nor attended column)
+  AC --> UI : 400 {message}
+end
+AC -> DB : students by email, section\nenrolments, AttendanceRecords
+DB --> AC : rows
+loop each parsed row
+  alt row error, unknown student\nor deactivated account
+    AC -> AC : errors.Add(line,\nemail, reason)
+  else known student\n(warning if not enrolled)
+    AC -> DB : insert or update AttendanceRecord\n(TotalClasses, AttendedClasses)
+  end
+end
+AC -> AS : Add(ATTENDANCE_\nIMPORTED {imported,\nupdated, rejected})
+activate AS
+AS -> DB : AuditLogs.Add\n(staged)
+deactivate AS
+AC -> DB : SaveChanges
+AC --> UI : 200 {imported, updated,\nerrors, warnings}
+deactivate AC
+UI --> T : counts and per-line\nerrors and warnings
+deactivate UI
+@enduml

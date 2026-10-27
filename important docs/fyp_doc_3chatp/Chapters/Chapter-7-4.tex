@@ -108,6 +108,40 @@ M9-M-01, M10-D-01, 02 & Seat, warning and unlock & Sit at the wrong PC; send a w
 M5-P-01 & Load (NFR4): 40 clients per lab & k6: 40 virtual students send heartbeats every 10~s and events. & p95 below 2~s, no errors. & Pending\\
 \end{longtable}}
 
+\subsection{Detailed Test Case: Login from a Second PC}\label{subsec:worked_case}
+This section expands integration case IT-01 (Table~\ref{tab:it_auth}) to show what lies behind one row of the tables: the method, the exact data, the expected values and the recorded outcome.
+
+\subsubsection{Test Method}
+The case is an automated black-box API test in the Playwright \texttt{api} project (\texttt{tests/\allowbreak{}api/\allowbreak{}m1-auth.spec.ts}), which sends HTTP requests to a separately started backend with a seeded in-memory database (Section~\ref{sec:test_management}). Test M1-A-04 runs both logins below; M1-A-03 repeats the first login and also checks its reply and the stored binding.
+
+\subsubsection{Test Case Description}
+\textbf{Precondition:} the seeded admin creates a new, active student through \texttt{POST /api/users}, so the student has no device binding. \textbf{Steps:} (1) the desktop-client simulator calls \texttt{POST /api/auth/student-login} with the student's email, password and fingerprint \texttt{HWID-X}; (2) it repeats the call with fingerprint \texttt{HWID-Y}; (3) the admin reads \texttt{/api/audit-logs} filtered on \texttt{DEVICE\_MISMATCH}. \textbf{Expected result:} step~1 returns 200 with \texttt{deviceBound} true; step~2 returns 401 with \texttt{success} false and code \texttt{DEVICE\_MISMATCH}; step~3 contains a row for the student. \textbf{Pass:} all three hold. \textbf{Fail:} any other status or code, or no audit row.
+
+% keep the data heading with its table
+\filbreak
+\subsubsection{Test Case Data}
+Table~\ref{tab:worked_case_data} gives the data before the test and after each login.
+
+\begin{table}[H]
+\centering
+\caption{Test Case Data for a Login from a Second PC}
+\label{tab:worked_case_data}
+\vspace{4pt}
+{\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
+\begin{tabular}{@{}P{2.9cm}P{2.6cm}P{4.4cm}P{5.1cm}@{}}
+\hline\hline
+\textbf{Data} & \textbf{Before} & \textbf{After step 1 (\texttt{HWID-X})} & \textbf{After step 2 (\texttt{HWID-Y})} \\ \hline
+Student account & New, active; password \texttt{Student@123} & Unchanged & Unchanged \\ \hline
+\texttt{DeviceBindings} row & None & Created; \texttt{HwidHash} = SHA-256 of \texttt{HWID-X} (Base64) & Unchanged \\ \hline
+HTTP reply & -- & 200, \texttt{deviceBound} true & 401, \texttt{DEVICE\_\allowbreak{}MISMATCH} \\ \hline
+Audit rows for the student & \texttt{USER\_\allowbreak{}CREATED} & Adds \texttt{DEVICE\_BOUND}, \texttt{LOGIN\_\allowbreak{}SUCCESS} & Adds \texttt{DEVICE\_\allowbreak{}MISMATCH} (outcome \texttt{access\_blocked}) \\
+\specialrule{1.2pt}{0pt}{0pt}
+\end{tabular}}
+\end{table}
+
+\subsubsection{Test Case Report}
+Both tests ran in the final run of 26 October 2026 (commit \texttt{d8345f8}) and passed at the first attempt. Their assertions held: the first login returned 200 with \texttt{deviceBound} true and the PC's name stored on the binding, the second returned 401 \texttt{DEVICE\_MISMATCH}, and the audit log held a \texttt{DEVICE\_MISMATCH} row whose entity id is the student's id. Result: Pass. Traceability: FR1 (Table~\ref{tab:functionalrequirements}) and NFR1 (Table~\ref{tab:test_criteria}), IT-01, catalogue rows M1-A-03 and M1-A-04.
+
 \section{Bugs Report}\label{sec:bugs}
 
 In total 49 defects (D-01 to D-49) were recorded in the test catalogue, each with the test, review or implementation step that found it. Six (D-07, D-16, D-19, D-20, D-22, D-26) were found by code review and one (D-48) while implementing Module~12; two (D-33, D-49) were timing-sensitive tests rather than product defects. Table~\ref{tab:bugs} lists the 21 with the largest effect on exam integrity, data access and reliability. The test in its Found-by column is kept as a regression test and passed in the final run; D-01 was found while writing SEC-A-05 and is guarded by SEC-A-06. Severity is Critical for a leak of exam content or credentials or a bypass of the desktop client, High for a broken access rule or a loss of exam time or data, and Medium for a fault with a limited effect. No defect is open.

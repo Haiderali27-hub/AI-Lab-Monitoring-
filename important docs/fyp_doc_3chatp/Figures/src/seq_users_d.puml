@@ -1,0 +1,62 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' User and role management (Module 7, UC-23 with UC-27's guard), part (d): force logout.
+' Code: Admin_Web_Panel/src/pages/admin/UsersPage.tsx (handleForceLogout; also DeviceBindingsPage.tsx),
+' src/api/users.api.ts (usersApi.forceLogout);
+' Backend_API/Controllers/UsersController.cs (ForceLogout, GuardExistingAsync);
+' Services/RefreshTokenService.cs (RevokeAllForUserAsync); Services/ExamGroupTracker.cs (RevokeAsync);
+' Services/AuditService.cs (Add, LogAsync).
+
+actor "Admin /\nSuperAdmin" as A
+participant "UsersPage\n(web)" as UI
+participant "Users\nController" as UC
+participant "RefreshToken\nService" as RT
+participant "ExamGroup\nTracker" as EG
+participant "AuditService" as AS
+database "AppDbContext" as DB
+
+A -> UI : Force logout
+activate UI
+UI -> UC : POST /api/users/\n{id}/force-logout
+activate UC
+UC -> UC : GuardExistingAsync\n("force-logout", id)
+break target is Admin or SuperAdmin\nand caller is not SuperAdmin
+  UC -> AS : LogAsync(PRIVILEGED_\nACCOUNT_DENIED)
+  activate AS
+  AS -> DB : AuditLogs.Add;\nSaveChanges
+  AS --> UC
+  deactivate AS
+  UC --> UI : 403 {code:\nSUPERADMIN_\nREQUIRED}
+end
+UC -> RT : RevokeAllForUserAsync\n(id, ForceLogout)
+activate RT
+RT -> DB : refresh tokens\nrevoked; SaveChanges
+RT --> UC : revokedRefreshTokens
+deactivate RT
+UC -> DB : open UserSessions:\nIsRevoked = true
+UC -> AS : Add(FORCE_LOGOUT)
+activate AS
+AS -> DB : AuditLogs.Add\n(staged)
+deactivate AS
+UC -> DB : SaveChanges
+UC -> EG : RevokeAsync(id)
+activate EG
+EG --> UC : live-monitor group\nmemberships removed
+deactivate EG
+UC --> UI : 200 "Revoked N\nactive session(s)."
+deactivate UC
+UI --> A : "Active sessions\nrevoked."
+deactivate UI
+note over UI, DB : The user's next request is refused by the server-side\nsession check even though the JWT has not expired.
+@enduml

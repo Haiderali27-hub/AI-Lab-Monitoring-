@@ -1,7 +1,7 @@
 \chapter{SYSTEM INTERFACE AND PHYSICAL DESIGN}
 \label{chap:system_interface_physical_design}
 
-This chapter shows what each user sees and how the data is stored. Section~\ref{sec:system_user_interfaces} follows an exam from start to finish: the student's desktop client, exam set-up, live invigilation, evaluation, administration and the student portal. Section~\ref{sec:physical_tables} lists the 29 database tables and the columns of the five core ones.
+This chapter shows what each user sees and how the data is stored. Section~\ref{sec:system_user_interfaces} follows an exam from start to finish: the student's desktop client, exam set-up, live invigilation, evaluation, administration and the student portal. Section~\ref{sec:physical_tables} lists the 29 database tables and the columns of the six core ones.
 
 \section{System User Interfaces}
 \label{sec:system_user_interfaces}
@@ -58,14 +58,14 @@ The teacher dashboard (Figure~\ref{fig:ui_teacher_dashboard}) counts the teacher
 \label{fig:ui_teacher_dashboard}
 \end{figure}
 
-A four-step wizard creates an exam: basic information, questions (MCQ, coding with test cases, theory), rules, and students (FR8). Step~3 holds the integrity rules: allowed applications, lockdown mode (Off, Report, Enforce), the multi-monitor flag, the required system check, webcam and microphone, and the practice-exam switch (Figure~\ref{fig:ui_create_exam_rules}); then early join, minimum attendance, the screenshot and webcam intervals, seat enforcement, AI evaluation and the plagiarism threshold (Figure~\ref{fig:ui_create_exam_rules_more}).
-
 \begin{figure}[p]
 \centering
 \includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/ui_create_exam_rules.png}
 \caption{Create-Exam Wizard, Rules Step: Integrity Switches}
 \label{fig:ui_create_exam_rules}
 \end{figure}
+
+A four-step wizard creates an exam: basic information, questions (MCQ, coding with test cases, theory), rules, and students (FR8). Step~3 holds the integrity rules: allowed applications, lockdown mode (Off, Report, Enforce), the multi-monitor flag, the required system check, webcam and microphone, and the practice-exam switch (Figure~\ref{fig:ui_create_exam_rules}); then early join, minimum attendance, the screenshot and webcam intervals, seat enforcement, AI evaluation and the plagiarism threshold (Figure~\ref{fig:ui_create_exam_rules_more}).
 
 \begin{figure}[tbp]
 \centering
@@ -152,6 +152,15 @@ The \emph{Plagiarism Flags} tab (Figure~\ref{fig:ui_plagiarism}) shows a pairwis
 
 \DiagramBarrier
 \subsection{Administration and Student Portal}\suppressfloats[t]
+Every web user, staff or student, signs in on one login page with email and password (Figure~\ref{fig:ui_web_login}) and is taken to the home page of their role. Neither front end offers self-registration or an emailed password reset: administrators create accounts or import them from a CSV file and can set a new password when editing an account (FR7), and staff change their own password from the panel (Figure~\ref{fig:seq_change_password}). The desktop client's sign-in, token refresh and logout are drawn in Figures~\ref{fig:seq_login} to~\ref{fig:seq_logout_b}; on the web panel, sign-in, refresh and sign-out are tested in ST-01 (Table~\ref{tab:st_admin}).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\linewidth]{Figures/ui_web_login.png}
+\caption{Web Panel Login (Sign-In Form)}
+\label{fig:ui_web_login}
+\end{figure}
+
 Admins manage departments and courses (Figure~\ref{fig:ui_academics}); department names are unique, a course code is unique within its department, and a department or course still in use cannot be deleted (FR7).
 
 \begin{figure}[tbp]
@@ -163,6 +172,7 @@ Admins manage departments and courses (Figure~\ref{fig:ui_academics}); departmen
 
 Admins register labs and workstations (machine number, Windows PC name, IP address) in Figure~\ref{fig:ui_labs_workstations}; each seat shows the student signed in on it. With \texttt{EnforceSeat} on, a student with a seat can start the exam only from that PC (FR9).
 
+\DiagramBarrier
 \begin{figure}[tbp]
 \centering
 \includegraphics[width=\linewidth,height=418pt,keepaspectratio]{Figures/ui_labs_workstations.png}
@@ -208,7 +218,7 @@ In the student portal (Figures~\ref{fig:ui_student_performance} and~\ref{fig:ui_
 \renewcommand{\textfraction}{0.2}\renewcommand{\floatpagefraction}{0.5}
 \section{Physical Database Tables}
 \label{sec:physical_tables}
-EF Core migrations create the PostgreSQL tables from \texttt{Backend\_API/Models} and \texttt{AppDbContext}. Keys are globally unique identifiers (GUIDs, type \texttt{uuid}); \texttt{ExamProctors} has a composite key of two. Enums are stored as their names, and defaults are set by the application. Table~\ref{tab:physical_tables} lists all 29 tables; evidence (\texttt{Screenshots}) came with M5, \texttt{Incidents} and \texttt{ExamProctors} with M10, and \texttt{TestCaseResults} with M11. The five core tables follow (\texttt{timestamptz} = timestamp with time zone; FK = foreign key).
+EF Core migrations create the PostgreSQL tables from \texttt{Backend\_API/Models} and \texttt{AppDbContext}. Keys are globally unique identifiers (GUIDs, type \texttt{uuid}); \texttt{ExamProctors} has a composite key of two. Enums are stored as their names, and defaults are set by the application. Table~\ref{tab:physical_tables} lists all 29 tables; evidence (\texttt{Screenshots}) came with M5, \texttt{Incidents} and \texttt{ExamProctors} with M10, and \texttt{TestCaseResults} with M11. The six core tables follow (\texttt{timestamptz} = timestamp with time zone; FK = foreign key).
 
 {\small
 \begin{longtable}{@{}>{\ttfamily\raggedright}p{4.3cm}>{\raggedright}p{5.1cm}>{\ttfamily\raggedright\arraybackslash}p{5.6cm}@{}}
@@ -254,7 +264,7 @@ Notifications & In-app notifications & NotificationId, RecipientId, IsRead \\
 }
 
 \subsection{Users}
-\texttt{Email} has a unique index; \texttt{RollNumber} has a unique index filtered on \texttt{IS NOT NULL}, so it is unique only when set (Table~\ref{tab:users_table}) \cite{efcore_indexes}. Passwords are hashed with salted PBKDF2-HMAC-SHA256 \cite{rfc8018} at 600{,}000 iterations, the OWASP recommendation \cite{owasp_pwd}; the iteration count is stored with each hash, so older hashes are re-hashed at the next successful login \cite{nist80063b}. A student's PC is kept in \texttt{DeviceBindings} (one row per student, deleted with the user).
+Administrators are \texttt{Users} rows with role Admin or SuperAdmin, so there is no separate admin table; only a SuperAdmin may manage Admin and SuperAdmin accounts (FR7). \texttt{Email} and \texttt{RollNumber} have unique indexes, the latter filtered on \texttt{IS NOT NULL} (Table~\ref{tab:users_table}) \cite{efcore_indexes}. Passwords are salted PBKDF2-HMAC-SHA256 hashes \cite{rfc8018} at 600{,}000 iterations, as OWASP recommends \cite{owasp_pwd}; the iteration count is stored with each hash, so older hashes are re-hashed at the next successful login \cite{nist80063b}. A student's PC is kept in \texttt{DeviceBindings} (one row per student, deleted with the user).
 
 \begin{table}[H]
 \centering
@@ -385,6 +395,34 @@ AnalysisJson & text & Yes & Code-analysis signals \\
 LlmSummary & text & Yes & Optional LLM summary (off by default) \\
 QueueVersion & integer & No & Concurrency token for regrades \\
 GradedAt & timestamptz & No & \\
+\hline\hline
+\end{tabularx}
+\end{table}
+
+% keep the AuditLogs heading, text and table together
+\filbreak
+\subsection{AuditLogs}
+Table~\ref{tab:auditlogs_table} lists the columns. Each row's \texttt{Hash} is the SHA-256 of its own fields and of the previous row's hash (\texttt{PrevHash}; 64 zeros for the first row), so editing a row, or deleting one that later rows follow, makes verification fail, which the badge in Figure~\ref{fig:ui_audit_logs} reports. \texttt{ActorId} is an indexed plain id rather than an FK, so a deleted user's rows keep the id their hash covers. The three chain columns are null only for rows written before the chain was added, until an administrator seals them with the backfill.
+
+\begin{table}[H]
+\centering
+\caption{AuditLogs Table}
+\label{tab:auditlogs_table}
+\vspace{2pt}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\ttfamily}l l c X@{}}
+\hline\hline
+\textrm{\textbf{Column}} & \textbf{Type} & \textbf{Null} & \textbf{Notes} \\ \hline\hline
+LogId & uuid & No & Primary key \\
+ActorId & uuid & Yes & Acting user, null for system events; indexed, not an FK \\
+EventType & text & No & e.g.\ LOGIN\_SUCCESS, GRADE\_OVERRIDDEN \\
+EntityType & text & No & Kind of record acted on, e.g.\ User \\
+EntityId & text & Yes & Id of that record \\
+Details & text & No & JSON details \\
+CreatedAt & timestamptz & No & \\
+Sequence & bigint & Yes & Unique, gap-free order of the chain \\
+PrevHash & varchar(64) & Yes & Hash of the previous row \\
+Hash & varchar(64) & Yes & Hash of this row \\
 \hline\hline
 \end{tabularx}
 \end{table}

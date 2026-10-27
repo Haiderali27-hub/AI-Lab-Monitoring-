@@ -1,0 +1,64 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' Attendance import and eligibility (Module 9, UC-20), part (b): recalculation from attendance.
+' Code: Admin_Web_Panel/src/pages/teacher/EligibilityPage.tsx (handleRecalculate),
+' src/api/exams.api.ts (examsApi.recalculateEligibility);
+' Backend_API/Controllers/ExamsController.cs (RecalculateEligibility, CanManage);
+' Services/EligibilityCalculator.cs (Decide); Models/Exam.cs (MinAttendancePercent = 75); Services/AuditService.cs (Add).
+
+actor Teacher as T
+participant "EligibilityPage\n(web)" as UI
+participant "Exams\nController" as EC
+participant "Eligibility\nCalculator" as EL
+participant "AuditService" as AS
+database "AppDbContext" as DB
+
+T -> UI : Recalculate
+activate UI
+UI -> EC : POST /api/exams/{examId}/\neligibility/recalculate
+activate EC
+EC -> DB : Exam + Section\n+ Assignments
+break exam missing, or not the\nteacher's own section
+  EC --> UI : 404 / 403
+end
+break exam Ended
+  EC --> UI : 409 Conflict
+end
+EC -> DB : AttendanceRecords of\nthe exam's section
+loop each ExamAssignment
+  alt EligibilityOverridden
+    EC -> EC : skippedOverridden++
+  else attendance-driven
+    EC -> EL : Decide(hasRecord,\nattended, total,\nMinAttendancePercent)
+    activate EL
+    EL --> EC : EligibilityDecision\n(IsEligible?, Percent,\nNote)
+    deactivate EL
+    alt no record, or total = 0
+      EC -> EC : EligibilityNote only;\ndecision unchanged
+    else computed: eligible when percent\n>= minimum (default 75 %)
+      EC -> EC : IsEligible;\nSource = Attendance
+      EC -> AS : Add(ELIGIBILITY_\nCOMPUTED)
+    end
+  end
+end
+EC -> AS : Add(ELIGIBILITY_\nRECALCULATED)
+activate AS
+AS -> DB : AuditLogs.Add\n(staged)
+deactivate AS
+EC -> DB : SaveChanges
+EC --> UI : 200 {computed,\nineligible,\nskippedOverridden,\nnotComputed}
+deactivate EC
+UI --> T : summary notice
+deactivate UI
+@enduml

@@ -1,0 +1,51 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' User and role management (Module 7, UC-23, UC-27), part (b): CSV import.
+' Code: Admin_Web_Panel/src/pages/admin/UsersPage.tsx (handleCsvFile parses the CSV in the browser),
+' src/api/users.api.ts (usersApi.importUsers -> POST /api/users/import {users});
+' Backend_API/Controllers/UsersController.cs (Import); Services/AuditService.cs (Add).
+
+actor "Admin /\nSuperAdmin" as A
+participant "UsersPage\n(web)" as UI
+participant "Users\nController" as UC
+participant "AuditService" as AS
+database "AppDbContext" as DB
+
+A -> UI : Upload CSV
+activate UI
+UI -> UI : handleCsvFile: header\nname, email, password,\nrole [, rollNumber]
+break header or data row missing
+  UI --> A : alert (no request)
+end
+UI -> UC : POST /api/users/import\n{users: [rows]}
+activate UC
+UC -> DB : existing emails\nand roll numbers
+DB --> UC : sets
+loop each row (line = 1, 2, ...)
+  alt missing name, email or password; unknown role;\nAdmin or SuperAdmin row and caller is not SuperAdmin;\nduplicate email; invalid or duplicate roll number
+    UC -> UC : skipped.Add\n(line, email, reason)
+  else valid row
+    UC -> DB : Users.Add (new salt,\nPBKDF2 hash)
+  end
+end
+UC -> AS : Add(USERS_IMPORTED\n{created, skipped})
+activate AS
+AS -> DB : AuditLogs.Add (staged)
+deactivate AS
+UC -> DB : SaveChanges
+UC --> UI : 200 {created,\nskippedCount, skipped}
+deactivate UC
+UI --> A : "Import complete: N created,\nM skipped."
+deactivate UI
+@enduml
