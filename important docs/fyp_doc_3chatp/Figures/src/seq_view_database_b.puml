@@ -1,0 +1,52 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' Code: Admin_Web_Panel/src/pages/teacher/live/StudentDrawer.tsx, ScreenshotCarousel.tsx;
+' Backend_API/Controllers/MonitoringEvidenceController.cs; Services/ExamAccessService.cs; EvidenceStorage.
+
+actor "Teacher /\nInvigilator /\nAdmin" as U
+participant "StudentDrawer +\nScreenshotCarousel\n(Live Monitor)" as UI
+participant "MonitoringEvidence\nController" as MC
+participant "ExamAccess\nService" as EA
+participant "Evidence\nStorage" as ES
+database "AppDbContext" as DB
+activate UI
+UI -> MC : GET /api/exams/{examId}/\nsessions/{sessionId}/screenshots
+activate MC
+MC -> EA : DenyUnlessAsync (same rule)
+activate EA
+EA --> MC : null | 404 | 403
+deactivate EA
+MC -> DB : session in exam (else 404); its Screenshots, newest first
+DB --> MC : rows
+MC --> UI : 200 [{screenshotId, kind,\ntrigger, capturedAt, contentUrl}]
+deactivate MC
+loop each capture shown
+  UI -> MC : GET /api/screenshots/{id}/content
+  activate MC
+  MC -> DB : Screenshot(id) (else 404)
+  DB --> MC : shot
+  MC -> EA : GetAsync(user, shot.ExamId)
+  activate EA
+  EA --> MC : ExamAccess (None -> 403)
+  deactivate EA
+  MC -> ES : OpenRead(StoragePath)
+  activate ES
+  ES --> MC : image stream | null (-> 404)
+  deactivate ES
+  MC --> UI : JPEG/PNG blob\n(Cache-Control: private)
+  deactivate MC
+end
+UI --> U : timeline + captures
+deactivate UI
+@enduml

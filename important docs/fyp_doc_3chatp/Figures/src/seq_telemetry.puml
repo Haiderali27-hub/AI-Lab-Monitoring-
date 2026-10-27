@@ -1,57 +1,61 @@
 @startuml
 !include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
 hide footbox
-skinparam ParticipantPadding 0
+hide unlinked
+skinparam ParticipantPadding 2
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
 }
+' Code: Student_Desktop_App/Views/ExamDashboard.xaml.cs, ViewModels/DashboardViewModel.cs, Services/LiveMonitoringService.cs;
+' Backend_API/Controllers/ExamsController.cs (student/start), MonitoringController.cs (heartbeat, events/batch, screenshot);
+' Services/Monitoring/HeartbeatWatchdogService.cs; Hubs/MonitoringHub.cs; Admin_Web_Panel/src/pages/teacher/LiveMonitorPage.tsx.
+' Open arrowheads (->>) are one-way messages: Start() returns at once, and every push to the web page is
+' IHubContext<MonitoringHub>.Clients.Group("exam:{id}").SendAsync(...), with no reply.
 
-participant "Dashboard\nViewModel\n(WPF)" as VM
-participant "LiveMonitoring\nService (WPF)" as LM
+participant "ExamDashboard\n+ Dashboard\nViewModel" as VM
+participant "LiveMonitoring\nService" as LM
 participant "Exams\nController" as EC
 participant "Monitoring\nController" as MC
 participant "Heartbeat\nWatchdog\nService" as WD
 database "AppDbContext" as DB
-participant "Monitoring\nHub group\nexam:{id}" as HUB
-participant "LiveMonitor\nPage (Web)" as WEB
+participant "LiveMonitorPage\n(web), in group\nexam:{id}" as WEB
+participant "Monitoring\nHub" as HUB
 
-WEB -> HUB : JoinExamGroup\n(examId), access\nchecked
+WEB -> HUB : JoinExamGroup\n(examId)
+activate HUB
+HUB --> WEB : joined
+deactivate HUB
 VM -> EC : POST /api/exams/student/start
-EC -> DB : assignment, seat and readiness gates;\ninsert ExamSession (Status = InProgress)
-EC --> VM : 200 {id, status,\nstartedAtUtc}
-VM -> LM : Start(token,\nsessionId, allowedApps,\ncapture)
+activate EC
+EC -> DB : assignment, seat and readiness\ngates; insert ExamSession (InProgress)
+EC --> VM : 200 {id, status, startedAtUtc}
+deactivate EC
+VM ->> LM : Start(token,\nsessionId, ...)
 
 par
   loop every 10 s
-    LM -> MC : POST /api/monitoring/heartbeat\n{examSessionId,\nisForegroundExamApp,\nactiveWindowTitle, idleSeconds,\ncameraStatus, ...}
-    MC -> DB : LastHeartbeatAt; Heartbeat\nevent (on change or every\n60 s); seat check
-    MC -> HUB : StudentHeartbeat
-    HUB -> WEB : StudentHeartbeat
-    MC --> LM : HeartbeatAck {remainingSeconds,\nsessionStatus, warnings, ...}
+    LM -> MC : POST /api/monitoring/heartbeat\n{examSessionId, cameraStatus,\nisForegroundExamApp, ...}
+    activate MC
+    MC -> DB : LastHeartbeatAt; Heartbeat event\n(on change or every 60 s); seat check
+    MC ->> WEB : StudentHeartbeat
+    MC --> LM : HeartbeatAck {remaining\nSeconds, sessionStatus,\nwarnings, ...}
+    deactivate MC
   end
 else
   loop outbox every 5 s (at once on a violation)
     LM -> MC : POST /api/monitoring/events/batch\n{examSessionId, events[...]}
-    MC -> DB : insert MonitoringEvents\n(dedup on ClientEventId)
-    MC -> HUB : ViolationEvent
-    HUB -> WEB : ViolationEvent
+    activate MC
+    MC -> DB : insert MonitoringEvents (dedup); AuditLog\nMONITORING_VIOLATION if any violation
+    opt session InProgress, violation recorded <= 60 s ago
+      MC ->> WEB : ViolationEvent
+    end
     MC --> LM : {accepted, duplicates}
-  end
-else
-  loop screen every ScreenshotIntervalSeconds +/- 50% (default 30-90 s),\nwebcam every WebcamIntervalSeconds if RequireWebcam,\nand on each violation; queue uploaded every 5 s
-    LM -> MC : POST /api/monitoring/screenshot\n(multipart JPEG, kind =\nScreen | Webcam, trigger)
-    MC -> DB : Screenshots row (image\nfile saved to disk by\nEvidenceStorage.SaveAsync)
-    MC -> HUB : ScreenshotUploaded
-    HUB -> WEB : Screenshot\nUploaded
+    deactivate MC
   end
 end
-
-loop sweep every 5 s
-  WD -> DB : InProgress, no\nheartbeat for 30 s
-  WD -> DB : IsDisconnected = true;\nDisconnected event
-  WD -> HUB : StudentDisconnected
-  HUB -> WEB : Student\nDisconnected
-end
-note over LM, MC : The next heartbeat clears IsDisconnected\nand sends StudentReconnected.
 @enduml

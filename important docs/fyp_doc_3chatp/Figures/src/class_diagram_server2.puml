@@ -1,0 +1,79 @@
+@startuml
+!include style.iuml
+' Class diagram, part 4 of 4 (server: authentication, evidence, reports and audit trail), drawn as two figures:
+' (a) this file: authentication and the audit trail; (b) class_diagram_server2_b.puml: evidence and reports.
+' Sources: Backend_API Controllers/AuthController.cs, Controllers/AuditController.cs, Services/RefreshTokenService.cs,
+' Helpers/PasswordHelper.cs, Services/AuditService.cs, Services/AuditChain.cs, Data/AppDbContext.cs (SaveChanges
+' seals new AuditLog rows, :52-65).
+' Only key members; parameters abbreviated as (..). Arrows: --> holds / injects, ..> calls or uses.
+hide empty members
+hide circle
+skinparam classAttributeIconSize 0
+skinparam nodesep 14
+skinparam ranksep 40
+skinparam class {
+  FontSize 14
+  AttributeFontSize 14
+  StereotypeFontSize 13
+}
+skinparam ArrowFontSize 14
+skinparam stereotypeFontSize 13
+
+class AuthController <<api/auth>> #FFF6E0 {
+  +Login(req)
+  +StudentLogin(req)
+  +Refresh(req)
+  +Logout()
+  +ChangePassword(req)
+  +Health()  [/api/health]
+}
+class RefreshTokenService #FFF6E0 {
+  +IssueForLoginAsync(user, jti, ..) : string
+  +RotateAsync(rawToken, ip) : RefreshOutcome
+  +RevokeFamilyByJtiAsync(jti, reason) : int
+  +RevokeOtherSessionsAsync(userId, keepJti, ..)
+}
+class PasswordHelper <<static>> #FFF6E0 {
+  +HashPassword(password, salt) : string
+  +VerifyPassword(password, salt, hash) : bool
+  +NeedsRehash(hash) : bool
+}
+class AuditController <<api/audit-logs>> #FFF6E0 {
+  +GetLogs(eventType, take)
+  +Verify(ct)
+  +Backfill(ct)
+}
+class AuditService #FFF6E0 {
+  +Add(actorId, eventType, entityType, ..)
+  +LogAsync(actorId, eventType, entityType, ..)
+}
+class AuditChain <<static>> #FFF6E0 {
+  +ComputeHash(row, sequence, prevHash) : string
+  +Seal(rows, headSequence, headHash)
+  +VerifyAsync(db, ct) : ChainStatus
+  +BackfillAsync(db, actorId, ct) : int
+}
+class AppDbContext <<DbContext>> #FFF6E0 {
+  +AuditLogs : DbSet<AuditLog>
+  +SaveChanges(..) : int
+  +SaveChangesAsync(..) : Task<int>
+}
+
+AuthController --> RefreshTokenService
+AuthController ..> PasswordHelper
+AuthController --> AuditService
+RefreshTokenService --> AuditService
+AuditController --> AppDbContext
+AuditController ..> AuditChain : VerifyAsync,\nBackfillAsync
+AuditService --> AppDbContext : AuditLogs.Add
+AppDbContext ..> AuditChain : seals new rows\nin SaveChanges
+
+skinparam legendFontSize 14
+legend bottom left
+  AuthController and RefreshTokenService also inject
+  AppDbContext (arrows omitted). AuditChain gives each new
+  AuditLog row the next Sequence, PrevHash = the previous
+  row's Hash, and Hash = SHA-256 over the row;
+  VerifyAsync re-checks the chain.
+endlegend
+@enduml

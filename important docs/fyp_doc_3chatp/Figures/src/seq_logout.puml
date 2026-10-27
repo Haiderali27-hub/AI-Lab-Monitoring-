@@ -1,27 +1,47 @@
 @startuml
 !include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
 hide footbox
-skinparam ParticipantPadding 0
+hide unlinked
+skinparam ParticipantPadding 2
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
 }
+' Code: Student_Desktop_App/Services/ApiClient.cs (TokenRefreshGate), Views/ExamDashboard.xaml.cs (LogoutButton_OnClick);
+' Backend_API/Controllers/AuthController.cs (Refresh, Logout); Services/RefreshTokenService.cs.
 
 actor Student
-participant "ExamDashboard\n(WPF)" as UI
+participant "ExamDashboard\n+ ApiClient (WPF)" as UI
 participant "AuthController" as AC
 participant "RefreshToken\nService" as RT
 database "AppDbContext" as DB
 
-Student -> UI : Logout
-UI -> UI : stop LiveMonitoring\nService
-UI -> AC : POST /api/auth/logout\n(Bearer JWT)
-note over AC, DB : JWT middleware rejects a revoked UserSession (401)
-AC -> RT : RevokeFamilyByJtiAsync\n(jti, Logout)
-RT -> DB : family of jti: RefreshTokens\nRevokedAt = now
-RT -> DB : that family's UserSessions\nIsRevoked = true
-AC -> DB : UserSession(jti).IsRevoked = true;\nAuditLog LOGOUT; SaveChanges
-AC --> UI : 200 "Logged out\nsuccessfully."
-UI -> UI : SessionStore.Clear()
-UI --> Student : show\nLoginWindow
+== token refresh: access token near expiry, or a 401 (TokenRefreshGate) ==
+UI -> AC : POST /api/auth/refresh\n{refreshToken}
+activate UI
+activate AC
+AC -> RT : RotateAsync(refreshToken, ip)
+activate RT
+RT -> DB : RefreshToken by SHA-256 hash (+ User)
+DB --> RT : row | null
+alt row already Rotated (replay)
+  RT -> DB : revoke family + its UserSessions;\nAuditLog REFRESH_TOKEN_REUSE
+  RT --> AC : Fail(REFRESH_TOKEN_REUSED)
+  AC --> UI : 401 REFRESH_TOKEN_REUSED
+else unknown, revoked, expired, or user\ndeactivated (family revoked)
+  RT --> AC : Fail(INVALID_REFRESH_TOKEN\n| REFRESH_TOKEN_EXPIRED)
+  AC --> UI : 401 with that code
+else valid
+  RT -> DB : old token Rotated; successor (same\nfamily) + new UserSession; SaveChanges
+  RT --> AC : Ok(TokenResponse)
+  AC --> UI : 200 TokenResponse (new pair)
+end
+deactivate RT
+deactivate AC
+deactivate UI
+
 @enduml

@@ -1,93 +1,129 @@
 @startuml
 !include style.iuml
-skinparam defaultFontSize 14
-skinparam ArrowFontSize 12
-' Live monitoring (Module 5/10): LiveMonitorPage -> MonitoringHub.JoinExamGroup; LiveMonitoringService
-' (heartbeat 10 s, encrypted outbox -> POST /api/monitoring/events/batch, EvidenceCaptureService random 30-90 s
-' and on violation -> POST /api/monitoring/screenshots, WebcamMonitorService: YuNet + YOLOX-Nano, started by
-' ApplyWebcamRequirement only when Exam.RequireWebcam is set);
-' MonitoringController pushes StudentHeartbeat / ViolationEvent / ScreenshotUploaded to group exam:{id};
-' hub SendWarning / ExtendStudentTime / ForceSubmitSessionById, delivered to the desktop in the heartbeat ack;
-' HeartbeatWatchdogService (PeriodicTimer sweep 5 s over InProgress, not yet disconnected sessions;
-' 30 s without heartbeat -> Disconnected, StudentDisconnected).
-' Two columns: desktop/web client (to connector A) with the watchdog loop below it, server (from A).
+' Live monitoring of one session (Modules 5/10). One fork, one branch per concurrent loop, each branch in one lane;
+' the lanes talk through send-signal (>) and accept-event (<) actions; a join closes the fork.
+' Desktop: LiveMonitoringService heartbeat Timer (AppConfig.HeartbeatSeconds = 10) whose ack carries remainingSeconds,
+'   sessionStatus, up to 5 warnings, unlockedUntilUtc and capture settings; 1 s tick: EvidenceCaptureService.Tick
+'   (CaptureSchedule: mean ScreenshotIntervalSeconds x U[0.5,1.5)), EventBatcher flush every 5 s or at once when urgent
+'   (POST /api/monitoring/events/batch), capture upload every 5 s (POST /api/monitoring/screenshots, kind Screen|Webcam);
+'   LockdownCoordinator / focus loss / WebcamMonitorService.IssueChanged -> urgent event in the encrypted MonitoringSpool
+'   + CaptureForViolation (webcam issues also give a webcam snapshot).
+' Server: MonitoringController.Heartbeat (MarkAlive, SeatGuard re-check, ViolationClassifier.Classify -> tileStatus,
+'   StudentHeartbeat), PushEventBatch (ClientEventId dedup, ViolationClassifier.Resolve, audit MONITORING_VIOLATION,
+'   ViolationEvent for fresh violations), UploadScreenshot (30/min cap, WEBCAM_NOT_REQUIRED, ScreenshotUploaded);
+'   MonitoringHub SendWarning / ExtendStudentTime / UnlockSession / ForceSubmitSessionById (access check, audit);
+'   HeartbeatWatchdogService sweep every 5 s: InProgress, !IsDisconnected, silent 30 s -> Disconnected event,
+'   audit SESSION_DISCONNECTED, StudentDisconnected.
+' Web panel: LiveMonitorPage JoinExamGroup(examId), tiles Stable / Warning / Suspicious / Critical / Disconnected.
+' Sized for a landscape (sidewaysfigure) page. Printed pt = fontSize * 72 * printed_width_in / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 28
+skinparam ArrowFontSize 27
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 29
+}
+|Desktop App|
+|Server|
+|Web Panel (staff)|
 
-split
-  -[hidden]->
-  start
-  :<b>Web Panel</b>
-  (LiveMonitorPage):
-  JoinExamGroup
+|Desktop App|
+start
+:Session starts:
+lockdown on,
+webcam monitor
+if RequireWebcam;
+fork
+  |Web Panel (staff)|
+  :JoinExamGroup
   (examId);
-  :<b>Desktop App</b>:
-  session starts
-  lockdown, and
-  webcam AI (YuNet,
-  YOLOX) if
-  RequireWebcam;
-  fork
-    :POST
-    heartbeat
-    (10 s);
-  fork again
-    :Flag to
-    encrypted
-    outbox,
-    POST
-    events
-    /batch;
-  fork again
-    :Screen
-    shot at
-    30-90 s or
-    violation,
-    POST
-    screen
-    shots;
-  end merge
-  (A)
-  detach
-  start
   repeat
-    :<b>HeartbeatWatchdogService</b>
-    sweep (every 5 s);
-    if (InProgress, no\nheartbeat for 30 s?) then (yes)
-      :Disconnected event,
-      hub StudentDisconnected;
-    else (no)
+    :Push: update
+    tile, alerts,
+    thumbnails<
+    if (Staff acts?) then ([yes])
+      :Warn, extend,
+      unlock or
+      force-submit
+      (hub call)>
+    else ([no])
     endif
-  repeat while (Server\nrunning?) is (yes) not (no)
-  stop
-split again
-  -[hidden]->
-  (A)
-  :<b>Monitoring</b>
-  <b>Controller</b> stores
-  MonitoringEvents,
-  Screenshots;
-  :Hub pushes
-  StudentHeartbeat,
-  ViolationEvent,
-  ScreenshotUploaded
-  to group exam:{id};
-  :<b>Web Panel</b>
-  updates
-  student tile;
-  if (Staff\naction?) then (yes)
-    :Hub SendWarning,
-    ExtendStudentTime
-    or ForceSubmit
-    SessionById;
-    :Next heartbeat
-    ack: warnings,
-    remainingSeconds,
-    session Status;
-    :<b>Desktop App</b>
-    shows warning,
-    resyncs timer or
-    closes the exam;
-  else (no)
-  endif
-  stop
-end split
+  repeat while (InProgress?) is ([yes]) not ([no])
+fork again
+  |Server|
+  repeat
+    :Request<
+    switch (Kind?)
+    case ([heartbeat])
+      :Mark alive,
+      re-check seat,
+      tile status
+      (Violation
+      Classifier), ack;
+    case ([batch, capture])
+      :Store events
+      (dedup, audit
+      MONITORING_
+      VIOLATION) or
+      Screenshot;
+    case ([hub call])
+      :Check access,
+      store, audit,
+      next ack
+      carries it;
+    endswitch
+    :Push to the
+    exam group>
+  repeat while (InProgress?) is ([yes]) not ([no])
+fork again
+  |Server|
+  repeat
+    :Watchdog
+    sweep (5 s);
+    if (Not flagged,
+    silent 30 s?) then ([yes])
+      :Disconnected,
+      audit SESSION_
+      DISCONNECTED,
+      push
+      StudentDisconnected>
+    else ([no])
+    endif
+  repeat while (InProgress?) is ([yes]) not ([no])
+fork again
+  |Desktop App|
+  repeat
+    :POST heartbeat
+    every 10 s>
+    :Ack: warnings,
+    time, status,
+    unlock<
+  repeat while (InProgress?) is ([yes]) not ([no])
+fork again
+  repeat
+    :Every 1 s:
+    screenshot
+    when due (0.5
+    to 1.5 x interval);
+    :Send outbox to
+    events/batch
+    (5 s, at once
+    if urgent),
+    upload captures>
+  repeat while (InProgress?) is ([yes]) not ([no])
+fork again
+  repeat
+    :Lockdown, focus
+    or webcam flag<
+    :Queue in the
+    encrypted outbox
+    (urgent), capture
+    the screen (webcam
+    issue: snapshot);
+  repeat while (InProgress?) is ([yes]) not ([no])
+end fork
+:Stop monitoring,
+deliver the rest;
+stop
 @enduml

@@ -1,0 +1,58 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Practice exam (Module 2). Client: ViewModels/DashboardViewModel.RefreshPracticeExamsAsync (ApiClient.GetPracticeExamsAsync),
+' Views/ExamDashboard.PracticeButton_OnClick (ApiClient.StartSessionAsync; refusal -> MessageBox; ExamWindow in "Report"
+' mode, no allowed-apps list, no webcam; afterwards DashboardViewModel.InitializeAsync refreshes the list).
+' Server: ExamsController.GetPracticeExams (GET /api/exams/student/practice: IsMock, assigned and eligible, open now) and
+' StartSession (POST /api/exams/{id}/start-session), whose gates run in this order: assignment (403), IsEligible (400),
+' exam closed and no open session (400), not open yet (400 EXAM_NOT_STARTED), seat (403 SEAT_MISMATCH), then an
+' InProgress practice attempt is returned as it is, and only a NEW attempt checks RequireReadiness (400 READINESS_REQUIRED).
+' Saving and submitting use the same calls as a real exam; SubmissionService.FinalizeAsync skips the plagiarism check
+' when Exam.IsMock and grades when AiEvaluationEnabled.
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam maxMessageSize 200
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+
+actor Student
+participant "Exam\nDashboard" as UI
+participant "Exam\nWindow" as EW
+participant "Dashboard\nViewModel" as VM
+participant "ApiClient" as API
+participant "Exams\nController" as EC
+database "AppDbContext" as DB
+Student -> UI : pick exam, Practice
+activate UI
+UI -> API : StartSessionAsync(examId)
+activate API
+API -> EC : POST /api/exams/\n{id}/start-session
+activate EC
+EC -> DB : ExamAssignment\n(+Exam,\nWorkstation)
+activate DB
+DB --> EC : assignment
+deactivate DB
+EC -> EC : assigned (else 403)?\neligible? not ended?\nopen? seat?
+alt a gate refuses
+  EC --> API : 403 / 400 {code,\nmessage}, e.g. EXAM_\nNOT_STARTED
+else a practice attempt is InProgress
+  EC --> API : 200 {sessionId}\n(same attempt)
+else new attempt; RequireReadiness,\nno pass in the last 30 min
+  EC --> API : 400 READINESS_REQUIRED
+else new attempt
+  EC -> DB : SaveChangesAsync\n(+ExamSession)
+  activate DB
+  DB --> EC : saved
+  deactivate DB
+  EC --> API : 200 {sessionId}
+end
+deactivate EC
+API --> UI : (sessionId or null, message)
+deactivate API
+@enduml

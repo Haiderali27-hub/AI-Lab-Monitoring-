@@ -2,12 +2,18 @@
 !include style.iuml
 ' dpi only sets resolution; printed text size = fontSize * 72 * W_in / layout width.
 skinparam dpi 120
-' Deployment diagram. Matches Program.cs, appsettings*.json, Admin_Web_Panel/src/utils/constants.ts,
+' Deployment diagram (UML 2.5: nodes, <<device>> and <<executionEnvironment>> nodes, artifacts, protocols on paths).
+' Matches Program.cs, appsettings*.json, Admin_Web_Panel/src/utils/constants.ts + vite.config.ts,
 ' Student_Desktop_App/appsettings.desktop.json + Student_Desktop_App.csproj (Models\*.onnx),
-' Services/Grading/* (DockerCodeRunner, LocalMingwCodeRunner, LlmClient), Services/Notifications/EmailService.cs.
-' Sized for \includegraphics width 0.97\linewidth (>= 7 pt printed).
-skinparam defaultFontSize 20
-skinparam ArrowFontSize 20
+' Services/Grading/* (DockerCodeRunner, LocalMingwCodeRunner, LlmClient), Services/Notifications/EmailService.cs,
+' Services/Analytics/ReportExportService.cs (Reports/: PDF, Excel, ZIP).
+' Port 5050: the clients' default base URL (appsettings.desktop.json:2, constants.ts:1); the API is started with
+' --urls http://localhost:5050 (playwright.config.ts:47), while launchSettings.json uses :5281.
+' Sized for width \linewidth, height cap 360pt (smallest text about 6.6 pt printed). The client paths end on the
+' execution environment, and the server title is padded with no-break spaces, so no path crosses a node title.
+' Local stores: AES-256-GCM, key wrapped by DPAPI CurrentUser (AnswerBackupCodec.cs, RecordCipher.cs, DpapiKeyProtector.cs).
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
 skinparam nodesep 14
 skinparam ranksep 46
 skinparam defaultTextAlignment left
@@ -21,87 +27,70 @@ skinparam node<<optional>> {
 }
 hide <<optional>> stereotype
 
-node WS [
-  <b>Lab workstation</b>
-  (Windows, one per seat)
-  ----
-  <<artifact>> Student_Desktop_App.exe
-  (WPF, .NET 9)
-  <<artifact>> YuNet + YOLOX-Nano
-  .onnx (OpenCvSharp4 DNN)
-  <<file>> DPAPI-encrypted outbox,
-  answer backup
-  <<device>> webcam
-]
+node "<b>Lab workstation</b>\n(Windows, one per seat)" as WS {
+  artifact "Student_Desktop_\nApp.exe (WPF,\n.NET 9)" as EXE
+  artifact "YuNet +\nYOLOX-Nano\n.onnx (Open-\nCvSharp4)" as ONNX
+  artifact "AES-256-GCM\noutbox + answer\nbackup (DPAPI-\nwrapped key)" <<file>> as LOCAL
+  node "Webcam" <<device>> as CAM
+}
 
-node PC [
-  <b>Staff / student PC</b>
-  ----
-  <<browser>> Admin_Web_Panel
-  (React + Vite SPA,
-  served by Vite :5173)
-  Teacher, Invigilator, Admin,
-  SuperAdmin; Student (results)
-]
+node "<b>Staff / student PC</b>" as PC {
+  node "Web browser" <<executionEnvironment>> as BR {
+    artifact "Admin_Web_Panel\n(React SPA)" as SPA
+  }
+}
 
-node "Application server" as SRV {
-  node API [
-    <b>ASP.NET Core 9 (Kestrel :5050)</b>
-    ----
-    <<artifact>> Backend_API
-    REST controllers  /api/*
-    SignalR MonitoringHub
-    /hubs/monitoring
-    ----
-    hosted: GradingWorker,
-    HeartbeatWatchdogService,
-    SessionTimeoutService,
-    EvidenceRetentionService
-  ]
-  node DOCKER [
-    <b>Docker Engine</b>
-    ----
-    container gcc:13
-    --network none,
-    read-only
-  ]
-  artifact MINGW [
-    Local MinGW g++
-    (fallback,
-    not isolated)
-  ]
-  artifact FILES [
-    Evidence folder
-    (Storage:
-    EvidencePath),
-    Reports/ PDF
-    (QuestPDF)
-  ]
+node "<b>Web host</b>\n(Vite :5173\nin dev, or any\nstatic server)" as WEBHOST {
+  artifact "Admin_Web_\nPanel build\n(dist/), served\nover HTTP" as DIST
+}
+
+node "<U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><b>Application server</b>" as SRV {
+  node "ASP.NET Core 9 / Kestrel\n(:5050 via --urls)" <<executionEnvironment>> as API {
+    artifact "Backend_API\nREST /api/*,\nSignalR /hubs/monitoring,\nhosted services" as BAPI
+  }
+  node "Docker Engine" <<executionEnvironment>> as DOCKER {
+    node "gcc:13\ncontainer\n--network\nnone,\nread-only" <<container>> as GCC
+  }
+  artifact "Local\nMinGW g++\n(fallback,\nnot isolated)" as MINGW
+  artifact "Evidence/,\nReports/:\nPDF, Excel,\nZIP" <<file>> as FILES
 }
 
 database DB [
-  <b>Neon PostgreSQL</b>
-  (cloud, neondb)
+  <b>Neon</b>
+  <b>PostgreSQL</b>
+  (cloud,
+  neondb)
   29 tables
 ]
 node SMTP [
   <b>SMTP server</b>
-  smtp.gmail.com:587
+  smtp.gmail
+  .com:587
 ]
 node LLM <<optional>> [
   <b>LLM API</b>
-  (Groq / Gemini)
+  (Groq /
+  Gemini)
   optional, off
   by default
 ]
 
-WS -down-> API : HTTP(S) REST + JWT:\nheartbeat every 10 s,\nevent batches,\ncaptures, answers
-PC -down-> API : HTTP(S) REST + JWT,\nSignalR WebSocket
-API -down-> DOCKER : docker run
-API -down-> MINGW : g++, run
-API -down-> FILES : writes
-API -right-> DB : Npgsql / EF Core\nSSL Mode=Require
-API -down-> SMTP : MailKit\nSTARTTLS
-API ..> LLM : HTTPS
-SMTP -[hidden]right- LLM
+EXE -down-> API : HTTP(S) REST + JWT:\nheartbeat every 10 s,\nevent batches,\ncaptures, answers
+SPA -down-> API : HTTP(S) REST + JWT,\nSignalR WebSocket
+DIST -right-> SPA
+EXE -[hidden]right- ONNX
+LOCAL -[hidden]right- CAM
+ONNX -[hidden]right- LOCAL
+BAPI -down-> DOCKER : docker run
+BAPI -down-> MINGW : g++, run
+BAPI -down-> FILES : writes
+BAPI -down-> DB : Npgsql / EF Core\nSSL Mode=Require
+BAPI -down-> SMTP : MailKit\nSTARTTLS
+BAPI ..> LLM : HTTPS
+SMTP -[hidden]right- DB
+' Docker left, then MinGW, then the short Evidence/Reports artifact: keeps the MailKit path and its label
+' clear of the Docker node and of the server node's right border.
+DOCKER -[hidden]right- MINGW
+MINGW -[hidden]right- FILES
+DB -[hidden]right- LLM
 @enduml

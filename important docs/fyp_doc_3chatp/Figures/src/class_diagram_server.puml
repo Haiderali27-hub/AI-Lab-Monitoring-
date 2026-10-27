@@ -1,33 +1,43 @@
 @startuml
 !include style.iuml
-' Class diagram, part 3 of 3 (server) from Backend_API Controllers, Hubs/MonitoringHub.cs and Services (incl. Services/Grading).
-' Part 1 (entities) is class_diagram.puml. Controller members are listed in part 2 (class_diagram_client.puml).
-' Only key members; parameters abbreviated as (..).
-' Arrows: --> holds / injects, ..> calls or uses, ..|> implements.
+' Class diagram, part 3 of 4 (server: monitoring, submission and grading), drawn as two figures:
+' (a) this file: monitoring, access checks and submission; (b) class_diagram_server_b.puml: grading and plagiarism.
+' Sources: Backend_API Controllers, Hubs/MonitoringHub.cs, Services (incl. Services/Monitoring/HeartbeatWatchdogService.cs).
+' Part 1 (entities) is class_diagram.puml; part 2 (client, with the members of ExamsController and
+' MonitoringController) is class_diagram_client*.puml; part 4 (authentication, evidence, reports, audit,
+' AuditService and AppDbContext) is class_diagram_server2*.puml.
+' Only key members; parameters abbreviated as (..). Arrows: --> holds / injects, ..> calls or uses.
+' A dashed white box is a class whose members are drawn in another part or figure.
+' IHubContext<MonitoringHub> injections are listed in the legend instead of drawn (ExamsController, MonitoringController,
+' SubmissionService, SeatGuard, GradingService, HeartbeatWatchdogService), and so are AuditService and AppDbContext.
 hide empty members
 hide circle
 skinparam classAttributeIconSize 0
-skinparam nodesep 16
-skinparam ranksep 30
+skinparam nodesep 14
+skinparam ranksep 36
 skinparam class {
-  FontSize 13
-  AttributeFontSize 12
+  FontSize 14
+  AttributeFontSize 14
+  StereotypeFontSize 13
 }
-skinparam ArrowFontSize 11
-skinparam stereotypeFontSize 10
+skinparam ArrowFontSize 14
+skinparam stereotypeFontSize 13
 
-class ExamsController <<api/exams>> #FFF6E0
-class MonitoringController <<api/monitoring>> #FFF6E0
+class ExamsController <<api/exams>> #FFFFFF ##[dashed]
+class MonitoringController <<api/monitoring>> #FFFFFF ##[dashed]
 class MonitoringHub <<SignalR /hubs/monitoring>> #FFF6E0 {
   +JoinExamGroup(examId)
-  +SendWarning(studentId, msg)
-  +ForceSubmitSessionById(..)
-  +ExtendStudentTime(..)
-  +UnlockSession(..)
+  +LeaveExamGroup(examId)
+  +SendWarning(studentId, message)
+  +ForceSubmitSessionById(sessionId)
+  +ExtendStudentTime(sessionId, minutes)
+  +UnlockSession(sessionId, minutes, reason)
+  +RelockSession(sessionId)
 }
 class ExamAccessService #FFF6E0 {
   +GetAsync(user, examId) : ExamAccess
   +GetForSessionAsync(..) : ExamAccess
+  +DenyUnlessAsync(..) : IActionResult?
 }
 enum ExamAccess <<enumeration>> #FFF6E0 {
   None
@@ -49,70 +59,38 @@ class SubmissionService #FFF6E0 {
   +{static} RemainingSeconds(..)
   +{static} IsClosed(..)
 }
-class PlagiarismService #FFF6E0 {
-  +DetectAsync(session, answers)
-  +BuildMatrixAsync(examId, ..)
+class HeartbeatWatchdogService <<BackgroundService>> #FFF6E0 {
+  +SweepAsync(utcNow, ..) : int
 }
-class GradingQueue #FFF6E0 {
-  +Reader : ChannelReader<Guid>
-  +Enqueue(answerId)
-  +MarkStarted(answerId)
-}
-class GradingWorker <<BackgroundService>> #FFF6E0
-class GradingService #FFF6E0 {
-  +StageAsync(answers)
-  +ProcessAsync(answerId, ct)
-}
-class LlmGrader #FFF6E0 {
-  +IsEnabled : bool
-  +GradeTheoryAsync(..)
-  +SummariseCodeAsync(..)
-}
-class TheoryGrader <<static>> #FFF6E0 {
-  +Grade(question, answer)
-}
-class CodeRunnerResolver #FFF6E0 {
-  +ResolveAsync(ct) : ICodeRunner?
-}
-interface ICodeRunner <<interface>> #FFF6E0 {
-  +Engine : string
-  +Isolated : bool
-  +RunAsync(job, ct) : RunReport
-}
-class DockerCodeRunner #FFF6E0
-class LocalMingwCodeRunner #FFF6E0
+class PlagiarismService #FFFFFF ##[dashed]
+class GradingQueue #FFFFFF ##[dashed]
+class GradingService #FFFFFF ##[dashed]
 
-ExamsController --> ExamAccessService
 ExamsController --> SeatGuard
-ExamsController --> SubmissionService
-ExamsController ..> MonitoringHub
 MonitoringController --> SeatGuard
 MonitoringController ..> ViolationClassifier
-MonitoringController ..> SubmissionService : RemainingSeconds\n(static)
-MonitoringController ..> MonitoringHub : "ViolationEvent"
+ExamsController --> ExamAccessService
+ExamsController --> SubmissionService
 MonitoringHub --> ExamAccessService
 MonitoringHub --> SubmissionService
-ExamAccessService .right.> ExamAccess
-MonitoringHub <.. SubmissionService
-MonitoringHub <.. SeatGuard : seat mismatch:\nViolationEvent
-SubmissionService --> GradingService
-SubmissionService --> GradingQueue : Enqueue
+MonitoringController ..> SubmissionService
+ExamAccessService ..> ExamAccess
 SubmissionService --> PlagiarismService
-GradingWorker --> GradingQueue : reads Reader
-GradingWorker ..> GradingService : ProcessAsync
-MonitoringHub <.. GradingService
-GradingService --> CodeRunnerResolver
-GradingService --> LlmGrader : optional\n(off by default)
-GradingService ..> TheoryGrader : fallback /\noffline
-CodeRunnerResolver ..> ICodeRunner
-DockerCodeRunner .up.|> ICodeRunner
-LocalMingwCodeRunner .up.|> ICodeRunner
-ExamsController -[hidden]right- MonitoringController
-SeatGuard -[hidden]down- GradingWorker
-skinparam legendFontSize 11
-legend bottom left
-  Dashed arrows into MonitoringHub: the class injects IHubContext<MonitoringHub>
-  and pushes live updates to the web panel (MonitoringController and SeatGuard send "ViolationEvent").
-  Solid arrow = holds / injects, dashed = calls / uses, hollow triangle = implements.
+SubmissionService --> GradingQueue : Enqueue
+SubmissionService --> GradingService
+SeatGuard -[hidden]down- ViolationClassifier
+ExamAccess -[hidden]down- HeartbeatWatchdogService
+
+skinparam legendFontSize 14
+legend bottom
+  ExamsController, MonitoringController, SubmissionService, SeatGuard,
+  GradingService and HeartbeatWatchdogService inject IHubContext<MonitoringHub>
+  and push live updates to the web panel (arrows omitted); for example
+  MonitoringController and SeatGuard push "ViolationEvent",
+  HeartbeatWatchdogService "StudentDisconnected". Controllers, MonitoringHub
+  and the services also inject AuditService and AppDbContext (part 4).
+  MonitoringController uses only the static SubmissionService.RemainingSeconds
+  and IsClosed (dashed arrow).
+  Dashed box: members drawn in another part or figure.
 endlegend
 @enduml

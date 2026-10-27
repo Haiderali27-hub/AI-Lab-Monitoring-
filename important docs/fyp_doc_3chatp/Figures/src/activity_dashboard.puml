@@ -1,39 +1,97 @@
 @startuml
 !include style.iuml
 ' Active exam workspace (Views/ExamWindow, Services/Lockdown/LockdownCoordinator + ProcessGuardService +
-' DeviceGuardService, Services/LiveMonitoringService (ApplyWebcamRequirement -> WebcamMonitorService),
-' events/batch + CaptureForViolation, MonitoringController, hub ViolationEvent)
+' DeviceGuardService, Services/LiveMonitoringService: 10 s heartbeat timer + 1 s tick, ApplyProctorCommands,
+' ApplyWebcamRequirement -> WebcamMonitorService; ReportViolation -> event spool -> POST
+' /api/monitoring/events/batch, CaptureForViolation -> capture spool -> POST /api/monitoring/screenshot;
+' MonitoringController pushes hub ViolationEvent / ScreenshotUploaded; ExamWindow.OnServerSessionStatus,
+' ShowProctorWarnings, ApplyUnlockDeadline, ResyncRemaining).
+' The three regions run independently (event-driven), so each has its own loop.
+' Print sizing (D6): large font at dpi 96, so PlantUML's fixed pixel gaps stay small next to the text;
+' printed size = 22 * (printed width in pt) / (PNG width px), at least 7 pt at the width used in Chapter 5.
+skinparam dpi 96
+skinparam defaultFontSize 22
+skinparam ArrowFontSize 22
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  TitleFontSize 23
+}
 
+|Student|
+|Desktop App|
+|Server|
 |Desktop App|
 start
-:Full-screen ExamWindow;\nLockdownCoordinator starts\nkeyboard, process, clipboard,\ndevice guards (not if Off);\nwebcam monitor if\nRequireWebcam;
-repeat
-  fork
-    :Answer\n(auto-\nsaved);
-  fork again
-    :Heartbeat\nevery 10 s\n(focus check);
-  end fork
-  if (Blocked key, clipboard,\napp not allowed, focus\nlost, device or webcam\nissue?) then (yes)
-    if (Enforce and\napp not\nallowed?) then (yes)
-      :Kill process\n(ProcessKilled);
-    else (no: report\nonly)
-    endif
-    :Spool event + screenshot,\nPOST /api/monitoring/\nevents/batch;
+:Full-screen ExamWindow; LockdownCoordinator
+starts keyboard, process, clipboard and USB
+guards (not if lockdown Off); webcam
+monitor if RequireWebcam;
+fork
+  |Student|
+  repeat
+    :Answer a
+    question
+    (auto-saved);
+  repeat while (Session\nopen?) is ([yes]) not ([no])
+fork again
+  |Desktop App|
+  repeat
+    :Heartbeat every
+    10 s (focus, camera
+    status)>
+    :Ack received<
+    :Apply ack: resync
+    timer, warning
+    banner, pause or
+    resume lockdown;
+  repeat while (Session\nInProgress?) is ([yes]) not ([no: ended])
+fork again
+  |Desktop App|
+  repeat
+    :Guard event<
     note right
-      Webcam (YuNet,
-      YOLOX-Nano): NoFace,
-      MultipleFaces,
-      LookingAway,
-      PhoneDetected,
-      CameraCovered/
-      Frozen/Unavailable
+      blocked key, clipboard,
+      app not allowed, focus
+      lost, USB storage, or
+      webcam: NoFace, Multiple-
+      Faces, LookingAway (head
+      pose), PhoneDetected,
+      Camera Covered/Frozen/
+      Unavailable
     end note
-    |Server|
-    :Store event,\nhub "Violation-\nEvent" to\nlive monitor;
-    |Desktop App|
-  else (no)
-  endif
-repeat while (Submitted,\ntimed out or\nforce-submitted?) is (no) not (yes)
-:Stop guards,\nrestore desktop;
+    if (Enforce and
+    app not allowed?) then ([yes])
+      :Kill process
+      (ProcessKilled);
+    else ([no])
+    endif
+    :Event to events/batch,
+    rate-limited screen
+    capture (webcam issue:
+    also a webcam snapshot)
+    to /screenshot>
+  repeat while (Session\nopen?) is ([yes]) not ([no])
+fork again
+  |Server|
+  repeat
+    :Heartbeat, event
+    batch or capture<
+    :MonitoringController
+    stores it; a heartbeat
+    gets an ack (remaining
+    time, session status,
+    extra time, up to 5
+    warnings, unlock
+    deadline);
+    :Push "StudentHeartbeat",
+    "ViolationEvent" or
+    "ScreenshotUploaded"
+    to the live monitor;
+  repeat while (Session\nopen?) is ([yes]) not ([no])
+  |Desktop App|
+end fork
+:Stop guards,
+restore desktop;
 stop
 @enduml

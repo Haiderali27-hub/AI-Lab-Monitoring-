@@ -1,0 +1,120 @@
+@startuml
+!include style.iuml
+' Part (b): the API processes 3.3-3.5; 3.1 and 3.2 are in dfd_level_2.puml (part a).
+' DFD level 2 of process 3.0 (Lockdown and telemetry). Process 5.0 is in
+' dfd_level_2b.puml. Same entities, numbers and stores (D1..D8) as level 1.
+' Yourdon/DeMarco notation: circle = process, rectangle = external entity,
+' two lines = data store, two-headed arrow = read and update,
+' dashed circle = level-1 process outside 3.0, * = store drawn twice.
+' 3.1 and 3.2 run in the WPF client on the lab PC; 3.3-3.5 run in the API.
+skinparam defaultFontSize 16
+skinparam ArrowFontSize 16
+skinparam nodesep 14
+skinparam ranksep 34
+skinparam defaultTextAlignment center
+skinparam rectangle<<entity>> {
+  BorderThickness 2
+  RoundCorner 0
+  BackgroundColor #FFFFFF
+}
+skinparam usecase {
+  BorderColor #333333
+  BorderThickness 2
+  BackgroundColor #F2F2F2
+}
+skinparam usecase<<ref>> {
+  BorderStyle dashed
+  BorderThickness 1
+  BackgroundColor #FFFFFF
+}
+skinparam label {
+  FontSize 16
+}
+hide stereotype
+
+usecase "**3.3**\nReceive telemetry\n(API, SeatGuard)" as P33
+usecase "**3.4**\nRecord heartbeat,\nwatch liveness" as P34
+usecase "**3.5**\nClassify and\nsave events" as P35
+usecase "**4.0**\nLive\nproctoring" <<ref>> as P4
+label D1 [
+----
+**D1** Users,
+DeviceBindings,
+UserSessions,
+RefreshTokens
+----
+]
+label D3 [
+----
+**D3** Departments,
+Courses, Sections,
+SectionEnrollments,
+Labs, Workstations,
+AttendanceRecords,
+ExamAssignments,
+ExamProctors
+----
+]
+label D4 [
+----
+**D4** ExamSessions,
+Answers, ReadinessChecks
+----
+]
+label D5 [
+----
+**D5** MonitoringEvents,
+Screenshots, Incidents
+----
+]
+label D7 [
+----
+**D7** Notifications
+----
+]
+label D8 [
+----
+**D8** AuditLogs
+----
+]
+label D8b [
+----
+**D8 *** AuditLogs
+----
+]
+label D5b [
+----
+**D5 ***
+MonitoringEvents,
+Screenshots, Incidents
+----
+]
+usecase "**3.2**\nMonitor and send\n(client, part a)" <<ref>> as P32
+
+' ---- API side (3.3-3.5)
+P32 --> P33 : heartbeat\n(10 s), event\nbatch (5 s),\nscreenshots,\nwebcam snapshots
+P32 <-- P33 : ack: warnings,\nextra time,\nunlock,\nremaining time
+D3 --> P33 : assigned seat
+D4 --> P33 : session, extra\ntime, unlock
+D7 --> P33 : unread warnings
+P33 --> P34 : heartbeat\ncontents
+P33 --> P35 : client events
+P33 --> D5 : screenshots,\nsnapshots,\nSeatMismatch\nevent
+P33 --> D8 : SEAT_MISMATCH
+P33 --> P4 : ScreenshotUploaded,\nViolationEvent\n(seat)
+D4 <--> P34 : LastHeartbeatAt,\nIsDisconnected
+P34 <-- D5b : session's\nviolations (tile\nstatus)
+P34 --> D5b : Heartbeat event\n(on change or\nevery 60 s),\nDisconnected
+P34 --> D1 : LastSeenAt
+P34 --> D8b : SESSION_DISCONNECTED,\nSESSION_RECONNECTED
+P34 --> P4 : StudentHeartbeat,\nStudent-\nDisconnected,\nStudentReconnected
+P35 --> D5 : new events,\nde-duplicated by\nClientEventId
+P35 --> D8 : MONITORING_\nVIOLATION
+P35 --> P4 : ViolationEvent
+D8 -[hidden]right- D5
+D5 -[hidden]right- P4
+P4 -[hidden]right- D5b
+D5b -[hidden]right- D8b
+D8b -[hidden]right- D1
+P35 -[hidden]right- P34
+@enduml

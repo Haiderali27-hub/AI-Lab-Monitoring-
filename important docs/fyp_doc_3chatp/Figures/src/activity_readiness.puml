@@ -1,27 +1,50 @@
 @startuml
 !include style.iuml
-' Practice (mock) exam: Exam.IsMock = true, same exam window and endpoints as a real exam
+' Practice exam: Exam.IsMock = true, same exam window and save/submit endpoints as a real exam
 ' (ExamDashboard.PracticeButton_OnClick, ExamsController.GetPracticeExams / StartSession,
-' SubmissionService.FinalizeAsync)
+' SubmissionService.FinalizeAsync, StudentPortalController and AnalyticsService leave IsMock out)
+' Print sizing (D6): large font at dpi 96, so PlantUML's fixed pixel gaps stay small next to the text;
+' printed size = 22 * (printed width in pt) / (PNG width px), at least 7 pt at the width used in Chapter 5.
+skinparam dpi 96
+skinparam defaultFontSize 22
+skinparam ArrowFontSize 22
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  TitleFontSize 23
+}
 
 |Desktop App|
 start
-:GET /api/exams/student/\npractice; pick an IsMock\nexam, press Practice:\nPOST /api/exams/{id}/\nstart-session;
+:GET /api/exams/student/practice,\npick a practice exam, press Practice:\nPOST /api/exams/{id}/start-session;
 |Server|
-if (Eligible, open,\nseat OK, readiness\n(if required)?) then (yes)
-  :Running attempt or\na new ExamSession;
-else (no)
-  :400/403 with\nmessage (EXAM_\nNOT_STARTED,\nSEAT_MISMATCH,\nREADINESS_\nREQUIRED);
+if (Eligible, open, seat OK,
+readiness (if required)?) then ([yes])
+  :Running attempt or
+  a new ExamSession;
+else ([no])
+  :400/403 with a message
+  (EXAM_NOT_STARTED,
+  SEAT_MISMATCH,
+  READINESS_REQUIRED);
   |Desktop App|
-  :Show message\nbox;
+  :Show message box;
   stop
 endif
 |Desktop App|
-:Start monitoring (no\nwebcam), open Exam-\nWindow, lockdown =\nReport (apps only\nreported);
-:Answer, auto-save via\nsave-answer, then POST\n/api/exams/sessions/\n{sid}/submit;
+:Start monitoring (no webcam),
+open ExamWindow in Report
+lockdown (apps only reported);
+:Answer, auto-save via
+save-answer, then POST
+submit (see submission flow);
 |Server|
-:FinalizeAsync: receipt,\ngrading (if AI evaluation\non), no plagiarism\ncheck (IsMock);
+:FinalizeAsync: receipt; auto-marked
+if AI evaluation on; no plagiarism
+check; left out of the student's
+results and analytics;
 |Desktop App|
-:Show receipt,\nattempts + 1;
+:Show the receipt (no mark),
+attempt count + 1;
 stop
 @enduml

@@ -2,17 +2,22 @@
 !include style.iuml
 ' dpi only sets resolution; printed text size = fontSize * 72 * W_in / layout width.
 skinparam dpi 120
-' Communication diagram: a violation reaches the live monitor; a proctor answers with a warning
-' (or force-submit); the WPF client (no SignalR) picks the answer up from its next heartbeat ack.
-' Sources: Services/Lockdown/LockdownCoordinator.cs, Services/LiveMonitoringService.cs (WarningsReceived,
-' SessionStatusUpdated), Views/ExamDashboard.xaml.cs, Controllers/MonitoringController.cs (PushEvent, Heartbeat,
-' PendingWarningsAsync), Hubs/MonitoringHub.cs (SendWarning, ForceSubmitSessionById, ForceSubmitAsync),
-' Services/ExamAccessService.cs, Services/SubmissionService.cs (FinalizeAsync -> SessionFinalized via IHubContext),
-' Admin_Web_Panel/src/pages/teacher/LiveMonitorPage.tsx.
-' Sized for \includegraphics width 0.97\linewidth (>= 7 pt printed).
-skinparam defaultFontSize 20
-skinparam ArrowFontSize 20
-skinparam nodesep 12
+' Communication diagram (UML 2.5): one link per pair of objects, every message on its link with a direction arrow
+' (U+25B2 up, U+25BC down, U+25C4 left, U+25BA right), sequence numbers, guards in [..] and return values as "x := op()".
+' Flow: a violation reaches the live monitor; an invigilator's action (2) makes the page send a warning (2.1) or a force-submit (2.2);
+' the WPF client (no SignalR) picks the answer up from its next heartbeat ack (3)
+' and passes it on to its views (4, 4.1). Decimal numbering
+' (UML 2.5.1 Cl. 17.9): a message sent in reaction to message n is n.1, n.2, ...
+' Sources: Views/ExamWindow.xaml.cs:43-46 (violationSink = LiveMonitoringService.ReportViolation),
+' Services/Lockdown/LockdownCoordinator.cs:150-169, Services/LiveMonitoringService.cs:137-149,299-331,340-448,
+' Views/ExamDashboard.xaml.cs:39-41, Controllers/MonitoringController.cs (PushEventBatch :458, Heartbeat :81),
+' Hubs/MonitoringHub.cs:94-210 (SendWarning, ForceSubmitSessionById, ForceSubmitAsync), Services/ExamAccessService.cs,
+' Services/SubmissionService.cs (FinalizeAsync -> SessionFinalized via IHubContext), LiveMonitorPage.tsx.
+' Sized for includegraphics width linewidth (2091 px at dpi 120 and 20 pt: about 7.2 pt printed). SubmissionService sits left of
+' MonitoringHub so the HUB-SUB and SUB-WEB links take separate routes; 2.2.4.2 is a head label at the SUB end of its link.
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam nodesep 14
 skinparam ranksep 44
 skinparam rectangle {
   BackgroundColor #F2F2F2
@@ -30,26 +35,27 @@ rectangle "<u>:LiveMonitoringService</u>\n(WPF)" as LMS
 rectangle "<u>:ExamDashboard</u>\n(WPF)" as EDB
 rectangle "<u>:ExamWindow</u>\n(WPF)" as WIN
 
-STAFF -down-> WEB : 2: Warn /\nForce submit
-WEB -down-> HUB : 3: SendWarning(\nstudentId,\nmessage) [or]\n4: ForceSubmit\nSessionById(\nsessionId)
-HUB -up-> WEB : 3.3: Proctor\nWarningSent
-HUB -down-> ACC : 3.1, 4.1:\nGetAsync(user,\nexamId) != None
-HUB -down-> SUB : 4.3: FinalizeAsync(\nsession, Force\nSubmitted)
-HUB -down-> DB : 3.2: Notifications\n.Add(Warning),\nAudit PROCTOR_\nWARNING_SENT,\nSaveChanges()\n4.2: Audit SESSION_\nFORCE_SUBMITTED\n(staged)
-SUB -down-> DB : 4.3.1: Status =\nForceSubmitted,\nreceipt,\nSaveChanges()
-SUB -up-> WEB : 4.3.2: Session\nFinalized\n(IHubContext)
-LOCK -down-> CTRL : 1: POST /api/\nmonitoring/event\n(Violation)
-CTRL -up-> WEB : 1.2: Violation\nEvent (IHub\nContext, group\nexam:{examId})
-CTRL -down-> DB : 1.1: Monitoring\nEvents.Add,\nSaveChanges()\n5.1: unread\nWarning\nNotifications,\nsession Status
-LMS -up-> CTRL : 5: POST /api/\nmonitoring/\nheartbeat\n(every 10 s)
-CTRL -down-> LMS : 5.2: ack\n{warnings[],\nsessionStatus}
-LMS -down-> EDB : 5.3: Warnings\nReceived /\nSessionStatus\nUpdated
-EDB -down-> WIN : 5.3.1: ShowProctor\nWarnings() / OnServer\nSessionStatus()
+STAFF -down- WEB : <U+25BC> 2: warn /\nforce submit
+WEB -down- HUB : <U+25BC> 2.1 [warn]: SendWarning(\nstudentId, message)\n<U+25BC> 2.2 [force]: ForceSubmit\nSessionById(sessionId)\n<U+25B2> 2.1.4: ProctorWarningSent
+SUB -right- HUB : <U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+25C4> 2.2.4 [access != None]:\nFinalizeAsync(session,\nForceSubmitted)
+HUB -down- ACC : <U+25BC> 2.1.2, 2.2.2: access :=\nGetAsync(user, examId)
+HUB ---- DB : <U+25BC> 2.1.1, 2.2.1: find the\nInProgress session\n<U+25BC> 2.1.3 [access != None]:\nNotifications.Add(Warning),\naudit PROCTOR_\nWARNING_SENT,\nSaveChanges()\n<U+25BC> 2.2.3 [access != None]:\naudit SESSION_FORCE_\nSUBMITTED (staged)
+SUB ---- DB : <U+25BC> 2.2.4.1: Status =\nForceSubmitted, receipt,\nSaveChanges()
+WEB -down- "<U+25B2> 2.2.4.2: Session\nFinalized (IHubContext)" SUB
+LMS -down- LOCK : <U+25B2> 1: ReportViolation(\nreason, detail)
+LMS -up- CTRL : <U+25B2> 1.1: POST /api/monitoring/\nevents/batch (spooled)\n<U+25B2> 3: ack := POST /api/\nmonitoring/heartbeat\n(every 10 s)
+CTRL -up- WEB : <U+25B2> 1.1.2: ViolationEvent\n(IHubContext, group\nexam:{examId})
+CTRL ---- DB : <U+25BC> 1.1.1: MonitoringEvents\n.Add, SaveChanges(),\naudit MONITORING_\nVIOLATION\n<U+25BC> 3.1: unread Warning\nNotifications,\nsession Status
+LMS -down- EDB : <U+25BC> 4: WarningsReceived /\nSessionStatusUpdated
+EDB -down- WIN : <U+25BC> 4.1: ShowProctorWarnings()\n/ OnServerSessionStatus()
+
+HUB -[hidden]right- CTRL
+ACC -[hidden]down- DB
 
 note left of WIN
-  A warning comes back in
-  every ack until the student
-  acknowledges it (PATCH /api/
-  notifications/{id}/read).
+  ack = {warnings[], sessionStatus, ..}.
+  A warning comes back in every ack
+  until the student acknowledges it
+  (PATCH /api/notifications/{id}/read).
 end note
 @enduml

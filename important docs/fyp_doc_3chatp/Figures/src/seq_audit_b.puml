@@ -1,0 +1,50 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Reports and audit chain (Module 12). Web: Admin_Web_Panel/src/pages/analytics/ReportsPage.tsx (analyticsApi.generateReport,
+' generateExport(type, examId), getReportHistory, getReportDownloadUrl + fetch with Bearer token) and
+' pages/admin/AuditLogsPage.tsx (auditApi.verifyChain, GET /api/audit-logs/verify, Admin/SuperAdmin only).
+' Controllers/Analytics/AnalyticsController [Roles "Admin,SuperAdmin,Teacher"], DenyUnlessOwnerAsync = exam owner or admin:
+'   GenerateReport (POST /api/analytics/exams/{id}/report -> AnalyticsService.GenerateExamReportPdfAsync: GetExamSummaryAsync,
+'   QuestPDF, ExamReports row; NOT audited);
+'   GenerateExport (POST /api/analytics/reports/{type}, body {examId}: 400 unknown type / missing examId, 403 not owner ->
+'   ReportExportService.GenerateAsync: file, SHA-256, ExamReports row + AuditLog REPORT_GENERATED {reportType, fileName,
+'   sha256, sizeBytes}, one SaveChangesAsync in which AuditChain seals the row);
+'   DownloadReport (GET /api/analytics/reports/{fileName}: 400 not a bare file name, 404 no ExamReport, 403 not owner,
+'   404 file not under Reports/ or missing).
+' Controllers/AuditController.Verify -> AuditChain.VerifyAsync {valid, brokenAt, reason, checkedCount, unsealed,
+' lastVerifiedSequence, lastVerifiedHash}.
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam maxMessageSize 200
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+
+actor "Admin /\nSuperAdmin" as T
+participant "AuditLogs\nPage (web)" as ALP
+participant "Audit\nController" as AUC
+database "AppDb\nContext" as DB
+== later: an administrator checks the audit chain ==
+T -> ALP : open Audit Logs
+activate ALP
+ALP -> AUC : GET /api/audit-\nlogs/verify
+activate AUC
+AUC -> DB : AuditLogs ordered\nby Sequence
+activate DB
+DB --> AUC : AuditLog rows
+deactivate DB
+AUC -> AUC : AuditChain.\nVerifyAsync:\nrecompute\nevery Hash
+note left
+Hash = SHA-256 over PrevHash, Sequence and the
+row's fields; the first row's PrevHash is 64 zeros
+end note
+AUC --> ALP : 200 {valid,\nbrokenAt, reason,\ncheckedCount,\nunsealed, last-\nVerifiedHash}
+deactivate AUC
+ALP --> T : valid, broken at a row, or unsealed rows
+deactivate ALP
+@enduml

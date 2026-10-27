@@ -1,42 +1,72 @@
 @startuml
 !include style.iuml
-' Class diagram, part 2 of 3 (desktop client) from Student_Desktop_App/Services and the two API controllers it calls.
-' Part 1 (EF Core entities) is class_diagram.puml, part 3 (server services) is class_diagram_server.puml.
-' Only key members; parameters abbreviated as (..). Arrows: --> holds / injects, ..> calls or uses, *-- owns.
+' Class diagram, part 2 of 4 (desktop client), drawn as two figures:
+' (a) this file: windows, view models, local storage and monitoring; (b) class_diagram_client_b.puml:
+' lockdown, ApiClient and the four API controllers it calls (Auth, Exams, Monitoring, Notifications).
+' Part 1 (EF Core entities) is class_diagram.puml, parts 3 and 4 (server) are class_diagram_server*.puml.
+' Only key members; parameters abbreviated as (..). Arrows: --> holds / creates, ..> calls or uses, *-- owns.
+' A dashed white box is a class whose members are drawn in the other figure.
+' Sources: Views/ExamDashboard.xaml.cs:29-30,203,237; Views/ExamWindow.xaml.cs:43-47; Views/LoginWindow.xaml.cs:15;
+' ViewModels/*.cs; Core/Backup/AnswerBackupStore.cs; Core/Submission/OfflineSaveQueue.cs; Services/ApiClient.cs.
 hide empty members
 hide circle
 skinparam classAttributeIconSize 0
-skinparam nodesep 26
+skinparam nodesep 14
 skinparam ranksep 30
 skinparam class {
-  FontSize 13
-  AttributeFontSize 12
+  FontSize 14
+  AttributeFontSize 14
+  StereotypeFontSize 13
 }
-skinparam ArrowFontSize 11
-skinparam stereotypeFontSize 10
+skinparam ArrowFontSize 14
+skinparam stereotypeFontSize 14
 
-class LockdownCoordinator #E8F0FB {
-  -_keyboard : KeyboardHookService
-  -_processes : ProcessGuardService
-  -_clipboard : ClipboardGuardService
-  -_devices : DeviceGuardService
-  -_taskManager : TaskManagerGuard?
-  -_violationSink : Action<string,string>?
-  +Start(window) / Stop()
-  +Suspend() / Resume()
+class LoginWindow <<Window>> #E8F0FB
+class ExamDashboard <<Window>> #E8F0FB
+class ExamWindow <<Window>> #E8F0FB {
+  +ShowProctorWarnings()
+  +OnServerSessionStatus(status)
+  +ApplyUnlockDeadline(until)
+}
+class LoginViewModel #E8F0FB {
+  +LoginAsync(password, ct) : bool
+}
+class DashboardViewModel #E8F0FB {
+  +RunReadinessAsync(ct) : bool
+  +RetryReadinessItemAsync(check, ct)
+  +StartExamAsync(ct) : bool
+}
+class ExamSessionViewModel #E8F0FB {
+  +LoadAsync() : bool
+  +SaveAnswerAsync(q)
+  +SubmitAsync()
+}
+class AnswerBackupStore #E8F0FB {
+  +Save(state)
+  +Load(sessionId)
+  +MarkSubmitted(sessionId, receipt)
+}
+class OfflineSaveQueue #E8F0FB {
+  +Enqueue(save)
+  +FlushAsync(send, ct)
 }
 class ReadinessCheckService #E8F0FB {
   +RunAllAsync(req, ct)
+  +RunAsync(check, req, ct)
 }
+class LockdownCoordinator #FFFFFF ##[dashed]
 class LiveMonitoringService #E8F0FB {
   -_captures : EvidenceCaptureService?
   -_webcam : WebcamMonitorService?
   +Start(token, sessionId, ..)
   +ReportViolation(reason, detail)
   +ReportEvent(type, payload, ..)
+  +event WarningsReceived
+  +event SessionStatusUpdated
 }
 class WebcamMonitorService #E8F0FB {
-  +Start() / Stop()
+  +Start()
+  +Stop()
   +event IssueChanged
 }
 class WebcamVision #E8F0FB {
@@ -44,44 +74,31 @@ class WebcamVision #E8F0FB {
   +PhoneModelFile = "yolox_nano.onnx"
   +Analyze(frame) : VisionResult?
 }
-class ApiClient #E8F0FB {
-  +ProbeHealthAsync(ct)
-  +StartExamAsync(..)
-  +StartSessionAsync(..)
-  +SaveAnswerAsync(..)
-  +SubmitExamAsync(..)
-  +SendHeartbeatAsync(..)
-  +SendMonitoringEventAsync(..)
-  +SendEventBatchAsync(..)
-  +UploadCaptureAsync(..)
-}
+class ApiClient #FFFFFF ##[dashed]
 
-class ExamsController <<Backend_API: api/exams>> #FFF6E0 {
-  +StartStudentExam()  [student/start]
-  +StartSession(id)  [{id}/start-session, practice]
-  +SaveAnswer(sessionId, req)  [sessions/{sessionId}/save-answer]
-  +Submit(sessionId)  [sessions/{sessionId}/submit]
-}
-class MonitoringController <<Backend_API: api/monitoring>> #FFF6E0 {
-  +Heartbeat(..)  [heartbeat]
-  +PushEvent(..)  [event]
-  +PushEventBatch(..)  [events/batch]
-  +UploadScreenshot(..)  [screenshot]
-}
-
+LoginWindow -down-> LoginViewModel
+LoginWindow -right-> ExamDashboard : opens
+ExamDashboard --> DashboardViewModel
+ExamDashboard --> ExamWindow : opens
+ExamDashboard --> LiveMonitoringService
+DashboardViewModel --> ReadinessCheckService
+ExamWindow --> ExamSessionViewModel
+ExamWindow --> LockdownCoordinator
+ExamSessionViewModel --> AnswerBackupStore
+ExamSessionViewModel *-- OfflineSaveQueue
+AnswerBackupStore -[hidden]down- OfflineSaveQueue
+ReadinessCheckService --> ApiClient
+LoginViewModel --> ApiClient
 LockdownCoordinator ..> LiveMonitoringService : ReportViolation\n(violationSink)
-LockdownCoordinator --> ApiClient : fallback
-LiveMonitoringService *-right- WebcamMonitorService
+LiveMonitoringService *-- WebcamMonitorService
 WebcamMonitorService ..> WebcamVision
 LiveMonitoringService --> ApiClient
-ReadinessCheckService --> ApiClient : ProbeHealthAsync\n(GET api/health)
 
-ApiClient ..> ExamsController : HTTPS
-ApiClient ..> MonitoringController : HTTPS
-
-skinparam legendFontSize 11
+skinparam legendFontSize 14
 legend bottom right
-  <back:#E8F0FB>      </back>  Student<U+005F>Desktop<U+005F>App (WPF client)
-  <back:#FFF6E0>      </back>  Backend<U+005F>API (server side, see part 3)
+  <back:#E8F0FB>      </back>  Student<U+005F>Desktop<U+005F>App (WPF client).
+  Dashed box: members drawn in part (b).
+  DashboardViewModel and ExamSessionViewModel
+  also hold ApiClient (arrows omitted).
 endlegend
 @enduml

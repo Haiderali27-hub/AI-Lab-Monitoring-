@@ -1,92 +1,101 @@
 @startuml
 !include style.iuml
-skinparam defaultFontSize 13
-skinparam ArrowFontSize 11
-' Audit logging: controllers, MonitoringHub and services (SeatGuard, SessionTimeoutService, RefreshTokenService)
-' call AuditService explicitly (no middleware). Add() stages a row that the caller's SaveChanges commits with the
-' change itself (also SEAT_MISMATCH: SeatGuard.ReportMismatchAsync + explicit SaveChanges in CheckSeatOnStartAsync);
-' LogAsync() saves at once for standalone events (LOGIN_FAILED, DEVICE_MISMATCH ...).
-' AuditLog: LogId, ActorId, EventType, EntityType, EntityId, Details (JSON), CreatedAt, Sequence, PrevHash, Hash.
-' Module 12: AppDbContext.SaveChanges[Async] seals every new row through AuditChain (one writer at a time:
-' in-process lock + Postgres advisory lock); GET /api/audit-logs/verify walks the chain (AuditLogsPage badge).
-' Viewing: /admin/audit-logs (PrivateRoute Admin,SuperAdmin) -> GET /api/audit-logs (AuditController, Admin,SuperAdmin).
-
-split
-  -[hidden]->
-  start
-  :<b>Controller, hub or</b>
-  <b>service</b> action, e.g.
-  DEVICE_BOUND,
-  PASSWORD_CHANGED,
-  GRADE_OVERRIDDEN,
-  SESSION_FORCE_
-  SUBMITTED;
-  :Call AuditService
-  with actor (or null =
-  System), event type,
-  entity, details;
-  if (Standalone event,\nnothing else\nto save?) then (yes)
-    :LogAsync: add
-    row and save
-    at once (LOGIN_
-    FAILED, DEVICE_
-    MISMATCH);
-  else (no)
-    :Add: stage the
-    row, caller's
-    SaveChanges
-    commits it with
-    the change, e.g.
-    SEAT_MISMATCH;
-  endif
-  :<b>AuditLogs</b> row:
-  ActorId (null =
-  System), EventType,
-  EntityType, EntityId,
-  Details JSON,
-  CreatedAt;
-  :<b>SaveChanges</b> seals
-  it (one writer at
-  a time): next
-  Sequence, PrevHash is
-  the previous Hash,
-  Hash is SHA-256 of
-  PrevHash + fields;
-  stop
-split again
-  -[hidden]->
-  start
-  :<b>Signed-in user</b>
-  opens /admin/audit-
-  logs (AuditLogsPage);
-  if (Role Admin or\nSuperAdmin?) then (no)
-    :PrivateRoute
-    redirects,
-    API returns 403;
-    stop
-  else (yes)
-  endif
+' Audit logging: controllers, MonitoringHub and services call AuditService explicitly (no middleware). Add() stages a
+' row that the caller's SaveChanges commits with the change itself; LogAsync() = Add + SaveChanges at once (LOGIN_FAILED,
+' DEVICE_MISMATCH, MONITORING_VIOLATION ...). AppDbContext.SaveChanges[Async] -> AuditChain.SaveSealed[Async]: process
+' WriterLock + pg_advisory_xact_lock, read the head, Seal() (Sequence, PrevHash, Hash = SHA-256 over PrevHash and the
+' row's fields; genesis PrevHash = 64 zeros), base SaveChanges, commit - sealing happens inside that one save.
+' Viewing (AuditLogsPage, PrivateRoute Admin,SuperAdmin; AuditController [Authorize(Roles = "Admin,SuperAdmin")]):
+' getLogs (GET /api/audit-logs?take=200) and verifyChain (GET /api/audit-logs/verify) run in parallel; filtering is
+' client-side. VerifyAsync has three outcomes: valid, BrokenAt set, or unsealed rows (Valid = false, BrokenAt = null)
+' -> "n entries not sealed yet" + "Seal legacy entries" -> POST /api/audit-logs/backfill (AUDIT_CHAIN_BACKFILLED),
+' then verify again.
+' Printed pt = fontSize * 72 * printed_width_in / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 28
+skinparam ArrowFontSize 27
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 29
+}
+|Server|
+|Admin (AuditLogsPage)|
+|Server|
+start
+:Write path, on every audited action:
+a controller, hub or service calls
+AuditService: actor (null: System),
+event type, entity, details JSON,
+e.g. DEVICE_BOUND, GRADE_OVERRIDDEN;
+if (Standalone\nevent?) then ([yes])
+  :LogAsync:
+  SaveChanges
+  at once
+  (LOGIN_FAILED,
+  DEVICE_MISMATCH);
+else ([no])
+  :Add: staged, the
+  caller's SaveChanges
+  commits it with the
+  change
+  (SEAT_MISMATCH);
+endif
+:SaveChanges seals the new rows (AuditChain):
+process lock + pg_advisory_xact_lock, next
+Sequence, PrevHash = head Hash (genesis:
+64 zeros), Hash = SHA-256(PrevHash, fields),
+commit;
+end
+|Admin (AuditLogsPage)|
+start
+:View path: signed-in
+user opens
+/admin/audit-logs;
+if (Admin or\nSuperAdmin?) then ([no])
+  :PrivateRoute redirects
+  (API returns 403);
+  end
+else ([yes])
+endif
+fork
+  |Server|
   :GET /api/audit-logs
-  ?eventType=
-  &take=200;
-  :<b>AuditController</b>:
-  newest first, take
-  limited to 1-1000,
-  actor name
+  (take 200): newest
+  first, actor name
   or System;
-  :Page filters by
-  event type and
-  search text;
+fork again
+  |Server|
   :GET /api/audit-logs
   /verify recomputes
   every Hash;
-  if (Chain\nintact?) then (yes)
-    :Badge "Chain
-    verified";
-  else (no)
-    :Badge "Chain
-    broken at #n";
+end fork
+|Admin (AuditLogsPage)|
+:List rows, filter by
+event type and search
+text in the page;
+switch (Verify\nresult?)
+case ([valid])
+  :Badge "Chain
+  verified (n
+  entries)";
+case ([brokenAt])
+  :Badge "Chain
+  broken at #n",
+  reason;
+case ([unsealed])
+  :Badge "n entries
+  not sealed yet";
+  if (Admin clicks\nSeal legacy\nentries?) then ([yes])
+    |Server|
+    :POST /api/audit-logs
+    /backfill: seal old rows,
+    oldest first, + AUDIT_
+    CHAIN_BACKFILLED,
+    verify again;
+    |Admin (AuditLogsPage)|
+  else ([no])
   endif
-  stop
-end split
+endswitch
+end
 @enduml

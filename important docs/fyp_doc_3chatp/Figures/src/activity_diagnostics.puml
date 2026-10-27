@@ -2,22 +2,53 @@
 !include style.iuml
 ' Pre-exam readiness check (Core/Readiness/ReadinessPolicy, Services/Readiness/ReadinessCheckService,
 ' DashboardViewModel.RunReadinessAsync / RetryReadinessItemAsync / ReportReadinessAsync /
-' UpdateStartEligibility, Core/Dashboard/StartGate, ExamsController.SubmitReadiness / OpensAt)
+' ConfirmAttendanceAsync / UpdateStartEligibility, Core/Dashboard/StartGate, ExamsController.SubmitReadiness / OpensAt)
+' Print sizing (D6): large font at dpi 96, so PlantUML's fixed pixel gaps stay small next to the text;
+' printed size = 22 * (printed width in pt) / (PNG width px), at least 7 pt at the width used in Chapter 5.
+skinparam dpi 96
+skinparam defaultFontSize 22
+skinparam ArrowFontSize 22
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  TitleFontSize 23
+}
 skinparam defaultTextAlignment left
 
 |Desktop App|
 start
-:GET /api/exams/student\n/current (requirements),\nstudent presses Run check;
+:GET /api/exams/student/current
+(exam requirements); the student
+presses Run check;
 repeat
-  :ReadinessCheckService:\n<b>Network</b> <= 2 s\n<b>ClockSkew</b> <= 60 s\n<b>ScreenCapture</b> works\n<b>Camera</b> (a): not dark,\n  one face (YuNet)\n<b>Microphone</b> (a) present\n<b>SecureMode</b> (b): one\n  monitor if BlockMulti-\n  Monitor, no RDP, no\n  VM, keyboard hook OK\n<b>Disk</b> >= 200 MB free\n(a) if exam requires it\n(b) skipped if lockdown Off\nRetry: only the failed item\nre-runs, all results re-sent;
+  :ReadinessCheckService runs 7 checks:
+  <b>Network</b>: best round trip <= 2 s
+  <b>ClockSkew</b> <= 60 s from the server
+  <b>ScreenCapture</b>: the screen can be captured
+  <b>Camera</b> (a): a frame that is not dark, one face (YuNet)
+  <b>Microphone</b> (a): a device is present
+  <b>SecureMode</b> (b): one monitor if BlockMultiMonitor,
+     no remote session, no VM, keyboard hook works
+  <b>Disk</b> >= 200 MB free
+  (a) only if the exam requires it; (b) skipped if lockdown Off
+  Retry re-runs only the failed item; all results are re-sent;
   |Server|
-  :POST /api/exams\n/{id}/readiness:\nExamsController\nrecomputes passedAll,\nsaves ReadinessCheck,\naudits READINESS_\nPASSED/FAILED, hub\n"ReadinessUpdated";
+  :POST /api/exams/{id}/readiness:
+  ExamsController recomputes
+  passedAll, saves ReadinessCheck,
+  audits READINESS_PASSED or
+  READINESS_FAILED, pushes hub
+  "ReadinessUpdated";
   |Desktop App|
-repeat while (passedAll, or\nRequireReadiness\noff?) is (no: fix it,\npress Retry) not (yes)
-if (Checked in?) then (no)
-  :Press Check In\n(Attendance event);
-else (yes)
+repeat while (passedAll, or\nRequireReadiness off?) is ([no: fix it,\npress Retry]) not ([yes])
+if (Checked in?) then ([no])
+  :Press Check In
+  (Attendance event);
+else ([yes])
 endif
-:Enable Start Exam once the\nexam opens (StartTime -\nEarlyJoinMinutes); pass valid\n30 min, else student/start\nREADINESS_REQUIRED;
+:Start Exam is enabled once the exam opens
+(StartTime - EarlyJoinMinutes), the student is
+eligible and on the right seat; the pass stays valid
+30 min, else student/start returns READINESS_REQUIRED;
 stop
 @enduml

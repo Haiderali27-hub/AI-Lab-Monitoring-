@@ -2,30 +2,64 @@
 !include style.iuml
 ' Auto-save and crash recovery (ViewModels/ExamSessionViewModel, Core/Submission/AutosaveScheduler,
 ' OfflineSaveQueue, AnswerMerge, Core/Backup/AnswerBackupStore + AnswerBackupCodec,
-' ExamsController.SaveAnswer / StudentStart / GetSessionAnswers)
+' ExamsController.SaveAnswer / StudentStart / GetSessionAnswers, Core/Dashboard/StartGate.CanResume)
+' Print sizing (D6): large font at dpi 96, so PlantUML's fixed pixel gaps stay small next to the text;
+' printed size = 22 * (printed width in pt) / (PNG width px), at least 7 pt at the width used in Chapter 5.
+skinparam dpi 96
+skinparam defaultFontSize 22
+skinparam ArrowFontSize 22
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  TitleFontSize 23
+}
 
 |Desktop App|
 start
 repeat
-  :Edit answer (Revision + 1);\nbackup .seb rewritten\nwithin 1 s (AES-256-GCM,\nDPAPI-wrapped key);
-  :10 s after first unsaved\nedit, on question change\nor focus loss: POST\nsave-answer;
-  if (Server\nreachable?) then (no)
-    :OfflineSaveQueue\nkeeps it, replays\nin order;
-  else (yes)
+  :Edit answer (Revision + 1),
+  backup .seb rewritten within
+  1 s (AES-256-GCM, key
+  wrapped by DPAPI);
+  :10 s after the first unsaved
+  edit, on question change or
+  focus loss: POST save-answer;
+  if (Server
+  reachable?) then ([no])
+    :OfflineSaveQueue keeps
+    the newest revision,
+    replays in order later;
+  else ([yes])
     |Server|
-    :save-answer: keep\nnewer revision;\n200 OK or 409\nSTALE_REVISION;
+    :save-answer keeps the
+    newer revision: 200 OK
+    or 409 STALE_REVISION;
     |Desktop App|
   endif
-repeat while (Exam window\nopen?) is (yes) not (crash /\npower cut)
-:Relaunch, log in,\npress Resume Exam;
+repeat while (Exam still\nrunning?) is ([yes]) not ([no])
+if (Closed by a crash
+or power cut?) then ([no])
+  :Submitted or ended by
+  the server: normal close
+  (see submission flow);
+  stop
+else ([yes])
+endif
+:Relaunch, log in,
+press Resume Exam;
 |Server|
-:student/start: same\nInProgress session;
+:student/start returns the
+same InProgress session;
 :GET /api/exams/\nsessions/{sid}/answers;
 |Desktop App|
-if (Backup passes\nAES-GCM tag\ncheck?) then (yes)
-  :AnswerMerge: higher\nrevision wins; replay\nwhat server lacks;
-else (no)
-  :Use server copy,\nreport\nBackupTampered;
+if (Backup passes the
+AES-GCM tag check?) then ([yes])
+  :AnswerMerge: higher
+  revision wins; replay
+  what the server lacks;
+else ([no])
+  :Use the server copy,
+  report BackupTampered;
 endif
 :Continue the exam;
 stop

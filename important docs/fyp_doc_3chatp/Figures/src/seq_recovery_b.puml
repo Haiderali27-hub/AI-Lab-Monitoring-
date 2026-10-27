@@ -1,0 +1,60 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Auto-save and crash recovery (Module 6): ViewModels/ExamSessionViewModel (OnAnswerEdited; SyncTickAsync every 1 s:
+' AutosaveScheduler.TakeDue -> SendAsync -> SendPendingAsync, then FlushOfflineAsync when the 5 s OfflineRetryDelay has passed,
+' then WriteBackupIfDirty; SaveAnswerAsync on question change / focus lost; RestoreAnswersAsync).
+' Services/ApiClient.SaveAnswerAsync -> OfflineSaveQueue.Classify: 2xx Accepted, 409 STALE_REVISION Stale, no reply / 401 / 408 /
+' 429 / 5xx Offline (queued), anything else Rejected (status "Not saved: ..."; dropped from the queue, kept in the local backup).
+' ExamsController.SaveAnswer: 404 not own session; 400 TimeOverMessage when TimedOut or SubmissionService.IsClosed(session, now)
+' (exam end + ExtraMinutes + 2 min DeadlineGrace, server clock); 400 when not InProgress; 409 STALE_REVISION.
+' Core/Submission/OfflineSaveQueue (newest revision per answer, FlushAsync oldest first, stops at the first Offline),
+' Core/Backup/AnswerBackupStore (AES-256-GCM, key wrapped by DPAPI; Load -> BackupLoadResult Ok / Missing / Tampered),
+' AnswerMerge (higher revision wins; with a tampered backup only the server copy is merged; a backup of another user/exam is ignored).
+' Relaunch: DashboardViewModel.StartExamAsync -> POST /api/exams/student/start returns the InProgress session.
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam maxMessageSize 200
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+
+actor Student
+participant "ExamSession\nViewModel" as VM
+participant "Answer\nBackupStore" as BS
+participant "Offline\nSaveQueue" as Q
+participant "ApiClient" as API
+participant "Exams\nController" as EC
+== crash or power cut; on relaunch POST /api/exams/student/start returns the same InProgress session ==
+[->> VM : new window: RestoreAnswersAsync()
+activate VM
+VM -> API : GetSessionAnswersAsync(sid)
+activate API
+API -> EC : GET /api/exams/sessions/\n{sid}/answers
+activate EC
+EC --> API : answers, revisions, status
+deactivate EC
+API --> VM : server copy (null if unreachable)
+deactivate API
+VM -> BS : Load(sessionId)
+activate BS
+BS --> VM : BackupLoadResult\n(Ok / Missing / Tampered)
+deactivate BS
+alt Tampered (GCM tag or header check fails)
+  VM -> VM : ignore backup, raise\nBackupTampered (server copy)
+else Ok, same user and exam
+  VM -> VM : AnswerMerge(server, backup):\nhigher revision wins
+end
+opt merged answers the server lacks
+  VM -> Q : Enqueue(save) each; FlushAsync (as above)
+  activate Q
+  Q --> VM : FlushResult
+  deactivate Q
+end
+VM -> Student : answers restored; exam continues
+deactivate VM
+@enduml

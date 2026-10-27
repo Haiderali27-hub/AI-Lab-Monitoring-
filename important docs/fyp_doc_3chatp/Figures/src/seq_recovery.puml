@@ -1,62 +1,65 @@
-﻿@startuml
+@startuml
 !include style.iuml
-skinparam ArrowFontSize 13
-skinparam defaultFontSize 13
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
 ' Auto-save and crash recovery (Module 6): ViewModels/ExamSessionViewModel (OnAnswerEdited; SyncTickAsync every 1 s:
-' AutosaveScheduler.TakeDue -> SendAsync, then FlushOfflineAsync when the 5 s OfflineRetryDelay has passed, then
-' WriteBackupIfDirty; SaveAnswerAsync on question change / focus lost; RestoreAnswersAsync),
-' Core/Submission/AutosaveScheduler (10 s), OfflineSaveQueue (passive: FlushAsync(SendPendingAsync), oldest first),
-' AnswerMerge (always runs; with a tampered backup only the server copy is merged),
-' Core/Backup/AnswerBackupStore (AES-256-GCM, BackupLoadStatus.Tampered);
-' DashboardViewModel.StartExamAsync -> ExamsController.StartStudentExam (POST /api/exams/student/start returns the
-' InProgress session, D-43), GetSessionAnswers, SaveAnswer (409 STALE_REVISION).
+' AutosaveScheduler.TakeDue -> SendAsync -> SendPendingAsync, then FlushOfflineAsync when the 5 s OfflineRetryDelay has passed,
+' then WriteBackupIfDirty; SaveAnswerAsync on question change / focus lost; RestoreAnswersAsync).
+' Services/ApiClient.SaveAnswerAsync -> OfflineSaveQueue.Classify: 2xx Accepted, 409 STALE_REVISION Stale, no reply / 401 / 408 /
+' 429 / 5xx Offline (queued), anything else Rejected (status "Not saved: ..."; dropped from the queue, kept in the local backup).
+' ExamsController.SaveAnswer: 404 not own session; 400 TimeOverMessage when TimedOut or SubmissionService.IsClosed(session, now)
+' (exam end + ExtraMinutes + 2 min DeadlineGrace, server clock); 400 when not InProgress; 409 STALE_REVISION.
+' Core/Submission/OfflineSaveQueue (newest revision per answer, FlushAsync oldest first, stops at the first Offline),
+' Core/Backup/AnswerBackupStore (AES-256-GCM, key wrapped by DPAPI; Load -> BackupLoadResult Ok / Missing / Tampered),
+' AnswerMerge (higher revision wins; with a tampered backup only the server copy is merged; a backup of another user/exam is ignored).
+' Relaunch: DashboardViewModel.StartExamAsync -> POST /api/exams/student/start returns the InProgress session.
 hide footbox
-skinparam ParticipantPadding 0
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
 }
-skinparam maxMessageSize 300
 
 actor Student
 participant "ExamSession\nViewModel" as VM
 participant "Answer\nBackupStore" as BS
 participant "Offline\nSaveQueue" as Q
+participant "ApiClient" as API
 participant "Exams\nController" as EC
 
-Student -> VM : edit answer
-VM -> VM : Revision+1; Autosave-\nScheduler.MarkDirty
-loop 1 s sync tick
-  opt 10 s after edit (TakeDue); the same call is\nsent at once on question change / focus lost
-    VM -> EC : POST sessions/{sid}/save-answer {revision}
-    alt reachable
-      EC --> VM : 200, or 409 STALE_REVISION
-    else offline
-      VM -> Q : Enqueue(save)
+Student ->> VM : edit answer (Revision+1)
+loop every 1 s
+  [->> VM : tick: SyncTickAsync()
+  activate VM
+  opt save due (10 s after the first unsaved edit;\nat once on question change or focus loss)
+    VM -> API : SaveAnswerAsync(sid, {questionId, text, revision})
+    activate API
+    API -> EC : POST /api/exams/sessions/\n{sid}/save-answer
+    activate EC
+    alt own session, InProgress, before the deadline
+      EC --> API : 200, or 409 STALE_REVISION
+      API --> VM : Accepted / Stale
+    else after the deadline (end + extra minutes\n+ 2 min, server clock) or not InProgress
+      EC --> API : 400 "Exam time is over" / "inactive session"
+      deactivate EC
+      API --> VM : Rejected: "Not saved"; kept only in the local backup
+    else no reply, 401 / 408 / 429 / 5xx
+      API --> VM : Offline
+      deactivate API
+      VM -> Q : Enqueue(save): newest revision per answer
     end
   end
-  opt queue not empty
-    VM -> Q : FlushAsync(send)
-    VM -> EC : POST sessions/{sid}/save-answer\n(oldest first; retry 5 s if still offline)
+  opt queue not empty and 5 s retry delay passed
+    VM -> Q : FlushAsync(SendPendingAsync)
+    activate Q
+    Q --> VM : FlushResult: sent oldest\nfirst as above; delivered\nand rejected saves leave\nthe queue, the first\nOffline stops
+    deactivate Q
   end
-  VM -> BS : Save snapshot if dirty\n(AES-256-GCM)
+  VM -> BS : Save(snapshot) if\nchanged (AES-256-GCM)
+  deactivate VM
 end
-== app crash or power cut; relaunch ==
-note over VM, EC
-DashboardViewModel: POST /api/exams/student/start
--> same InProgress SessionId;
-ExamWindow + ExamSessionViewModel created
-end note
-VM -> EC : GET sessions/{sid}/answers
-EC --> VM : answers + revisions
-VM -> BS : Load(sessionId)
-alt GCM tag fails (Tampered)
-  VM -> VM : ignore backup; report\nBackupTampered;\nserver copy wins
-else valid
-  VM -> VM : AnswerMerge: higher\nrevision wins
-end
-opt answers server lacks
-  VM -> Q : Enqueue; FlushAsync(send)
-  VM -> EC : save-answer (replay)
-end
-VM --> Student : exam\ncontinues
+
 @enduml

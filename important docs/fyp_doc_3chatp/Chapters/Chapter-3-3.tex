@@ -6,11 +6,11 @@ We plan in eight four-week sprints (Table~\ref{tab:timeframe}). Sprint 1 covers 
 
 \subsubsection{Work Breakdown Structure}
 
-The Work Breakdown Structure (WBS) splits the project into work packages \cite{wbs1}. Figure~\ref{fig:wbs} shows the top levels. In the sprint backlog, the development branch is split further into modules M1--M12, and each item has one WBS node and one owner.
+The Work Breakdown Structure (WBS) splits the project into work packages \cite{wbs1}. Figure~\ref{fig:wbs} goes down to module level: each module is one work package (2.x.y) that includes its own tests, so package 3 (Sprint 8) holds only system-level work: final integration, end-to-end tests, the full regression run and bug fixing. In the sprint backlog each module is split further into tasks, and each task has one WBS code and one owner from the role split in Section~\ref{sec:managerial}.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.95\linewidth]{Figures/work_breakdown_structure.png}
+\includegraphics[width=\linewidth]{Figures/work_breakdown_structure.png}
 \caption{Work Breakdown Structure}
 \label{fig:wbs}
 \end{figure}
@@ -19,20 +19,20 @@ The Work Breakdown Structure (WBS) splits the project into work packages \cite{w
 
 \subsubsection{Gantt Chart}
 
-Figure~\ref{fig:ganttchart} shows the eight sprints as consecutive four-week bars \cite{gantt1}.
+Figure~\ref{fig:ganttchart} shows the baseline plan of Table~\ref{tab:timeframe}: one bar for each activity of Table~\ref{tab:cpm}, with arrows for its dependencies \cite{gantt1}. The progress actually reached at the FYP-I review is given below Table~\ref{tab:timeframe}.
 
-\begin{figure}[H]
+\begin{figure}[!tb]
 \centering
-\includegraphics[width=0.95\linewidth]{Figures/gantt_chart.png}
-\caption{Project Gantt Chart (Eight Sprints)}
+\includegraphics[width=\linewidth]{Figures/gantt_chart.png}
+\caption{Project Gantt Chart (Baseline Plan, Eight Sprints)}
 \label{fig:ganttchart}
 \end{figure}
 
 \subsubsection{Critical Path Method}
 
-The critical path is the longest chain of dependent activities; any delay on it delays the project \cite{spp1}. Table~\ref{tab:cpm} lists our activities and Figure~\ref{fig:criticalpath} shows the network.
+The critical path is the longest chain of dependent activities; any delay on it delays the project \cite[Sec.~6.5.2.2]{pmbok6}. Table~\ref{tab:cpm} lists our activities and Figure~\ref{fig:criticalpath} shows the network.
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Project Activities, Durations and Dependencies}
 \label{tab:cpm}
@@ -48,15 +48,15 @@ D & Exam creation and eligibility & M8, M9 & 4 & B, C \\
 E & Readiness check, student dashboard and lockdown & M2--M4 & 4 & D \\
 F & Monitoring client and live proctoring dashboard & M5, M10 & 4 & E \\
 G & Submission, backup and AI-assisted evaluation & M6, M11 & 4 & F \\
-H & Audit logs, analytics and reports & M12 & 4 & G \\
+H & Hash-chained audit log, analytics and reports & M12 & 4 & G \\
 I & Integration, system testing, documentation and demo & All & 4 & H \\
 \hline\hline
 \end{tabular}
 \end{table}
 
-The critical path is A $\rightarrow$ B $\rightarrow$ D $\rightarrow$ E $\rightarrow$ F $\rightarrow$ G $\rightarrow$ H $\rightarrow$ I, which takes 32 weeks ($8 \times 4$). Only C has float: it takes two weeks alongside B, so it can slip two weeks without moving the end date. Since almost all work is on the critical path, a late sprint delays every later one.
+The critical path is A $\rightarrow$ B $\rightarrow$ D $\rightarrow$ E $\rightarrow$ F $\rightarrow$ G $\rightarrow$ H $\rightarrow$ I, which takes 32 weeks ($8 \times 4$); the only other chain, through C, takes 30 weeks. Only C has float: it takes two weeks alongside B, so it can slip two weeks without moving the end date. Since almost all work is on the critical path, a late sprint delays every later one.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.95\linewidth]{Figures/critical_path.png}
 \caption{Critical Path Network}

@@ -4,13 +4,20 @@
 
 A use case model describes the system from the user's side \cite{uml_systems_analysis}. It fixed the scope early, so that the student client and the web panel were built against the same set of actions.
 
-The actors are the five roles of the \texttt{UserRole} enum in the backend. A \textbf{Student} sits exams in the WPF desktop client and uses the web portal for results, violations, performance and notifications. An \textbf{Invigilator} supervises only the exams they are assigned to through the \texttt{ExamProctors} table, and cannot edit or grade. A \textbf{Teacher} can also configure exams, eligibility, seating and announcements and review marks and the similarity matrix. An \textbf{Admin} manages users, departments, courses, labs and device bindings and reads the audit log and system analytics, and only a \textbf{SuperAdmin} manages Admin and SuperAdmin accounts. The staff roles therefore form a generalisation chain. Figure~\ref{fig:usecase_diagram} shows the use cases, each tagged with its requirement.
+The subject is the whole SmartExam system: the WPF desktop client and the React web panel, with the API behind them. The human actors are the five roles of the \texttt{UserRole} enum. A \textbf{Student} sits exams in the desktop client and uses the web portal for results, violations, performance and notifications. An \textbf{Invigilator} supervises only the exams they are assigned to through the \texttt{ExamProctors} table, and cannot edit exams or grade. A \textbf{Teacher} also configures exams, eligibility, seating and announcements and reviews marks and the similarity matrix. An \textbf{Admin} manages users, departments, courses, labs and device bindings and reads the audit log and system analytics, and only a \textbf{SuperAdmin} manages Admin and SuperAdmin accounts. The staff roles form a generalisation chain, so an Admin inherits every Teacher use case and can also create and edit exams. The email server is a secondary, external actor. Figures~\ref{fig:usecase_diagram} and~\ref{fig:usecase_diagram_b} show the 27 use cases, each with its ID and requirement: the student's use cases with live supervision, then the staff use cases (UC-12, sign-in, appears in both); an \texttt{<<include>>} arrow points to the use case that is always part of the base, and an \texttt{<<extend>>} arrow points from an optional behaviour to the base it extends.
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[height=0.86\textheight]{Figures/use_case_diagram.png}
-\caption{Use Case Diagram of SmartExam}
+\includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{Figures/use_case_diagram.png}
+\caption{Use Case Diagram of SmartExam (a): Student and Invigilator Use Cases}
 \label{fig:usecase_diagram}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{Figures/use_case_diagram_b.png}
+\caption{Use Case Diagram of SmartExam (b): Staff Use Cases of the Web Panel}
+\label{fig:usecase_diagram_b}
 \end{figure}
 
 \begin{sloppypar}
@@ -24,175 +31,379 @@ We wrote user stories to plan sprints and to define when a feature was done \cit
 \subsubsection{Student}
 \begin{enumerate}[nosep]
     \item As a student, I log in from the client and my account is bound to my lab PC, so nobody can sit my exam from another machine (FR1).
-    \item As a student, I run a system check and an ungraded practice exam before the real one, so problems with my PC show up early (FR2).
-    \item As a student, I see only the exams I am eligible for, with the start countdown and my check status (FR3).
-    \item As a student, I sit the exam in a locked fullscreen window where only the allowed tools run, so every candidate works under the same rules (FR4).
-    \item As a student, my answers are saved every 10 seconds and kept on the PC while the network is down, and I get a receipt hash when I submit (FR6).
+    \item As a student, I run a system check and a practice exam that does not count towards my results, so problems with my PC show up early (FR2).
+    \item As a student, I see my assigned exam with the start countdown, my check status and whether I am eligible; Start stays disabled, with the reason, if I am not (FR3).
+    \item As a student, I sit the exam in a locked fullscreen window where unapproved apps are reported, or closed in Enforce mode, so every candidate works under the same rules (FR4).
+    \item As a student, I have my answers saved every 10 seconds and kept on the PC while the network is down, and I get a receipt hash when I submit (FR6).
     \item As a student, I see an invigilator's warning or extra time on my screen during the exam (FR10).
+    \item As a student, I see my results once the exam has ended, my violation history, performance and notifications on the web portal (FR3).
 \end{enumerate}
 
 \subsubsection{Teacher}
 \begin{enumerate}[nosep,resume]
-    \item As a teacher, I create an exam with MCQ, coding and theory questions, test cases, an allowed-apps list and a lockdown mode (FR8).
-    \item As a teacher, I import attendance, override eligibility with a logged reason, and assign each student a workstation (FR9).
-    \item As a teacher, I get screenshots at random 30--90~s intervals and on each violation, plus idle time and webcam status, as evidence (FR5).
-    \item As a teacher, I watch live student tiles, open a student's timeline and screenshots, and warn, extend time or force-submit (FR10).
-    \item As a teacher, coding answers are run against weighted test cases and theory answers get a suggested mark, which I can accept or override (FR11.1, FR11.2).
+    \item As a teacher, I create an exam with MCQ, coding and theory questions, test cases, an allowed-apps list and a lockdown mode, and announce it to the students (FR8).
+    \item As a teacher, I import attendance, override eligibility (each override is audited), and assign each student a workstation (FR9).
+    \item As a teacher, I get screenshots at random 30--90~s intervals (by default) and on each violation, plus idle time and webcam status, as evidence (FR5).
+    \item As a teacher, I watch live student tiles, open a student's timeline and screenshots, and warn, extend time, unlock the PC or force-submit (FR10).
+    \item As a teacher, I get coding answers run against weighted test cases and suggested marks for theory answers, which I can accept or override (FR11.1, FR11.2).
     \item As a teacher, I see a similarity matrix of submissions so that I can review likely copying myself (FR11.3).
-    \item As a teacher, I export a PDF report of an exam's results (FR12).
+    \item As a teacher, I export an exam's summary PDF, attendance, violations and scores reports, an Excel workbook and an evidence ZIP (FR12).
 \end{enumerate}
 
 \subsubsection{Invigilator}
 \begin{enumerate}[nosep,resume]
-    \item As an invigilator, I see only the exams I am assigned to and can warn students, extend time and force a submission, but not grade (FR10).
+    \item As an invigilator, I see only the exams I am assigned to and can warn students, extend time, unlock the PC, record incidents and force a submission, but not edit the exam or grade (FR10).
 \end{enumerate}
 
 \subsubsection{Admin and SuperAdmin}
 \begin{enumerate}[nosep,resume]
-    \item As an admin, I create, import, deactivate and sign out users and assign their roles (FR7).
+    \item As an admin, I create, import, deactivate and sign out users, assign their roles, and maintain departments and courses (FR7).
     \item As an admin, I reset a student's device binding when a lab PC is replaced (FR1).
     \item As an admin, I register labs and workstations with their PC names and IP addresses so that seats can be enforced (FR9).
-    \item As an admin, I filter the audit log by event type to check logins, device bindings and eligibility overrides (FR12).
+    \item As an admin, I filter the audit log by event type and verify its hash chain, to check logins, device bindings and eligibility overrides (FR12).
 \end{enumerate}
 
 \subsection{Use Case Descriptions}
 
-Tables~\ref{tab:uct_auth_device} to~\ref{tab:uct_audit_report} describe the main use cases \cite{use_case_definition}; endpoint names are those of the backend.
+Table~\ref{tab:uc_trace} maps each use case to its requirement. Tables~\ref{tab:uct_auth_device} to~\ref{tab:uct_audit} describe the main use case of each requirement in template fields \cite{use_case_definition}; the other use cases are simple record maintenance or views. Actors are people or external systems only.
 
 \begin{table}[H]
 \centering
-\caption{UC-01: Log In and Verify Device Binding}
-\label{tab:uct_auth_device}
-{\small\renewcommand{\arraystretch}{1.15}
-\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
+\caption{Use Cases Traced to Functional Requirements}
+\label{tab:uc_trace}
+{\footnotesize\renewcommand{\arraystretch}{0.9}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.0cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{3.4cm}}
 \hline\hline
-Actors & Student; \texttt{AuthController} \\
-Pre-condition & Active student account; client running on a lab PC. \\
-Main flow & 1.~Student enters email or roll number and password.\newline
+\textbf{Requirement} & \textbf{Use cases (Figures~\ref{fig:usecase_diagram} and~\ref{fig:usecase_diagram_b})} & \textbf{Description} \\
+\hline
+FR1 & UC-01, UC-12, UC-25 & Table~\ref{tab:uct_auth_device} \\
+FR2 & UC-02, UC-03 & Table~\ref{tab:uct_pre_exam_check} \\
+FR3 & UC-04, UC-14 & Table~\ref{tab:uct_start_exam} \\
+FR4 & UC-06 & Table~\ref{tab:uct_lockdown_telemetry} \\
+FR5 & UC-07 & Table~\ref{tab:uct_lockdown_telemetry} \\
+FR6 & UC-08 & Table~\ref{tab:uct_submit} \\
+FR7 & UC-23, UC-24, UC-25, UC-27 & Table~\ref{tab:uct_users} \\
+FR8 & UC-13, UC-19 & Table~\ref{tab:uct_exam_config} \\
+FR9 & UC-04 (start checks), UC-15, UC-20, UC-26 & Table~\ref{tab:uct_eligibility} \\
+FR10 & UC-05, UC-09, UC-10, UC-11 & Table~\ref{tab:uct_live_proctoring} \\
+FR11.1, FR11.2 & UC-16 & Table~\ref{tab:uct_compilation_evaluation} \\
+FR11.3 & UC-17 & Table~\ref{tab:uct_plagiarism} \\
+FR12 & UC-18, UC-21, UC-22 & Tables~\ref{tab:uct_audit_report}, \ref{tab:uct_audit} \\
+\hline\hline
+\end{tabularx}}
+\end{table}
+
+
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-01 (FR1): Log In and Bind Device}\label{tab:uct_auth_device}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
+\hline\hline
+\endlastfoot
+1 & UC ID & UC-01 (FR1) \\* \noalign{\hrule}
+2 & Case name & Log In and Bind Device \\* \noalign{\hrule}
+3 & Overview & A student signs in on the desktop client, and the account is bound to one workstation. \\* \noalign{\hrule}
+4 & Actors & Student \\* \noalign{\hrule}
+5 & Pre-conditions & Active student account; client running on a lab PC. \\* \noalign{\hrule}
+6 & Trigger & Student presses Log in in the client. \\* \noalign{\hrule}
+7 & Steps & 1.~Student enters email or roll number and password.\newline
 2.~Client reads the BIOS, system-disk and baseboard serials through WMI and sends them with the PC name to \texttt{POST /api/auth/student-login}.\newline
-3.~Server checks the PBKDF2 password hash and hashes the fingerprint with SHA-256.\newline
-4.~If the account has no \texttt{DeviceBinding}, the hash is stored (audit \texttt{DEVICE\_BOUND}); otherwise it must match.\newline
-5.~Server returns a JWT and a refresh token (audit \texttt{LOGIN\_SUCCESS}). \\
-Exceptions & Wrong password: \texttt{LOGIN\_FAILED}. Inactive account: denied. Different PC: 401 \texttt{DEVICE\_MISMATCH}, logged; an admin must reset the binding. \\
-Post-condition & Student is signed in on the bound PC. \\
-\hline\hline
-\end{tabularx}}
-\end{table}
+3.~Server checks the PBKDF2 password hash and hashes the hardware ID with SHA-256.\newline
+4.~If the account has no \texttt{DeviceBinding}, the hash is stored (\texttt{DEVICE\_BOUND}); otherwise it must match.\newline
+5.~Server returns a 30-minute JWT and a refresh token (\texttt{LOGIN\_SUCCESS}). \\ \hline
+8 & Post-conditions & Student is signed in on the bound workstation. \\ \hline
+9 & Exception flow & Wrong password or inactive account: 401, audited \texttt{LOGIN\_FAILED}. More than 10 login requests per minute from one IP: 429. Another PC: 401 \texttt{DEVICE\_MISMATCH}, audited; an admin must reset the binding (UC-25). \\
+\end{longtable}}
 
-\begin{table}[H]
-\centering
-\caption{UC-02: Pass the Readiness Check and Start the Exam}
-\label{tab:uct_pre_exam_check}
-{\small\renewcommand{\arraystretch}{1.15}
-\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-02 (FR2): Run Readiness Check}\label{tab:uct_pre_exam_check}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
 \hline\hline
-Actors & Student; \texttt{ExamsController} \\
-Pre-condition & Student is signed in and eligible for a scheduled exam (UC-01). \\
-Main flow & 1.~Dashboard calls \texttt{GET /api/exams/student/current} for the exam, server time, check status and seat status.\newline
-2.~Student runs the system check: API latency under 2~s, clock skew under 60~s, screen capture, webcam and microphone if the exam needs them, one monitor, no RDP or VM, keyboard hook, 200~MB free disk.\newline
-3.~Client posts the result to \texttt{/api/exams/\{id\}/readiness}; the server recomputes the pass and stores a \texttt{ReadinessChecks} row.\newline
-4.~Start unlocks at the opening time, measured on the server clock.\newline
-5.~Student presses Start; the server checks eligibility, the seat, the exam window and, when the exam requires it, a passing check from the last 30 minutes, then creates an \texttt{ExamSession}. \\
-Exceptions & Failed check: Retry, Start stays disabled. Server refusals: \texttt{READINESS\_REQUIRED}, \texttt{EXAM\_NOT\_STARTED}, \texttt{EXAM\_CLOSED}, or 403 \texttt{SEAT\_MISMATCH} (audited and shown on the live monitor). \\
-Post-condition & Session is \texttt{InProgress}. \\
-\hline\hline
-\end{tabularx}}
-\end{table}
+\endlastfoot
+1 & UC ID & UC-02 (FR2) \\* \noalign{\hrule}
+2 & Case name & Run Readiness Check \\* \noalign{\hrule}
+3 & Overview & The client checks that the PC can run the exam before Start is allowed. \\* \noalign{\hrule}
+4 & Actors & Student \\* \noalign{\hrule}
+5 & Pre-conditions & Student is signed in (UC-01) and has an assigned exam. \\* \noalign{\hrule}
+6 & Trigger & Student presses the system-check button on the dashboard. \\* \noalign{\hrule}
+7 & Steps & 1.~Client checks the network (best API round trip at most 2~s), clock skew (at most 60~s), screen capture, webcam and microphone if the exam needs them, secure mode (one monitor, no RDP session or VM, keyboard hook active) and free disk (at least 200~MB).\newline
+2.~Client shows each result.\newline
+3.~Client posts the result to \texttt{POST /api/exams/\{id\}/readiness}; the server recomputes the pass, stores a \texttt{ReadinessChecks} row and audits \texttt{READINESS\_PASSED} or \texttt{READINESS\_FAILED}. \\ \hline
+8 & Post-conditions & The result is stored and shown on the live monitor. \\ \hline
+9 & Exception flow & A failed check shows its reason; the student fixes it and retries. When the exam requires readiness, a pass older than 30~minutes must be repeated. \\
+\end{longtable}}
 
-\begin{table}[H]
-\centering
-\caption{UC-03: Sit the Locked Exam and Submit}
-\label{tab:uct_lockdown_telemetry}
-{\small\renewcommand{\arraystretch}{1.15}
-\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-04 (FR3, FR9): View Assigned Exam, Check In and Start}\label{tab:uct_start_exam}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
 \hline\hline
-Actors & Student; \texttt{MonitoringController}, \texttt{SubmissionService} \\
-Pre-condition & Session is \texttt{InProgress} (UC-02). \\
-Main flow & 1.~Exam window opens fullscreen and topmost; a low-level keyboard hook blocks Alt+Tab, the Windows key and Ctrl+Shift+Esc, and Task Manager is disabled.\newline
-2.~Guards check processes every 2~s against the allowed apps (report or close, by lockdown mode) and watch the clipboard, USB, monitors, RDP and VMs.\newline
-3.~Client sends a heartbeat every 10~s with focus, idle time and camera status; violations go in event batches with a screen capture; screenshots follow at random 30--90~s intervals.\newline
-4.~Answers are autosaved every 10~s and written to an encrypted local backup.\newline
-5.~Student submits; the server locks the session, returns a SHA-256 receipt, which the client checks, and queues the answers for grading. \\
-Exceptions & Network loss: saves and events are queued and replayed later. Crash: answers are restored from the backup. Deadline: client auto-submits; the server times the session out 2 minutes after its end. \\
-Post-condition & Session is \texttt{Submitted} or \texttt{TimedOut} with a stored receipt. \\
-\hline\hline
-\end{tabularx}}
-\end{table}
+\endlastfoot
+1 & UC ID & UC-04 (FR3, FR9) \\* \noalign{\hrule}
+2 & Case name & View Assigned Exam, Check In and Start \\* \noalign{\hrule}
+3 & Overview & The dashboard shows the student's assigned exam; the student checks in and starts it. \\* \noalign{\hrule}
+4 & Actors & Student \\* \noalign{\hrule}
+5 & Pre-conditions & Student is signed in (UC-01). \\* \noalign{\hrule}
+6 & Trigger & Student opens the dashboard after logging in. \\* \noalign{\hrule}
+7 & Steps & 1.~Dashboard calls \texttt{GET /api/exams/student/current} for the exam, its instructions, the server time and the eligibility, readiness and seat status.\newline
+2.~Student presses Check In; the client sends an \texttt{Attendance} monitoring event.\newline
+3.~Start becomes available at the opening time on the server clock, after check-in and, when the exam requires it, a readiness pass (UC-02).\newline
+4.~Student presses Start; \texttt{POST /api/exams/student/start} checks eligibility, the seat, the exam window and readiness, and creates an \texttt{ExamSession}. \\ \hline
+8 & Post-conditions & Session is \texttt{InProgress} and the exam window opens (UC-06). \\ \hline
+9 & Exception flow & Ineligible student: the exam is shown with the reason and Start stays disabled. Server refusals: \texttt{NOT\_ELIGIBLE}, \texttt{READINESS\_REQUIRED}, \texttt{EXAM\_NOT\_STARTED}, \texttt{EXAM\_CLOSED}, or 403 \texttt{SEAT\_MISMATCH} (audited and shown on the live monitor). Failed check-in: the student retries. \\
+\end{longtable}}
 
-\begin{table}[H]
-\centering
-\caption{UC-04: Configure an Exam and Its Access Rules}
-\label{tab:uct_exam_config}
-{\small\renewcommand{\arraystretch}{1.15}
-\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-06 and UC-07 (FR4, FR5): Sit the Locked Exam and Report to the API}\label{tab:uct_lockdown_telemetry}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
 \hline\hline
-Actors & Teacher (or Admin); \texttt{ExamsController} \\
-Pre-condition & Teacher is signed in; the course section exists. \\
-Main flow & 1.~Teacher enters title, start time, duration and instructions in the create-exam wizard.\newline
+\endlastfoot
+1 & UC ID & UC-06 and UC-07 (FR4, FR5) \\* \noalign{\hrule}
+2 & Case name & Sit the Locked Exam and Report to the API \\* \noalign{\hrule}
+3 & Overview & The student answers in a locked fullscreen window while the client guards the PC (UC-06) and reports its state and evidence (UC-07, included). Extended by UC-05. \\* \noalign{\hrule}
+4 & Actors & Student \\* \noalign{\hrule}
+5 & Pre-conditions & Session is \texttt{InProgress}. \\* \noalign{\hrule}
+6 & Trigger & A session starts (UC-04) or an interrupted session is resumed. \\* \noalign{\hrule}
+7 & Steps & 1.~Exam window opens fullscreen and topmost; a low-level keyboard hook blocks Alt+Tab, the Windows key and Ctrl+Shift+Esc, and Task Manager is disabled.\newline
+2.~Guards check processes every 2~s against the allowed apps (Report mode reports an unauthorised app, Enforce mode also closes it) and watch the clipboard, newly mounted USB storage, extra monitors, remote sessions and VMs.\newline
+3.~Every 10~s the client sends \texttt{POST /api/monitoring/heartbeat} with focus, processes, idle time and camera status; the server pushes \texttt{StudentHeartbeat} to the panel.\newline
+4.~Events are spooled and sent every 5~s to \texttt{POST /api/monitoring/events/batch}; the server classifies them and pushes \texttt{ViolationEvent}.\newline
+5.~Screenshots are taken at random intervals around the exam's mean (30--90~s by default) and at once on a violation (at most one per 15~s), and uploaded through an encrypted spool to \texttt{POST /api/monitoring/screenshot}.\newline
+6.~When the exam requires the webcam, frames are analysed on the PC for seven issues; one event is sent per episode, and webcam snapshots are uploaded at the exam's interval and when an issue is raised.\newline
+7.~Student answers the questions and submits (UC-08). \\ \hline
+8 & Post-conditions & \texttt{MonitoringEvents} and \texttt{Screenshots} rows are stored for the live monitor and the reports; the session ends through UC-08 and the PC is released. \\ \hline
+9 & Exception flow & A warning, extra time or unlock arrives in a heartbeat reply (UC-05); during an unlock monitoring continues and the client re-locks itself at the end. Network loss: events and captures stay in the spool and are sent later. No heartbeat for 30~s: the server marks the student Disconnected. A practice exam (UC-03) uses the same window in Report mode, without the webcam. \\
+\end{longtable}}
+
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-08 (FR6): Autosave and Submit Answers}\label{tab:uct_submit}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
+\hline\hline
+\endlastfoot
+1 & UC ID & UC-08 (FR6) \\* \noalign{\hrule}
+2 & Case name & Autosave and Submit Answers \\* \noalign{\hrule}
+3 & Overview & Answers are kept safe during the exam and submitted with a receipt. \\* \noalign{\hrule}
+4 & Actors & Student \\* \noalign{\hrule}
+5 & Pre-conditions & Session is \texttt{InProgress}. \\* \noalign{\hrule}
+6 & Trigger & Student edits an answer or presses Submit, or the timer expires. \\* \noalign{\hrule}
+7 & Steps & 1.~Each edit is written within about 1~s to an AES-256-GCM encrypted local backup.\newline
+2.~The answer is saved to the server 10~s after its first unsaved edit, and at once on a question change or focus loss.\newline
+3.~Student presses Submit and confirms the number of unanswered questions.\newline
+4.~Server finalises the session, returns a SHA-256 receipt of the stored answers, which the client checks, and queues the answers for grading. \\ \hline
+8 & Post-conditions & Session is \texttt{Submitted} or \texttt{TimedOut} with a stored receipt. \\ \hline
+9 & Exception flow & Network loss: failed saves are queued and replayed in order. Crash: answers are restored from the server and the backup. Timer expiry: the client submits automatically and retries every 10~s; the server times the session out 2~minutes after its end. Server unreachable on a manual submit: the window stays open and the student presses Submit again. \\
+\end{longtable}}
+
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-23 (FR7): Manage Users and Roles}\label{tab:uct_users}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
+\hline\hline
+\endlastfoot
+1 & UC ID & UC-23 (FR7) \\* \noalign{\hrule}
+2 & Case name & Manage Users and Roles \\* \noalign{\hrule}
+3 & Overview & An administrator keeps the accounts and their roles. \\* \noalign{\hrule}
+4 & Actors & Admin (a SuperAdmin for Admin and SuperAdmin accounts, UC-27) \\* \noalign{\hrule}
+5 & Pre-conditions & Admin is signed in. \\* \noalign{\hrule}
+6 & Trigger & Admin opens the Users page. \\* \noalign{\hrule}
+7 & Steps & 1.~Admin creates or edits a user and sets the role (\texttt{POST} or \texttt{PUT /api/users}).\newline
+2.~Admin imports users from CSV (\texttt{POST /api/users/import}); each bad row is skipped with its line and reason (\texttt{USERS\_IMPORTED}).\newline
+3.~Admin deactivates, activates or deletes a user, or forces a logout (\texttt{FORCE\_LOGOUT}); the user's next request is refused even if the JWT has not expired.\newline
+4.~Every change is audited (\texttt{USER\_*}). \\ \hline
+8 & Post-conditions & The account is stored; its role decides which endpoints it may call. \\ \hline
+9 & Exception flow & Email already in use: 409. Unknown role: 400. An Admin creating or managing an Admin or SuperAdmin account: 403 \texttt{SUPERADMIN\_REQUIRED}, audited as \texttt{PRIVILEGED\_ACCOUNT\_DENIED}. \\
+\end{longtable}}
+
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-13 (FR8): Create and Configure an Exam}\label{tab:uct_exam_config}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
+\hline\hline
+\endlastfoot
+1 & UC ID & UC-13 (FR8) \\* \noalign{\hrule}
+2 & Case name & Create and Configure an Exam \\* \noalign{\hrule}
+3 & Overview & The teacher defines an exam, its questions and its lockdown rules. \\* \noalign{\hrule}
+4 & Actors & Teacher (or an administrator) \\* \noalign{\hrule}
+5 & Pre-conditions & Teacher is signed in; the course section exists. \\* \noalign{\hrule}
+6 & Trigger & Teacher opens the create-exam wizard. \\* \noalign{\hrule}
+7 & Steps & 1.~Teacher enters title, start time, duration and instructions and selects the students to assign.\newline
 2.~Teacher adds MCQ, coding and theory questions with marks, test cases (public or hidden) and reference answers.\newline
-3.~Teacher sets allowed apps, lockdown mode, readiness, webcam and microphone options, early join, minimum attendance and seat enforcement.\newline
-4.~On the Eligibility page the teacher imports attendance (CSV), recalculates eligibility, overrides where needed and assigns workstations.\newline
-5.~Teacher assigns invigilators to the exam. \\
-Exceptions & Invalid fields are rejected. Bad CSV rows are reported per line. Recalculation after the exam has ended returns 409. \\
-Post-condition & Exam is \texttt{Scheduled}; overrides are audited (\texttt{ELIGIBILITY\_OVERRIDDEN}). \\
-\hline\hline
-\end{tabularx}}
-\end{table}
+3.~Teacher sets allowed apps, lockdown mode (Off, Report or Enforce; default Report), readiness, webcam and microphone options, the screenshot and webcam intervals, early join, minimum attendance and seat enforcement.\newline
+4.~Server validates and stores the exam (\texttt{EXAM\_CREATED}). \\ \hline
+8 & Post-conditions & Exam is \texttt{Scheduled}; students can be notified (UC-19). \\ \hline
+9 & Exception flow & Invalid fields, such as a capture interval outside 10--600~s, are rejected with 400. A later edit uses \texttt{PUT /api/exams/\{id\}} (\texttt{EXAM\_UPDATED}); students can be added later (\texttt{POST /api/exams/\{id\}/assignments}). \\
+\end{longtable}}
 
-\begin{table}[H]
-\centering
-\caption{UC-05: Supervise a Live Exam}
-\label{tab:uct_live_proctoring}
-{\small\renewcommand{\arraystretch}{1.15}
-\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-20 (FR9): Import Attendance and Set Eligibility}\label{tab:uct_eligibility}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
 \hline\hline
-Actors & Teacher or Invigilator; \texttt{MonitoringHub} (\texttt{/hubs/monitoring}) \\
-Pre-condition & Exam is running; the staff member owns or is assigned to it. \\
-Main flow & 1.~Staff member picks the exam on the Live Monitor; the page joins the exam's SignalR group.\newline
-2.~Tiles update from \texttt{StudentHeartbeat}; events arrive as \texttt{ViolationEvent}, classed as Warning, Suspicious or Violation.\newline
-3.~Staff member opens a student's drawer to see the event timeline and screenshots.\newline
-4.~Staff member sends a warning (\texttt{SendWarning}), adds time (\texttt{ExtendStudentTime}), force-submits (\texttt{ForceSubmitSessionById}), unlocks the PC for up to 30 minutes (\texttt{UnlockSession}) or records an incident. \\
-Exceptions & No heartbeat for 30~s: tile shows Disconnected until the student reconnects. Staff not assigned to the exam: the hub refuses the action. \\
-Post-condition & Actions are stored and audited; the student sees the warning or new time. \\
-\hline\hline
-\end{tabularx}}
-\end{table}
+\endlastfoot
+1 & UC ID & UC-20 (FR9) \\* \noalign{\hrule}
+2 & Case name & Import Attendance and Set Eligibility \\* \noalign{\hrule}
+3 & Overview & The teacher decides from attendance who may sit the exam. \\* \noalign{\hrule}
+4 & Actors & Teacher (or an administrator) \\* \noalign{\hrule}
+5 & Pre-conditions & The exam exists and has assigned students (UC-13). \\* \noalign{\hrule}
+6 & Trigger & Teacher opens the Eligibility page. \\* \noalign{\hrule}
+7 & Steps & 1.~Teacher uploads the section's attendance CSV (\texttt{POST /api/sections/\{id\}/attendance/import}; \texttt{ATTENDANCE\_IMPORTED}).\newline
+2.~Teacher recalculates; students below the minimum (default 75\%) become ineligible (\texttt{ELIGIBILITY\_RECALCULATED}).\newline
+3.~Teacher overrides individual students, with an optional note (\texttt{ELIGIBILITY\_OVERRIDDEN}).\newline
+4.~Teacher assigns workstations and invigilators (UC-15). \\ \hline
+8 & Post-conditions & Every assignment has an eligibility; an ineligible student cannot start (UC-04). \\ \hline
+9 & Exception flow & Missing file, bad header or a file over 1~MB: 400; bad rows are reported per line. Recalculation after the exam has ended: 409. Overridden students are skipped by recalculation. \\
+\end{longtable}}
 
-\begin{table}[H]
-\centering
-\caption{UC-06: Grade Submissions and Review Plagiarism}
-\label{tab:uct_compilation_evaluation}
-{\small\renewcommand{\arraystretch}{1.15}
-\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-10 (FR10): Supervise an Exam Live}\label{tab:uct_live_proctoring}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
 \hline\hline
-Actors & Teacher; grading services \\
-Pre-condition & Sessions are submitted, force-submitted or timed out. \\
-Main flow & 1.~MCQ answers are marked by key.\newline
-2.~C++ answers are compiled and run against each test case in a Docker \texttt{gcc:13} container; marks follow the weights of the passed cases.\newline
-3.~Theory answers are compared with the reference answer by TF-IDF similarity, giving a suggested mark and a confidence (an external semantic grader is optional and off by default).\newline
-4.~Answers in the exam are compared pairwise by k-gram winnowing; pairs above the threshold go to \texttt{PlagiarismResults} and the similarity matrix.\newline
-5.~Teacher reviews the suggestions and the matrix and overrides marks where needed. \\
-Exceptions & Compile error or time-out: the test case fails and the message is shown to the teacher. \\
-Post-condition & Suggested marks in \texttt{AiGradingResults}; teacher changes in \texttt{TeacherGradeOverrides}. \\
-\hline\hline
-\end{tabularx}}
-\end{table}
+\endlastfoot
+1 & UC ID & UC-10 (FR10) \\* \noalign{\hrule}
+2 & Case name & Supervise an Exam Live \\* \noalign{\hrule}
+3 & Overview & Staff watch every student of a running exam and act on events. Extended by UC-09 and UC-11. \\* \noalign{\hrule}
+4 & Actors & Invigilator (and, by inheritance, Teacher, Admin, SuperAdmin) \\* \noalign{\hrule}
+5 & Pre-conditions & Exam is running; the staff member owns it, is assigned to it or is an administrator. \\* \noalign{\hrule}
+6 & Trigger & Staff member opens the Live Monitor and picks an exam. \\* \noalign{\hrule}
+7 & Steps & 1.~The page joins the exam's SignalR group on \texttt{/hubs/monitoring}.\newline
+2.~Tiles update from \texttt{StudentHeartbeat} and \texttt{ViolationEvent} and show Stable (Normal), Warning, Suspicious or Critical (Violation); a finished session shows Submitted, Force submitted or Timed out.\newline
+3.~Optionally (UC-09), the staff member opens a student's drawer; the timeline, screenshots and webcam snapshots are fetched over REST from \texttt{MonitoringEvidenceController}.\newline
+4.~Optionally (UC-11), the staff member sends a warning (\texttt{SendWarning}), adds 1--180 minutes (\texttt{ExtendStudentTime}), unlocks the PC for five minutes from the drawer (\texttt{UnlockSession}; the server allows 1--30 minutes) or relocks it, records an incident, or force-submits (\texttt{ForceSubmitSessionById}). \\ \hline
+8 & Post-conditions & Actions are audited; the client receives each command in its next heartbeat reply (UC-05). \\ \hline
+9 & Exception flow & No heartbeat for 30~s: the tile shows Disconnected until the client reconnects. Staff member without access to the exam: the hub refuses the action. \\
+\end{longtable}}
 
-\begin{table}[H]
-\centering
-\caption{UC-07: Review the Audit Log and Export a Report}
-\label{tab:uct_audit_report}
-{\small\renewcommand{\arraystretch}{1.15}
-\begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X}
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-16 (FR11.1, FR11.2): Review Suggested Marks}\label{tab:uct_compilation_evaluation}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
 \hline\hline
-Actors & Admin (audit log); Teacher or Admin (report) \\
-Pre-condition & Exam has ended and marks are reviewed. \\
-Main flow & 1.~Admin opens the audit log (\texttt{GET /api/audit-logs}), filtered by event type.\newline
-2.~Teacher requests \texttt{POST /api/analytics/exams/\{id\}/report}.\newline
-3.~QuestPDF builds a PDF with summary statistics, per-question performance and the score distribution.\newline
-4.~The report is stored as an \texttt{ExamReports} row and downloaded. \\
-Exceptions & Unknown exam: no report is generated. \\
-Post-condition & Report file is available for download. \\
+\endlastfoot
+1 & UC ID & UC-16 (FR11.1, FR11.2) \\* \noalign{\hrule}
+2 & Case name & Review Suggested Marks \\* \noalign{\hrule}
+3 & Overview & The grader suggests marks; the teacher accepts or changes them. \\* \noalign{\hrule}
+4 & Actors & Teacher (or an administrator) \\* \noalign{\hrule}
+5 & Pre-conditions & Sessions are submitted, force-submitted or timed out, and the background grader has run. \\* \noalign{\hrule}
+6 & Trigger & Teacher opens the results of an exam. \\* \noalign{\hrule}
+7 & Steps & 1.~MCQ answers are marked full or zero.\newline
+2.~C and C++ answers are compiled and run against each weighted test case (2~s per case by default) in a Docker \texttt{gcc:13} container when Docker is available, otherwise in a local MinGW g++ runner, which is not isolated.\newline
+3.~Theory answers are scored against the reference answer by TF-IDF \cite{salton1988} (0.7 cosine similarity plus 0.3 key-term coverage) with a confidence value.\newline
+4.~Teacher accepts all suggestions, overrides a mark with a note (\texttt{GRADE\_OVERRIDDEN}) or asks for an answer to be regraded. \\ \hline
+8 & Post-conditions & Suggested marks are in \texttt{AiGradingResults}, teacher marks in \texttt{TeacherGradeOverrides}. \\ \hline
+9 & Exception flow & Compile error or timeout: the test case fails and the message is shown. No runner available: the answer is left for a manual mark. Override outside 0 to the question's marks: 400. \\
+\end{longtable}}
+
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-17 (FR11.3): Review the Similarity Matrix}\label{tab:uct_plagiarism}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
 \hline\hline
-\end{tabularx}}
-\end{table}
+\endlastfoot
+1 & UC ID & UC-17 (FR11.3) \\* \noalign{\hrule}
+2 & Case name & Review the Similarity Matrix \\* \noalign{\hrule}
+3 & Overview & The teacher sees how similar each pair of submissions is. \\* \noalign{\hrule}
+4 & Actors & Teacher (or an administrator) \\* \noalign{\hrule}
+5 & Pre-conditions & A non-practice exam with finalised submissions. \\* \noalign{\hrule}
+6 & Trigger & Teacher opens the plagiarism view of an exam. \\* \noalign{\hrule}
+7 & Steps & 1.~At each submission, the answers are compared pairwise with the earlier ones by k-gram winnowing \cite{winnowing} (k = 5, window 4).\newline
+2.~\texttt{GET /api/exams/\{id\}/plagiarism/matrix} returns the matrix for the exam or one question.\newline
+3.~Pairs at or above the exam's threshold (default 70\%) are flagged in \texttt{PlagiarismResults}.\newline
+4.~Teacher reviews the flagged pairs; no penalty is automatic. \\ \hline
+8 & Post-conditions & Flagged pairs stay listed; any change of marks goes through UC-16. \\ \hline
+9 & Exception flow & Practice exam: 400 \texttt{MOCK\_EXAM}. An MCQ question chosen: 400 \texttt{INVALID\_QUESTION}. \\
+\end{longtable}}
+
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-18 (FR12): Export Reports and Evidence}\label{tab:uct_audit_report}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
+\hline\hline
+\endlastfoot
+1 & UC ID & UC-18 (FR12) \\* \noalign{\hrule}
+2 & Case name & Export Reports and Evidence \\* \noalign{\hrule}
+3 & Overview & The teacher produces an exam's records as files. \\* \noalign{\hrule}
+4 & Actors & Teacher (exam owner) or an administrator \\* \noalign{\hrule}
+5 & Pre-conditions & The exam exists and the caller owns it or is an administrator. \\* \noalign{\hrule}
+6 & Trigger & Teacher picks a report on the Reports page. \\* \noalign{\hrule}
+7 & Steps & 1.~Summary: \texttt{POST /api/analytics/exams/\{id\}/report}; QuestPDF builds a PDF with summary statistics, per-question performance and the score distribution, listed in \texttt{ExamReports}.\newline
+2.~Exports: \texttt{POST /api/analytics/reports/\{type\}} with the exam ID, where the type is \texttt{attendance}, \texttt{violations} or \texttt{scores} (PDF), \texttt{excel}, or \texttt{evidence-zip} (screenshots, events CSV, incidents, the exam's audit extract and a manifest with the SHA-256 of every file).\newline
+3.~Each export is audited as \texttt{REPORT\_GENERATED} with the file's SHA-256.\newline
+4.~Teacher downloads the file (\texttt{GET /api/analytics/reports/\{fileName\}}); ownership is checked again. \\ \hline
+8 & Post-conditions & The file is stored on the server and can be downloaded again. \\ \hline
+9 & Exception flow & Unknown type: 400 with the list of valid types. Missing exam ID: 400. Caller does not own the exam: refused. \\
+\end{longtable}}
+
+{\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{2.8cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-2.8cm-0.25cm-16pt\relax}@{}}
+\caption{UC-21 (FR12): Read the Audit Log and Verify the Hash Chain}\label{tab:uct_audit}\\ \hline\hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
+\hline\hline
+\endlastfoot
+1 & UC ID & UC-21 (FR12) \\* \noalign{\hrule}
+2 & Case name & Read the Audit Log and Verify the Hash Chain \\* \noalign{\hrule}
+3 & Overview & An administrator checks who did what and that no audit row has been changed. \\* \noalign{\hrule}
+4 & Actors & Admin (or SuperAdmin) \\* \noalign{\hrule}
+5 & Pre-conditions & Admin is signed in. \\* \noalign{\hrule}
+6 & Trigger & Admin opens the Audit Log page. \\* \noalign{\hrule}
+7 & Steps & 1.~Admin lists the log (\texttt{GET /api/audit-logs}), filtered by event type.\newline
+2.~Admin runs \texttt{GET /api/audit-logs/verify}, which recomputes each row's SHA-256 over its fields and the previous row's hash and returns \texttt{valid}, the number of rows checked and the last verified sequence and hash.\newline
+3.~Admin notes the last verified hash outside the database. \\ \hline
+8 & Post-conditions & The chain status is shown; deleted newest rows can be detected only against the hash noted outside. \\ \hline
+9 & Exception flow & Broken chain: the result gives \texttt{brokenAt} and the reason. Rows written before the chain existed are reported as unsealed; \texttt{POST /api/audit-logs/backfill} seals them (\texttt{AUDIT\_CHAIN\_BACKFILLED}). \\
+\end{longtable}}

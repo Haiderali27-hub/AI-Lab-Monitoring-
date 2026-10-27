@@ -1,162 +1,218 @@
 \chapter{SYSTEM INTERFACE AND PHYSICAL DESIGN}
 \label{chap:system_interface_physical_design}
 
+This chapter shows what each user sees and how the data is stored. Section~\ref{sec:system_user_interfaces} follows an exam from start to finish: the student's desktop client, exam set-up, live invigilation, evaluation, administration and the student portal. Section~\ref{sec:physical_tables} lists the 29 database tables and the columns of the five core ones.
+
 \section{System User Interfaces}
-SmartExam has two front ends \cite{user_interface_guide}: a WPF desktop client (.NET~9) in which students sit the exam, and a React web panel with one route group per role (\texttt{/admin}, \texttt{/teacher}, \texttt{/invigilator}, \texttt{/student}). All figures use the seeded demo data. The web figures are captured from the running panel by a Playwright script (\texttt{Admin\_Web\_Panel/tests/docs}) against the in-memory backend. The desktop figures are rendered off-screen from the client's own XAML views, because the lockdown window cannot be captured safely on a development PC.
+\label{sec:system_user_interfaces}
+SmartExam has two front ends: a WPF desktop client (.NET~9) in which students sit the exam, and a React web panel with one route group per role (\texttt{/admin}, \texttt{/teacher}, \texttt{/invigilator}, \texttt{/student}). Both follow common usability heuristics: the system status is always visible (connection, last save, tile status), final actions such as submit and force-submit ask for confirmation, and controls look the same across roles \cite{nielsen_heuristics}. The web figures are captured from the running panel by a Playwright script (\texttt{Admin\_Web\_Panel/tests/docs}) against the in-memory backend with the seeded demo data; a scripted client plays the desktop app and uploads the screen captures. The desktop figures are rendered off-screen from the client's own XAML (Extensible Application Markup Language) views with values from the same run, because the lockdown window cannot be captured safely on a development PC. The student, invigilation and evaluation figures show one exam, the Mid-Term Lab Exam (Demo), in Enforce mode with a required system check and webcam.
 
+% Section 6.1 is mostly screenshots: let a tall figure share a page with text
+% (book defaults are restored before Section 6.2).
+\renewcommand{\topfraction}{0.9}\renewcommand{\bottomfraction}{0.9}
+\renewcommand{\textfraction}{0.07}\renewcommand{\floatpagefraction}{0.8}
 \subsection{Student Desktop Client}
-The student signs in with email or roll number (Figure~\ref{fig:ui_student_login}). The client reads the BIOS, system-disk and baseboard serials; the server hashes them with SHA-256 and keeps only the hash in \texttt{DeviceBindings}, so a login from another PC is refused (FR1). The exam dashboard (Figure~\ref{fig:ui_student_diagnostics}) shows only exams the student is eligible for, with instructions, permitted applications, lab, seat and remaining time (FR3). It runs the readiness checks (FR2): network, clock skew, screen capture, webcam, microphone, secure mode (monitors, remote session, virtual machine, keyboard hook) and disk space. Here secure mode fails because a second monitor is attached, so \emph{Start Exam} stays disabled; an exam with \texttt{RequireReadiness} needs a passing check less than 30 minutes old.
+The student signs in with email or roll number (Figure~\ref{fig:ui_student_login}). The client reads the BIOS, system-disk and baseboard serials; the server hashes them with SHA-256 into the hardware ID (HWID) and keeps only the hash in \texttt{DeviceBindings}, so a login from another PC is refused (FR1).
 
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\begin{minipage}[b]{0.3\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/ui_student_login.png}
-\caption{Desktop client login}
+\includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{Figures/ui_student_login.png}
+\caption{Desktop Client Login}
 \label{fig:ui_student_login}
-\end{minipage}\hfill
-\begin{minipage}[b]{0.66\linewidth}
+\end{figure}
+
+The exam dashboard shows the student's current assigned exam with its instructions and permitted applications (Figure~\ref{fig:ui_student_diagnostics}); a side panel, not shown, gives the remaining time, lab, seat, attendance check-in and invigilator messages. An ineligible student still sees the exam, with \emph{Start Exam} disabled and the reason shown (FR3). The dashboard runs the readiness checks (FR2): network, clock skew, screen capture, webcam, microphone, secure mode (monitors, remote session, virtual machine, keyboard hook) and disk space. This exam needs the webcam but not the microphone, so the microphone is skipped. Secure mode fails because a second monitor is attached, and since the exam requires the check (\texttt{RequireReadiness}), \emph{Start Exam} stays disabled until a passing check less than 30 minutes old exists.
+
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_student_diagnostics.png}
-\caption{Exam dashboard with readiness checks}
+\includegraphics[width=\linewidth,height=472pt,keepaspectratio]{Figures/ui_student_diagnostics.png}
+\caption{Exam Dashboard with Readiness Checks}
 \label{fig:ui_student_diagnostics}
-\end{minipage}
 \end{figure}
 
-The exam window (Figure~\ref{fig:ui_student_workspace}) opens maximized, borderless and topmost (FR4). A low-level keyboard hook blocks the Windows and menu keys, PrintScreen, Alt+Tab, Alt+F4, Alt+Esc, Ctrl+Esc and Ctrl+Shift+Esc, while guard services watch processes, the clipboard and USB drives. The student picks a question from the list on the left and types the answer; coding answers go into a monospace text box. Every edit is kept in an AES-GCM encrypted backup on disk and sent to the server within 10~s; saves made offline are queued and replayed (FR6). The footer shows the last save time.
+The exam window (Figure~\ref{fig:ui_student_workspace}) opens maximised, borderless and topmost (FR4). A low-level keyboard hook blocks the Windows and menu keys, PrintScreen, Alt+Tab, Alt+F4, Alt+Esc, Ctrl+Esc and Ctrl+Shift+Esc, while guard services watch processes, the clipboard and newly mounted USB storage devices. The student picks a question from the list on the left and types the answer; coding answers go into a monospace text box. Every edit is written within about a second to an AES-256-GCM encrypted backup on disk and saved to the server 10~s after the first unsaved edit; saves made offline are queued and replayed (FR6). The footer shows the last save time.
 
-\begin{figure}[H]
+\begin{sidewaysfigure}
 \centering
-\includegraphics[width=0.8\linewidth]{Figures/ui_student_workspace.png}
-\caption{Desktop exam window (coding question)}
+\includegraphics[width=\linewidth,height=415pt,keepaspectratio]{Figures/ui_student_workspace_crop.png}
+\caption{Desktop Exam Window (Coding Question)}
 \label{fig:ui_student_workspace}
-\end{figure}
+\end{sidewaysfigure}
 
-A warning sent by a proctor appears as a banner above the question (Figure~\ref{fig:ui_student_warning}). Further warnings wait in a queue, and the student's \emph{Acknowledge} is written to the audit log (FR10).
+A warning sent by an invigilator reaches the client in the reply to its next heartbeat (every 10~s) and appears as a banner between the window header and the question (Figure~\ref{fig:ui_student_warning}, the warning sent in Figure~\ref{fig:ui_live_timeline}). Further warnings wait in a queue, and the student's \emph{Acknowledge} is written to the audit log (FR10).
 
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=0.8\linewidth]{Figures/ui_student_warning.png}
-\caption{Proctor warning in the exam window}
+\includegraphics[width=\linewidth]{Figures/ui_student_warning_banner.png}
+\caption{Invigilator Warning Banner in the Exam Window (Empty Middle Omitted)}
 \label{fig:ui_student_warning}
 \end{figure}
 
 \subsection{Exam Setup}
-The teacher dashboard (Figure~\ref{fig:ui_teacher_dashboard}) counts the teacher's exams, the running ones and the ended exams waiting for grade review. It lists scheduled exams with \emph{Manage}, \emph{Edit} and \emph{Delete}, and links each ended exam to \emph{Review Grades}.
+The teacher dashboard (Figure~\ref{fig:ui_teacher_dashboard}) counts the teacher's exams, the running ones and the ended exams waiting for grade review. It lists scheduled exams, including the seeded practice exam, which stays open for a week, with \emph{Manage}, \emph{Edit} and \emph{Delete}, and links each ended exam to \emph{Review Grades}.
 
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=0.85\linewidth]{Figures/ui_teacher_dashboard.png}
-\caption{Teacher dashboard}
+\includegraphics[width=\linewidth,height=410pt,keepaspectratio]{Figures/ui_teacher_dashboard.png}
+\caption{Teacher Dashboard}
 \label{fig:ui_teacher_dashboard}
 \end{figure}
 
-A four-step wizard creates an exam: basic information, questions (MCQ, coding with test cases, theory), rules, and students (FR8). Step~3 (Figure~\ref{fig:ui_create_exam_rules}) holds the integrity rules: allowed applications, lockdown mode (Off, Report, Enforce), multi-monitor flag, required readiness, webcam and microphone, practice exam, early join, minimum attendance, capture intervals, seat enforcement, AI evaluation and the plagiarism threshold.
+A four-step wizard creates an exam: basic information, questions (MCQ, coding with test cases, theory), rules, and students (FR8). Step~3 holds the integrity rules: allowed applications, lockdown mode (Off, Report, Enforce), the multi-monitor flag, the required system check, webcam and microphone, and the practice-exam switch (Figure~\ref{fig:ui_create_exam_rules}); then early join, minimum attendance, the screenshot and webcam intervals, seat enforcement, AI evaluation and the plagiarism threshold (Figure~\ref{fig:ui_create_exam_rules_more}).
 
-\begin{figure}[H]
+\begin{figure}[p]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_create_exam_rules.png}
-\caption{Create-exam wizard, rules step}
+\includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/ui_create_exam_rules.png}
+\caption{Create-Exam Wizard, Rules Step: Integrity Switches}
 \label{fig:ui_create_exam_rules}
 \end{figure}
 
-On the eligibility page (Figure~\ref{fig:ui_eligibility}) the teacher uploads an attendance CSV and clicks \emph{Recalculate}; students below the exam's minimum attendance become ineligible (FR9). Each row shows where its decision came from (\emph{Attendance} in the figure); a saved toggle for a single student becomes a \emph{Manual} override, which survives recalculation and is audited. The same page maps each student to a workstation (seat) and assigns invigilators, who then see only this exam.
-
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_eligibility.png}
-\caption{Eligibility, seats and invigilators}
+\includegraphics[width=\linewidth,height=416pt,keepaspectratio]{Figures/ui_create_exam_rules_more.png}
+\caption{Create-Exam Wizard, Rules Step: Intervals, Seat, AI and Plagiarism Settings}
+\label{fig:ui_create_exam_rules_more}
+\end{figure}
+
+On the eligibility page (Figure~\ref{fig:ui_eligibility}) the teacher uploads an attendance CSV (comma-separated values) file and clicks \emph{Recalculate}; students below the exam's minimum attendance become ineligible (FR9), as Hamza Iqbal (60\,\%) is here. Each row shows where its decision came from (\emph{Attendance} in the figure); a saved toggle for a single student becomes a \emph{Manual} override, which survives recalculation and is audited. The same page maps each student to a workstation (seat) and assigns invigilators, who then see only this exam.
+
+\begin{sidewaysfigure}
+\centering
+\includegraphics[width=\linewidth,height=425pt,keepaspectratio]{Figures/ui_eligibility.png}
+\caption{Eligibility, Seats and Invigilators (Email Column Omitted)}
 \label{fig:ui_eligibility}
-\end{figure}
+\end{sidewaysfigure}
 
-\subsection{Live Proctoring}
-The desktop client posts heartbeats, events and screen captures to \url{/api/monitoring}, and the server pushes updates to the live monitor (Figure~\ref{fig:ui_teacher_live_monitoring}) over the SignalR hub \url{/hubs/monitoring} (FR5, FR10). Through \texttt{ExamProctors}, invigilators see only the exams assigned to them. Each tile shows the student's seat and PC, readiness, latest capture, latest alert, progress and a status (Stable, Warning, Suspicious, Critical, Submitted); the header shows the remaining time with \emph{Extend Time} and \emph{Force End Exam}. The thumbnails here were uploaded by a scripted test client.
-
-\begin{figure}[H]
+\subsection{Live Invigilation}
+\begin{sidewaysfigure}
 \centering
-\includegraphics[width=0.9\linewidth]{Figures/ui_teacher_live_monitoring.png}
-\caption{Live monitor}
+\includegraphics[width=\linewidth,height=415pt,keepaspectratio]{Figures/ui_live_monitor_a.png}
+\caption{Live Monitor (a): Header and First Row of Tiles}
 \label{fig:ui_teacher_live_monitoring}
+\end{sidewaysfigure}
+
+SignalR carries live updates between the API and the web dashboard; the desktop client uses REST only and receives invigilator warnings, extra time, unlocks and force-submits in the reply to its next heartbeat (every 10~s). The client sends heartbeats, event batches and screen captures to \url{/api/monitoring}, and the server pushes each update to the live monitor (Figures~\ref{fig:ui_teacher_live_monitoring} and~\ref{fig:ui_teacher_live_monitoring_b}) over the hub \url{/hubs/monitoring} (FR5, FR10). Through \texttt{ExamProctors}, invigilators see only the exams assigned to them. Each tile shows the student's seat and PC, readiness, latest capture, latest alert and progress. Its status shows the classifier level as Stable (Normal), Warning, Suspicious or Critical (Violation); a client silent for 30~s is shown as Disconnected, and a finished session as Submitted, Force submitted or Timed out. Here Sara's blocked Alt+Tab is a Warning, Ayesha's phone in view is Suspicious, and Usman, who opened Chrome (not on the allowed list) and had it closed by Enforce mode, is Critical. The header shows the remaining time, the students still sitting, \emph{Extend Time} and \emph{Force End Exam}.
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=\linewidth,height=293pt,keepaspectratio]{Figures/ui_live_monitor_b.png}
+\caption{Live Monitor (b): Second Row of Tiles}
+\label{fig:ui_teacher_live_monitoring_b}
 \end{figure}
 
-Clicking a tile opens the student drawer (Figure~\ref{fig:ui_live_drawer}): latest captures, the readiness result, the applications on the PC, open incidents with \emph{Escalate} and \emph{Mark resolved}, and the activity timeline. From it the proctor sends a warning, records an incident, unlocks the PC for five minutes, grants extra time or force-submits the session (FR10).
-
-\begin{figure}[H]
+\begin{figure}[p]
 \centering
-\includegraphics[width=0.55\linewidth]{Figures/ui_live_drawer.png}
-\caption{Student drawer: evidence and actions (left), incident and timeline (right)}
+\includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/ui_live_drawer_evidence.png}
+\caption{Student Drawer (a): Evidence}
 \label{fig:ui_live_drawer}
 \end{figure}
 
-\subsection{Evaluation}
-The results page lists each submission with its score and SHA-256 receipt. Opening one (Figure~\ref{fig:ui_teacher_ai_grading}) shows every answer next to its AI evaluation: suggested mark, confidence, engine, justification, test-case results (hidden cases marked) and code-analysis signals. C++ answers are compiled and run against weighted test cases in a Docker \texttt{gcc:13} container (FR11.1); theory answers get a TF-IDF similarity score (FR11.2). The teacher accepts the mark or saves an override, stored in \texttt{TeacherGradeOverrides}.
+Clicking a tile opens the student drawer (Figure~\ref{fig:ui_live_drawer}): latest captures, the readiness result and the applications seen on the PC (Chrome, no longer running, is struck through). From it (Figure~\ref{fig:ui_live_drawer_b}) the invigilator sends a warning, records an incident, unlocks the PC for five minutes from the drawer (the server allows 1--30 minutes), grants extra time or force-submits the session (FR10). Further down (Figure~\ref{fig:ui_live_timeline}) are the open incidents, with \emph{Escalate} and \emph{Mark resolved}, and the activity timeline.
 
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=0.8\linewidth]{Figures/ui_teacher_ai_grading.png}
-\caption{AI evaluation of a coding answer}
+\includegraphics[width=0.55\linewidth]{Figures/ui_live_drawer_actions.png}
+\caption{Student Drawer (b): Actions}
+\label{fig:ui_live_drawer_b}
+\end{figure}
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.60\linewidth,height=418pt,keepaspectratio]{Figures/ui_live_timeline.png}
+\caption{Student Drawer (c): Incident and Activity Timeline}
+\label{fig:ui_live_timeline}
+\end{figure}
+
+\DiagramBarrier
+\subsection{Evaluation}\suppressfloats[t]
+The results page lists each submission with its score and SHA-256 receipt. Opening one (Figures~\ref{fig:ui_teacher_ai_grading} and~\ref{fig:ui_teacher_ai_grading_b}) shows every answer next to its AI evaluation: suggested mark, confidence, engine, justification, test-case results (hidden cases marked) and code-analysis signals. Coding answers (C or C++ only) are compiled and run against weighted test cases \cite{alamutka2005} in an isolated Docker \texttt{gcc:13} container when Docker is available; otherwise a local MinGW g++ runner, which is not isolated, is used, and with no runner the answer is left for teacher review (FR11.1). Theory answers get a TF-IDF similarity score \cite{salton1988} (FR11.2). The teacher accepts the mark or saves an override, stored in \texttt{TeacherGradeOverrides}.
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.85\linewidth,height=370pt,keepaspectratio]{Figures/ui_ai_grading_answer.png}
+\caption{AI Evaluation of a Coding Answer (a): Question and Submitted Code}
 \label{fig:ui_teacher_ai_grading}
 \end{figure}
 
-The \emph{Plagiarism Flags} tab (Figure~\ref{fig:ui_plagiarism}) shows a pairwise heat map built by k-gram winnowing, which ignores identifiers and comments in code (FR11.3). A pair at or above the exam's threshold gets a card with both answers side by side and the matched lines highlighted; the teacher records the decision as a grade override.
-
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=0.68\linewidth]{Figures/ui_plagiarism.png}
-\caption{Plagiarism heat map and matched pair}
+\includegraphics[width=\linewidth,height=565pt,keepaspectratio]{Figures/ui_ai_grading_eval.png}
+\caption{AI Evaluation of a Coding Answer (b): Suggested Mark, Test Cases and Override}
+\label{fig:ui_teacher_ai_grading_b}
+\end{figure}
+
+The \emph{Plagiarism Flags} tab (Figure~\ref{fig:ui_plagiarism}) shows a pairwise heat map built by k-gram winnowing \cite{winnowing}, which ignores identifiers and comments in code (FR11.3). A pair at or above the exam's threshold gets a card with both answers side by side and the matched lines highlighted; here Sara's program is Ali's with renamed variables. The teacher records the decision as a grade override.
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=\linewidth,height=562pt,keepaspectratio]{Figures/ui_plagiarism.png}
+\caption{Plagiarism Heat Map and Matched Pair}
 \label{fig:ui_plagiarism}
 \end{figure}
 
-\subsection{Administration and Student Portal}
+\DiagramBarrier
+\subsection{Administration and Student Portal}\suppressfloats[t]
 Admins manage departments and courses (Figure~\ref{fig:ui_academics}); department names are unique, a course code is unique within its department, and a department or course still in use cannot be deleted (FR7).
 
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=0.85\linewidth]{Figures/ui_academics.png}
-\caption{Departments and courses}
+\includegraphics[width=\linewidth,height=600pt,keepaspectratio]{Figures/ui_academics.png}
+\caption{Departments and Courses}
 \label{fig:ui_academics}
 \end{figure}
 
 Admins register labs and workstations (machine number, Windows PC name, IP address) in Figure~\ref{fig:ui_labs_workstations}; each seat shows the student signed in on it. With \texttt{EnforceSeat} on, a student with a seat can start the exam only from that PC (FR9).
 
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=0.85\linewidth]{Figures/ui_labs_workstations.png}
-\caption{Labs and workstations}
+\includegraphics[width=\linewidth,height=418pt,keepaspectratio]{Figures/ui_labs_workstations.png}
+\caption{Labs and Workstations}
 \label{fig:ui_labs_workstations}
 \end{figure}
 
-The device-binding page (Figure~\ref{fig:ui_device_bindings}) lists each student's bound PC, Windows user and last-seen time (FR1). \emph{Reset Binding} (\texttt{DELETE /api/users/\{id\}/device-binding}) removes the binding and revokes all the student's tokens, so the next login binds a new PC; \emph{Force Logout} only revokes the tokens.
+The device-binding page (Figure~\ref{fig:ui_device_bindings}) lists each student's binding status, bound PC and last-seen time (FR1). \emph{Reset Binding} (\texttt{DELETE /api/users/\{id\}/device-binding}) removes the binding and revokes all the student's tokens, so the next login binds a new PC; \emph{Force Logout} only revokes the tokens.
 
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_device_bindings.png}
-\caption{Device bindings}
+\includegraphics[width=\linewidth,height=500pt,keepaspectratio]{Figures/ui_device_bindings.png}
+\caption{Device Bindings (Email, Windows User and Registered Columns Omitted)}
 \label{fig:ui_device_bindings}
 \end{figure}
 
-In the student portal (Figure~\ref{fig:ui_student_performance}) a student sees exams taken, average and best score, integrity flags, a score trend and an exam timeline. The read-only audit page (Figure~\ref{fig:ui_audit_logs}) lists \texttt{AuditLogs} rows (time, actor, event, entity, JSON details) such as logins, grade overrides, completed AI grading and submissions (FR12). The badge at the top shows that the hash chain over these rows verifies.
+In the student portal (Figures~\ref{fig:ui_student_performance} and~\ref{fig:ui_student_performance_b}) a student sees exams taken, average and best score, integrity flags, a score trend, the score of each exam and an exam timeline; practice exams do not count towards results (they are auto-marked but never plagiarism-checked and are hidden from the student's results). The read-only audit page (Figure~\ref{fig:ui_audit_logs}) lists \texttt{AuditLogs} rows (time, actor, event, entity, JSON details) for security-relevant and staff actions, such as logins, grade overrides, completed AI grading and submissions (FR12). The badge at the top shows that the hash chain over these rows verifies.
 
-\begin{figure}[H]
+\begin{sidewaysfigure}
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_student_performance.png}
-\caption{Student performance page}
+\includegraphics[width=\linewidth,height=415pt,keepaspectratio]{Figures/ui_student_performance_a.png}
+\caption{Student Performance Page (a): Summary Cards and Score Trend}
 \label{fig:ui_student_performance}
+\end{sidewaysfigure}
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.7\linewidth]{Figures/ui_student_performance_scores.png}\\[4pt]
+\includegraphics[width=0.7\linewidth]{Figures/ui_student_performance_timeline.png}
+\caption{Student Performance Page (b): Score by Exam and Exam Timeline Cards}
+\label{fig:ui_student_performance_b}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[tbp]
 \centering
-\includegraphics[width=0.85\linewidth]{Figures/ui_audit_logs.png}
-\caption{Audit log page}
+\includegraphics[width=\linewidth,height=622pt,keepaspectratio]{Figures/ui_audit_logs.png}
+\caption{Audit Log Page (Details Column Omitted)}
 \label{fig:ui_audit_logs}
 \end{figure}
 
+\clearpage
+\renewcommand{\topfraction}{0.7}\renewcommand{\bottomfraction}{0.3}
+\renewcommand{\textfraction}{0.2}\renewcommand{\floatpagefraction}{0.5}
 \section{Physical Database Tables}
-EF Core migrations create the PostgreSQL tables from \texttt{Backend\_API/Models} and \texttt{AppDbContext}. Keys are GUIDs (\texttt{uuid}); \texttt{ExamProctors} has a composite key of two. Enums are stored as their names, and defaults are set by the application. Table~\ref{tab:physical_tables} lists all 29 tables; evidence (\texttt{Screenshots}) came with M5, \texttt{Incidents} and \texttt{ExamProctors} with M10, and \texttt{TestCaseResults} with M11. The five core tables follow (\texttt{timestamptz} = timestamp with time zone).
+\label{sec:physical_tables}
+EF Core migrations create the PostgreSQL tables from \texttt{Backend\_API/Models} and \texttt{AppDbContext}. Keys are globally unique identifiers (GUIDs, type \texttt{uuid}); \texttt{ExamProctors} has a composite key of two. Enums are stored as their names, and defaults are set by the application. Table~\ref{tab:physical_tables} lists all 29 tables; evidence (\texttt{Screenshots}) came with M5, \texttt{Incidents} and \texttt{ExamProctors} with M10, and \texttt{TestCaseResults} with M11. The five core tables follow (\texttt{timestamptz} = timestamp with time zone; FK = foreign key).
 
 {\small
 \begin{longtable}{@{}>{\ttfamily\raggedright}p{4.3cm}>{\raggedright}p{5.1cm}>{\ttfamily\raggedright\arraybackslash}p{5.6cm}@{}}
-\caption{Database tables}\label{tab:physical_tables}\\
+\caption{Database Tables}\label{tab:physical_tables}\\
 \hline\hline
 \textrm{\textbf{Table}} & \textbf{Purpose} & \textrm{\textbf{Key columns}} \\ \hline\hline
 \endfirsthead
@@ -186,24 +242,25 @@ ExamSessions & One student's attempt & SessionId, ExamId, UserId, Status \\
 Answers & Latest answer per question & AnswerId, (SessionId, QuestionId) unique \\
 MonitoringEvents & Heartbeats and violations & EventId, ExamSessionId, EventType \\
 Screenshots & Screen and webcam evidence & ScreenshotId, SessionId, Kind, Sha256 \\
-Incidents & Incidents recorded by proctors & IncidentId, SessionId, Severity, Status \\
+Incidents & Incidents recorded by invigilators or teachers & IncidentId, SessionId, Severity, Status \\
 AiGradingResults & Suggested mark of an answer & ResultId, AnswerId (unique), Status \\
 TestCaseResults & Per-case outcome of a grading run & TestCaseResultId, ResultId, Passed \\
 TeacherGradeOverrides & Final mark set by the teacher & OverrideId, AnswerId (unique), TeacherId \\
 PlagiarismResults & Similar answer pairs & PlagId, QuestionId, UserIdA, UserIdB \\
-AuditLogs & Security and admin actions, hash-chained & LogId, ActorId, EventType, Details, Sequence, PrevHash, Hash \\
-ExamReports & Generated PDF reports & ReportId, ExamId, ReportType, FilePath \\
+AuditLogs & Security-relevant and staff actions, hash-chained & LogId, Sequence (unique), PrevHash, Hash, EventType, Details; ActorId (not an FK) \\
+ExamReports & Generated reports and exports & ReportId, ExamId, ReportType, FilePath \\
 Notifications & In-app notifications & NotificationId, RecipientId, IsRead \\
 \end{longtable}
 }
 
 \subsection{Users}
-\texttt{Email} is unique; \texttt{RollNumber} is unique when set (Table~\ref{tab:users_table}) \cite{users_table_budibase}. A student's PC is kept in \texttt{DeviceBindings} (one row per student, deleted with the user).
+\texttt{Email} has a unique index; \texttt{RollNumber} has a unique index filtered on \texttt{IS NOT NULL}, so it is unique only when set (Table~\ref{tab:users_table}) \cite{efcore_indexes}. Passwords are hashed with salted PBKDF2-HMAC-SHA256 \cite{rfc8018} at 600{,}000 iterations, the OWASP recommendation \cite{owasp_pwd}; the iteration count is stored with each hash, so older hashes are re-hashed at the next successful login \cite{nist80063b}. A student's PC is kept in \texttt{DeviceBindings} (one row per student, deleted with the user).
 
 \begin{table}[H]
 \centering
-\caption{Users table}
+\caption{Users Table}
 \label{tab:users_table}
+\vspace{2pt}
 \small
 \begin{tabularx}{\textwidth}{@{}>{\ttfamily}l l c X@{}}
 \hline\hline
@@ -212,7 +269,7 @@ UserId & uuid & No & Primary key \\
 Name & text & No & Display name \\
 Email & text & No & Unique; login for all roles \\
 RollNumber & varchar(32) & Yes & Unique when set; stored upper-case \\
-PasswordHash & text & No & PBKDF2-SHA256, 210{,}000 iterations \\
+PasswordHash & text & No & \texttt{pbkdf2\$600000\$}hash (PBKDF2-HMAC-SHA256) \\
 Salt & text & No & 32 random bytes \\
 Role & text & No & SuperAdmin, Admin, Teacher, Invigilator, Student \\
 IsActive & boolean & No & Default true \\
@@ -226,8 +283,9 @@ Each exam belongs to a section and carries the rules the client enforces (Table~
 
 \begin{table}[H]
 \centering
-\caption{Exams table (main columns)}
+\caption{Exams Table (Main Columns)}
 \label{tab:exams_table}
+\vspace{2pt}
 \small
 \begin{tabularx}{\textwidth}{@{}>{\ttfamily}l l c X@{}}
 \hline\hline
@@ -251,12 +309,13 @@ Status & text & No & Scheduled, Active or Ended \\
 \end{table}
 
 \subsection{ExamSessions}
-One row per attempt (Table~\ref{tab:exam_sessions_table}). \texttt{Status} is a concurrency token, so a student's submit and the timeout sweeper cannot both finalize a session; an index on (\texttt{Status}, \texttt{LastHeartbeatAt}) serves the heartbeat watchdog.
+The table holds one row per attempt (Table~\ref{tab:exam_sessions_table}). \texttt{Status} is a concurrency token, so a student's submit and the timeout sweeper cannot both finalise a session; an index on (\texttt{Status}, \texttt{LastHeartbeatAt}) serves the heartbeat watchdog.
 
 \begin{table}[H]
 \centering
-\caption{ExamSessions table}
+\caption{ExamSessions Table}
 \label{tab:exam_sessions_table}
+\vspace{2pt}
 \small
 \begin{tabularx}{\textwidth}{@{}>{\ttfamily}l l c X@{}}
 \hline\hline
@@ -266,25 +325,26 @@ ExamId & uuid & No & FK to \texttt{Exams} \\
 UserId & uuid & No & FK to \texttt{Users} (student) \\
 StartedAt & timestamptz & No & \\
 SubmittedAt & timestamptz & Yes & \\
-Status & text & No & InProgress, Submitted, ForceSubmitted, TimedOut \\
-ExtraMinutes & integer & No & Extra time from a proctor \\
+Status & text & No & \raggedright\arraybackslash InProgress, Submitted, ForceSubmitted, \mbox{TimedOut} \\
+ExtraMinutes & integer & No & Extra time granted by an invigilator \\
 ReceiptSha256 & varchar(64) & Yes & Receipt hash over the stored answers \\
 ReceiptAnswerCount & integer & Yes & Answers covered by the receipt \\
 LastHeartbeatAt & timestamptz & Yes & Latest heartbeat \\
 IsDisconnected & boolean & No & Set by the watchdog \\
 DisconnectedAt & timestamptz & Yes & When the watchdog marked it \\
-UnlockedUntil & timestamptz & Yes & Lockdown suspended by a proctor until then \\
+UnlockedUntil & timestamptz & Yes & End of an invigilator's unlock \\
 \hline\hline
 \end{tabularx}
 \end{table}
 
 \subsection{MonitoringEvents}
-Events from the client or the server (Table~\ref{tab:monitoring_events_table}). Images go to the \texttt{Screenshots} table with a path and SHA-256. A partial unique index on (\texttt{ExamSessionId}, \texttt{ClientEventId}) stops a replayed offline batch from being stored twice.
+The table stores events from the client or the server (Table~\ref{tab:monitoring_events_table}). Images go to the \texttt{Screenshots} table with a path and SHA-256. A partial unique index on (\texttt{ExamSessionId}, \texttt{ClientEventId}) stops a replayed offline batch from being stored twice.
 
 \begin{table}[H]
 \centering
-\caption{MonitoringEvents table}
+\caption{MonitoringEvents Table}
 \label{tab:monitoring_events_table}
+\vspace{2pt}
 \small
 \begin{tabularx}{\textwidth}{@{}>{\ttfamily}l l c X@{}}
 \hline\hline
@@ -305,8 +365,9 @@ Each answer (one per session and question in \texttt{Answers}) has at most one s
 
 \begin{table}[H]
 \centering
-\caption{AiGradingResults table}
+\caption{AiGradingResults Table}
 \label{tab:ai_grading_table}
+\vspace{2pt}
 \small
 \begin{tabularx}{\textwidth}{@{}>{\ttfamily}l l c X@{}}
 \hline\hline

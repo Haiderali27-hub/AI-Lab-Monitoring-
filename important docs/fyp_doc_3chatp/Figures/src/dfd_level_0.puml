@@ -1,18 +1,24 @@
 @startuml
 !include style.iuml
-' DFD level 0 (context diagram). Gane-Sarson style:
-' square boxes = external entities, rounded box = process.
-skinparam defaultFontSize 15
-skinparam ArrowFontSize 14
-skinparam nodesep 40
-skinparam ranksep 60
+' DFD level 0 (context diagram), Yourdon/DeMarco notation:
+' circle = process, rectangle = external entity (terminator),
+' dashed rectangle = optional external entity, labelled arrow = data flow.
+' System boundary = process 0 = the whole SmartExam system (WPF desktop client
+' with its lockdown, React web panel, ASP.NET Core API), as in the use-case
+' diagram. The lab PC the student sits at is the student's side of the boundary.
+skinparam defaultFontSize 16
+skinparam ArrowFontSize 16
+skinparam nodesep 30
+skinparam ranksep 50
+skinparam defaultTextAlignment center
 skinparam rectangle<<entity>> {
   BorderThickness 2
   RoundCorner 0
   BackgroundColor #FFFFFF
 }
-skinparam rectangle<<process>> {
-  RoundCorner 30
+skinparam usecase {
+  BorderColor #333333
+  BorderThickness 2
   BackgroundColor #F2F2F2
   FontSize 16
 }
@@ -23,31 +29,30 @@ skinparam rectangle<<optional>> {
 }
 hide stereotype
 left to right direction
-skinparam defaultTextAlignment center
 
-rectangle "Student\n(WPF client +\nweb portal)" <<entity>> as STU
-rectangle "Admin / SuperAdmin\n(web panel)" <<entity>> as ADM
-rectangle "Teacher\n(web panel)" <<entity>> as TEA
-rectangle "Invigilator\n(web panel)" <<entity>> as INV
-rectangle "LLM grader (Groq / Gemini)\noptional, off by default" <<optional>> as LLM
-rectangle "Email server\n(SMTP, MailKit)" <<entity>> as SMTP
+rectangle "Student" <<entity>> as STU
+rectangle "Admin /\nSuperAdmin" <<entity>> as ADM
+rectangle "Teacher" <<entity>> as TEA
+rectangle "Invigilator" <<entity>> as INV
+rectangle "LLM grader\n(Groq / Gemini;\noptional, off)" <<optional>> as LLM
+rectangle "Email server\n(SMTP)" <<entity>> as SMTP
 
-rectangle "**0**\n\nSmartExam\nsystem\n(ASP.NET Core API)" <<process>> as P0
+usecase "**0**\nSmartExam\n(desktop client,\nweb panel, API)" as P0
 
-STU --> P0 : credentials + hardware fingerprint,\nreadiness results, heartbeats,\nevent batches, screenshots, answers\n(HTTPS REST)
-P0 --> STU : JWT + refresh token, exam rules\nand questions, warnings, extra time\nand unlock (heartbeat ack), receipt hash;\nresults, violation history,\nnotifications (web portal)
+STU --> P0 : credentials, PC hardware\nIDs, start, answers,\nsubmit; activity on the\nlab PC (apps, keys, USB,\nmonitors); screen,\nwebcam image
+P0 --> STU : sign-in result, exam\nlist, questions, receipt\nhash; lockdown,\nwarnings, extra time,\nunlock; results,\nviolation history,\nperformance,\nnotifications (web\nportal)
 
-ADM --> P0 : users, roles, departments, courses,\nlabs, workstations, device-binding reset
-ADM <-- P0 : audit logs,\nsystem analytics
+ADM --> P0 : users, roles, binding\nreset; departments,\ncourses, labs,\nworkstations
+ADM <-- P0 : audit log and chain\nstatus, system analytics
 
-P0 <-- TEA : exam settings, attendance CSV,\nseats, proctors, announcements,\nstaff actions, mark overrides
-TEA <-- P0 : live status and violations (SignalR),\ntimeline, screenshots, suggested marks,\nsimilarity matrix, PDF report
+P0 <-- TEA : exam settings,\nattendance CSV, seats,\ninvigilators,\nannouncements; warn,\nextend, unlock,\nforce-submit, incident;\naccept / override,\nreport request
+TEA <-- P0 : live status, timeline,\nscreenshots; suggested\nmarks, similarity\nmatrix; PDF / Excel /\nevidence-ZIP reports
 
-P0 <-- INV : warning, extra time, unlock,\nforce-submit, incident\n(assigned exams only)
-INV <-- P0 : live status and violations\n(SignalR), timeline, screenshots
+P0 <-- INV : warn, extend, unlock,\nforce-submit, incident\n(assigned exams only)
+INV <-- P0 : live status, timeline,\nscreenshots
 
-P0 ..> LLM : theory answer, model answer,\nrubric keywords; code test evidence
-LLM ..> P0 : suggested mark,\ncode summary (JSON)
+P0 ..> LLM : theory answer, model\nanswer, rubric keywords;\ncode test results
+LLM ..> P0 : suggested mark, code\nsummary
 
-P0 --> SMTP : exam scheduled, grades released,\nannouncement e-mails
+P0 --> SMTP : exam schedule, grade and\nannouncement emails
 @enduml

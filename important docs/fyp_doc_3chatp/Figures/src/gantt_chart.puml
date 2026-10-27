@@ -1,23 +1,27 @@
 @startgantt
-' SmartExam project Gantt chart -- 8 sprints x 4 weeks (Weeks 1-32)
-' Matches Chapter-1-8 (sprint steps), Chapter-2-2 (tab:timeframe) and
-' Chapter-3-3 (tab:cpm, activities A-I). One time unit = one project week.
+' SmartExam baseline schedule: 8 sprints x 4 weeks (project Weeks 1-32).
+' One bar per activity A-I of tab:cpm (Chapter-3-3); sprint contents as tab:timeframe
+' (Chapter-2-2) and the sprint list in Chapter-1-8. One time unit = one project week.
+' The arrows are the dependencies of tab:cpm; C -> D does not move D (C has 2 weeks of float).
+' Legibility: 12 pt labels at dpi 150 in a PNG about 1100 px wide print at about 7.5 pt
+' at 0.95\linewidth.
 ' Render: java -jar plantuml.jar -tpng gantt_chart.puml
 skinparam dpi 150
+printscale daily zoom 0.85
 <style>
 ganttDiagram {
   BackgroundColor white
   FontName Arial
   task {
     FontName Arial
-    FontSize 10
+    FontSize 12
     FontColor black
-    BackGroundColor #BDBDBD
-    LineColor #4D4D4D
+    BackGroundColor #E6B0AA
+    LineColor #B03A2E
   }
   milestone {
     FontName Arial
-    FontSize 10
+    FontSize 12
     FontStyle bold
     FontColor #B03A2E
     BackGroundColor #B03A2E
@@ -25,81 +29,64 @@ ganttDiagram {
   }
   separator {
     FontName Arial
-    FontSize 10
+    FontSize 12
     FontStyle bold
     LineColor #9E9E9E
   }
   timeline {
     FontName Arial
-    FontSize 9
+    FontSize 11
     BackgroundColor #F5F5F5
   }
   arrow {
-    LineColor #9E9E9E
-  }
-  title {
-    FontName Arial
-    FontSize 13
-    FontStyle bold
+    LineColor #555555
   }
 }
 footer {
   FontName Arial
-  FontSize 10
+  FontSize 12
   FontColor #333333
   HorizontalAlignment left
   Margin 4
 }
 </style>
-title SmartExam Schedule: 8 Sprints x 4 Weeks (timeline in project weeks 1-32)
 
 -- Sprint 1 (Weeks 1-4) --
-[A: Requirements, use cases, backlog, architecture, scope approval] as [A] lasts 4 days
+[A: Requirements, backlog, architecture] as [A] lasts 4 days
 
 -- Sprint 2 (Weeks 5-8) --
-[B: M1 Authentication and device binding (HWID, JWT)] as [B] lasts 4 days
+[B: M1 Authentication, device binding] as [B] lasts 4 days
 [B] starts at [A]'s end
-[C: M7 User and role management (2 weeks + 2 weeks float)] as [C] lasts 2 days
+[C: M7 User and role management] as [C] lasts 2 days
 [C] starts at [A]'s end
-[C] is colored in #E6E6E6/#4D4D4D
+[C] is colored in #E0E0E0/#6E6E6E
 
 -- Sprint 3 (Weeks 9-12) --
-[D: M8 Exam creation and configuration] as [D1] lasts 4 days
-[D1] starts at [B]'s end
-[D: M9 Eligibility, attendance and seats] as [D2] lasts 4 days
-[D2] starts at [B]'s end
+[D: M8 Exam set-up, M9 eligibility, seats] as [D] lasts 4 days
+[D] starts at [B]'s end
+[C] -> [D]
 
 -- Sprint 4 (Weeks 13-16) --
-[E: M2 Readiness check and practice exams] as [E1] lasts 4 days
-[E1] starts at [D1]'s end
-[E: M3 Student exam dashboard] as [E2] lasts 4 days
-[E2] starts at [D1]'s end
-[E: M4 Secure exam environment (lockdown)] as [E3] lasts 4 days
-[E3] starts at [D1]'s end
-[FYP-1 mid-project review (Week 16)] happens at [E1]'s end
+[E: M2 Readiness, M3 dashboard, M4 lockdown] as [E] lasts 4 days
+[E] starts at [D]'s end
+[FYP-I review (Week 16)] happens at [E]'s end
 
 -- Sprint 5 (Weeks 17-20) --
-[F: M5 Monitoring client (heartbeats, screenshots)] as [F1] lasts 4 days
-[F1] starts at [E1]'s end
-[F: M10 Live proctoring dashboard (SignalR)] as [F2] lasts 4 days
-[F2] starts at [E1]'s end
+[F: M5 Monitoring client, M10 live dashboard] as [F] lasts 4 days
+[F] starts at [E]'s end
 
 -- Sprint 6 (Weeks 21-24) --
-[G: M6 Autosave, encrypted backup, submission] as [G1] lasts 4 days
-[G1] starts at [F1]'s end
-[G: M11 Test-case grading, TF-IDF, plagiarism] as [G2] lasts 4 days
-[G2] starts at [F1]'s end
+[G: M6 Submission, backup; M11 evaluation] as [G] lasts 4 days
+[G] starts at [F]'s end
 
 -- Sprint 7 (Weeks 25-28) --
-[H: M12 Audit logs, analytics, QuestPDF reports] as [H] lasts 4 days
-[H] starts at [G1]'s end
+[H: M12 Audit chain, analytics, exports] as [H] lasts 4 days
+[H] starts at [G]'s end
 
 -- Sprint 8 (Weeks 29-32) --
-[I: Integration and system testing (M1-M12)] as [I1] lasts 4 days
-[I1] starts at [H]'s end
-[I: Bug fixing, final report and demonstration] as [I2] lasts 4 days
-[I2] starts at [H]'s end
-[Final submission and demo (Week 32)] happens at [I2]'s end
+[I: Integration, system tests, demo] as [I] lasts 4 days
+[I] starts at [H]'s end
+[Final submission (Week 32)] happens at [I]'s end
 
-footer Grey bars: work on the critical path (A-B-D-E-F-G-H-I). Light bar: C has 2 weeks of float. Red diamonds: milestones.
+footer Timeline in project weeks. Red bars: critical path A-B-D-E-F-G-H-I (32 weeks).\nGrey bar: C has 2 weeks of float. Diamonds: milestones. Each module is tested in its own sprint.
 @endgantt

@@ -3,10 +3,10 @@
 A deliverable is a concrete output that we hand over and that can be checked \cite{del1}. Our deliverables fall into five groups.
 
 \subsection{Requirements and Analysis Deliverables}
-The problem statement, the scope statement, the review of existing systems, the interview notes, and the functional and non-functional requirements in Chapter~\ref{chap:srs}. Together they fix the goals and boundaries of the system \cite{srs1}.
+These are the problem statement, the scope statement, the review of existing systems, the record of our interviews and brainstorming sessions (Section~\ref{sec:gathering}), and the functional and non-functional requirements in Chapter~\ref{chap:srs}. Together they fix the goals and boundaries of the system \cite{srs1}.
 
 \subsection{Design Deliverables}
-The system architecture, the module breakdown, the use case diagram, the ERD, the data flow diagrams, and the UML structure and behaviour diagrams. They split the system into modules that we can assign to team members and sprints.
+These are the system architecture, the module breakdown, the use case diagram, the ERD, the data flow diagrams, and the UML structure and behaviour diagrams. They split the system into modules that we can assign to team members and sprints.
 
 \subsection{Prototype and Module Deliverables}
 A working system of twelve modules, built as three parts:
@@ -15,10 +15,10 @@ A working system of twelve modules, built as three parts:
     \item \textbf{React web panel:} user and exam management, eligibility, the live proctoring dashboard over SignalR, grade review and reports.
     \item \textbf{ASP.NET Core 9 API:} authentication, exam and eligibility rules, monitoring intake, the violation classifier, AI-assisted evaluation and audit logging, with data in Neon PostgreSQL.
 \end{enumerate}
-A module counts as delivered only when its UI and its API endpoints pass end-to-end tests.
+A module counts as delivered when its API endpoints pass the xUnit integration tests, its web screens pass the Playwright end-to-end tests and its desktop logic passes the client unit tests. Checks that need a real lab PC are tracked as pending lab verification (Table~\ref{tab:st_pending}).
 
 \subsection{Testing and Validation Deliverables}
-Unit and API integration tests (xUnit with an in-memory database), headless browser tests (Playwright with a simulated student client), manual lab checklists, and a test report that lists the results and known limits.
+These are unit and API integration tests (xUnit with an in-memory database), headless browser tests (Playwright with a simulated student client), manual lab checklists, and a test report (Chapter~\ref{chap:testing}) that lists the results and known limits.
 
 \subsection{Documentation and Presentation Deliverables}
-The FYP report, the presentation slides and our responses to supervisor feedback.
+These are this report, the presentation slides and our responses to supervisor feedback.

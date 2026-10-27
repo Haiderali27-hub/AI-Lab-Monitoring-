@@ -1,20 +1,21 @@
 \section{Intended Users of the Product}
 
-SmartExam has four main user roles. A fifth role, SuperAdmin, manages institution-wide settings and administrator accounts.
+SmartExam has four main user roles. A fifth role, SuperAdmin, has every administrator right and is the only role that can create or manage Admin and SuperAdmin accounts.
 
 \subsection{Administrator}
-Administrators create, edit and deactivate user accounts, manage labs and workstations, and review device bindings and audit logs. They do not create exams or questions; that belongs to teachers.
+Administrators create, edit and deactivate user accounts, reset device bindings, manage departments, courses, labs and workstations, and review the audit log. Exams and questions are normally prepared by teachers, but an administrator inherits every teacher capability and can create or edit any exam when needed.
 
 \subsection{Teacher}
 Teachers own the exam content and its logistics:
 \begin{itemize}[noitemsep]
 \item \textbf{Exams:} title, duration, schedule, MCQ, coding and theory questions, test cases, marks, allowed applications and lockdown mode.
-\item \textbf{Eligibility:} import attendance, mark students eligible and assign each one to a lab workstation.
+\item \textbf{Eligibility:} import attendance, mark students eligible, assign each one to a lab workstation and assign invigilators.
+\item \textbf{Notifications:} announce exams and notify students of schedules and grades, in the app and by email.
 \item \textbf{After the exam:} review suggested marks, check the plagiarism matrix, override grades and download reports.
 \end{itemize}
 
 \subsection{Invigilator}
-Invigilators watch a running exam on the live dashboard. Each student tile shows focus, active processes and a status of Normal, Warning, Suspicious or Violation. The status is set by the server's violation classifier. An invigilator can open a student's timeline and screenshots and send a warning to the student's screen. The invigilator is often the course teacher.
+Invigilators supervise the exams they are assigned to on the live dashboard. Each student tile shows the active window and the level set by the server's violation classifier, displayed as Stable (Normal), Warning, Suspicious or Critical (Violation); a client silent for 30 s is shown as Disconnected. An invigilator can open a student's running processes, timeline and screenshots, send a warning, extend the student's time, unlock the PC for five minutes, record an incident or force a submission, but cannot edit an exam, grade or see results. A teacher can also supervise their own exam from the same dashboard.
 
 \subsection{Student}
-Students only see the exams assigned to them. A student logs in on the bound workstation and passes the readiness check (network, clock, screen capture, webcam and microphone, secure mode, disk space). The student then starts the exam in the locked client. Inside it, the student can only read questions, write answers and submit. Practice exams let students rehearse beforehand without being graded. Once an exam is submitted, its answers can no longer be edited.
+Students only see the exams assigned to them. A student logs in on the bound workstation and passes the readiness check (network, clock, screen capture, webcam and microphone, secure mode, disk space). The student then starts the exam in the locked client. Inside it, the student can only read questions, write answers and submit. Once an exam is submitted, its answers can no longer be edited. Practice exams let students rehearse beforehand; they do not count towards results (they are auto-marked but never plagiarism-checked and are hidden from the student's results). On the web portal, students see their results, violation history, performance and notifications.

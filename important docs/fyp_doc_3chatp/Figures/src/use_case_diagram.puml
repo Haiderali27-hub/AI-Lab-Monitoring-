@@ -1,93 +1,67 @@
 @startuml
+' UML 2.5 use case diagram. Subject = SmartExam (two subsystems); actors outside.
+' Every use case carries its ID (UC-nn, as in the Chapter 4 description tables) and its FR.
+' Drawn as two figures: (a) this file: the student's use cases and live supervision;
+' (b) use_case_diagram_b.puml: the staff use cases of the web panel (Teacher, Admin, SuperAdmin).
 !include style.iuml
 left to right direction
 skinparam packageStyle rectangle
-skinparam defaultFontSize 13
+skinparam nodesep 8
+skinparam ranksep 34
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
 skinparam usecase {
-  FontSize 13
+  FontSize 14
 }
-skinparam nodesep 6
-skinparam dpi 140
-skinparam ranksep 30
+skinparam actor {
+  FontSize 14
+}
+skinparam rectangle {
+  FontSize 14
+}
 
 actor "Student" as STU
-
-actor "Invigilator\n(exams in ExamProctors)" as INV
-actor "Teacher" as TEA
-actor "Admin" as ADM
-actor "SuperAdmin" as SUP
+actor "Invigilator" as INV
 
 rectangle "SmartExam" {
-  rectangle "Student desktop client (WPF)" {
-    usecase "Log in and bind device (FR1)" as UC1
-    usecase "Run readiness check (FR2)" as UC2
-    usecase "Take practice exam (FR2)" as UC3
-    usecase "View eligible exams (FR3)" as UC4
-    usecase "Sit locked exam (FR4)" as UC5
-    usecase "Send heartbeats and\nscreenshots (FR5)" as UC6
-    usecase "Autosave and submit answers (FR6)" as UC7
-    usecase "See warning, extra time\nor unlock (FR10)" as UC8
+  rectangle "Student desktop client (WPF)" as DESK {
+    usecase "UC-01 Log in and\nbind device (FR1)" as U01
+    usecase "UC-02 Run readiness\ncheck (FR2)" as U02
+    usecase "UC-03 Take practice\nexam (FR2)" as U03
+    usecase "UC-04 View assigned exam,\ncheck in and start (FR3, FR9)" as U04
+    usecase "UC-05 Receive warning,\nextra time or unlock (FR10)" as U05
+    usecase "UC-06 Sit locked\nexam (FR4)" as U06
+    usecase "UC-07 Send heartbeats,\nevents, screenshots (FR5)" as U07
+    usecase "UC-08 Autosave and\nsubmit answers (FR6)" as U08
   }
-  rectangle "Web panel (React)" {
-    usecase "Log in, change password, log out (FR1)" as UC19
-    usecase "View results, violations, performance\nand notifications (FR12)" as UC9
-
-    usecase "Supervise exam live, see readiness (FR10)" as UC20
-    usecase "View timeline and screenshots (FR10)" as UC21
-    usecase "Warn, extend time, unlock, force-submit,\nlog incident (FR10)" as UC22
-
-    usecase "Create and configure exam (FR8)" as UC10
-    usecase "Import attendance, set eligibility (FR9)" as UC11
-    usecase "Assign workstations and invigilators (FR9)" as UC12
-    usecase "Announce exam, notify schedule\nand grades (FR8)" as UC16
-    usecase "Review suggested marks: accept,\noverride, regrade (FR11.1, FR11.2)" as UC13
-    usecase "Review similarity matrix (FR11.3)" as UC14
-    usecase "Export PDF exam report (FR12)" as UC15
-
-    usecase "Manage users and roles (FR7)" as UC30
-    usecase "Manage departments and courses (FR9)" as UC34
-    usecase "Reset device binding (FR1)" as UC31
-    usecase "Register labs and workstations (FR9)" as UC32
-    usecase "Read audit log (FR12)" as UC33
-    usecase "View system analytics (FR12)" as UC35
-    usecase "Manage Admin and SuperAdmin accounts (FR7)" as UC40
+  rectangle "Web panel (React)" as WEB {
+    usecase "UC-09 View timeline, screenshots\nand webcam snapshots (FR10)" as U09
+    usecase "UC-10 Supervise exam\nlive (FR10)" as U10
+    usecase "UC-11 Warn, extend time, unlock,\nforce-submit, log incident (FR10)" as U11
+    usecase "UC-12 Sign in, change\npassword, sign out (FR1)" as U12
+    usecase "UC-14 View results, violations,\nperformance, notifications (FR3)" as U13
   }
 }
 
-STU -- UC1
-STU -- UC2
-STU -- UC3
-STU -- UC4
-STU -- UC5
-STU -- UC7
-STU -- UC8
-STU -- UC19
-STU -- UC9
-UC5 .right.> UC6 : <<include>>
+' web panel in a second column
+U04 -[hidden]- U10
 
-UC19 --- INV
-UC20 --- INV
-UC21 --- INV
-UC22 --- INV
+' include: base -> included; extend: extension -> base
+U05 .left.> U06 : <<extend>>
+U06 .left.> U07 : <<include>>
+U09 .left.> U10 : <<extend>>
+U11 .right.> U10 : <<extend>>
 
-UC10 --- TEA
-UC11 --- TEA
-UC12 --- TEA
-UC16 --- TEA
-UC13 --- TEA
-UC14 --- TEA
-UC15 --- TEA
+STU -- U01
+STU -- U02
+STU -- U03
+STU -- U04
+STU -- U06
+STU -- U08
+STU -- U12
+STU -- U13
 
-UC30 --- ADM
-UC34 --- ADM
-UC31 --- ADM
-UC32 --- ADM
-UC33 --- ADM
-UC35 --- ADM
+U10 -- INV
+U12 -- INV
 
-UC40 --- SUP
-
-INV <|-right- TEA
-TEA <|-right- ADM
-ADM <|-right-- SUP
 @enduml

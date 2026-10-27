@@ -1,0 +1,51 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Practice exam (Module 2). Client: ViewModels/DashboardViewModel.RefreshPracticeExamsAsync (ApiClient.GetPracticeExamsAsync),
+' Views/ExamDashboard.PracticeButton_OnClick (ApiClient.StartSessionAsync; refusal -> MessageBox; ExamWindow in "Report"
+' mode, no allowed-apps list, no webcam; afterwards DashboardViewModel.InitializeAsync refreshes the list).
+' Server: ExamsController.GetPracticeExams (GET /api/exams/student/practice: IsMock, assigned and eligible, open now) and
+' StartSession (POST /api/exams/{id}/start-session), whose gates run in this order: assignment (403), IsEligible (400),
+' exam closed and no open session (400), not open yet (400 EXAM_NOT_STARTED), seat (403 SEAT_MISMATCH), then an
+' InProgress practice attempt is returned as it is, and only a NEW attempt checks RequireReadiness (400 READINESS_REQUIRED).
+' Saving and submitting use the same calls as a real exam; SubmissionService.FinalizeAsync skips the plagiarism check
+' when Exam.IsMock and grades when AiEvaluationEnabled.
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam maxMessageSize 200
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+
+actor Student
+participant "Exam\nDashboard" as UI
+participant "Exam\nWindow" as EW
+participant "Dashboard\nViewModel" as VM
+participant "ApiClient" as API
+participant "Exams\nController" as EC
+database "AppDbContext" as DB
+activate UI
+alt no sessionId
+  UI --> Student : MessageBox(message)
+else sessionId
+  UI -> EW : new ExamWindow(lockdown\n"Report", no allowed apps,\nno webcam); ShowDialog()
+  activate EW
+  ref over EW, VM
+  Save and submit with the same calls as a real
+  exam (auto-save and submission diagrams);
+  FinalizeAsync auto-marks if AiEvaluationEnabled,
+  skips plagiarism (IsMock)
+  end ref
+  EW --> UI : closed after the receipt
+  deactivate EW
+  UI -> VM : InitializeAsync()
+  activate VM
+  VM --> UI : list refreshed
+  deactivate VM
+end
+deactivate UI
+@enduml

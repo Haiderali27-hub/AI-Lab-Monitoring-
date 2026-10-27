@@ -8,9 +8,10 @@ skinparam dpi 110
 ' IHubContext<MonitoringHub> pushes: MonitoringController (ViolationEvent ...), SubmissionService (SessionFinalized),
 ' SeatGuard (ViolationEvent), HeartbeatWatchdogService (StudentDisconnected), GradingService (GradingCompleted).
 ' AppDbContext is injected into controllers, MonitoringHub and services alike.
-' Sized for includegraphics width 0.92 linewidth (about 7 pt printed, about 8.9 in tall).
-skinparam defaultFontSize 20
-skinparam ArrowFontSize 20
+' Sized for includegraphics width 0.92 linewidth (about 8 pt printed, about 8.6 in tall).
+' Provided interfaces (lollipop): REST /api/* on the controllers, SignalR /hubs/monitoring on MonitoringHub; required (socket): ApiClient, api/client.ts, LiveMonitorPage.
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
 skinparam nodesep 10
 skinparam ranksep 26
 skinparam defaultTextAlignment left
@@ -18,7 +19,7 @@ set separator none
 skinparam package {
   BorderColor #555555
   BackgroundColor #FFFFFF
-  FontSize 20
+  FontSize 24
 }
 
 package "Client: Student_Desktop_App (WPF)" {
@@ -103,12 +104,14 @@ package "Server" as SRV {
       SubmissionService,
       ExamAccessService,
       SeatGuard, AuditService,
+      AuditChain (hash chain),
       RefreshTokenService,
       ViolationClassifier,
       EligibilityCalculator,
       NotificationService,
       EmailService,
       AnalyticsService,
+      ReportExportService,
       EvidenceStorage
     ]
     component BG [
@@ -143,17 +146,26 @@ package "Data tier" {
     29 tables
   ]
   folder EVD [
-    Evidence files,
-    Reports/ PDFs
+    Evidence/ files,
+    Reports/: PDF,
+    Excel, ZIP
   ]
 }
+
+' Interface names sit on the provider links (as edge labels) so that no line runs through them.
+() " " as IREST
+() " " as IHUB
+CTRL -up- IREST : REST /api/*\n(JWT)
+HUB -up- IHUB : SignalR\n/hubs/monitoring
 
 VIEWS --> READY
 VIEWS --> LOCK
 VIEWS --> LMS
 VIEWS --> APIC
 LMS --> CAP
-LOCK --> APIC
+LOCK -left-> LMS : violations
+READY -[hidden]right- LMS
+LOCK --> APIC : fallback
 LMS --> APIC
 READY --> APIC
 CAP -right-> APIC
@@ -161,13 +173,12 @@ PAGES --> AXIOS
 PAGES --> SIG
 AXIOS -[hidden]down- SIG
 VIEWS -[hidden]right- PAGES
-APIC -[hidden]down- CTRL
 
 EVD -[hidden]right- PG
 
-APIC --> CTRL : REST\n+ JWT
-AXIOS --> CTRL : REST\n+ JWT
-SIG --> HUB : SignalR\nWebSocket
+APIC -down-( IREST
+AXIOS -down-( IREST
+SIG -down-( IHUB
 CTRL .right.> HUB : IHubContext\npush
 CTRL --> DOM
 CTRL --> GRD
@@ -176,7 +187,7 @@ DOM -right-> GRD : stage grading,\nplagiarism,\nenqueue
 BG -up-> DOM
 BG -up-> GRD
 BG --> EVD : purge
-DOM .up.> HUB : IHubContext\npush
+DOM .up.> HUB
 BG .up.> HUB
 GRD .up.> HUB
 SRV --> EF : controllers, hub\nand services

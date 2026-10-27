@@ -1,48 +1,83 @@
-﻿@startuml
+@startuml
 !include style.iuml
-skinparam ArrowFontSize 13
-skinparam defaultFontSize 13
-' Report export (Module 12): Admin_Web_Panel/src/pages/analytics/ReportsPage.tsx (analyticsApi.getReportHistory,
-' generateReport, getReportDownloadUrl + fetch with Bearer token); Controllers/Analytics/AnalyticsController
-' (Roles "Admin,SuperAdmin,Teacher", DenyUnlessOwnerAsync = exam owner or admin) GenerateReport / DownloadReport
-' (Path.GetFileName check 400, ExamReport lookup 404, owner 403, file under Reports/ 404);
-' Services/Analytics/AnalyticsService.GenerateExamReportPdfAsync (GetExamSummaryAsync, QuestPDF, ExamReports row).
-' The exam summary PDF is not audited; the Module 12 exports (POST /api/analytics/reports/{type},
-' ReportExportService) are written to AuditLogs as REPORT_GENERATED with the file's SHA-256.
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Reports and audit chain (Module 12). Web: Admin_Web_Panel/src/pages/analytics/ReportsPage.tsx (analyticsApi.generateReport,
+' generateExport(type, examId), getReportHistory, getReportDownloadUrl + fetch with Bearer token) and
+' pages/admin/AuditLogsPage.tsx (auditApi.verifyChain, GET /api/audit-logs/verify, Admin/SuperAdmin only).
+' Controllers/Analytics/AnalyticsController [Roles "Admin,SuperAdmin,Teacher"], DenyUnlessOwnerAsync = exam owner or admin:
+'   GenerateReport (POST /api/analytics/exams/{id}/report -> AnalyticsService.GenerateExamReportPdfAsync: GetExamSummaryAsync,
+'   QuestPDF, ExamReports row; NOT audited);
+'   GenerateExport (POST /api/analytics/reports/{type}, body {examId}: 400 unknown type / missing examId, 403 not owner ->
+'   ReportExportService.GenerateAsync: file, SHA-256, ExamReports row + AuditLog REPORT_GENERATED {reportType, fileName,
+'   sha256, sizeBytes}, one SaveChangesAsync in which AuditChain seals the row);
+'   DownloadReport (GET /api/analytics/reports/{fileName}: 400 not a bare file name, 404 no ExamReport, 403 not owner,
+'   404 file not under Reports/ or missing).
+' Controllers/AuditController.Verify -> AuditChain.VerifyAsync {valid, brokenAt, reason, checkedCount, unsealed,
+' lastVerifiedSequence, lastVerifiedHash}.
 hide footbox
-skinparam ParticipantPadding 0
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
 }
-skinparam maxMessageSize 300
 
-actor "Teacher /\nAdmin /\nSuperAdmin" as T
-participant "Reports\nPage (web)" as RP
+actor "Admin, or the\nexam's owner\nTeacher (exports)" as T
+participant "ReportsPage\n(web)" as RP
 participant "Analytics\nController" as AC
-participant "Analytics\nService" as AS
+participant "ReportExport\nService" as RES
 database "AppDb\nContext" as DB
+participant "Audit\nController" as AUC
+participant "AuditLogs\nPage (web)" as ALP
 
-T -> RP : Generate\nreport
-RP -> AC : POST /api/analytics/\nexams/{id}/report
-AC -> AC : owner or\nadmin?\n(else 403)
-AC -> AS : GenerateExam-\nReportPdfAsync
-AS -> DB : GetExamSummary-\nAsync: sessions,\nanswers, grades,\nevents
-AS -> AS : QuestPDF:\nA4 PDF in\nReports/
-AS -> DB : add ExamReport
-AS --> AC : file path
-AC --> RP : downloadUrl\n(.../reports/\n{fileName})
-RP -> AC : GET .../exams/\n{id}/reports
-AC --> RP : report list
-T -> RP : Download
-RP -> AC : GET /api/analytics/\nreports/{fileName}
-AC -> AC : bare file\nname?\n(else 400)
-AC -> DB : ExamReport by file name\n(else 404)
-AC -> AC : owner or\nadmin?\n(else 403)
-AC --> RP : application/pdf
-RP --> T : PDF\nsaved
-note over RP, DB
-  Exports (attendance, violations, scores PDF, Excel, evidence ZIP):
-  POST /api/analytics/reports/{type} -> ReportExportService builds the file
-  and adds a REPORT_GENERATED audit row carrying its SHA-256.
+T -> RP : pick export
+activate RP
+RP -> AC : POST /api/analytics/\nreports/{type} {examId}
+activate AC
+AC -> AC : type known (400)?\nowner or admin\n(else 403)?
+AC -> RES : GenerateAsync(type,\nexamId, userId)
+activate RES
+RES -> DB : load exam data
+activate DB
+DB --> RES : sessions, events,\nscores, evidence
+deactivate DB
+RES -> RES : PDF / XLSX /\nZIP in Reports/;\nfile SHA-256
+RES -> DB : SaveChangesAsync()
+activate DB
+note over RES, DB
++ExamReport row and
++AuditLog REPORT_GENERATED
+{type, fileName, sha256,
+size}; AuditChain seals
+the row (Sequence,
+PrevHash, Hash)
 end note
+DB --> RES : saved
+deactivate DB
+RES --> AC : fileName, sha256
+deactivate RES
+AC --> RP : 200 {fileName,\nsha256,\ndownloadUrl}
+deactivate AC
+note right
+The exam summary PDF
+(POST .../exams/{id}/report,
+AnalyticsService) is built
+the same way but writes
+no audit row.
+end note
+RP -> AC : GET /api/analytics/\nreports/{fileName}
+activate AC
+AC -> DB : ExamReport by bare\nfile name (else 400)
+activate DB
+DB --> AC : row (else 404)
+deactivate DB
+AC -> AC : owner or admin\n(403)? file in\nReports/ (404)?
+AC --> RP : file stream
+deactivate AC
+RP --> T : file saved
+deactivate RP
+
 @enduml

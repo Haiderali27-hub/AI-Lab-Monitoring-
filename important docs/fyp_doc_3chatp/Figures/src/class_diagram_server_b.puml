@@ -1,0 +1,91 @@
+@startuml
+!include style.iuml
+' Class diagram, part 3 of 4 (server), figure (b): grading and plagiarism (Services/Grading, Services/Plagiarism,
+' Controllers/GradingController.cs). Figure (a), monitoring, access checks and submission, is class_diagram_server.puml.
+' Only key members; parameters abbreviated as (..). Arrows: --> holds / injects, ..> calls or uses, ..|> implements.
+' A dashed white box is a class whose members are drawn in figure (a).
+hide empty members
+hide circle
+skinparam classAttributeIconSize 0
+skinparam nodesep 14
+skinparam ranksep 36
+skinparam class {
+  FontSize 14
+  AttributeFontSize 14
+  StereotypeFontSize 13
+}
+skinparam ArrowFontSize 14
+skinparam stereotypeFontSize 13
+
+class SubmissionService #FFFFFF ##[dashed]
+class ExamAccessService #FFFFFF ##[dashed]
+class GradingController <<api: grading, plagiarism>> #FFF6E0 {
+  +GetMatrix(examId, questionId)
+  +AcceptAiSuggestions(examId)
+  +Regrade(answerId)
+}
+class PlagiarismService #FFF6E0 {
+  +DetectAsync(session, answers)
+  +BuildMatrixAsync(examId, ..)
+}
+class PlagiarismEngine <<static>> #FFF6E0 {
+  +Fingerprint(text, isCode)
+  +Compare(a, b) : PlagiarismComparison
+}
+class GradingQueue #FFF6E0 {
+  +Reader : ChannelReader<Guid>
+  +Enqueue(answerId)
+  +MarkStarted(answerId)
+}
+class GradingWorker <<BackgroundService>> #FFF6E0
+class GradingService #FFF6E0 {
+  +StageAsync(answers)
+  +ProcessAsync(answerId, ct)
+}
+class LlmGrader #FFF6E0 {
+  +IsEnabled : bool
+  +GradeTheoryAsync(..)
+  +SummariseCodeAsync(..)
+}
+class TheoryGrader <<static>> #FFF6E0 {
+  +Grade(question, answer)
+}
+class CodeRunnerResolver #FFF6E0 {
+  +ResolveAsync(ct) : ICodeRunner?
+}
+interface ICodeRunner <<interface>> #FFF6E0 {
+  +Engine : string
+  +Isolated : bool
+  +RunAsync(job, ct) : RunReport
+}
+class DockerCodeRunner #FFF6E0
+class LocalMingwCodeRunner #FFF6E0
+
+SubmissionService --> PlagiarismService
+SubmissionService --> GradingQueue : Enqueue
+SubmissionService --> GradingService
+PlagiarismService -[hidden]right- GradingQueue
+GradingWorker -up-> GradingQueue
+GradingWorker ..> GradingService
+PlagiarismService ..> PlagiarismEngine
+GradingController -up--> PlagiarismService
+GradingController -up--> GradingQueue
+GradingController -up--> GradingService
+GradingController --> ExamAccessService
+GradingService ---> CodeRunnerResolver
+GradingService ...> TheoryGrader : fallback
+GradingService ----> LlmGrader : optional
+GradingController -[hidden]down- CodeRunnerResolver
+CodeRunnerResolver -[hidden]right- TheoryGrader
+ICodeRunner -[hidden]right- LlmGrader
+CodeRunnerResolver ..> ICodeRunner
+DockerCodeRunner .up.|> ICodeRunner
+LocalMingwCodeRunner .up.|> ICodeRunner
+
+skinparam legendFontSize 14
+legend bottom
+  Dashed box: members drawn in figure (a). GradingService also injects
+  IHubContext<MonitoringHub> (pushes "GradingCompleted"), AuditService and
+  AppDbContext (arrows omitted).
+endlegend
+@enduml

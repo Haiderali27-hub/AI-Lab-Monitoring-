@@ -74,7 +74,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M1-E-06 | Roll number in Users page | Admin creates student with roll number (lower-case) | Shown upper-case, searchable; desktop-style login by roll → 200 | ✅ Playwright e2e |
 | M1-E-07 | Logout after idle expiry | Access token in localStorage already expired → Logout button | Logout refreshes first and reaches the server with a valid token (200); the newest refresh token is then `INVALID_REFRESH_TOKEN` | ✅ Playwright e2e (verifier) |
 | M1-U-01 | Desktop refresh is single-flight | Two concurrent 401s; stale failure after another refresh; near-expiry token | One `POST /refresh`; both callers get the new pair; proactive refresh 60 s before expiry | ✅ desktop xUnit (`TokenRefreshGateTests`) |
-| M1-U-02 | Desktop keeps the session on transient errors | Refresh → network error / 429 / 5xx vs `REFRESH_TOKEN_REUSED` | Transient: keep token, no kick; refusal: session over; logout during refresh is not undone | ✅ desktop xUnit |
+| M1-U-02 | Desktop keeps the session on transient errors | Refresh → network error / 429 / 5xx vs `REFRESH_TOKEN_REUSED` | Transient: keep token, no kick; refusal: session over; logout during refresh is not undone | ✅ desktop xUnit (`TokenRefreshGateTests.TransientFailures_DoNotEndTheSession`, `Unavailable_KeepsTheCurrentSession`, `Rejected_IsReported_AndNothingIsStored`, `LogoutDuringRefresh_DoesNotResurrectTheSession`) |
 | M1-U-03 | HWID v2 fingerprint composition | BIOS/disk/board serials incl. OEM junk ("To be filled by O.E.M.", "0", …) | `v2\|BIOS\|DISK\|BOARD`; junk dropped; < 2 usable serials → SMBIOS UUID, else MachineGuid appended | ✅ desktop xUnit (`DeviceFingerprintTests`) |
 
 ## M2 — Pre-Exam Verification & Mock Test
@@ -156,11 +156,11 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M4-U-10 | Unknown app in Report mode | `chrome.exe` | Report only; teacher can whitelist it | ✅ |
 | M4-U-11 | AllowedApps matching is case/extension/path-insensitive | `Code.EXE`, `C:\…\code.exe` vs `code` | Allowed | ✅ |
 | M4-U-12 | Foreground check uses PID, not title | Notepad titled "Exam" | Not treated as exam window | ✅ |
-| M4-U-13 | Violation classifier | Warnings ×3 → Suspicious; Suspicious ×2 → Violation; ProcessKilled/USB/RDP → Violation; `"Violation"+reason` resolves to the specific type | As described | ✅ backend xUnit |
+| M4-U-13 | Violation classifier | Warnings ×3 → Suspicious; Suspicious ×2 → Violation; ProcessKilled/USB/RDP → Violation; `"Violation"+reason` resolves to the specific type | As described | ✅ backend xUnit (`ViolationClassifierTests`) |
 | M4-U-14 | Virtual machine detection | WMI manufacturer/model of VMware, VirtualBox, Hyper-V, QEMU vs Dell/Surface | Vendor name / null | ✅ desktop xUnit |
-| M4-U-15 | Escape tools caught without a window | `taskmgr`, `procexp64`, `SystemInformer`, `regedit` windowless; windowless `cmd`/`powershell` (IDE terminals) | Enforce → Kill, Report → Report; shells allowed unless windowed; teacher can whitelist | ✅ desktop xUnit |
+| M4-U-15 | Escape tools caught without a window | `taskmgr`, `procexp64`, `SystemInformer`, `regedit` windowless; windowless `cmd`/`powershell` (IDE terminals) | Enforce → Kill, Report → Report; shells allowed unless windowed; teacher can whitelist | ✅ desktop xUnit (`EscapeTools_AreKilledInEnforce_EvenWithoutAWindow`, `EscapeTools_AreReportedInReportMode`, `WindowlessShells_AreNotEscapeTools_SoIdeTerminalsKeepWorking`, `TeacherCanWhitelistAnEscapeTool`; these sit in `Auth/DeviceFingerprintTests.cs`) |
 | M4-U-16 | Task Manager policy apply / restore | Fake registry: value absent / 0 / 1 (GPO); marker write fails; registry write fails; apply twice | Marker written before `DisableTaskMgr=1`; restore deletes or rewrites the original; idempotent; no registry change without a marker | ✅ desktop xUnit (`TaskManagerPolicyTests`) |
-| M4-U-17 | Task Manager crash recovery | Marker left by killed pid 42; next start as pid 77 (file marker in a temp dir) | Original value restored, marker removed; not restored while another SmartExam instance still runs; corrupt marker → default (value deleted) | ✅ desktop xUnit |
+| M4-U-17 | Task Manager crash recovery | Marker left by killed pid 42; next start as pid 77 (file marker in a temp dir) | Original value restored, marker removed; not restored while another SmartExam instance still runs; corrupt marker → default (value deleted) | ✅ desktop xUnit (`TaskManagerPolicyTests.M4_D_07_CrashRecovery_AtNextStart_RestoresWhenTheExamProcessIsGone`, `CrashRecovery_DoesNotUnlockAnotherRunningExamInstance`, `FileMarkerStore_CorruptMarker_RestoresToWindowsDefault`, `Guard_WithFileStore_SurvivesARestartBetweenApplyAndRecovery`) |
 | M4-U-18 | Teardown isolation | A teardown step throws (cross-thread HwndSource in the crash / ProcessExit handler) | Later steps still run, failures reported; Task Manager policy restored first, even when a UI-bound step throws | ✅ desktop xUnit (`LockdownTeardownTests`, verifier) |
 | M4-I-01 | Lockdown config in student status | Exam LockdownMode=Enforce | `/student/current` returns mode + allowedApps | ✅ |
 | M4-I-02 | Violation types accepted | POST event `UnauthorizedProcess` | 200, stored with type | ✅ |
@@ -199,8 +199,8 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M5-U-07 | Outbox tamper / torn tail | Flip a record byte, append half a record | Edited record skipped and counted, torn tail dropped, file rewritten | ✅ |
 | M5-U-08 | Capture spool | Add / read / fill past the limit / edit a file | Encrypted round trip; interval captures dropped before violation evidence; an edited capture is discarded | ✅ |
 | M5-U-09 | Capture schedule | Fake clock + random | Waits uniform in [0.5, 1.5]× mean (60 s → 30–90 s); mean clamped 10–600; violation capture ≤ 1 per 15 s; a shorter teacher interval reschedules | ✅ |
-| M5-U-10 | Webcam frame metrics | Black, flat grey, textured, repeated frames | Mean / Laplacian variance / frame difference tell covered, taped and frozen apart | ✅ |
-| M5-U-11 | Camera debounce state machine | Synthetic frame sequences | Covered after 3 s, frozen after 15 s, unavailable after 5 s, each once per episode; cleared after 2 s; a hand passing never raises; a black still image is "covered", not "frozen" | ✅ |
+| M5-U-10 | Webcam frame metrics | Black, flat grey, textured, repeated frames | Mean / Laplacian variance / frame difference tell covered, taped and frozen apart | ✅ desktop xUnit (`CameraTamperDetectorTests.FrameMetrics_TellDarkFlatAndTexturedFramesApart`) |
+| M5-U-11 | Camera debounce state machine | Synthetic frame sequences | Covered after 3 s, frozen after 15 s, unavailable after 5 s, each once per episode; cleared after 2 s; a hand passing never raises; a black still image is "covered", not "frozen" | ✅ desktop xUnit (`CameraTamperDetectorTests.Covered_IsRaisedAfter3s_Once_AndClearedAfter2sOfPicture`, `AHandPassingTheLens_NeverRaisesAnything`, `Frozen_IsRaisedAfter15sOfIdenticalFrames_ButNotForACoveredLens`, `Unavailable_IsRaisedAfter5sWithoutFrames_AndTakesPriorityInTheStatus`) |
 | M5-U-12 | Batch backoff | Fake clock, failed flushes | 5 → 10 → … → 60 s; a successful heartbeat replays at once | ✅ |
 | M5-U-13 | Input idle time | Tick counts incl. a 32-bit wrap | Correct seconds | ✅ |
 | M5-U-15 | Webcam loop survives camera faults (S5 verifier) | Fake camera whose grab throws `InvalidOperationException` | Thread keeps running, faults counted (was: only OpenCV/DLL exceptions caught, anything else ended the exam app) | ✅ desktop xUnit |
@@ -250,7 +250,7 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M5-D-02 | Network drop & recover | Disable NIC 60 s | Events replayed, none lost | 📋 |
 | M5-D-03 | Foreground app reported | Switch to allowed app | Heartbeat shows its process name | 📋 |
 | M5-M-01 | Webcam models on a lab PC (S8) | `RequireWebcam` exam: leave the seat 6 s; a second person leans in 4 s; turn to the neighbour 4 s; hold up a phone 3 s; Task Manager CPU | NoFace / MultipleFaces / LookingAway / PhoneDetected each once with a webcam snapshot, tile badges follow; CPU for the app < 15 % on a 4-core PC; readiness fails with nobody / two people in view | 📋 manual |
-| M5-P-01 | 30 clients per lab | k6: 30 virtual students heartbeat 10 s + events | p95 < 2 s, 0 errors | 📋 k6 |
+| M5-P-01 | 40 clients per lab | k6: 40 virtual students heartbeat 10 s + events | p95 < 2 s, 0 errors | 📋 k6 |
 
 ## M6 — Submission & Backup
 
@@ -357,6 +357,9 @@ Seed accounts (Development/E2E): `admin@smartexam.com / Admin@123`, `teacher@sma
 | M8-I-01 | Capture intervals | Create/edit with screenshot/webcam interval; 9 s / 601 s | Default 60; persisted on create + edit; in `/student/current`; out of range → 400 | ✅ xUnit (`Module8CaptureSettingsTests`) |
 | M8-E-02 | Monitoring settings step | Set screenshot interval 5 s, then 30 s (webcam 120 s) | 5 s rejected in the wizard; 30/120 persisted; edit page shows them | ✅ |
 | M8-E-03 | Allowed apps picker | Pick Visual Studio Code + Code::Blocks from the catalogue, add `sublime_text`, remove one chip | Chips show exe names; picked apps leave the list; `AllowedApps` = `["code.exe","sublime_text.exe"]` | ✅ |
+| M8-I-02 | Exam announcement | Teacher `POST /api/notifications/exam/{id}/announce` (in app, `sendEmail=false`); a student sends the same | 200 "Announcement sent to N students"; student 403 (`NotificationTests.SendAnnouncement_AsTeacher_Returns200`, `SendAnnouncement_AsStudent_Returns403`) | ✅ xUnit |
+| M8-I-03 | Schedule notification reaches the students | Teacher `POST .../notify-scheduled`; student lists notifications and marks all read | 200; student unread count ≥ 1; read-all 200 (`NotificationTests.NotifyExamScheduled_AsTeacher_Returns200AndStudentsReceiveNotification`, `MarkAllNotificationsRead_Returns200WithMarkedCount`) | ✅ xUnit |
+| M8-I-04 | Grades-released notification | Teacher `POST .../notify-grades` | 200 (`NotificationTests.NotifyGradesReleased_AsTeacher_Returns200`). SMTP delivery is not tested: the test host has no mail server and `EmailService` only logs a failed send | ✅ xUnit |
 
 ## M9 — Eligibility & Access Control
 
@@ -479,11 +482,11 @@ Built in S7. Coding answers are compiled and run in a background queue: the Dock
 | M11-U-12 | Hidden cases never quoted | Hidden case fails | Justification says "Hidden case #2: failed", no input/expected/actual | ✅ xUnit |
 | M11-U-13 | Near-correct and rounding | 4/5 pass; 1/3 of 10 marks | Near-correct flagged; marks round to 0.5 | ✅ xUnit |
 | M11-U-14 | Static analysis signals | Nested / sequential / do-while loops, recursion, Python, lookup tables, many ifs | Loop count + nesting → O(1)/O(n)/O(n^2)/O(n^3+); recursion found; hard-coding suspicion Low/Medium/High | ✅ xUnit (`CodeAnalyzerTests`) |
-| M11-U-15 | Theory grader variants | Paraphrase, partial, unrelated, rubric phrases, keywords only, no model answer | Marks, confidence and missing terms as specified; no model answer → 0, Low | ✅ xUnit |
+| M11-U-15 | Theory grader variants | Paraphrase, partial, unrelated, rubric phrases, keywords only, no model answer | Marks, confidence and missing terms as specified; no model answer → 0, Low | ✅ xUnit (`TheoryGraderTests`) |
 | M11-U-16 | LLM features off by default and safe | No `Enabled`, no key; fenced / trailing-comma / truncated JSON; HTTP 500; 429 | Never calls the network when off; robust parse; null fallback; retried on 429; Gemini key in a header; no hidden outputs sent | ✅ xUnit (`LlmGradingTests`, fake HTTP handler) |
 | M11-U-17 | Docker harness and parser | Build harness, parse COMPILED / CASE lines | `-std=c++17 -O0`, per-case limits, LF only; 124 = timeout, cgroup OOM = memory | ✅ xUnit |
-| M11-U-18 | Real Docker runner | gcc:13: sum program, endless loop + next case, compile error | Correct outputs; only the looping case times out; compile error is a report | ✅ xUnit (skips without Docker) |
-| M11-U-19 | Real local runner (Job Object) | MinGW: sum, endless loop, 1 GB malloc, `system("cmd")` + server env var, compile error | Outputs right; timeout per case; memory limit reported; child process blocked and environment scrubbed | ✅ xUnit (skips without MinGW / Windows) |
+| M11-U-18 | Real Docker runner | gcc:13: sum program, endless loop + next case, compile error | Correct outputs; only the looping case times out; compile error is a report | ✅ xUnit (`CodeRunnerTests.Docker_*`; skips without Docker) |
+| M11-U-19 | Real local runner (Job Object) | MinGW: sum, endless loop, 1 GB malloc, `system("cmd")` + server env var, compile error | Outputs right; timeout per case; memory limit reported; child process blocked and environment scrubbed | ✅ xUnit (`CodeRunnerTests.Local_*`; skips without MinGW / Windows) |
 | M11-I-01 | Submit returns before grading finishes | Slow fake runner | Submit 200 < 1 s, status Pending | ✅ |
 | M11-I-02 | Worker grades pending answers | Run worker | Status Graded with per-case results | ✅ |
 | M11-I-03 | Hidden test results not shown to student | Student result | Only visible cases detailed | ✅ |
@@ -537,7 +540,7 @@ xUnit: `Backend_API.Tests/Tests/Acceptance/Module12AuditAcceptanceTests.cs` (tes
 | M12-A-02 | Exam summary analytics | Teacher GET summary | Totals present | ✅ |
 | M12-A-03 | PDF report generate + download | POST generate, GET download | `application/pdf`, starts `%PDF` | ✅ |
 | M12-A-04 | Report download path traversal | download `../../appsettings.json` | 400/404 | ✅ |
-| M12-A-05 | Exports: access + audit | Other teacher / student / unknown type / unknown exam; scores PDF | 403 / 403 / 400 / 404; `REPORT_GENERATED` carries the file's SHA-256; listed in history (`M12_A_05_ReportExports_OwnerOnly_UnknownType400_Audited`) | ✅ |
+| M12-A-05 | Exports: access + audit | Other teacher / student / unknown type / unknown exam; scores PDF | 403 / 403 / 400 / 404; `REPORT_GENERATED` carries the file's SHA-256; listed in history (`M12_A_05_ReportExports_OwnerOnly_UnknownType400_Audited`) | ✅ xUnit, in-process (not Playwright; kept as A because it checks the HTTP contract) |
 | M12-I-01 | Verify endpoint OK | GET verify on clean chain | `{valid:true}`; teacher 403 (`M12_I_01_VerifyCleanChain_ReturnsValidTrue`) | ✅ |
 | M12-I-02 | Verify endpoint broken | Tamper row in DB | `{valid:false, brokenAt}` (`M12_I_02_VerifyAfterTamper_ReturnsValidFalse_WithBrokenAt`) | ✅ |
 | M12-I-03 | Concurrent writes keep chain | 50 parallel audit writes | Chain valid, sequences unique (`M12_I_03_FiftyParallelAuditWrites_ChainStillValid`; also rehearsed on PostgreSQL 16 with the advisory lock) | ✅ |

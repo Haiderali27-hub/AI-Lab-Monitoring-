@@ -1,0 +1,73 @@
+@startuml
+!include style.iuml
+' Class diagram, part 4 of 4 (server), figure (b): evidence and reports. Figure (a), authentication and the
+' audit trail, is class_diagram_server2.puml.
+' Sources: Backend_API Controllers/MonitoringEvidenceController.cs, Controllers/Analytics/AnalyticsController.cs,
+' Services/Monitoring/EvidenceStorage.cs, Services/Analytics/AnalyticsService.cs, Services/Analytics/ReportExportService.cs.
+' A dashed white box is a class whose members are drawn in another part (MonitoringController in part 2,
+' ExamAccessService in part 3, AuditService in figure (a)).
+' Only key members; parameters abbreviated as (..). Arrows: --> holds / injects, ..> calls or uses.
+hide empty members
+hide circle
+skinparam classAttributeIconSize 0
+skinparam nodesep 14
+skinparam ranksep 40
+skinparam class {
+  FontSize 14
+  AttributeFontSize 14
+  StereotypeFontSize 13
+}
+skinparam ArrowFontSize 14
+skinparam stereotypeFontSize 13
+
+class MonitoringEvidenceController <<api>> #FFF6E0 {
+  +ListScreenshots(examId, sessionId, kind)
+  +ScreenshotContent(screenshotId)
+  +SessionTimeline(examId, sessionId, ..)
+  +LiveSnapshot(examId)
+  +SessionProcesses(examId, sessionId)
+}
+class MonitoringController <<api/monitoring>> #FFFFFF ##[dashed]
+class ExamAccessService #FFFFFF ##[dashed]
+class AuditService #FFFFFF ##[dashed]
+class EvidenceStorage #FFF6E0 {
+  +SaveAsync(examId, sessionId, ..) : StoredEvidence
+  +OpenRead(relativePath) : Stream?
+  +Delete(relativePath) : bool
+}
+class AnalyticsController <<api/analytics>> #FFF6E0 {
+  +GetExamSummary(examId)
+  +GetSystemAnalytics()
+  +GenerateReport(examId)
+  +GenerateExport(type, request, ct)
+  +DownloadReport(fileName)
+  +GetReportHistory(examId)
+}
+class AnalyticsService #FFF6E0 {
+  +GetExamSummaryAsync(examId)
+  +GetSystemAnalyticsAsync()
+  +GenerateExamReportPdfAsync(examId, ..) : string
+}
+class ReportExportService #FFF6E0 {
+  +GenerateAsync(type, examId, ..) : GeneratedReport
+  +{static} ContentTypeFor(fileName) : string
+}
+
+MonitoringEvidenceController --> ExamAccessService : DenyUnlessAsync
+MonitoringEvidenceController --> EvidenceStorage
+MonitoringController --> EvidenceStorage : SaveAsync
+AnalyticsController --> ExamAccessService
+AnalyticsController --> AnalyticsService
+AnalyticsController --> ReportExportService
+ReportExportService --> AnalyticsService
+ReportExportService --> EvidenceStorage
+ReportExportService --> AuditService : REPORT_GENERATED
+EvidenceStorage -[hidden]down- AnalyticsController
+
+skinparam legendFontSize 14
+legend bottom left
+  MonitoringEvidenceController, AnalyticsService and
+  ReportExportService also inject AppDbContext (arrows
+  omitted). Dashed box: members drawn in another part.
+endlegend
+@enduml

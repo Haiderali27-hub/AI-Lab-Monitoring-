@@ -1,0 +1,49 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
+hide footbox
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' Code: Admin_Web_Panel plagiarism heat map; Backend_API/Controllers/GradingController.cs (GetMatrix);
+' Services/ExamAccessService.cs; Services/Grading/PlagiarismService.cs (BuildMatrixAsync), PlagiarismEngine.cs.
+' Split from seq_ai_plagiarism.puml so that both figures print legibly.
+
+actor "Teacher /\nAdmin" as T
+participant "Grading\nController" as GC
+participant "ExamAccess\nService" as EA
+participant "Plagiarism\nService" as PS
+participant "Plagiarism\nEngine" as PE
+database "AppDbContext" as DB
+
+T -> GC : GET /api/exams/{examId}/\nplagiarism/matrix?questionId=
+activate GC
+GC -> DB : Exam(examId)
+DB --> GC : exam | null (-> 404)
+GC -> EA : GetAsync(user, examId)
+activate EA
+EA --> GC : ExamAccess
+deactivate EA
+break access < Owner, or exam.IsMock
+  GC --> T : 403 | 400 MOCK_EXAM
+end
+GC -> PS : BuildMatrixAsync(examId, questionId)
+activate PS
+PS -> DB : non-MCQ Questions, latest finalised\nsession per student, their Answers
+DB --> PS : rows
+loop each pair of students, each shared question
+  PS -> PE : Compare(fingerprints)
+  activate PE
+  PE --> PS : Similarity
+  deactivate PE
+end
+PS --> GC : students x students matrix\n(highest similarity per pair)
+deactivate PS
+GC --> T : 200 {students, questions,\nmatrix, threshold}
+deactivate GC
+@enduml

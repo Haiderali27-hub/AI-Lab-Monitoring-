@@ -1,77 +1,67 @@
 @startuml
 !include style.iuml
-skinparam defaultFontSize 13
-skinparam ArrowFontSize 11
 ' Allowed applications: CreateExamPage + AllowedAppsPicker (utils/allowedApps.ts), ExamsController POST/PUT
-' (Exam.AllowedApps JSON, Exam.LockdownMode), GET /api/exams/student/current, LockdownCoordinator,
-' LockdownPolicy.Evaluate, ProcessGuardService (2 s scan, own Windows session only),
-' LiveMonitoringService.ReportViolation.
-' Two columns joined by connector A (configuration, then enforcement on the desktop).
+' (Exam.AllowedApps JSON, Exam.LockdownMode, default Report), GET /api/exams/student/current (practice exam: Report,
+' no list), LockdownCoordinator (Start does nothing when Mode = Off), LockdownPolicy.Evaluate, ProcessGuardService
+' (2 s scan, own Windows session; Enforce kills every time, Report raises once per app via _reported),
+' LockdownCoordinator.Report (drops a repeat of the same reason|detail within ReportCooldown = 15 s) ->
+' LiveMonitoringService.ReportViolation (urgent event in the encrypted outbox + CaptureForViolation).
+' Printed pt = fontSize * 72 * printed_width_in / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 28
+skinparam ArrowFontSize 27
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 29
+}
 
-split
-  -[hidden]->
-  start
-  repeat
-    :<b>Teacher</b>
-    (CreateExamPage):
-    pick a catalogue
-    app or type
-    an .exe name;
-  repeat while (Valid exe\nname?) is (no) not (yes)
-  :Choose
-  LockdownMode
-  Off, Report
-  or Enforce;
-  :<b>ExamsController</b>
-  POST/PUT /api/exams
-  saves Exam.
-  AllowedApps (JSON)
-  + LockdownMode;
-  :<b>Desktop App</b>
-  GET /api/exams
-  /student/current
-  returns allowedApps,
-  lockdownMode;
-  :Exam starts:
-  LockdownCoordinator
-  builds
-  LockdownPolicy;
-  if (Mode =\nOff?) then (yes)
-    stop
-  else (no)
-    (A)
-    detach
-  endif
-split again
-  -[hidden]->
-  (A)
-  repeat
-    :<b>ProcessGuardService</b>
-    scan every 2 s; allow
-    own app, AllowedApps,
-    shell processes and
-    windowless apps (except
-    browsers, remote tools,
-    Task Manager);
-    if (Unauthorized\napp?) then (yes)
-      if (Mode?) then (Enforce)
-        :Kill process
-        tree: Process
-        Killed (if it
-        fails: Unauthorized
-        Process);
-      else (Report)
-        :Report once
-        (Unauthorized
-        Process);
-      endif
-      :Queue Violation
-      event, capture
-      screenshot;
-    else (no)
-    endif
-  repeat while (Session\nrunning?) is (yes) not (no)
-  :Stop all guards;
+|Teacher (Web Panel)|
+start
+repeat
+  :Pick a catalogue app
+  or type an .exe name
+  (AllowedAppsPicker);
+repeat while (Valid exe\nname?) is ([no]) not ([yes])
+:Choose LockdownMode:
+Off, Report (default)
+or Enforce; POST / PUT
+/api/exams;
+|Server|
+:ExamsController
+saves AllowedApps
+(JSON list) and
+LockdownMode on
+the Exam;
+|Desktop App|
+:GET /api/exams/student/current returns
+allowedApps and lockdownMode (practice exam:
+Report, no list); the exam window's
+LockdownCoordinator builds LockdownPolicy;
+if (Mode = Off?) then ([yes: no guards])
   stop
-end split
+else ([no])
+endif
+repeat
+  :ProcessGuardService scans every 2 s (own Windows
+  session); allows own app, AllowedApps, shell processes
+  and windowless apps (not browsers, remote tools,
+  Task Manager);
+  if (Unauthorised app found?) then ([yes])
+    if (Mode?) then ([Enforce])
+      :Kill the process tree: ProcessKilled
+      (kill failed: UnauthorizedProcess);
+    else ([Report])
+    endif
+    if (Enforce, or app not\nyet reported?) then ([yes])
+      :LockdownCoordinator.Report (same reason
+      and app within 15 s dropped): urgent Violation
+      to the encrypted outbox, capture the screen;
+    else ([no])
+    endif
+  else ([no])
+  endif
+repeat while (Session running?) is ([yes]) not ([no])
+:Stop all guards;
+stop
 @enduml

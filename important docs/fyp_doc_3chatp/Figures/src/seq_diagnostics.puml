@@ -1,57 +1,57 @@
-﻿@startuml
+@startuml
 !include style.iuml
-skinparam ArrowFontSize 13
-skinparam defaultFontSize 13
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
 ' Pre-exam readiness check (Module 2):
-' ViewModels/DashboardViewModel.RunReadinessAsync / RetryReadinessItemAsync / ReportReadinessAsync,
-' UpdateStartEligibility (CanStartExam = CanResumeExam || (gateOpen && AttendanceConfirmed && (!RequireReadiness || ReadinessPassed))),
-' Services/Readiness/ReadinessCheckService, Core/Readiness/ReadinessPolicy (EvaluateCamera, EvaluateSecureMode),
-' Controllers/ExamsController.SubmitReadiness (POST /api/exams/{id}/readiness), hub "ReadinessUpdated".
+' ViewModels/DashboardViewModel.InitializeAsync (GET /api/exams/student/current gives the requirements) / RunReadinessAsync /
+' RetryReadinessItemAsync / ReportReadinessAsync (status "Could not reach server" when the POST fails), UpdateStartEligibility
+' (CanStartExam = CanResumeExam || (gateOpen && AttendanceConfirmed && (!RequireReadiness || ReadinessPassed))),
+' Services/Readiness/ReadinessCheckService.RunAsync, Core/Readiness/ReadinessPolicy (EvaluateNetwork, EvaluateCamera,
+' EvaluateSecureMode), Services/ApiClient.SubmitReadinessAsync,
+' Controllers/ExamsController.SubmitReadiness (POST /api/exams/{id}/readiness: 404 when not assigned; READINESS_PASSED /
+' READINESS_FAILED audit row; SaveChangesAsync seals it via AuditChain; hub "ReadinessUpdated" to group exam:{id}).
+' Open arrowhead (->>) = asynchronous message with no reply (SignalR push).
 hide footbox
-skinparam ParticipantPadding 0
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
 }
-skinparam maxMessageSize 300
 
 actor Student
 participant "Dashboard\nViewModel" as VM
 participant "Readiness\nCheckService" as RCS
+participant "ApiClient" as API
 participant "Exams\nController" as EC
-database "AppDb\nContext" as DB
+database "AppDbContext" as DB
+participant "Monitoring\nHub" as HUB
 
-VM -> EC : GET /api/exams/student/current
-EC --> VM : RequireWebcam,\nRequireMic, BlockMulti-\nMonitor, LockdownMode
 Student -> VM : Run check
-loop 7 checks
-  VM -> RCS : RunAsync(check)
-  RCS --> VM : ReadinessItem-\nResult
+activate VM
+loop for each of the 7 checks
+  VM -> RCS : RunAsync(check,\nrequirements)
+  activate RCS
+  RCS --> VM : ReadinessItemResult
+  deactivate RCS
 end
-note over VM, EC
-Network: /api/health <= 2 s
-ClockSkew <= 60 s; ScreenCapture
-Camera*: not dark; 1 face (YuNet)
-Microphone*: device found
-SecureMode (if not Off): 1 monitor
-  if blocked, no RDP / VM, hook OK
-Disk >= 200 MB   (*) if required
+note over RCS, DB
+requirements (RequireWebcam, RequireMic, BlockMultiMonitor, LockdownMode)
+come from GET /api/exams/student/current, loaded with the dashboard
+Network: GET /api/health, best try <= 2 s;  ClockSkew <= 60 s;  ScreenCapture works
+Camera*: picture not dark, exactly one face (YuNet);  Microphone*: device found
+SecureMode (unless Off): 1 monitor if multi-monitor blocked; no RDP; no VM;
+keyboard hook installs;  Disk >= 200 MB free   (*) only if the exam requires it
 end note
-VM -> EC : POST /api/exams/{id}/readiness\n{passedAll, results}
-EC -> EC : all passed;\nrequired\nCamera / Mic\npresent?
-EC -> DB : save Readiness-\nCheck, AuditLog
-EC -> EC : hub\n"ReadinessUpdated"
-EC --> VM : passedAll,\nvalidUntil (+30 min)
-alt passedAll
-  VM --> Student : Readiness-\nPassed: true
-  note over VM, EC
-  Start enabled only once checked in
-  and the exam window is open
-  end note
-else a check failed
-  VM --> Student : failed rows
-  Student -> VM : Retry item
-  VM -> RCS : RunAsync(check)
-  VM -> EC : POST .../readiness
-  EC --> VM : passedAll, validUntil
-end
+VM -> API : SubmitReadinessAsync(examId,\n{passedAll, machineName, results})
+activate API
+API -> EC : POST /api/exams/\n{id}/readiness
+activate EC
+EC -> EC : assigned (else 404)?\npassedAll = all passed\n+ required Camera/Mic
+EC -> DB : SaveChangesAsync\n(+ReadinessCheck,\n+AuditLog READINESS_\nPASSED or _FAILED)
+activate DB
+DB --> EC : saved; AuditChain\nsealed the AuditLog\nrow (Sequence,\nPrevHash, Hash)
+deactivate DB
 @enduml

@@ -1,157 +1,130 @@
 @startuml
 !include style.iuml
-' DFD level 1. Gane-Sarson style: square boxes = external entities,
-' rounded boxes = processes, open boxes "Dn" (top and bottom lines only)
-' = data stores named after the real tables.
-' Top-to-bottom tiers: Student / processes 1.0-3.0 / stores / 4.0, 5.0 /
-' staff. Wide (about 3:1): meant for a rotated [p] float.
-skinparam dpi 80
-skinparam defaultFontSize 22
-skinparam ArrowFontSize 21
-skinparam nodesep 4
-skinparam ranksep 22
+' DFD level 1, part (a): processes 1.0-3.0 (sign-in, exam set-up, the exam
+' session on the lab PC). Part (b) is dfd_level_1b.puml (4.0, 5.0).
+' Yourdon/DeMarco notation: circle = process, rectangle = external entity,
+' two horizontal lines = data store "Dn" (named after its tables),
+' labelled arrow = data flow, two-headed arrow = read and update;
+' dashed circle = a process drawn in the other part; * = entity drawn twice.
+skinparam defaultFontSize 16
+skinparam ArrowFontSize 16
+skinparam nodesep 14
+skinparam ranksep 34
 skinparam defaultTextAlignment center
 skinparam rectangle<<entity>> {
   BorderThickness 2
   RoundCorner 0
   BackgroundColor #FFFFFF
 }
-skinparam rectangle<<process>> {
-  RoundCorner 25
+skinparam usecase {
+  BorderColor #333333
+  BorderThickness 2
   BackgroundColor #F2F2F2
 }
-' Data stores are labels: no frame, the ---- separators draw the
-' top and bottom lines of an open store box.
-skinparam label {
-  BorderColor #333333
-  FontSize 21
-}
-skinparam rectangle<<optional>> {
-  RoundCorner 0
+skinparam usecase<<ref>> {
   BorderStyle dashed
+  BorderThickness 1
   BackgroundColor #FFFFFF
+}
+skinparam label {
+  FontSize 16
 }
 hide stereotype
 
+rectangle "Student" <<entity>> as STU
 rectangle "Admin /\nSuperAdmin" <<entity>> as ADM
-rectangle "Student\n(WPF client +\nweb portal)" <<entity>> as STU
 rectangle "Teacher" <<entity>> as TEA
-rectangle "Invigilator" <<entity>> as INV
-rectangle "LLM grader\n(optional, off)" <<optional>> as LLM
 rectangle "Email server\n(SMTP)" <<entity>> as SMTP
+rectangle "Student *" <<entity>> as STU2
 
-rectangle "**1.0**\nAuthenticate and\nbind device" <<process>> as P1
-rectangle "**2.0**\nConfigure exams\nand run sessions" <<process>> as P2
-rectangle "**3.0**\nLockdown and\ntelemetry" <<process>> as P3
-rectangle "**4.0**\nLive\nproctoring" <<process>> as P4
-rectangle "**5.0**\nEvaluation and\nreporting" <<process>> as P5
+usecase "**1.0**\nAuthenticate\nand bind device" as P1
+usecase "**2.0**\nConfigure exams\nand run sessions" as P2
+usecase "**3.0**\nLockdown and\ntelemetry" as P3
+usecase "**4.0**\nLive proctoring\n(part b)" <<ref>> as P4
+usecase "**5.0**\nEvaluation and\nreporting (part b)" <<ref>> as P5
 
 label D1 [
 ----
-**D1** | Users, DeviceBindings,
-UserSessions, RefreshTokens
+**D1** Users,
+DeviceBindings,
+UserSessions,
+RefreshTokens
 ----
 ]
 label D2 [
 ----
-**D2** | Exams, Questions,
+**D2** Exams, Questions,
 TestCases
 ----
 ]
 label D3 [
 ----
-**D3** | Departments, Courses,
-Sections, SectionEnrollments,
+**D3** Departments,
+Courses, Sections,
+SectionEnrollments,
 Labs, Workstations,
 AttendanceRecords,
-ExamAssignments, ExamProctors
+ExamAssignments,
+ExamProctors
 ----
 ]
 label D4 [
 ----
-**D4** | ExamSessions,
+**D4** ExamSessions,
 Answers, ReadinessChecks
 ----
 ]
 label D5 [
 ----
-**D5** | MonitoringEvents,
+**D5** MonitoringEvents,
 Screenshots, Incidents
-----
-]
-label D6 [
-----
-**D6** | AiGradingResults,
-TestCaseResults,
-PlagiarismResults,
-TeacherGradeOverrides,
-ExamReports
 ----
 ]
 label D7 [
 ----
-**D7** | Notifications
+**D7** Notifications
 ----
 ]
 label D8 [
 ----
-**D8** | AuditLogs
+**D8** AuditLogs
 ----
 ]
 
-' ---- top: student and admin ----
-STU --> P1 : credentials,\nHWID fingerprint
-STU <-- P1 : JWT +\nrefresh token
-P1 <--- ADM : users, roles,\nbinding reset
-STU --> P2 : readiness, start,\nanswers, submit
-STU <-- P2 : rules, questions,\nreceipt hash
-P2 <--- ADM : labs, workstations,\ndepartments, courses
-STU --> P3 : heartbeats, event\nbatches, screenshots
-STU <-- P3 : heartbeat ack (warnings,\ntime, unlock)
+' ---- row 0: entities; row 1: 1.0, 2.0; row 2: stores; row 3: 3.0; row 4: D5, 4.0
+ADM --> P1 : users, roles,\nbinding reset
+STU --> P1 : credentials, PC\nhardware IDs
+STU <-- P1 : sign-in result
+ADM --> P2 : departments,\ncourses, labs,\nworkstations
+STU --> P2 : start, answers,\nsubmit
+STU <-- P2 : exam list,\nquestions, receipt\nhash
+TEA --> P2 : exam settings,\nattendance CSV,\nseats, invigilators,\nannouncements
 
-' ---- processes to stores ----
-P1 --> D1 : hashes,\ntokens
-P1 --> D8 : login, device\nevents
-P2 --> D2 : exam, questions,\nAllowedApps
-P2 --> D3 : eligibility,\nseats, proctors
-P2 --> D4 : session,\nanswers
-P2 --> D7 : announcements,\neligibility, grade notices
-P2 --> SMTP : notification\ne-mails
-P2 --> P5 : submitted session\n(FinalizeAsync)
-P3 <-- D3 : assigned\nseat
-P3 <-- D4 : own\nsession
-P3 <-- D7 : unread\nwarnings
-P3 <-- D5 : violation\ntypes
-P3 --> D5 : events,\nscreenshots
-P3 --> D4 : liveness\n(LastHeartbeatAt)
-P3 --> D1 : LastSeenAt
-P3 --> D8 : SEAT_MISMATCH
-P3 ---> P4 : heartbeats, classed events,\nscreenshot and seat alerts
+' ---- 1.0
+P1 --> D1 : binding, sessions,\nrefresh tokens
+P1 <-- D1 : password hash,\nbinding
+P1 --> D8 : login, device and\nuser events
 
-D3 --> P4 : ExamProctors
-D5 --> P4 : timeline,\nscreenshots
-D5 <-- P4 : incidents
-D7 <-- P4 : warning
-D4 <-- P4 : extra time, unlock,\nforce-submit
-D8 <-- P4 : staff\nactions
+' ---- 2.0
+P2 <--> D2 : exams, questions,\ntest cases
+P2 <--> D3 : academic structure,\nlabs, attendance,\neligibility, seats,\ninvigilators
+P2 <--> D4 : sessions, answers,\nreadiness
+P2 --> D7 : announcements,\nnotices
+P2 --> D8 : exam, eligibility,\nassignment, academic\nand lab changes
+P2 --> SMTP : emails
+P2 --> P5 : submitted session
 
-D2 --> P5 : questions,\ntest cases
-D4 --> P5 : submitted\nanswers
-D5 --> P5 : violation\ncounts
-D7 --> P5 : notifications
-D8 --> P5 : audit\nentries
-P5 -right-> D6 : marks, pairs,\nreports
-
-' ---- bottom: staff ----
-P4 --> TEA : live status (SignalR),\ntimeline, screenshots
-P4 <-- TEA : warn, extend, unlock,\nforce-submit, incident
-P4 --> INV : live status (SignalR),\ntimeline, screenshots
-P4 <-- INV : warn, extend, unlock,\nforce-submit, incident
-P2 <--- TEA : exam settings, attendance,\nseats, proctors, announcements
-P5 --> TEA : suggested marks,\nmatrix, PDF
-P5 <-- TEA : accept /\noverride
-STU <-- P5 : results, violation history,\nnotifications (web portal)
-P5 ..> LLM : theory + model answer,\nrubric, code evidence\n(if enabled)
-P5 <.. LLM : suggested mark,\ncode summary
-P5 --> ADM : audit log,\nsystem analytics
+' ---- 3.0
+D2 --> P3 : lockdown mode,\nAllowedApps,\nintervals
+D3 --> P3 : assigned seat
+D4 --> P3 : session, extra time,\nunlock
+D4 <-- P3 : LastHeartbeatAt,\nIsDisconnected
+D7 --> P3 : unread warnings
+D1 <-- P3 : LastSeenAt
+D8 <-- P3 : seat, violation and\nconnection events
+P3 <-- STU2 : activity on the PC\n(apps, keys, USB,\nmonitors); screen,\nwebcam image
+P3 --> STU2 : lockdown, warnings,\nextra time, unlock
+P3 --> D5 : events, screenshots,\nwebcam snapshots
+P3 <-- D5 : session's violations
+P3 --> P4 : heartbeats, classed\nevents, alerts
 @enduml

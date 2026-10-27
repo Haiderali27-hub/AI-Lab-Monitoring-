@@ -1,0 +1,49 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Pre-exam readiness check (Module 2):
+' ViewModels/DashboardViewModel.InitializeAsync (GET /api/exams/student/current gives the requirements) / RunReadinessAsync /
+' RetryReadinessItemAsync / ReportReadinessAsync (status "Could not reach server" when the POST fails), UpdateStartEligibility
+' (CanStartExam = CanResumeExam || (gateOpen && AttendanceConfirmed && (!RequireReadiness || ReadinessPassed))),
+' Services/Readiness/ReadinessCheckService.RunAsync, Core/Readiness/ReadinessPolicy (EvaluateNetwork, EvaluateCamera,
+' EvaluateSecureMode), Services/ApiClient.SubmitReadinessAsync,
+' Controllers/ExamsController.SubmitReadiness (POST /api/exams/{id}/readiness: 404 when not assigned; READINESS_PASSED /
+' READINESS_FAILED audit row; SaveChangesAsync seals it via AuditChain; hub "ReadinessUpdated" to group exam:{id}).
+' Open arrowhead (->>) = asynchronous message with no reply (SignalR push).
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam maxMessageSize 200
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+
+actor Student
+participant "Dashboard\nViewModel" as VM
+participant "Readiness\nCheckService" as RCS
+participant "ApiClient" as API
+participant "Exams\nController" as EC
+database "AppDbContext" as DB
+participant "Monitoring\nHub" as HUB
+activate VM
+activate API
+activate EC
+EC ->> HUB : ReadinessUpdated\n{userId, passedAll}\nto group exam:{id}
+EC --> API : 200 {passedAll,\nvalidUntil: checkedAt\n+ 30 min}
+deactivate EC
+API --> VM : (ok, passedAll)
+deactivate API
+alt ok and passedAll
+  VM --> Student : "All checks passed";\nStart enabled once\nchecked in and open
+else ok, a check failed
+  VM --> Student : failed rows,\neach with Retry
+  Student -> VM : Retry item
+  VM -> VM : re-run that check,\nthen submit again\n(as above)
+else request failed (offline or HTTP error)
+  VM --> Student : "Could not reach\nserver"; Start\nstays disabled
+end
+deactivate VM
+@enduml

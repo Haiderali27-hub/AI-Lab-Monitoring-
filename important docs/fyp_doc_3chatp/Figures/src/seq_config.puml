@@ -1,59 +1,73 @@
-﻿@startuml
+@startuml
 !include style.iuml
-skinparam ArrowFontSize 13
-skinparam defaultFontSize 13
-' Exam configuration (Module 3): Admin_Web_Panel/src/pages/teacher/CreateExamPage.tsx (examsApi.getSections, then
-' getById in edit mode, then getSectionStudents(selectedSectionId), create, update); ExamsController.CreateExam
-' (POST /api/exams) / UpdateExam (PUT /api/exams/{id}: 404 not found, 403 CanManage(exam.Section), 409 not Scheduled,
-' then validation), [Authorize(Roles = "Teacher,Admin,SuperAdmin")], ValidateExamPayloadAsync (400 / 404 section / 403),
-' MapQuestions.
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Exam configuration (Module 8): Admin_Web_Panel/src/pages/teacher/CreateExamPage.tsx (examsApi.getSections, then getById in
+' edit mode, then getSectionStudents(selectedSectionId), create / update, then navigate('/teacher/dashboard')).
+' ExamsController [Authorize(Roles = "Teacher,Admin,SuperAdmin")]: GET sections, GET {id}, GET sections/{sectionId}/students;
+' CreateExam (POST /api/exams) / UpdateExam (PUT /api/exams/{id}: 404 not found, 403 not own section, 409 not Scheduled, then
+' validation); ValidateExamPayloadAsync (400 messages, 404 section, 403 not own section); RefuseOtherTeachersStudentsAsync
+' (403 for a Teacher assigning another teacher's students); MapQuestions; AuditService.Add EXAM_CREATED / EXAM_UPDATED;
+' one SaveChangesAsync, in which AuditChain seals the audit row.
 hide footbox
-skinparam ParticipantPadding 0
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
 }
-skinparam maxMessageSize 300
 
 actor Teacher
-participant "CreateExam\nPage (web)" as P
-participant "Exams\nController" as EC
-database "AppDb\nContext" as DB
+participant "CreateExamPage\n(web panel)" as P
+participant "ExamsController" as EC
+database "AppDbContext" as DB
 
 Teacher -> P : New exam / Edit
+activate P
 P -> EC : GET /api/exams/sections
-EC --> P : own sections
+activate EC
+EC --> P : 200 own sections (all for an admin)
+deactivate EC
 opt edit
   P -> EC : GET /api/exams/{id}
-  EC --> P : exam + questions
+  activate EC
+  EC --> P : 200 exam + questions + test cases
+  deactivate EC
 end
-P -> EC : GET sections/{id}/\nstudents (selected)
-EC --> P : students
-Teacher -> P : fill form
-note over P, EC
-schedule, lockdown, readiness,
-capture intervals, questions +
-test cases, students
+P -> EC : GET /api/exams/sections/{id}/students
+activate EC
+EC --> P : 200 students of the selected section
+deactivate EC
+P --> Teacher : form
+deactivate P
+
+Teacher -> P : fill in and save
+activate P
+note right of P
+schedule, lockdown mode, readiness,
+webcam / microphone, capture intervals,
+questions + test cases, students
 end note
-P -> EC : POST /api/exams or\nPUT /api/exams/{id}\n(CreateExamDto)
+P -> EC : POST /api/exams, or PUT /api/exams/{id}\n(CreateExamDto)
+activate EC
 opt PUT
-  EC -> EC : exists (404), own\nsection (403),\nScheduled (409)?
+  EC -> EC : exists (else 404)? own section\n(else 403)? Scheduled (else 409)?
 end
-EC -> EC : ValidateExam-\nPayloadAsync
-note over EC, DB
-title, duration > 0,
->= 1 question; MCQ >= 2
-options; Coding >= 1 test
-case, C/C++; weights,
-time limits
-end note
-alt invalid
-  EC --> P : 400 (message)
-else section missing / not own\nsection or students
-  EC --> P : 404 / 403
+EC -> EC : ValidateExamPayloadAsync;\nown students only (Teacher)
+alt invalid payload
+  EC --> P : 400 {message}
+else section missing, or not the teacher's section / students
+  EC --> P : 404 / 403 {message}
 else valid
   EC -> EC : MapQuestions
-  EC -> DB : save Exam, Questions,\nTestCases,\nExamAssignments
+  EC -> DB : SaveChangesAsync (+Exam, Questions,\nTestCases, ExamAssignments,\n+AuditLog EXAM_CREATED / EXAM_UPDATED)
+  activate DB
+  DB --> EC : saved; AuditChain sealed\nthe AuditLog row
+  deactivate DB
   EC --> P : 201 {examId} or 200 updated
-  P --> Teacher : back to dashboard
 end
+deactivate EC
+P --> Teacher : error shown, or back to the dashboard
+deactivate P
 @enduml

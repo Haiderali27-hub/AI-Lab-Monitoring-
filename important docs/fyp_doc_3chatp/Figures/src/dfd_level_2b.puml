@@ -1,0 +1,92 @@
+@startuml
+!include style.iuml
+' Part (a): grading, processes 5.1-5.4; 5.5 and 5.6 are in dfd_level_2b_reports.puml (part b).
+' DFD level 2 of process 5.0 (Evaluation and reporting). Process 3.0 is in
+' dfd_level_2.puml. Same entities, numbers and stores (D1..D8) as level 1.
+' Yourdon/DeMarco notation: circle = process, rectangle = external entity,
+' two lines = data store, dashed circle = level-1 process outside 5.0,
+' dashed rectangle = optional entity, * = store or entity drawn twice.
+skinparam defaultFontSize 16
+skinparam ArrowFontSize 16
+skinparam nodesep 14
+skinparam ranksep 34
+skinparam defaultTextAlignment center
+skinparam rectangle<<entity>> {
+  BorderThickness 2
+  RoundCorner 0
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle<<optional>> {
+  RoundCorner 0
+  BorderStyle dashed
+  BackgroundColor #FFFFFF
+}
+skinparam usecase {
+  BorderColor #333333
+  BorderThickness 2
+  BackgroundColor #F2F2F2
+}
+skinparam usecase<<ref>> {
+  BorderStyle dashed
+  BorderThickness 1
+  BackgroundColor #FFFFFF
+}
+skinparam label {
+  FontSize 16
+}
+hide stereotype
+
+rectangle "LLM grader\n(optional, off)" <<optional>> as LLM
+rectangle "Teacher" <<entity>> as TEA
+usecase "**2.0**\nConfigure exams and\nrun sessions" <<ref>> as P2
+usecase "**5.1**\nRun code against\ntest cases" as P51
+usecase "**5.2**\nScore MCQ by key,\ntheory by TF-IDF" as P52
+usecase "**5.3**\nCompare answers\n(k-gram winnowing)" as P53
+usecase "**5.4**\nSave marks, pairs\nand overrides" as P54
+label D2 [
+----
+**D2** Exams, Questions,
+TestCases
+----
+]
+label D4 [
+----
+**D4** ExamSessions,
+Answers, ReadinessChecks
+----
+]
+label D6 [
+----
+**D6** AiGradingResults,
+TestCaseResults,
+PlagiarismResults,
+TeacherGradeOverrides,
+ExamReports
+----
+]
+label D8 [
+----
+**D8** AuditLogs
+----
+]
+
+' ---- grading (5.1-5.4)
+P2 --> P51 : code answers (if\nAiEvaluationEnabled)
+P2 --> P52 : MCQ and theory\nanswers (if\nAiEvaluationEnabled)
+P2 --> P53 : submitted session\n(not practice exams)
+D2 --> P51 : test cases (weights)
+D2 --> P52 : MCQ key, model\nanswer, keywords
+D4 --> P53 : answers of the same\nexam
+P51 ..> LLM : test results (if\nenabled)
+P51 <.. LLM : code summary
+P52 ..> LLM : theory answer, model\nanswer, keywords (if\nenabled)
+P52 <.. LLM : suggested mark
+P51 --> P54 : test-case results
+P52 --> P54 : suggested mark,\nconfidence
+P53 --> P54 : similarity pairs
+P54 <-- TEA : accept / override
+P54 --> TEA : suggested marks,\nsimilarity matrix
+P54 --> D6 : marks, pairs,\noverrides
+P54 --> D8 : AI_GRADING_*,\nAI_SUGGESTIONS_\nACCEPTED,\nGRADE_OVERRIDDEN
+
+@enduml

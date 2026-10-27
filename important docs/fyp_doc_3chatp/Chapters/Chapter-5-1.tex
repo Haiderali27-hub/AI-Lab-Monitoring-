@@ -1,356 +1,554 @@
 \chapter{SYSTEM DESIGN}
 \label{chap:system_design}
-\renewcommand{\floatpagefraction}{0.6}
+% Each diagram is its own float, sized so its smallest text prints at 6.5 pt or more;
+% \DiagramBarrier (defined in FYP-Final.tex) keeps each paragraph next to its figures.
+\renewcommand{\floatpagefraction}{0.7}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\textfraction}{0.1}
 
 The UML diagrams below use the class, endpoint and table names of the \texttt{Backend\_API}, \texttt{Admin\_Web\_Panel} and \texttt{Student\_Desktop\_App} projects.
 
 \section{Structure Diagrams}
-Structure diagrams show the static parts of a system: its classes, components and machines \cite{structure_diagram_techopedia}. Agreeing on them early let us build the client, panel and API in parallel.
+Structure diagrams show the static parts of a system: its classes, components and machines \cite[Annex~A]{omg_uml251}. Agreeing on them early let us build the client, panel and API in parallel.
 
 \subsection{Class Diagram}
 \begin{sloppypar}
-A class diagram shows classes, their attributes and their associations \cite{class_diagram_uml, class_diagram_sparx}. The design is drawn in three parts. Figure~\ref{fig:class_diagram} shows the core entities, which are Entity Framework Core classes in \texttt{Backend\_API/Models}. Each student has at most one \texttt{DeviceBinding}, which ties the account to one workstation. A teacher owns exams through the sections they teach, and \texttt{ExamProctor} links invigilators to exams; these two links are the owner and proctor rules of \texttt{ExamAccessService}.
+A class diagram shows classes, their attributes and their associations \cite{class_diagram_uml, class_diagram_sparx}. The design is drawn in four parts; the three larger parts each take two figures, (a) and (b). Figure~\ref{fig:class_diagram} shows the core entities, which are Entity Framework Core classes in \texttt{Backend\_API/Models} (key entities only; the full 29-table schema is the ERD in Figures~\ref{fig:erd_diagram} and~\ref{fig:erd_diagram_b}). Each student has at most one \texttt{DeviceBinding}, which ties the account to one workstation. A teacher owns exams through the sections they teach, and \texttt{ExamProctor} links invigilators to exams; these two links give the \texttt{Owner} and \texttt{Proctor} access levels of \texttt{ExamAccessService}. \texttt{AuditLog} has no association: its \texttt{ActorId} is covered by the row hash and is not a foreign key.
 \end{sloppypar}
 
-\begin{figure}[!htbp]
+\begin{figure}[p]
 \centering
-\includegraphics[width=0.72\linewidth]{Figures/class_diagram.png}
+\includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/class_diagram.png}
 \caption{Class Diagram of the SmartExam Data Model}
 \label{fig:class_diagram}
 \end{figure}
 
 \begin{sloppypar}
-In the desktop app (Figure~\ref{fig:class_diagram_client}) \texttt{LockdownCoordinator} holds the keyboard, process, clipboard, device and Task Manager guards and reports violations to \texttt{LiveMonitoringService}, which owns the webcam monitor with the YuNet and YOLOX-Nano models. \texttt{ApiClient} is the only class that calls the server. On the server (Figure~\ref{fig:class_diagram_server}) the controllers use \texttt{ExamAccessService}, \texttt{SeatGuard} and \texttt{SubmissionService}; \texttt{GradingWorker} takes queued answers and calls \texttt{GradingService}, which picks a Docker or MinGW \texttt{ICodeRunner}.
+In the desktop app (Figures~\ref{fig:class_diagram_client} and~\ref{fig:class_diagram_client_b}) the windows hold their view models, and \texttt{LockdownCoordinator} holds the keyboard, process, clipboard, device and Task Manager guards and reports violations to \texttt{LiveMonitoringService}, which owns the webcam monitor with the YuNet \cite{yunet} and YOLOX-Nano \cite{yolox} models. \texttt{ApiClient} is the only class that calls the server.
 \end{sloppypar}
 
-\begin{figure}[!htbp]
+\begin{figure}[p]
 \centering
-\includegraphics[width=0.85\linewidth]{Figures/class_diagram_client.png}
-\caption{Class Diagram of the Student Desktop App Services}
+\includegraphics[width=\linewidth,height=590pt,keepaspectratio]{Figures/class_diagram_client.png}
+\caption{Class Diagram of the Student Desktop App (a): Windows, View Models, Storage and Monitoring}
 \label{fig:class_diagram_client}
 \end{figure}
 
-\begin{figure}[!htbp]
+\DiagramBarrier
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/class_diagram_server.png}
-\caption{Class Diagram of the Backend API Services}
+\includegraphics[width=0.95\linewidth,height=628pt,keepaspectratio]{Figures/class_diagram_client_b.png}
+\caption{Class Diagram of the Student Desktop App (b): Lockdown, ApiClient and API Controllers}
+\label{fig:class_diagram_client_b}
+\end{figure}
+
+\begin{sloppypar}
+On the server (Figures~\ref{fig:class_diagram_server} and~\ref{fig:class_diagram_server_b}) the controllers and \texttt{MonitoringHub} use \texttt{ExamAccessService}, \texttt{SeatGuard} and \texttt{SubmissionService}; \texttt{GradingWorker} takes queued answers and calls \texttt{GradingService}, which gets a Docker or MinGW \texttt{ICodeRunner} from \texttt{CodeRunnerResolver}. Authentication, evidence, reports and the hash-chained audit trail are in Figures~\ref{fig:class_diagram_server2} and~\ref{fig:class_diagram_server2_b}, where \texttt{AppDbContext} seals new \texttt{AuditLog} rows through \texttt{AuditChain} in \texttt{SaveChanges}.
+\end{sloppypar}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=469pt,keepaspectratio]{Figures/class_diagram_server.png}
+\caption{Class Diagram of the Backend API, Monitoring and Grading (a): Monitoring, Access Checks and Submission}
 \label{fig:class_diagram_server}
 \end{figure}
 
-\subsection{Deployment Diagram}
-A deployment diagram maps software onto hardware nodes and network links \cite{deployment_diagram_vp}. Figure~\ref{fig:deployment_diagram} shows lab workstations running the WPF client with its ONNX models and encrypted outbox, browsers running the React panel, and a server running the ASP.NET Core~9 API, its SignalR hub (\url{/hubs/monitoring}), the hosted background services and a Docker \texttt{gcc:13} sandbox with a MinGW fallback. The server connects to Neon PostgreSQL, an SMTP server and, optionally, an LLM API. The desktop client uses REST only (plain HTTP on the shipped localhost configuration, HTTPS behind a TLS endpoint in deployment); the panel adds a SignalR connection for live updates.
-
-\begin{figure}[!htbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.97\linewidth]{Figures/deployment_diagram.png}
+\includegraphics[width=0.95\linewidth,height=628pt,keepaspectratio]{Figures/class_diagram_server_b.png}
+\caption{Class Diagram of the Backend API, Monitoring and Grading (b): Grading and Plagiarism}
+\label{fig:class_diagram_server_b}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=604pt,keepaspectratio]{Figures/class_diagram_server2.png}
+\caption{Class Diagram of the Backend API, Security and Records (a): Authentication and Audit Trail}
+\label{fig:class_diagram_server2}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.80\linewidth,height=556pt,keepaspectratio]{Figures/class_diagram_server2_b.png}
+\caption{Class Diagram of the Backend API, Security and Records (b): Evidence and Reports}
+\label{fig:class_diagram_server2_b}
+\end{figure}
+
+\DiagramBarrier
+\subsection{Deployment Diagram}
+\begin{sloppypar}
+A deployment diagram maps software artefacts onto nodes and communication paths \cite[Cl.~19]{omg_uml251}, \cite{deployment_diagram_vp}. Figure~\ref{fig:deployment_diagram} shows lab workstations running the WPF client with its Open Neural Network Exchange (ONNX) models, encrypted outbox and webcam; browsers running the React panel, whose static build comes from a web host; and an application server whose ASP.NET Core~9 environment runs the API, its SignalR hub (\url{/hubs/monitoring}) and the hosted background services, beside a Docker \texttt{gcc:13} container and a MinGW fallback. The server connects to Neon PostgreSQL, an SMTP server and, optionally, an LLM API. The client and the web panel call the API over REST, using plain HTTP on the shipped localhost configuration and HTTPS behind a Transport Layer Security (TLS) endpoint in a lab deployment; the API itself does not enforce HTTPS. Only the panel adds a SignalR connection, for live updates.
+\end{sloppypar}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=360pt,keepaspectratio]{Figures/deployment_diagram.png}
 \caption{Deployment Diagram of SmartExam}
 \label{fig:deployment_diagram}
 \end{figure}
 
+\DiagramBarrier
 \subsection{Component Diagram}
-Figure~\ref{fig:component_diagram} splits the system into client, server and data tiers. The server tier holds the 16 REST controllers, \texttt{MonitoringHub}, the domain services, hosted services such as \texttt{HeartbeatWatchdogService}, and the grading components. Submission triggers grading and plagiarism detection, and the Grading controller also calls the grading services directly.
+\begin{sloppypar}
+Figure~\ref{fig:component_diagram} splits the system into client, server and data tiers. The server tier holds the 16 REST controllers, which provide the \url{/api/*} interface (with a JWT), \texttt{MonitoringHub}, which provides \url{/hubs/monitoring}, the domain services (including \texttt{AuditChain} and \texttt{ReportExportService}), hosted services such as \texttt{HeartbeatWatchdogService}, and the grading components. Submission triggers grading and plagiarism detection, and the Grading controller also calls the grading services directly.
+\end{sloppypar}
 
-\begin{figure}[!htbp]
+\begin{figure}[p]
 \centering
-\includegraphics[width=0.92\linewidth]{Figures/component_diagram.png}
+\includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/component_diagram.png}
 \caption{Component Diagram of SmartExam}
 \label{fig:component_diagram}
 \end{figure}
 
+\DiagramBarrier
 \section{Behavioural Diagrams}
-Behavioural diagrams show run-time behaviour: steps, messages and state changes \cite{behavioral_uml_diagrams}.
+Behavioural diagrams show run-time behaviour: steps, messages and state changes \cite[Annex~A]{omg_uml251}.
 
+\DiagramBarrier
 \subsection{Activity Diagrams}
-An activity diagram shows a workflow with its decisions and parallel branches \cite{activity_diagram_vp}. Figure~\ref{fig:activity_diagram} gives the whole student flow in Student, Desktop App, Server and Teacher swimlanes: login with the device check, readiness checks, the start gate, answering with lockdown and monitoring in parallel, then the end of the session by submit, timer, force-submit or timeout, followed by grading and teacher review.
+An activity diagram shows a workflow with its decisions and parallel branches \cite[Cl.~15]{omg_uml251}, \cite{activity_diagram_vp}. Figure~\ref{fig:activity_diagram} gives the whole student flow in Student, Desktop App, Server and Teacher swimlanes: login with the device check, readiness checks, the start gate, answering with lockdown and monitoring in parallel, then the end of the session by submit, timer, force-submit or timeout, followed by grading and teacher review.
 
-\begin{figure}[!htbp]
+\begin{figure}[p]
 \centering
-\includegraphics[width=\linewidth]{Figures/activity_diagram.png}
+\includegraphics[width=\linewidth,height=618pt,keepaspectratio]{Figures/activity_diagram.png}
 \caption{Activity Diagram of the Student Exam Session}
 \label{fig:activity_diagram}
 \end{figure}
 
 \subsubsection{Login and Pre-Exam Checks}
-In Figure~\ref{fig:activity_auth} the client sends the email or roll number, the password and a hardware fingerprint to \url{/api/auth/student-login}. The v2 fingerprint joins the BIOS, system-disk and baseboard serials read through WMI; the server stores only its SHA-256 hash. The first login saves the hash as the student's \texttt{DeviceBinding}, and a login from another machine is refused with \texttt{DEVICE\_MISMATCH}. Every outcome is audited, and a successful login returns a JWT and a refresh token.
-
-Figure~\ref{fig:activity_diagnostics} shows the seven checks in \texttt{ReadinessPolicy}: network, clock skew, screen capture, webcam (one face, by YuNet) and microphone (when required), secure mode and disk space. Every run or retry posts all results to \url{/api/exams/{id}/readiness}, where the server recomputes the pass and pushes \texttt{ReadinessUpdated}. A pass is valid for 30 minutes, and Start unlocks once the exam opens.
-
-\begin{figure}[!htbp]
-\centering
-\begin{minipage}[t]{0.48\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/activity_auth.png}
-\caption{Activity Diagram of Student Login and HWID Binding}
-\label{fig:activity_auth}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.48\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/activity_diagnostics.png}
-\caption{Activity Diagram of Pre-Exam Readiness Checks}
-\label{fig:activity_diagnostics}
-\end{minipage}
-\end{figure}
-
-\subsubsection{Mock Test and Exam Workspace}
 \begin{sloppypar}
-Practice exams (\texttt{Exam.IsMock}) are started through the normal \texttt{start-session} call and run in the same exam window, in Report mode and without the webcam, so students meet the editor and lockdown beforehand; they are graded but not checked for plagiarism (Figure~\ref{fig:activity_readiness}). During an exam (Figure~\ref{fig:activity_dashboard}) the window runs full screen under \texttt{LockdownCoordinator} and, when required, the webcam monitor. A blocked key, clipboard use, a disallowed app, a focus loss, a device violation or a webcam issue is spooled with a screenshot and sent to \url{/api/monitoring/events/batch}.
+In Figure~\ref{fig:activity_auth} the client sends the email or roll number, the password and a hardware fingerprint to \url{/api/auth/student-login}, which accepts 10 requests a minute per IP address and then returns 429. The v2 fingerprint joins the BIOS, system-disk and baseboard serials read through WMI; the server stores only its SHA-256 hash. Wrong credentials return 401 (\texttt{LOGIN\_FAILED}); a non-student account or a missing HWID is refused without an audit entry. The first login saves the hash as the student's \texttt{DeviceBinding} (\texttt{DEVICE\_BOUND}), an old v1 binding is upgraded when the legacy fingerprint matches (\texttt{DEVICE\_REBOUND}), and a login from another machine is refused with \texttt{DEVICE\_MISMATCH}. A successful login re-hashes a password stored with an older scheme, is audited as \texttt{LOGIN\_SUCCESS} and returns a JWT and a refresh token.
 \end{sloppypar}
 
-\begin{figure}[!htbp]
+\begin{figure}[p]
 \centering
-\begin{minipage}[t]{0.48\linewidth}
+\includegraphics[width=\linewidth,height=615pt,keepaspectratio]{Figures/activity_auth.png}
+\caption{Activity Diagram of Student Login and HWID Binding}
+\label{fig:activity_auth}
+\end{figure}
+
+Figure~\ref{fig:activity_diagnostics} shows the seven checks in \texttt{ReadinessPolicy}: network, clock skew, screen capture, webcam (one face, by YuNet) and microphone (when required), secure mode and disk space. Every run or retry posts all results to \url{/api/exams/{id}/readiness}, where the server recomputes the pass, audits it as \texttt{READINESS\_PASSED} or \texttt{READINESS\_FAILED} and pushes \texttt{ReadinessUpdated}. A pass is valid for 30 minutes, and Start unlocks once the exam opens.
+
+\DiagramBarrier
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/activity_readiness.png}
-\caption{Activity Diagram of the Mock Test}
+\includegraphics[width=0.85\linewidth,height=457pt,keepaspectratio]{Figures/activity_diagnostics.png}
+\caption{Activity Diagram of Pre-Exam Readiness Checks}
+\label{fig:activity_diagnostics}
+\end{figure}
+
+\DiagramBarrier
+\subsubsection{Practice Exam and Exam Workspace}
+\begin{sloppypar}
+Practice exams (\texttt{Exam.IsMock}) are picked from the dashboard's practice list and started with \texttt{POST} \url{/api/exams/{id}/start-session} instead of the real exam's \url{/api/exams/student/start}. They run in the same exam window, in Report mode and without the webcam, so students meet the editor and lockdown beforehand (Figure~\ref{fig:activity_readiness}). Practice exams do not count towards results: they are auto-marked when AI evaluation is on, but never checked for plagiarism and left out of the student's results and analytics.
+\end{sloppypar}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.80\linewidth,height=366pt,keepaspectratio]{Figures/activity_readiness.png}
+\caption{Activity Diagram of the Practice Exam}
 \label{fig:activity_readiness}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.48\linewidth}
+\end{figure}
+
+\begin{sloppypar}
+During an exam (Figure~\ref{fig:activity_dashboard}) the window runs fullscreen under \texttt{LockdownCoordinator} and, when required, the webcam monitor. Four regions run concurrently. The student answers questions. A heartbeat goes out every 10 seconds, and its ack brings the remaining time, session status, extra time, up to five warnings and the unlock deadline. Guard events (a blocked key, clipboard use, a disallowed app, a focus loss, USB storage or a webcam issue) go to \url{/api/monitoring/events/batch}, while a rate-limited screen capture, plus a webcam snapshot for a webcam issue, is uploaded separately to \url{/api/monitoring/screenshot}. The server stores each item and pushes it to the live monitor.
+\end{sloppypar}
+
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/activity_dashboard.png}
+\includegraphics[width=\linewidth,height=395pt,keepaspectratio]{Figures/activity_dashboard.png}
 \caption{Activity Diagram of the Active Exam Workspace}
 \label{fig:activity_dashboard}
-\end{minipage}
 \end{figure}
 
-\subsubsection{Auto-Save, Recovery and Submission}
-An answer is saved 10 seconds after its first unsaved edit, on question change and on focus loss. Every edit also goes to a local AES-256-GCM backup whose key is protected by DPAPI. Failed saves are queued and replayed when the network returns, and a restarted client merges the backup with the server copy (Figure~\ref{fig:activity_recovery}).
+\DiagramBarrier
+\subsubsection{Autosave, Recovery and Submission}
+An answer is saved 10 seconds after its first unsaved edit, on question change and on focus loss. Within a second, every edit also goes to a local backup encrypted with AES-256 in Galois/Counter Mode (AES-256-GCM) \cite{nist80038d}, whose key is protected by the Windows Data Protection API (DPAPI). Failed saves are queued and replayed when the network returns. If a crash or power cut closed the exam, the relaunched client resumes the same session and merges the backup with the server copy, the higher revision winning (Figure~\ref{fig:activity_recovery}).
 
-On submit or timer expiry (Figure~\ref{fig:activity_submission}) the client flushes pending saves; if any answer is still unsent it keeps the window open and retries every 10 seconds. Otherwise it submits, and \texttt{FinalizeAsync} sets the session to Submitted with a SHA-256 receipt, which the client verifies. \texttt{SessionTimeoutService} finalises overdue sessions as TimedOut.
-
-\begin{figure}[!htbp]
+\begin{figure}[H]
 \centering
-\begin{minipage}[t]{0.48\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/activity_recovery.png}
-\caption{Activity Diagram of Auto-Save and Session Recovery}
+\includegraphics[width=\linewidth,height=498pt,keepaspectratio]{Figures/activity_recovery.png}
+\caption{Activity Diagram of Autosave and Session Recovery}
 \label{fig:activity_recovery}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.48\linewidth}
+\end{figure}
+
+Submission starts when the timer reaches zero or when the student confirms the dialog that counts unanswered questions (Figure~\ref{fig:activity_submission}). The client flushes pending saves; if an answer is still unsent it keeps the window open: an automatic submit retries every 10 seconds, and after a manual submit the student presses Submit again. Otherwise it submits, and \texttt{FinalizeAsync} sets the session to Submitted with a SHA-256 receipt, which the client verifies. If no submit arrives, \texttt{SessionTimeoutService} sweeps every 30 seconds and finalises sessions past the exam end, extra time and a 2-minute grace as TimedOut.
+
+\begin{figure}[p]
 \centering
-\includegraphics[width=\linewidth]{Figures/activity_submission.png}
+\includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/activity_submission.png}
 \caption{Activity Diagram of Exam Submission}
 \label{fig:activity_submission}
-\end{minipage}
 \end{figure}
 
+\DiagramBarrier
 \subsubsection{Exam Configuration}
-A teacher fills a four-step wizard (basic info, questions, rules, students) to create or edit an exam (Figure~\ref{fig:activity_config}). \texttt{ExamsController} validates the payload, for example requiring a test case for every coding question, and refuses students outside the teacher's sections; an exam can be edited only while it is Scheduled. Allowed applications are stored as a JSON list of executable names in \texttt{Exam.AllowedApps} (Figure~\ref{fig:activity_applications}). \texttt{ProcessGuardService} scans every 2 seconds; in Enforce mode it kills a disallowed process tree (\texttt{ProcessKilled}), and in Report mode it only reports it (\texttt{UnauthorizedProcess}).
+A teacher fills a four-step wizard (basic info, questions, rules, students) to create or edit an exam (Figure~\ref{fig:activity_config}). \texttt{ExamsController} validates the payload, for example requiring a test case for every coding question, and refuses students outside the teacher's sections; an exam can be edited only while it is Scheduled. The exam is saved together with its \texttt{EXAM\_CREATED} or \texttt{EXAM\_UPDATED} audit entry.
 
-\begin{figure}[!htbp]
+\begin{figure}[p]
 \centering
-\begin{minipage}[t]{0.48\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/activity_config.png}
+\includegraphics[width=\linewidth,height=528pt,keepaspectratio]{Figures/activity_config.png}
 \caption{Activity Diagram of Exam Configuration}
 \label{fig:activity_config}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.48\linewidth}
+\end{figure}
+
+\begin{sloppypar}
+Allowed applications are stored as a JSON list of executable names in \texttt{Exam.AllowedApps} (Figure~\ref{fig:activity_applications}). \texttt{ProcessGuardService} scans every 2 seconds; in Enforce mode it kills a disallowed process tree (\texttt{ProcessKilled}), and in Report mode it reports each app once (\texttt{UnauthorizedProcess}). \texttt{LockdownCoordinator} drops a repeat of the same report within 15 seconds.
+\end{sloppypar}
+
+\begin{figure}[p]
 \centering
-\includegraphics[width=\linewidth]{Figures/activity_applications.png}
-\caption{Activity Diagram of Allowed Applications Configuration}
+\includegraphics[width=\linewidth,height=562pt,keepaspectratio]{Figures/activity_applications.png}
+\caption{Activity Diagram of Allowed Applications Configuration and Enforcement}
 \label{fig:activity_applications}
-\end{minipage}
 \end{figure}
 
 \subsubsection{Seating and Live Monitoring}
 \begin{sloppypar}
-Admins register lab workstations (machine number, host name, IP address), and the teacher assigns one to each student on the Eligibility page (Figure~\ref{fig:activity_seating}). A start from a non-desktop token is refused with \texttt{DESKTOP\_CLIENT\_REQUIRED}. When \texttt{Exam.EnforceSeat} is on, \texttt{SeatGuard} compares the machine name or IP with the assigned seat; a mismatch blocks the start with \texttt{SEAT\_MISMATCH} and alerts the proctors, and each heartbeat re-checks the seat.
+Admins register lab workstations (machine number, host name, IP address), and the teacher or an admin assigns one to each student on the Eligibility page (Figure~\ref{fig:activity_seating}). A start from a non-desktop token is refused with \texttt{DESKTOP\_CLIENT\_REQUIRED}. When \texttt{Exam.EnforceSeat} is on, \texttt{SeatGuard} compares the machine name or IP with the assigned seat; a mismatch blocks the start with \texttt{SEAT\_MISMATCH} and alerts the invigilators on the live monitor, and each heartbeat re-checks the seat.
 \end{sloppypar}
 
-\begin{sloppypar}
-In Figure~\ref{fig:activity_monitoring} the live monitor page joins the exam's group on \texttt{MonitoringHub}. Clients send heartbeats, event batches and screenshots over REST to \texttt{MonitoringController}, which stores them and pushes them to the page. Staff can warn a student, extend their time or force-submit, and the client learns the result from its next heartbeat reply. \texttt{HeartbeatWatchdogService} marks a session disconnected after 30 seconds without a heartbeat.
-\end{sloppypar}
-
-\begin{figure}[!htbp]
+\begin{figure}[p]
 \centering
-\begin{minipage}[t]{0.48\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/activity_seating.png}
+\includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/activity_seating.png}
 \caption{Activity Diagram of Seat Assignment}
 \label{fig:activity_seating}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.48\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/activity_monitoring.png}
-\caption{Activity Diagram of Live Monitoring}
-\label{fig:activity_monitoring}
-\end{minipage}
 \end{figure}
 
-\subsubsection{Grading, Reports and Audit}
-After submission (Figure~\ref{fig:activity_grading}) MCQ answers are checked against the key, and theory answers are scored by TF-IDF (0.7 cosine similarity plus 0.3 key-term coverage) or queued for the optional LLM grader. Plagiarism is checked pairwise with k-gram winnowing for non-practice exams. \texttt{GradingWorker} then runs each coding answer against its test cases in Docker \texttt{gcc:13} (no network) or the MinGW fallback; without a runner the answer is left for teacher review. The teacher can accept or override every suggested mark.
+\DiagramBarrier
+\begin{sloppypar}
+In Figure~\ref{fig:activity_monitoring} the live monitor page joins the exam's group on \texttt{MonitoringHub}. Clients send heartbeats, event batches, screenshots and, when \texttt{RequireWebcam} is on, webcam snapshots over REST to \texttt{MonitoringController}, which stores them, audits violations as \texttt{MONITORING\_VIOLATION} and pushes them to the page. Each tile's status (Stable, Warning, Suspicious or Critical) comes from \texttt{ViolationClassifier}. Staff can warn a student, extend their time, unlock the PC or force-submit, and the client learns the result from its next heartbeat reply. \texttt{HeartbeatWatchdogService} marks a session disconnected after 30 seconds without a heartbeat and audits \texttt{SESSION\_DISCONNECTED}.
+\end{sloppypar}
 
-\begin{figure}[!htbp]
+\begin{sidewaysfigure}
 \centering
-\includegraphics[width=0.8\linewidth]{Figures/activity_grading.png}
+\includegraphics[width=\linewidth,height=0.85\textwidth,keepaspectratio]{Figures/activity_monitoring.png}
+\caption{Activity Diagram of Live Monitoring}
+\label{fig:activity_monitoring}
+\end{sidewaysfigure}
+
+\subsubsection{Grading, Reports and Audit}
+\begin{sloppypar}
+After submission (Figure~\ref{fig:activity_grading}) MCQ answers are checked against the key, and theory answers are scored by TF-IDF \cite{salton1988} (0.7 cosine similarity plus 0.3 key-term coverage) or queued for the optional LLM grader. Plagiarism is checked pairwise with $k$-gram winnowing \cite{winnowing} ($k = 5$ tokens, window $w = 4$, so any shared run of 8 tokens is found) for non-practice exams. \texttt{GradingWorker} then hands each queued coding answer to \texttt{GradingService}, which runs it against its test cases \cite{alamutka2005} in Docker \texttt{gcc:13} (no network) or the MinGW fallback (not isolated); without a runner the answer is left for teacher review. The teacher can accept all suggested marks at once, which skips answers that need a manual mark, or override or regrade a single answer.
+\end{sloppypar}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/activity_grading.png}
 \caption{Activity Diagram of AI-Assisted Grading and Plagiarism Check}
 \label{fig:activity_grading}
 \end{figure}
 
-For a report (Figure~\ref{fig:activity_report}) the API renders a QuestPDF document with summary statistics, per-question performance and the score distribution, records it in \texttt{ExamReports} and returns a download link. The attendance, violations and scores PDFs, the Excel file and the evidence ZIP are produced by \texttt{ReportExportService} and audited as \texttt{REPORT\_GENERATED} with the file's SHA-256. Controllers write audit entries explicitly through \texttt{AuditService}, saving refused actions at once and staging others with the change they record. \texttt{SaveChanges} then seals each new row into a hash chain (sequence number, previous hash, SHA-256 of the row), one writer at a time, and admins read the log and its verification status on the audit page (Figure~\ref{fig:activity_audit}).
+For an exam summary report (Figure~\ref{fig:activity_report}) the API renders a QuestPDF document with summary statistics, per-question performance and the score distribution, records it in \texttt{ExamReports} and returns a download link; this summary is not audited. The attendance, violations and scores PDFs, the Excel file and the evidence ZIP are produced by \texttt{ReportExportService} and audited as \texttt{REPORT\_GENERATED} with the file's SHA-256.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
 \centering
-\begin{minipage}[t]{0.48\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/activity_report.png}
-\caption{Activity Diagram of PDF Report Generation}
+\includegraphics[width=0.90\linewidth,height=446pt,keepaspectratio]{Figures/activity_report.png}
+\caption{Activity Diagram of Exam Summary Report Generation}
 \label{fig:activity_report}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.48\linewidth}
+\end{figure}
+
+Controllers, the hub and services write audit entries through \texttt{AuditService}: standalone events (refused logins, device mismatches, synced violation batches) are saved at once, and the rest are staged with the change they record. \texttt{SaveChanges} then seals each new row into a hash chain (sequence number, previous hash, SHA-256 of the row), one writer at a time, and admins read the log and its verification status on the audit page (Figure~\ref{fig:activity_audit}). Rows written before the chain existed show as not sealed until an admin runs the backfill (\texttt{POST} \url{/api/audit-logs/backfill}, audited as \texttt{AUDIT\_CHAIN\_BACKFILLED}).
+
+\begin{figure}[p]
 \centering
-\includegraphics[width=\linewidth]{Figures/activity_audit.png}
+\includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/activity_audit.png}
 \caption{Activity Diagram of Audit Logging}
 \label{fig:activity_audit}
-\end{minipage}
 \end{figure}
 
+\DiagramBarrier
 \subsection{Communication Diagram}
 \begin{sloppypar}
-A communication diagram shows the objects in one interaction and their numbered messages \cite{communication_diagram_boardmix}. Figure~\ref{fig:communication_diagram} follows a violation: the client posts it over REST, \texttt{MonitoringController} stores it and pushes it through the hub to the live monitor, and a teacher or invigilator answers through the hub with a warning or force-submit. The hub checks the caller with \texttt{ExamAccessService} and audits the action; a force-submit calls \texttt{SubmissionService.FinalizeAsync}. The client picks up the warning or the new session status from its next heartbeat reply, and the warning repeats until it is marked read.
+A communication diagram shows the objects in one interaction and their numbered messages \cite[Cl.~17.9]{omg_uml251}. Figure~\ref{fig:communication_diagram} follows a violation: the client posts it over REST, and \texttt{MonitoringController} stores it and pushes it through the hub to the live monitor (messages 1--1.1.2). A teacher or invigilator acts on the page (2), which calls the hub with a warning (2.1) or a force-submit (2.2). The hub checks the caller with \texttt{ExamAccessService} and audits the action; a force-submit calls \texttt{SubmissionService.FinalizeAsync}. The client picks up the warning or the new session status from its next heartbeat reply \mbox{(3--4.1)}, and the warning repeats until it is marked read.
 \end{sloppypar}
 
-\begin{figure}[!htbp]
+\begin{sidewaysfigure}
 \centering
-\includegraphics[width=0.97\linewidth]{Figures/communication_diagram.png}
+\includegraphics[width=\linewidth,height=415pt,keepaspectratio]{Figures/communication_diagram.png}
 \caption{Communication Diagram of Violation Alerts and Staff Response}
 \label{fig:communication_diagram}
-\end{figure}
+\end{sidewaysfigure}
 
 \subsection{Sequence Diagrams}
-A sequence diagram shows the messages between participants in time order \cite{sequence_diagram_medium}.
-
-\subsubsection{Login, Logout and Password Change}
 \begin{sloppypar}
-In Figure~\ref{fig:seq_login} \texttt{AuthController} checks the salted PBKDF2 password hash, the Student role and the device binding (first bind, upgrade of a v1 binding, or \texttt{DEVICE\_MISMATCH}), then returns a JWT and a refresh token. Refresh tokens rotate on every use; reusing an old one revokes its whole family.
+A sequence diagram shows the messages between participants in time order \cite[Cl.~17.8]{omg_uml251}, \cite{sequence_diagram_vp}. Filled arrowheads are synchronous calls with dashed replies; open arrowheads are asynchronous messages such as SignalR pushes and queue hand-offs. A desktop lifeline that calls a controller does so through \texttt{ApiClient}, which some diagrams merge into the caller to save width; web-panel lifelines are React pages, not classes.
 \end{sloppypar}
 
-\begin{figure}[!htbp]
+\subsubsection{Login, Token Refresh, Logout and Password Change}
+\begin{sloppypar}
+In Figures~\ref{fig:seq_login} and~\ref{fig:seq_login_b} \texttt{AuthController} checks the salted PBKDF2 hash \cite{rfc8018} of the password (600,000 iterations of HMAC-SHA256, as the Open Worldwide Application Security Project (OWASP) recommends \cite{owasp_pwd}), the Student role, the HWID and the device binding (first bind, upgrade of a v1 binding, or \texttt{DEVICE\_MISMATCH}), then returns a JWT \cite{rfc7519} and a refresh token. Because each hash stores its scheme and cost, an older hash is re-hashed at the next login \cite{nist80063b}.
+\end{sloppypar}
+
+\DiagramBarrier
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.9\linewidth]{Figures/seq_login.png}
-\caption{Sequence Diagram of Student Login and HWID Verification}
+\includegraphics[width=0.85\linewidth,height=443pt,keepaspectratio]{Figures/seq_login.png}
+\caption{Sequence Diagram of Student Login and HWID Verification (a): Credential, Role and HWID Checks}
 \label{fig:seq_login}
 \end{figure}
 
-Logout (Figure~\ref{fig:seq_logout}) revokes the refresh-token family and the session on the server and audits \texttt{LOGOUT}. A staff password change from the web panel (Figure~\ref{fig:seq_change_password}) goes to \url{/api/auth/change-password}, which verifies the current password and a minimum length of 8, ends the user's other sessions, and stores a new salt and PBKDF2 hash; the caller's own session stays valid.
-
-\begin{figure}[!htbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.65\linewidth]{Figures/seq_logout.png}
-\caption{Sequence Diagram of Logout}
+\includegraphics[width=\linewidth,height=446pt,keepaspectratio]{Figures/seq_login_b.png}
+\caption{Sequence Diagram of Student Login and HWID Verification (b): Device Binding and Tokens}
+\label{fig:seq_login_b}
+\end{figure}
+
+Refresh tokens rotate on every use; reusing an old one revokes its whole family \cite[Sec.~4.14.2]{rfc9700} (Figures~\ref{fig:seq_logout} and~\ref{fig:seq_logout_b}). Logout revokes the refresh-token family and the session on the server and audits \texttt{LOGOUT}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=432pt,keepaspectratio]{Figures/seq_logout.png}
+\caption{Sequence Diagram of Token Refresh and Logout (a): Token Refresh}
 \label{fig:seq_logout}
 \end{figure}
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.9\linewidth]{Figures/seq_change_password.png}
-\caption{Sequence Diagram of Password Change}
+\includegraphics[width=\linewidth,height=361pt,keepaspectratio]{Figures/seq_logout_b.png}
+\caption{Sequence Diagram of Token Refresh and Logout (b): Logout}
+\label{fig:seq_logout_b}
+\end{figure}
+
+\begin{sloppypar}
+A staff password change from the web panel (Figures~\ref{fig:seq_change_password} and~\ref{fig:seq_change_password_b}) goes to \url{/api/auth/change-password}, which verifies the current password and a minimum length of 8, ends the user's other sessions, and stores a new salt and PBKDF2 hash; the caller's own session stays valid.
+\end{sloppypar}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=388pt,keepaspectratio]{Figures/seq_change_password.png}
+\caption{Sequence Diagram of Password Change (a): Request and Password Checks}
 \label{fig:seq_change_password}
 \end{figure}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=318pt,keepaspectratio]{Figures/seq_change_password_b.png}
+\caption{Sequence Diagram of Password Change (b): Session Revocation and New Hash}
+\label{fig:seq_change_password_b}
+\end{figure}
+
+\DiagramBarrier
 \subsubsection{Session Timeline and Live Telemetry}
 \begin{sloppypar}
-To view a student's record (Figure~\ref{fig:seq_view_database}), staff call \texttt{MonitoringEvidenceController}, which checks access through \texttt{ExamAccessService} (owner teacher, assigned invigilator or admin) and returns the session's events (without heartbeats), screenshots, warnings, incidents and audit entries, newest first; each image is then fetched through \texttt{EvidenceStorage}.
+To view a student's record (Figures~\ref{fig:seq_view_database} and~\ref{fig:seq_view_database_b}), staff call \texttt{MonitoringEvidenceController}, which checks access through \texttt{ExamAccessService} (owner teacher, assigned invigilator or admin) and returns the session's events (without heartbeats), screenshots, warnings, incidents and audit entries, newest first; each image is then fetched through \texttt{EvidenceStorage}.
 \end{sloppypar}
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.9\linewidth]{Figures/seq_view_database.png}
-\caption{Sequence Diagram of Viewing a Session Timeline}
+\includegraphics[width=\linewidth,height=439pt,keepaspectratio]{Figures/seq_view_database.png}
+\caption{Sequence Diagram of Viewing a Session Timeline (a): Access Check and Timeline}
 \label{fig:seq_view_database}
 \end{figure}
 
-In Figure~\ref{fig:seq_telemetry} the start call checks the assignment, seat and readiness gates and creates the session. The client then sends a REST heartbeat every 10 seconds and event batches every 5 seconds. Screen captures are uploaded at random intervals around \texttt{ScreenshotIntervalSeconds} (30--90 seconds by default) and after each violation, plus webcam snapshots when \texttt{RequireWebcam} is set. The server pushes these updates to the hub group, and \texttt{HeartbeatWatchdogService} marks a session disconnected after 30 seconds of silence.
-
-\begin{figure}[!htbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.9\linewidth]{Figures/seq_telemetry.png}
-\caption{Sequence Diagram of Exam Start and Telemetry}
+\includegraphics[width=\linewidth,height=380pt,keepaspectratio]{Figures/seq_view_database_b.png}
+\caption{Sequence Diagram of Viewing a Session Timeline (b): Capture List and Images}
+\label{fig:seq_view_database_b}
+\end{figure}
+
+In Figures~\ref{fig:seq_telemetry} and~\ref{fig:seq_telemetry_b} the start call checks the assignment, seat and readiness gates and creates the session. The client then sends a REST heartbeat every 10 seconds and event batches every 5 seconds. Screen captures are uploaded at random intervals around \texttt{ScreenshotIntervalSeconds} (30--90 seconds by default) and after each violation, plus webcam snapshots when \texttt{RequireWebcam} is set. The server pushes these updates to the exam's hub group, and \texttt{HeartbeatWatchdogService} marks a session disconnected after 30 seconds of silence.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=473pt,keepaspectratio]{Figures/seq_telemetry.png}
+\caption{Sequence Diagram of Exam Start and Telemetry (a): Start, Heartbeats and Event Batches}
 \label{fig:seq_telemetry}
 \end{figure}
 
-\subsubsection{Code Execution, Theory Grading and Plagiarism}
-\begin{sloppypar}
-On submit (Figure~\ref{fig:seq_compilation}) coding answers are staged and queued, and the receipt is returned without waiting. \texttt{GradingWorker} then picks a runner (Docker, else local MinGW), compiles the code once, runs every test case with its time limit and saves the suggested marks in \texttt{AiGradingResults}. Theory answers go to the TF-IDF grader. Coding and theory answers to the same question are compared pairwise (MCQ answers and mock exams are skipped), and pairs at or above the exam's \texttt{PlagiarismThreshold} are stored in \texttt{PlagiarismResults} (Figure~\ref{fig:seq_ai_plagiarism}).
-\end{sloppypar}
-
-\begin{figure}[!htbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.97\linewidth]{Figures/seq_compilation.png}
-\caption{Sequence Diagram of Sandboxed Code Execution}
-\label{fig:seq_compilation}
+\includegraphics[width=\linewidth,height=436pt,keepaspectratio]{Figures/seq_telemetry_b.png}
+\caption{Sequence Diagram of Exam Start and Telemetry (b): Captures and Disconnect Watchdog}
+\label{fig:seq_telemetry_b}
 \end{figure}
 
-\begin{figure}[!htbp]
+\DiagramBarrier
+\subsubsection{Grading, Code Execution and Plagiarism}
+\begin{sloppypar}
+Plagiarism is checked in two places. The teacher's heat map (Figure~\ref{fig:seq_plagiarism_matrix}) compares every pair of students on demand and refuses practice exams. On submit (Figures~\ref{fig:seq_ai_plagiarism} and~\ref{fig:seq_ai_plagiarism_b}) \texttt{FinalizeAsync} stages the answers: MCQ and theory answers are marked at once (theory by the TF-IDF grader unless the LLM grader is on), and coding answers are queued for the code runner unless blank or no runner is configured. For non-practice exams, coding and theory answers are compared pairwise with the same question's answers in other finalised sessions, and pairs at or above the exam's \texttt{PlagiarismThreshold} are stored in \texttt{PlagiarismResults}. The session, marks, pairs and \texttt{SESSION\_SUBMITTED} audit entry are saved together, and the receipt is returned without waiting for code grading.
+\end{sloppypar}
+
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.97\linewidth]{Figures/seq_ai_plagiarism.png}
-\caption{Sequence Diagram of Theory Grading and Plagiarism Check}
+\includegraphics[width=\linewidth,height=378pt,keepaspectratio]{Figures/seq_plagiarism_matrix.png}
+\caption{Sequence Diagram of the Plagiarism Heat Map}
+\label{fig:seq_plagiarism_matrix}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\linewidth,height=367pt,keepaspectratio]{Figures/seq_ai_plagiarism.png}
+\caption{Sequence Diagram of Submission, Theory Grading and Plagiarism Check (a): Staging and Theory Grading}
 \label{fig:seq_ai_plagiarism}
 \end{figure}
 
-\subsubsection{Readiness Checks, Mock Test, Lockdown and Recovery}
-In Figure~\ref{fig:seq_diagnostics} the client runs the seven readiness checks and posts the result; the server re-checks it, stores a \texttt{ReadinessCheck} row and returns a pass valid for 30 minutes. A mock test uses the same start, save and submit calls as a real exam, in Report mode without the webcam (Figure~\ref{fig:seq_readiness}).
+\begin{figure}[p]
+\centering
+\includegraphics[width=\linewidth,height=470pt,keepaspectratio]{Figures/seq_ai_plagiarism_b.png}
+\caption{Sequence Diagram of Submission, Theory Grading and Plagiarism Check (b): Plagiarism Check and Save}
+\label{fig:seq_ai_plagiarism_b}
+\end{figure}
 
-\begin{figure}[!htbp]
+\begin{sloppypar}
+\texttt{GradingWorker} hands each queued answer to \texttt{GradingService}, which picks a runner through \texttt{CodeRunnerResolver} (Docker, else local MinGW), compiles the code once, runs every test case with its time limit and saves the suggested marks in \texttt{AiGradingResults} (Figures~\ref{fig:seq_compilation} and~\ref{fig:seq_compilation_b}).
+\end{sloppypar}
+
+\begin{figure}[H]
 \centering
-\begin{minipage}[t]{0.48\linewidth}
+\includegraphics[width=0.90\linewidth,height=253pt,keepaspectratio]{Figures/seq_compilation.png}
+\caption{Sequence Diagram of Sandboxed Code Execution (a): Dequeue and Runner Choice}
+\label{fig:seq_compilation}
+\end{figure}
+
+\begin{figure}[p]
 \centering
-\includegraphics[width=\linewidth]{Figures/seq_diagnostics.png}
-\caption{Sequence Diagram of Pre-Exam Readiness Checks}
+\includegraphics[width=0.90\linewidth,height=570pt,keepaspectratio]{Figures/seq_compilation_b.png}
+\caption{Sequence Diagram of Sandboxed Code Execution (b): Compile, Run and Score}
+\label{fig:seq_compilation_b}
+\end{figure}
+
+\DiagramBarrier
+\subsubsection{Readiness Checks, Practice Exam, Lockdown and Recovery}
+\begin{sloppypar}
+In Figures~\ref{fig:seq_diagnostics} and~\ref{fig:seq_diagnostics_b} the client runs the seven readiness checks and posts the result; the server re-checks it, stores a \texttt{ReadinessCheck} row with its audit entry and returns a pass valid for 30 minutes.
+\end{sloppypar}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=423pt,keepaspectratio]{Figures/seq_diagnostics.png}
+\caption{Sequence Diagram of Pre-Exam Readiness Checks (a): Running and Posting the Checks}
 \label{fig:seq_diagnostics}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.48\linewidth}
+\end{figure}
+
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/seq_readiness.png}
-\caption{Sequence Diagram of the Mock Test}
+\includegraphics[width=\linewidth,height=410pt,keepaspectratio]{Figures/seq_diagnostics_b.png}
+\caption{Sequence Diagram of Pre-Exam Readiness Checks (b): Live Update and Result}
+\label{fig:seq_diagnostics_b}
+\end{figure}
+
+\begin{sloppypar}
+A practice exam is listed by \texttt{GET} \url{/api/exams/student/practice} and started with \texttt{POST} \url{/api/exams/{id}/start-session} (a real exam uses \url{/api/exams/student/start}); it then uses the same save and submit calls, in Report mode without the webcam (Figures~\ref{fig:seq_readiness} to~\ref{fig:seq_readiness_c}).
+\end{sloppypar}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\linewidth,height=207pt,keepaspectratio]{Figures/seq_readiness.png}
+\caption{Sequence Diagram of the Practice Exam (a): Practice List}
 \label{fig:seq_readiness}
-\end{minipage}
 \end{figure}
 
-At exam start the \texttt{LockdownCoordinator} installs a low-level keyboard hook that blocks Alt+Tab, the Windows keys and similar shortcuts, disables Task Manager through the registry and starts the clipboard, process and device guards. Violations pass a 15-second cooldown and go to the encrypted monitoring outbox (Figure~\ref{fig:seq_lockdown}). Figure~\ref{fig:seq_recovery} shows the save, offline queue, backup and replay calls; after a crash the backup is merged by revision, or ignored if it was tampered with.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\linewidth,height=395pt,keepaspectratio]{Figures/seq_readiness_b.png}
+\caption{Sequence Diagram of the Practice Exam (b): Start-Session Gates}
+\label{fig:seq_readiness_b}
+\end{figure}
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
 \centering
-\begin{minipage}[t]{0.48\linewidth}
+\includegraphics[width=0.90\linewidth,height=262pt,keepaspectratio]{Figures/seq_readiness_c.png}
+\caption{Sequence Diagram of the Practice Exam (c): Practice Window}
+\label{fig:seq_readiness_c}
+\end{figure}
+
+At exam start the \texttt{LockdownCoordinator} installs a low-level keyboard hook that blocks Alt+Tab, the Windows keys and similar shortcuts, disables Task Manager through the registry and starts the clipboard, process and device guards. Violations pass a 15-second cooldown and go to the encrypted monitoring outbox (Figures~\ref{fig:seq_lockdown} to~\ref{fig:seq_lockdown_c}).
+
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/seq_lockdown.png}
-\caption{Sequence Diagram of Lockdown Enforcement}
+\includegraphics[width=0.90\linewidth,height=534pt,keepaspectratio]{Figures/seq_lockdown.png}
+\caption{Sequence Diagram of Lockdown Enforcement (a): Start and Guard Events}
 \label{fig:seq_lockdown}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.48\linewidth}
-\centering
-\includegraphics[width=\linewidth]{Figures/seq_recovery.png}
-\caption{Sequence Diagram of Auto-Save and Recovery}
-\label{fig:seq_recovery}
-\end{minipage}
 \end{figure}
 
-\subsubsection{Submission, Configuration and Report Export}
-On submit (Figure~\ref{fig:seq_submission}) the client first flushes unsent saves. The server checks that the session is the caller's own and in progress, sets it to Submitted with the receipt hash, stages grading and the plagiarism check in one save, then queues the answers; the client verifies the receipt and releases the lockdown. Exam configuration (Figure~\ref{fig:seq_config}) loads the teacher's sections and students, then makes one create or update call to \texttt{ExamsController} carrying the questions and test cases.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.65\linewidth,height=292pt,keepaspectratio]{Figures/seq_lockdown_b.png}
+\caption{Sequence Diagram of Lockdown Enforcement (b): Violation Reporting}
+\label{fig:seq_lockdown_b}
+\end{figure}
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
 \centering
-\begin{minipage}[t]{0.48\linewidth}
+\includegraphics[width=0.85\linewidth,height=211pt,keepaspectratio]{Figures/seq_lockdown_c.png}
+\caption{Sequence Diagram of Lockdown Enforcement (c): Release}
+\label{fig:seq_lockdown_c}
+\end{figure}
+
+Figures~\ref{fig:seq_recovery} and~\ref{fig:seq_recovery_b} show the save, offline queue, backup and replay calls; after a crash the backup is merged by revision, or ignored if it was tampered with.
+
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/seq_submission.png}
-\caption{Sequence Diagram of Exam Submission}
+\includegraphics[width=\linewidth,height=464pt,keepaspectratio]{Figures/seq_recovery.png}
+\caption{Sequence Diagram of Autosave and Recovery (a): Autosave and Offline Queue}
+\label{fig:seq_recovery}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=404pt,keepaspectratio]{Figures/seq_recovery_b.png}
+\caption{Sequence Diagram of Autosave and Recovery (b): Recovery after a Crash}
+\label{fig:seq_recovery_b}
+\end{figure}
+
+\DiagramBarrier
+\subsubsection{Submission, Configuration and Report Export}
+\begin{sloppypar}
+On submit (Figures~\ref{fig:seq_submission} to~\ref{fig:seq_submission_c}) the client first flushes unsent saves; while one is still offline the window stays open. The server checks that the session is the caller's own and in progress, then in one save sets it to Submitted with the receipt hash and stores the staged grades, the plagiarism pairs and the \texttt{SESSION\_SUBMITTED} audit entry; it then queues the coding answers. The client verifies the receipt and releases the lockdown.
+\end{sloppypar}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth,height=385pt,keepaspectratio]{Figures/seq_submission.png}
+\caption{Sequence Diagram of Exam Submission (a): Flush and Submit Request}
 \label{fig:seq_submission}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.48\linewidth}
+\end{figure}
+
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/seq_config.png}
+\includegraphics[width=0.55\linewidth,height=392pt,keepaspectratio]{Figures/seq_submission_b.png}
+\caption{Sequence Diagram of Exam Submission (b): Finalisation}
+\label{fig:seq_submission_b}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.80\linewidth,height=249pt,keepaspectratio]{Figures/seq_submission_c.png}
+\caption{Sequence Diagram of Exam Submission (c): Receipt Check}
+\label{fig:seq_submission_c}
+\end{figure}
+
+Exam configuration (Figure~\ref{fig:seq_config}) loads the teacher's sections and students, then makes one create or update call to \texttt{ExamsController} carrying the questions and test cases.
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.90\linewidth,height=628pt,keepaspectratio]{Figures/seq_config.png}
 \caption{Sequence Diagram of Exam Configuration}
 \label{fig:seq_config}
-\end{minipage}
 \end{figure}
 
-For a report (Figure~\ref{fig:seq_audit}) the panel calls \texttt{AnalyticsController}, which checks exam ownership, renders the PDF with QuestPDF, adds an \texttt{ExamReport} row and returns a download link. The download re-checks the file name and ownership; no audit entry is written.
+\begin{sloppypar}
+For an export (Figures~\ref{fig:seq_audit} and~\ref{fig:seq_audit_b}) \texttt{AnalyticsController} checks the report type and that the caller owns the exam or is an admin. \texttt{ReportExportService} writes the PDF, Excel file or ZIP to \texttt{Reports/} and, in one \texttt{SaveChanges}, adds an \texttt{ExamReport} row and a \texttt{REPORT\_GENERATED} audit entry with the file's type, name, SHA-256 and size. The download re-checks the bare file name, the \texttt{ExamReport} row, ownership and that the file exists. An admin verifies the chain with \texttt{GET} \url{/api/audit-logs/verify}, which recomputes every hash and reports a valid chain, the first broken row, or unsealed rows. The exam summary PDF (\texttt{POST} \url{/api/analytics/exams/{id}/report}) writes no audit entry.
+\end{sloppypar}
 
-\begin{figure}[!htbp]
+\begin{figure}[p]
 \centering
-\includegraphics[width=0.6\linewidth]{Figures/seq_audit.png}
-\caption{Sequence Diagram of Report Export}
+\includegraphics[width=0.90\linewidth,height=621pt,keepaspectratio]{Figures/seq_audit.png}
+\caption{Sequence Diagram of Report Export and Audit-Chain Verification (a): Export and Download}
 \label{fig:seq_audit}
 \end{figure}
 
+\DiagramBarrier
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.70\linewidth,height=325pt,keepaspectratio]{Figures/seq_audit_b.png}
+\caption{Sequence Diagram of Report Export and Audit-Chain Verification (b): Chain Verification}
+\label{fig:seq_audit_b}
+\end{figure}
+
 \renewcommand{\floatpagefraction}{0.5}
+\renewcommand{\topfraction}{0.7}
+\renewcommand{\textfraction}{0.2}

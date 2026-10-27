@@ -1,0 +1,165 @@
+@startuml
+!include style.iuml
+' Figure (b): exam delivery, monitoring, grading, reports and audit. Figure (a) is erd_diagram.puml;
+' Users and Exams are drawn there in full (dashed boxes here).
+' ERD generated from Backend_API/Data/AppDbContext.cs (29 DbSets at HEAD) and the EF model snapshot.
+' Every table has a uuid (Guid) primary key except ExamProctors (composite key ExamId + UserId).
+' Only PK / FK and a few key columns are shown. Columns marked (ref) hold an id without a database FK.
+hide circle
+hide empty methods
+skinparam nodesep 8
+skinparam ranksep 30
+hide stereotype
+skinparam class {
+  FontSize 14
+  AttributeFontSize 14
+}
+skinparam entity {
+  FontSize 14
+  AttributeFontSize 14
+}
+skinparam ArrowColor #444444
+skinparam ArrowFontSize 14
+
+entity AuditLogs <<Gr>> #F1EAF8 {
+  * LogId <<PK>>
+  --
+  ActorId (ref, null)
+  EventType, EntityType
+  Sequence <<UQ, null>>
+  PrevHash, Hash (SHA-256)
+}
+entity Questions <<Ex>> #FFF6E0 {
+  * QuestionId <<PK>>
+  --
+  ExamId <<FK>>
+  Type, Marks
+}
+entity TestCases <<Ex>> #FFF6E0 {
+  * TestCaseId <<PK>>
+  --
+  QuestionId <<FK>>
+  Weight, IsHidden
+}
+entity ReadinessChecks <<Ex>> #FFF6E0 {
+  * Id <<PK>>
+  --
+  ExamId <<FK>>
+  UserId <<FK>>
+  PassedAll
+}
+entity ExamSessions <<Ex>> #FFF6E0 {
+  * SessionId <<PK>>
+  --
+  ExamId <<FK>>
+  UserId <<FK>>
+  Status, ExtraMinutes
+  ReceiptSha256
+}
+entity Answers <<Ex>> #FFF6E0 {
+  * AnswerId <<PK>>
+  --
+  SessionId <<FK>>
+  QuestionId <<FK>>
+  Revision
+  UQ (SessionId, QuestionId)
+}
+entity MonitoringEvents <<Mo>> #FBE9E9 {
+  * EventId <<PK>>
+  --
+  ExamSessionId <<FK>>
+  EventType, Payload (JSON)
+  ClientEventId <<UQ with session>>
+}
+entity Screenshots <<Mo>> #FBE9E9 {
+  * ScreenshotId <<PK>>
+  --
+  SessionId <<FK>>
+  ExamId (ref)
+  Kind, Sha256
+}
+entity Incidents <<Mo>> #FBE9E9 {
+  * IncidentId <<PK>>
+  --
+  SessionId <<FK>>
+  ExamId (ref)
+  Severity, Status
+}
+entity AiGradingResults <<Gr>> #F1EAF8 {
+  * ResultId <<PK>>
+  --
+  AnswerId <<FK, UQ>>
+  SuggestedMarks
+  Confidence, Status
+}
+entity TestCaseResults <<Gr>> #F1EAF8 {
+  * TestCaseResultId <<PK>>
+  --
+  ResultId <<FK>>
+  TestCaseId (ref)
+  Passed
+}
+entity TeacherGradeOverrides <<Gr>> #F1EAF8 {
+  * OverrideId <<PK>>
+  --
+  AnswerId <<FK, UQ>>
+  TeacherId <<FK>>
+  FinalMarks
+}
+entity PlagiarismResults <<Gr>> #F1EAF8 {
+  * PlagId <<PK>>
+  --
+  ExamId <<FK>>
+  QuestionId <<FK>>
+  UserIdA <<FK>> (student A)
+  UserIdB <<FK>> (student B)
+  SimilarityScore
+}
+entity ExamReports <<Gr>> #F1EAF8 {
+  * ReportId <<PK>>
+  --
+  ExamId <<FK>>
+  GeneratedBy <<FK>>
+  ReportType
+}
+entity Users #FFFFFF ##[dashed] {
+  * UserId <<PK>>
+}
+entity Exams #FFFFFF ##[dashed] {
+  * ExamId <<PK>>
+}
+
+Exams ||--o{ Questions
+Questions ||--o{ TestCases
+Exams ||--o{ ReadinessChecks
+Users ||--o{ ReadinessChecks
+Exams ||--o{ ExamSessions
+Users ||--o{ ExamSessions
+ExamSessions ||--o{ Answers
+Questions ||--o{ Answers
+ExamSessions ||--o{ MonitoringEvents
+ExamSessions ||--o{ Screenshots
+ExamSessions ||--o{ Incidents
+Answers ||--o| AiGradingResults
+AiGradingResults ||--o{ TestCaseResults
+Answers ||--o| TeacherGradeOverrides
+Users ||--o{ TeacherGradeOverrides
+Exams ||--o{ PlagiarismResults
+Questions ||--o{ PlagiarismResults
+Users ||--o{ PlagiarismResults
+Users ||--o{ PlagiarismResults
+Exams ||--o{ ExamReports
+Users ||--o{ ExamReports
+AiGradingResults -[hidden]down- AuditLogs
+MonitoringEvents -[hidden]down- Screenshots
+MonitoringEvents -[hidden]down- Incidents
+
+skinparam legendFontSize 14
+legend bottom right
+  <back:#E8F0FB> Identity </back>  <back:#EAF6EA> Academic / Labs </back>  <back:#FFF6E0> Exam </back>  <back:#FBE9E9> Monitoring </back>  <back:#F1EAF8> Grading / Audit </back>
+  PK = primary key (uuid; ExamProctors has a composite key)
+  FK = foreign key, UQ = unique index (single or composite), null = optional
+  (ref) = id column without a foreign-key constraint
+  Dashed box: table drawn in full in part (a)
+endlegend
+@enduml

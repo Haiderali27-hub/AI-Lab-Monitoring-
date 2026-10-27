@@ -4,30 +4,30 @@ SmartExam's twelve modules depend on each other, and design reviews with our sup
 
 \subsection{Process Model Introduction}
 
-We used Agile with fixed-length sprints \cite{agile1}. Each sprint ends with a working part of the system that we can demonstrate. Changes from review feedback go into the next sprint, and integration problems show up early instead of at the end, where they cost more to fix. This mattered for SmartExam because device binding, lockdown, monitoring and grading only work when they are joined end to end. Figure~\ref{fig:agileworkflowdetailed} shows the cycle inside one sprint and the review points with stakeholders.
+We used Agile, following the Scrum framework with fixed-length sprints \cite{agile1,scrumguide2020}. The three members form the development team; our supervisor reviews each increment and the backlog priorities at the sprint review, and written check-ins replace daily stand-ups (Section~\ref{sec:managerial}). Each sprint ends with a working part of the system that we can demonstrate. Changes from review feedback go into the next sprint \cite{agilemanifesto}, and integration problems show up early instead of at the end, where they cost more to fix. This mattered for SmartExam because device binding, lockdown, monitoring and grading only work when they are joined end to end. Figure~\ref{fig:agileworkflowdetailed} shows one sprint: planning, development with tests, the supervisor's review, the schedule check and the feedback loop into the product backlog.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.97\linewidth]{Figures/agile_workflow_detailed.png}
+\includegraphics[width=0.9\linewidth]{Figures/agile_workflow_detailed.png}
 \caption{Agile Workflow with Sprint Feedback and Review Loops}
 \label{fig:agileworkflowdetailed}
 \end{figure}
 
 \subsection{Justification of Proposing the Process Model}
 
-The modules carry different levels of risk. Login, roles and exam set-up are well understood. Low-level Windows keyboard hooks, the live SignalR dashboard, webcam analysis and code execution in a Docker container were new to us. Waterfall would have forced us to fix all of these designs before we had built a prototype of any of them. With sprints we could try the risky parts early, integrate them step by step and adjust the plan. The sprint demos also match our mid-semester and end-of-semester reviews.
+The modules carry different levels of risk. Login, roles and exam set-up are well understood. Low-level Windows keyboard hooks, the live SignalR dashboard, webcam analysis and code execution in a Docker container were new to us. Waterfall would have forced us to fix all of these designs before we had built a prototype of any of them. With sprints we could try the risky parts early, integrate them step by step and adjust the plan. The sprint reviews at Weeks 16 and 32 also served as the FYP-I review and the final submission.
 
 \subsection{Steps of Process Model}
 
-The project runs over eight four-week sprints. Each sprint delivers modules that can be demonstrated. Table~\ref{tab:timeframe} in Chapter 2 gives the detailed schedule.
+The project runs over eight four-week sprints. Each sprint delivers modules that can be demonstrated. Table~\ref{tab:timeframe} in Chapter 2 gives the baseline schedule and the progress at the FYP-I review.
 
 \begin{itemize}[noitemsep]
 \item \textbf{Sprint 1 (Weeks 1--4):} requirements, use cases, product backlog, architecture and scope approval.
-\item \textbf{Sprint 2 (Weeks 5--8):} M1 and M7, with HWID capture via WMI, device-bound student login, staff login and role-based access.
+\item \textbf{Sprint 2 (Weeks 5--8):} M1 and M7, with HWID capture via Windows Management Instrumentation (WMI), device-bound student login, staff login and role-based access.
 \item \textbf{Sprint 3 (Weeks 9--12):} M8 and M9, covering the exam wizard, question types, test cases, allowed applications and eligibility.
 \item \textbf{Sprint 4 (Weeks 13--16):} M2, M3 and M4, covering the readiness check, practice exams, the student dashboard and the lockdown client.
 \item \textbf{Sprint 5 (Weeks 17--20):} M5 and M10, with REST heartbeats, telemetry and screenshots, and the live SignalR dashboard.
 \item \textbf{Sprint 6 (Weeks 21--24):} M6 and M11, covering autosave, encrypted backup, Docker test-case grading, TF-IDF theory scoring and the plagiarism matrix.
-\item \textbf{Sprint 7 (Weeks 25--28):} M12, covering audit logs, analytics and QuestPDF reports.
+\item \textbf{Sprint 7 (Weeks 25--28):} M12, covering the hash-chained audit log, analytics, QuestPDF reports, and Excel and evidence-ZIP exports.
 \item \textbf{Sprint 8 (Weeks 29--32):} integration and system testing of all twelve modules, bug fixes, the final report and the demonstration.
 \end{itemize}

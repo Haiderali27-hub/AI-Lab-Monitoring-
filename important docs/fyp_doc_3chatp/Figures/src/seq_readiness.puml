@@ -1,50 +1,49 @@
 @startuml
 !include style.iuml
-skinparam ArrowFontSize 13
-skinparam defaultFontSize 13
-' Practice (mock) exam, Module 2: Views/ExamDashboard.PracticeButton_OnClick (refusal -> MessageBox), ApiClient.GetPracticeExamsAsync /
-' StartSessionAsync, ExamsController.GetPracticeExams (GET /api/exams/student/practice), StartSession
-' (POST /api/exams/{id}/start-session: 403 not assigned, 400 not eligible / ended, seat check, InProgress resumed,
-' 400 READINESS_REQUIRED), SaveAnswer, Submit; SubmissionService.FinalizeAsync (no plagiarism check
-' when Exam.IsMock). Same calls as a real exam; lockdown is forced to Report mode and the webcam is not used.
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Practice exam (Module 2). Client: ViewModels/DashboardViewModel.RefreshPracticeExamsAsync (ApiClient.GetPracticeExamsAsync),
+' Views/ExamDashboard.PracticeButton_OnClick (ApiClient.StartSessionAsync; refusal -> MessageBox; ExamWindow in "Report"
+' mode, no allowed-apps list, no webcam; afterwards DashboardViewModel.InitializeAsync refreshes the list).
+' Server: ExamsController.GetPracticeExams (GET /api/exams/student/practice: IsMock, assigned and eligible, open now) and
+' StartSession (POST /api/exams/{id}/start-session), whose gates run in this order: assignment (403), IsEligible (400),
+' exam closed and no open session (400), not open yet (400 EXAM_NOT_STARTED), seat (403 SEAT_MISMATCH), then an
+' InProgress practice attempt is returned as it is, and only a NEW attempt checks RequireReadiness (400 READINESS_REQUIRED).
+' Saving and submitting use the same calls as a real exam; SubmissionService.FinalizeAsync skips the plagiarism check
+' when Exam.IsMock and grades when AiEvaluationEnabled.
 hide footbox
-skinparam ParticipantPadding 0
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
 }
-skinparam maxMessageSize 300
 
 actor Student
-participant "ExamDashboard\n/ ExamWindow" as UI
+participant "Exam\nDashboard" as UI
+participant "Exam\nWindow" as EW
+participant "Dashboard\nViewModel" as VM
+participant "ApiClient" as API
 participant "Exams\nController" as EC
-participant "Submission\nService" as SS
-database "AppDb\nContext" as DB
+database "AppDbContext" as DB
 
-UI -> EC : GET /api/exams/\nstudent/practice
-EC -> DB : IsMock exams, eligible
-EC --> UI : PracticeExam-\nSummary list
-Student -> UI : Practice
-UI -> EC : POST /api/exams/\n{id}/start-session
-EC -> EC : assigned,\neligible, open,\nseat, readiness\n(if required)
-alt refused
-  EC --> UI : 403 / 400 message
-  UI --> Student : MessageBox
-else attempt InProgress
-  EC --> UI : same SessionId
-else new attempt
-  EC -> DB : new ExamSession
-  EC --> UI : SessionId
-end
-UI -> UI : ExamWindow:\nlockdown Report,\nno webcam
-loop while answering
-  UI -> EC : POST sessions/\n{sid}/save-answer
-  EC -> DB : upsert Answer
-end
-Student -> UI : Submit
-UI -> EC : POST sessions/\n{sid}/submit
-EC -> SS : FinalizeAsync\n(Submitted)
-SS -> DB : [AiEvaluation]\ngrading; receipt;\nno plagiarism\n(IsMock)
-SS --> EC : receipt
-EC --> UI : sha256, answerCount
-UI --> Student : receipt; list\nrefreshed
+[-> VM : RefreshPracticeExamsAsync()\n(on dashboard load)
+activate VM
+VM -> API : GetPracticeExamsAsync()
+activate API
+API -> EC : GET /api/exams/\nstudent/practice
+activate EC
+EC -> DB : IsMock exams, assigned\n+ eligible, open now
+activate DB
+DB --> EC : exams, attempts
+deactivate DB
+EC --> API : 200 [PracticeExam\nSummary]
+deactivate EC
+API --> VM : practice list
+deactivate API
+VM -> UI : fill practice picker
+deactivate VM
+
 @enduml

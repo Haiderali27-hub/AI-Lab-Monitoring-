@@ -1,0 +1,45 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Lockdown enforcement (Module 4): Views/ExamWindow (Window_Loaded -> LockdownCoordinator.Start(this), Window_Closing -> Dispose).
+' Services/Lockdown/LockdownCoordinator: Start returns at once when the mode is Off; TaskManagerRegistryGuard.Apply (only when the
+' Task Manager policy is on), KeyboardHookService.Install, ClipboardGuardService.Start(window), ProcessGuardService.Start (2 s scan),
+' DeviceGuardService.Start (WMI: VirtualMachine, UsbInserted, MultiMonitor, RemoteSession). A failed Apply / Install is
+' Report("LockdownDegraded", ...), i.e. the same path as any violation. Report: 15 s cooldown keyed on reason|detail, then the
+' violation sink LiveMonitoringService.ReportViolation (encrypted MonitoringSpool + CaptureForViolation + fire-and-forget
+' FlushEventsAsync -> ApiClient.SendEventBatchAsync, POST /api/monitoring/events/batch; the server side is in seq_telemetry).
+' With no sink, LockdownCoordinator calls ApiClient.SendMonitoringEventAsync (POST /api/monitoring/event); with a sink but no
+' spool, LiveMonitoringService.ReportViolation makes that call itself (no screenshot). Both fire-and-forget.
+' Stop (from Dispose, OnCrash, OnProcessExit, OnDispatcherCrash): Restore, Uninstall, then Stop on the other three guards.
+' Open arrowhead (->>) = asynchronous message (C# event raised by a guard, fire-and-forget call).
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 2
+skinparam maxMessageSize 200
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+
+participant "Exam\nWindow" as EW
+participant "Lockdown\nCoordinator" as LC
+participant "TaskManager\nRegistry\nGuard" as TM
+participant "Keyboard\nHook\nService" as KB
+participant "Clipboard\nGuard\nService" as CB
+participant "Process\nGuard\nService" as PG
+participant "Device\nGuard\nService" as DG
+participant "Live\nMonitoring\nService" as LMS
+participant "ApiClient" as API
+== submit, force-submit, crash or exit ==
+EW -> LC : Dispose() (Window_\nClosing; crash or exit\nhandlers call Stop())
+activate LC
+LC -> TM : Restore()
+LC -> KB : Uninstall()
+LC -> CB : Stop()
+LC -> PG : Stop()
+LC -> DG : Stop()
+LC --> EW
+deactivate LC
+@enduml

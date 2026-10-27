@@ -1,82 +1,81 @@
 @startuml
 !include style.iuml
-skinparam defaultFontSize 14
-skinparam ArrowFontSize 12
 ' Seat assignment and enforcement (Module 9): LabsController POST /api/labs/{labId}/workstations
 ' (Admin,SuperAdmin; 409 duplicate machine number, 400 invalid IP, audit WORKSTATION_CREATED),
-' ExamsController PUT /api/exams/{examId}/assignments/{userId}/workstation (EligibilityPage),
-' ExamsController student/start -> CheckSeatOnStartAsync (SeatGuard.RefusesClient: 403
-' DESKTOP_CLIENT_REQUIRED when Exams:RequireDesktopClientForStart, default true, D-45),
-' MonitoringController.Heartbeat, SeatGuard.Check / ReportMismatchAsync (audit SEAT_MISMATCH, hub ViolationEvent).
-' Two columns joined by connector A.
+' ExamsController PUT /api/exams/{examId}/assignments/{userId}/workstation (Teacher,Admin,SuperAdmin; EligibilityPage;
+' 409 seat taken, audit WORKSTATION_ASSIGNED), student/start -> CheckSeatOnStartAsync (SeatGuard.RefusesClient: 403
+' DESKTOP_CLIENT_REQUIRED when Exams:RequireDesktopClientForStart, default true; SeatGuard.Check by SeatMatch =
+' MachineName | Ip | Either; ReportMismatchAsync audits SEAT_MISMATCH and pushes ViolationEvent),
+' MonitoringController.Heartbeat (re-check; a SeatMismatch event only if none with the same payload within
+' SeatMismatchDedupWindow = 5 min, and only while the session is InProgress).
+' Printed pt = fontSize * 72 * printed_width_in / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 28
+skinparam ArrowFontSize 27
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 29
+}
 
-split
-  -[hidden]->
-  start
-  :<b>Admin / SuperAdmin</b>
-  (LabsPage) adds a
-  workstation:
-  MachineNumber,
-  HostName, IpAddress;
-  :<b>LabsController</b>
-  POST .../workstations;
-  if (Number unique\nin lab and\nIP valid?) then (no)
-    :409 / 400;
-    stop
-  else (yes)
-    :Save, audit
-    WORKSTATION_
-    CREATED;
-  endif
-  :<b>Teacher</b> (Eligibility
-  Page) picks the seat:
-  PUT .../workstation;
-  if (Seat taken\nin this\nexam?) then (yes)
-    :409 Conflict;
-    stop
-  else (no)
-    :Save WorkstationId,
-    audit WORKSTATION_
-    ASSIGNED;
-  endif
-  :<b>Student</b>: POST
-  /api/exams
-  /student/start;
-  (A)
-  detach
-split again
-  -[hidden]->
-  (A)
-  if (Desktop client\ntoken?) then (no)
-    :403 DESKTOP_
-    CLIENT_REQUIRED;
-    stop
-  else (yes)
-  endif
-  :<b>SeatGuard.Check</b>
-  machine claim or
-  request IP (SeatMatch);
-  if (EnforceSeat\nand seat\ndiffers?) then (yes)
-    :403 SEAT_
-    MISMATCH,
-    audit, hub
-    ViolationEvent;
-    stop
-  else (no)
-    :Create
-    ExamSession;
-  endif
-  repeat
-    :Heartbeat (10 s):
-    SeatGuard.Check
-    again;
-    if (Mismatch?) then (yes)
-      :SeatMismatch
-      event, alert
-      proctors;
-    else (no)
-    endif
-  repeat while (InProgress?) is (yes) not (no)
+|Staff (Web Panel)|
+start
+:Admin / SuperAdmin (LabsPage)
+adds a workstation:
+MachineNumber, HostName,
+IpAddress;
+|Server|
+if (LabsController: number\nunique in lab, IP valid?) then ([no])
+  :409 / 400;
   stop
-end split
+else ([yes])
+  :Save, audit
+  WORKSTATION_CREATED;
+endif
+|Staff (Web Panel)|
+:Teacher / Admin (EligibilityPage)
+picks the seat: PUT
+.../assignments/{userId}/workstation;
+|Server|
+if (Seat taken by another\nstudent in this exam?) then ([yes])
+  :409 Conflict;
+  stop
+else ([no])
+  :Save WorkstationId, audit
+  WORKSTATION_ASSIGNED;
+endif
+|Desktop App (Student)|
+:POST /api/exams
+/student/start;
+|Server|
+if (Desktop client\ntoken?) then ([no])
+  :403 DESKTOP_CLIENT_
+  REQUIRED;
+  stop
+else ([yes])
+endif
+:SeatGuard.Check: machine claim
+or request IP (SeatMatch setting);
+if (EnforceSeat and\nseat differs?) then ([yes])
+  :403 SEAT_MISMATCH,
+  audit SEAT_MISMATCH,
+  hub ViolationEvent;
+  stop
+else ([no])
+  :Create ExamSession
+  (InProgress);
+endif
+repeat
+  |Desktop App (Student)|
+  :POST heartbeat
+  (every 10 s);
+  |Server|
+  if (SeatGuard.Check: mismatch\nnot recorded in last 5 min?) then ([yes])
+    :SeatMismatch event,
+    audit SEAT_MISMATCH,
+    hub ViolationEvent;
+  else ([no])
+  endif
+repeat while (Session\nInProgress?) is ([yes]) not ([no])
+stop
 @enduml
