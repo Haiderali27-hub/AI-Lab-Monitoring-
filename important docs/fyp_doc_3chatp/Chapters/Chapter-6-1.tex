@@ -172,7 +172,6 @@ Admins manage departments and courses (Figure~\ref{fig:ui_academics}); departmen
 
 Admins register labs and workstations (machine number, Windows PC name, IP address) in Figure~\ref{fig:ui_labs_workstations}; each seat shows the student signed in on it. With \texttt{EnforceSeat} on, a student with a seat can start the exam only from that PC (FR9).
 
-\DiagramBarrier
 \begin{figure}[tbp]
 \centering
 \includegraphics[width=\linewidth,height=418pt,keepaspectratio]{Figures/ui_labs_workstations.png}
@@ -182,6 +181,7 @@ Admins register labs and workstations (machine number, Windows PC name, IP addre
 
 The device-binding page (Figure~\ref{fig:ui_device_bindings}) lists each student's binding status, bound PC and last-seen time (FR1). \emph{Reset Binding} (\texttt{DELETE /api/users/\{id\}/device-binding}) removes the binding and revokes all the student's tokens, so the next login binds a new PC; \emph{Force Logout} only revokes the tokens.
 
+\DiagramBarrier
 \begin{figure}[tbp]
 \centering
 \includegraphics[width=\linewidth,height=500pt,keepaspectratio]{Figures/ui_device_bindings.png}
@@ -226,11 +226,14 @@ EF Core migrations create the PostgreSQL tables from \texttt{Backend\_API/Models
 \hline\hline
 \textrm{\textbf{Table}} & \textbf{Purpose} & \textrm{\textbf{Key columns}} \\ \hline\hline
 \endfirsthead
+\multicolumn{3}{c}{\tablename~\thetable{} -- continued from previous page}\\
 \hline\hline
 \textrm{\textbf{Table}} & \textbf{Purpose} & \textrm{\textbf{Key columns}} \\ \hline\hline
 \endhead
-\hline\hline
+\hline \multicolumn{3}{r}{Continued on next page}\\
 \endfoot
+\hline\hline
+\endlastfoot
 Users & Accounts of all five roles & UserId, Email (unique), RollNumber (unique), Role \\
 DeviceBindings & The one PC bound to a student & BindingId, UserId (unique), HwidHash \\
 UserSessions & Issued access tokens, for revocation & SessionId, UserId, Jti (unique), IsRevoked \\

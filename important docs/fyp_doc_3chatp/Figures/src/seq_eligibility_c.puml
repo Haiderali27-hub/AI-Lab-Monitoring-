@@ -23,9 +23,9 @@ participant "Exams\nController" as EC
 participant "AuditService" as AS
 database "AppDbContext" as DB
 
-T -> UI : toggle students,\nadd notes, Save
+T -> UI : toggle students and add\nnotes, then Save; or Clear\noverride on one student's row
 activate UI
-UI -> EC : PUT /api/exams/{examId}/\neligibility {assignments:\nchanged rows}
+UI -> EC : PUT /api/exams/{examId}/\neligibility {assignments:\nchanged rows, or that one\nrow with clearOverride: true}
 activate EC
 EC -> EC : LoadManagedExamAsync
 break exam missing, or not the teacher's own section
@@ -48,7 +48,7 @@ deactivate AS
 EC -> DB : SaveChanges
 EC --> UI : 200 {overridden, cleared}
 deactivate EC
-UI --> T : updated list
+UI --> T : updated list; after Clear\noverride, a notice to Recalculate
 deactivate UI
 note over UI, DB : A later recalculation skips overridden students; an ineligible\nstudent's start is refused with NOT_ELIGIBLE (UC-04).
 @enduml

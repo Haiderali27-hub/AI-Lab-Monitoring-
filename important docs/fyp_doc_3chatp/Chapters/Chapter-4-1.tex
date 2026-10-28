@@ -113,7 +113,7 @@ FR12 & UC-18, UC-21, UC-22 & Tables~\ref{tab:uct_audit_report}, \ref{tab:uct_aud
 3 & Use-Case Overview & A student signs in on the desktop client, and the account is bound to one workstation. \\* \noalign{\hrule}
 4 & Actors & Student \\* \noalign{\hrule}
 5 & Pre-Conditions & Active student account; client running on a lab PC. \\* \noalign{\hrule}
-6 & Triggers & Student presses Log in in the client. \\* \noalign{\hrule}
+6 & Triggers & Student presses Sign In in the client. \\* \noalign{\hrule}
 7 & Steps & 1.~Student enters email or roll number and password.\newline
 2.~Client reads the BIOS, system-disk and baseboard serials and sends them, with the PC name, to the server together with the credentials.\newline
 3.~Server checks the password hash and hashes the hardware ID with SHA-256.\newline
@@ -125,7 +125,7 @@ FR12 & UC-18, UC-21, UC-22 & Tables~\ref{tab:uct_audit_report}, \ref{tab:uct_aud
 
 {\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
 \begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{3.3cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-3.3cm-0.25cm-16pt\relax}@{}}
-\multicolumn{3}{@{}p{\textwidth}@{}}{\normalsize\hspace*{\UCindent}Table~\ref{tab:uct_pre_exam_check} describes UC-02 of module M2, which decides whether a PC is fit to start an exam. The other FR2 use case, the practice exam (UC-03), runs in the locked window of Table~\ref{tab:uct_lockdown_telemetry}.\par\vspace*{6pt}}\\
+\multicolumn{3}{@{}p{\textwidth}@{}}{\normalsize\hspace*{\UCindent}Table~\ref{tab:uct_pre_exam_check} describes UC-02 of module M2, which decides whether a PC is fit to start an exam; the practice exam (UC-03) runs in the window of Table~\ref{tab:uct_lockdown_telemetry}.\par\vspace*{6pt}}\\
 \caption{Use Case Table of Run Readiness Check (UC-02, FR2)}\label{tab:uct_pre_exam_check}\\ \hline\hline
 \endfirsthead
 \multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
@@ -139,7 +139,7 @@ FR12 & UC-18, UC-21, UC-22 & Tables~\ref{tab:uct_audit_report}, \ref{tab:uct_aud
 3 & Use-Case Overview & The client checks that the PC can run the exam before Start is allowed. \\* \noalign{\hrule}
 4 & Actors & Student \\* \noalign{\hrule}
 5 & Pre-Conditions & Student is signed in (UC-01) and has an assigned exam. \\* \noalign{\hrule}
-6 & Triggers & Student presses the system-check button on the dashboard. \\* \noalign{\hrule}
+6 & Triggers & Student presses Run check on the dashboard. \\* \noalign{\hrule}
 7 & Steps & 1.~Client checks the network (best API round trip at most 2~s), clock skew (at most 60~s), screen capture, webcam and microphone if the exam needs them, secure mode (one monitor, no RDP session or VM, keyboard hook active) and free disk (at least 200~MB).\newline
 2.~Client shows each result.\newline
 3.~Client sends the result to the server, which recomputes the pass, stores it and audits \texttt{READINESS\_PASSED} or \texttt{READINESS\_FAILED}. \\ \hline
@@ -149,7 +149,7 @@ FR12 & UC-18, UC-21, UC-22 & Tables~\ref{tab:uct_audit_report}, \ref{tab:uct_aud
 
 {\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
 \begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{3.3cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-3.3cm-0.25cm-16pt\relax}@{}}
-\multicolumn{3}{@{}p{\textwidth}@{}}{\normalsize\hspace*{\UCindent}Table~\ref{tab:uct_start_exam} joins the student dashboard of module M3 with the start checks of module M9, so it shows every rule a student must meet before the exam opens. UC-14 covers the results side of FR3 on the web portal.\par\vspace*{6pt}}\\
+\multicolumn{3}{@{}p{\textwidth}@{}}{\normalsize\hspace*{\UCindent}Table~\ref{tab:uct_start_exam} joins the M3 dashboard with the M9 start checks, so it shows every rule a student must meet before the exam opens; UC-14 covers FR3 results on the web portal.\par\vspace*{6pt}}\\
 \caption{Use Case Table of View Assigned Exam, Check In and Start (UC-04, FR3, FR9)}\label{tab:uct_start_exam}\\ \hline\hline
 \endfirsthead
 \multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
@@ -165,11 +165,11 @@ FR12 & UC-18, UC-21, UC-22 & Tables~\ref{tab:uct_audit_report}, \ref{tab:uct_aud
 5 & Pre-Conditions & Student is signed in (UC-01). \\* \noalign{\hrule}
 6 & Triggers & Student opens the dashboard after logging in. \\* \noalign{\hrule}
 7 & Steps & 1.~Dashboard loads the assigned exam, its instructions, the server time and the eligibility, readiness and seat status.\newline
-2.~Student presses Check In; the client records the attendance with the server.\newline
-3.~Start becomes available at the opening time on the server clock, after check-in and, when the exam requires it, a readiness pass (UC-02).\newline
-4.~Student presses Start; the server checks eligibility, the seat, the exam window and readiness, and opens an exam session. \\ \hline
+2.~Student presses Check In; the server acknowledges it without storing it (unlike M9 attendance, UC-20), and the client records the check-in.\newline
+3.~Start Exam is enabled at the opening time (server clock) after the client-side check-in and, if the exam requires it, a readiness pass (UC-02).\newline
+4.~Student presses Start Exam; the server checks eligibility, the seat, the exam window and readiness, and opens an exam session. \\ \hline
 8 & Post-Conditions & Session is \texttt{InProgress} and the exam window opens (UC-06). \\ \hline
-9 & Exception Flow & Ineligible student: the exam is shown with the reason and Start stays disabled. Server refusals: \texttt{NOT\_ELIGIBLE}, \texttt{READINESS\_REQUIRED}, \texttt{EXAM\_NOT\_STARTED}, \texttt{EXAM\_CLOSED}, or 403 \texttt{SEAT\_MISMATCH} (audited and shown on the live monitor). Failed check-in: the student retries. \\
+9 & Exception Flow & Ineligible student: Start Exam stays disabled and the reason is shown. Server refusals: \texttt{NOT\_ELIGIBLE}, \texttt{READINESS\_REQUIRED}, \texttt{EXAM\_NOT\_STARTED}, \texttt{EXAM\_CLOSED}, or 403 \texttt{SEAT\_MISMATCH} (audited and shown on the live monitor). Check-in fails (server unreachable): the student retries. \\
 \end{longtable}}
 
 {\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
@@ -216,13 +216,13 @@ FR12 & UC-18, UC-21, UC-22 & Tables~\ref{tab:uct_audit_report}, \ref{tab:uct_aud
 3 & Use-Case Overview & Answers are kept safe during the exam and submitted with a receipt. \\* \noalign{\hrule}
 4 & Actors & Student \\* \noalign{\hrule}
 5 & Pre-Conditions & Session is \texttt{InProgress}. \\* \noalign{\hrule}
-6 & Triggers & Student edits an answer or presses Submit, or the timer expires. \\* \noalign{\hrule}
+6 & Triggers & Student edits an answer or presses Submit Exam, or the timer expires. \\* \noalign{\hrule}
 7 & Steps & 1.~Each edit is written within about 1~s to an AES-256-GCM encrypted local backup.\newline
 2.~The answer is saved to the server 10~s after its first unsaved edit, and at once on a question change or focus loss.\newline
-3.~Student presses Submit and confirms the number of unanswered questions.\newline
+3.~Student presses Submit Exam and confirms the number of unanswered questions.\newline
 4.~Server finalises the session, returns a SHA-256 receipt of the stored answers, which the client checks, and queues the answers for grading. \\ \hline
 8 & Post-Conditions & Session is \texttt{Submitted} or \texttt{TimedOut} with a stored receipt. \\ \hline
-9 & Exception Flow & Network loss: failed saves are queued and replayed in order. Crash: answers are restored from the server and the backup. Timer expiry: the client submits automatically and retries every 10~s; the server times the session out 2~minutes after its end. Server unreachable on a manual submit: the window stays open and the student presses Submit again. \\
+9 & Exception Flow & Network loss: failed saves are queued and replayed in order. Crash: answers are restored from the server and the backup. Timer expiry: the client submits automatically and retries every 10~s; the server times the session out 2~minutes after its end. Server unreachable on a manual submit: the window stays open and the student presses Submit Exam again. \\
 \end{longtable}}
 
 {\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
@@ -302,7 +302,7 @@ FR12 & UC-18, UC-21, UC-22 & Tables~\ref{tab:uct_audit_report}, \ref{tab:uct_aud
 
 {\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
 \begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{3.3cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-3.3cm-0.25cm-16pt\relax}@{}}
-\multicolumn{3}{@{}p{\textwidth}@{}}{\normalsize\hspace*{\UCindent}Table~\ref{tab:uct_live_proctoring} describes UC-10 of module M10, the invigilator's main screen, with UC-09 (evidence) and UC-11 (actions) as its optional extensions.\par\vspace*{6pt}}\\
+\multicolumn{3}{@{}p{\textwidth}@{}}{\normalsize\hspace*{\UCindent}Table~\ref{tab:uct_live_proctoring} describes UC-10 of module M10, the invigilator's main screen.\par\vspace*{6pt}}\\
 \caption{Use Case Table of Supervise an Exam Live (UC-10, FR10)}\label{tab:uct_live_proctoring}\\ \hline\hline
 \endfirsthead
 \multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
@@ -327,7 +327,7 @@ FR12 & UC-18, UC-21, UC-22 & Tables~\ref{tab:uct_audit_report}, \ref{tab:uct_aud
 
 {\renewcommand{\arraystretch}{0.9}\setlength{\tabcolsep}{4pt}
 \begin{longtable}{@{}>{\footnotesize\raggedleft\arraybackslash}p{0.25cm}>{\footnotesize\bfseries\raggedright\arraybackslash}p{3.3cm}>{\footnotesize\raggedright\arraybackslash}p{\dimexpr\textwidth-3.3cm-0.25cm-16pt\relax}@{}}
-\multicolumn{3}{@{}p{\textwidth}@{}}{\normalsize\hspace*{\UCindent}Table~\ref{tab:uct_compilation_evaluation} covers FR11.1 and FR11.2 of module M11 in one use case, because the teacher reviews the code and theory marks on the same results screen.\par\vspace*{6pt}}\\
+\multicolumn{3}{@{}p{\textwidth}@{}}{\normalsize\hspace*{\UCindent}Table~\ref{tab:uct_compilation_evaluation} covers FR11.1 and FR11.2 (M11): one screen shows code and theory marks.\par\vspace*{6pt}}\\
 \caption{Use Case Table of Review Suggested Marks (UC-16, FR11.1, FR11.2)}\label{tab:uct_compilation_evaluation}\\ \hline\hline
 \endfirsthead
 \multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
@@ -343,7 +343,7 @@ FR12 & UC-18, UC-21, UC-22 & Tables~\ref{tab:uct_audit_report}, \ref{tab:uct_aud
 5 & Pre-Conditions & Sessions are submitted, force-submitted or timed out, and the background grader has run. \\* \noalign{\hrule}
 6 & Triggers & Teacher opens the results of an exam. \\* \noalign{\hrule}
 7 & Steps & 1.~MCQ answers are marked full or zero.\newline
-2.~C and C++ answers are compiled and run against each weighted test case (2~s per case by default) in an isolated Docker container (\texttt{gcc:13} image) when Docker is available, otherwise in a local MinGW g++ runner, which is not isolated.\newline
+2.~C and C++ answers are compiled and run against each weighted test case (2~s per case by default) in an isolated Docker \texttt{gcc:13} container, or else in a local MinGW g++ runner (not isolated).\newline
 3.~Theory answers are scored against the reference answer by TF-IDF \cite{salton1988} (0.7 cosine similarity plus 0.3 key-term coverage) with a confidence value.\newline
 4.~Teacher accepts all suggestions, overrides a mark with a note (\texttt{GRADE\_OVERRIDDEN}) or asks for an answer to be regraded. \\ \hline
 8 & Post-Conditions & The suggested marks and the teacher's marks are stored separately. \\ \hline

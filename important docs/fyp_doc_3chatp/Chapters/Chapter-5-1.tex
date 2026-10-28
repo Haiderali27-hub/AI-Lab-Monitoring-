@@ -217,7 +217,6 @@ Admins register lab workstations (machine number, host name, IP address), and th
 \label{fig:activity_seating}
 \end{figure}
 
-\DiagramBarrier
 \begin{sloppypar}
 In Figure~\ref{fig:activity_monitoring} the live monitor page joins the exam's group on \texttt{MonitoringHub}. Clients send heartbeats, event batches, screenshots and, when \texttt{RequireWebcam} is on, webcam snapshots over REST to \texttt{MonitoringController}, which stores them, audits violations as \texttt{MONITORING\_VIOLATION} and pushes them to the page. Each tile's status (Stable, Warning, Suspicious or Critical) comes from \texttt{ViolationClassifier}. Staff can warn a student, extend their time, unlock the PC or force-submit, and the client learns the result from its next heartbeat reply. \texttt{HeartbeatWatchdogService} marks a session disconnected after 30 seconds without a heartbeat and audits \texttt{SESSION\_DISCONNECTED}.
 \end{sloppypar}
@@ -590,7 +589,7 @@ A device-binding reset and a forced logout both revoke the user's refresh tokens
 \end{figure}
 
 \begin{sloppypar}
-On the Eligibility page a teacher uploads the section's attendance CSV (at most 1~MB) to \texttt{AttendanceController}, which stores each student's total and attended classes and reports rejected rows by line (Figure~\ref{fig:seq_eligibility}). Recalculation (Figure~\ref{fig:seq_eligibility_b}) passes every assignment without a manual override to \texttt{EligibilityCalculator.Decide}, which compares the unrounded attendance percentage with the exam's \texttt{MinAttendancePercent} (75\% by default); a student with no attendance data keeps the earlier decision. A manual change (Figure~\ref{fig:seq_eligibility_c}) is audited per student as \texttt{ELIGIBILITY\_OVERRIDDEN}, and later recalculations skip that student until the override is cleared.
+On the Eligibility page a teacher uploads the section's attendance CSV (at most 1~MB) to \texttt{AttendanceController}, which stores each student's total and attended classes and reports rejected rows by line (Figure~\ref{fig:seq_eligibility}). Recalculation (Figure~\ref{fig:seq_eligibility_b}) passes every assignment without a manual override to \texttt{EligibilityCalculator.Decide}, which compares the unrounded attendance percentage with the exam's \texttt{MinAttendancePercent} (75\% by default); a student with no attendance data keeps the earlier decision. A manual change (Figure~\ref{fig:seq_eligibility_c}) is audited per student as \texttt{ELIGIBILITY\_OVERRIDDEN}, and later recalculations skip that student until the teacher clears the override from that student's row.
 \end{sloppypar}
 
 \begin{figure}[p]
@@ -610,7 +609,7 @@ On the Eligibility page a teacher uploads the section's attendance CSV (at most 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth,height=530pt,keepaspectratio]{Figures/seq_eligibility_c.png}
-\caption{Sequence Diagram of Attendance Import and Eligibility (c): Manual Override}
+\caption{Sequence Diagram of Attendance Import and Eligibility (c): Manual \mbox{Override}}
 \label{fig:seq_eligibility_c}
 \end{figure}
 

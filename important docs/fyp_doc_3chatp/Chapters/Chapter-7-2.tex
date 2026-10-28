@@ -168,7 +168,7 @@ UT-33 & Fail only the timed-out case & 1. Case 1 runs past the 2000 ms limit; ca
 UT-34 & Compare outputs with tolerance & 1. Compare line ends and inner spacing. \newline 2. Compare numbers at 0.001. & ``5\textbackslash n''; ``1~~2''; 3.1416, 3.15 vs 3.14159 \newline {\footnotesize\textit{Ref: M11-U-06, M11-U-11}} & Line ends ignored, inner spacing fails; 3.1416 passes, 3.15 fails. & Pass\\
 \end{longtable}}
 
-Table~\ref{tab:ut_similarity} covers static analysis, TF-IDF grading of theory answers \cite{salton1988} and k-gram winnowing for code plagiarism \cite{winnowing}. M11-U-08 to M11-U-10 run the plagiarism engine through the submission and plagiarism endpoints of the in-memory test host.
+Table~\ref{tab:ut_similarity} covers static analysis, TF-IDF grading of theory answers \cite{salton1988} and k-gram winnowing for plagiarism in coding and theory answers \cite{winnowing}. M11-U-08 to M11-U-10 run the plagiarism engine through the submission and plagiarism endpoints of the in-memory test host.
 
 {\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
 \begin{longtable}{@{}P{1.1cm}P{2.5cm}P{3.5cm}P{2.6cm}P{2.9cm}>{\centering\arraybackslash}p{1.8cm}@{}}

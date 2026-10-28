@@ -23,7 +23,7 @@ MS2 & Requirements, product backlog and architecture agreed (activity A) & 4 & S
 MS3 & Login, device binding and roles working (M1, M7) & 8 & Module tests pass \\
 MS4 & FYP-I review & 16 & FYP-I report (Chapters 1--6) submitted on 18 Jun 2026 \\
 MS5 & Supervision, submission and evaluation working (M5, M6, M10, M11) & 24 & Module tests pass \\
-MS6 & All twelve modules merged (M12 last) & 28 & Module tests pass \\
+MS6 & All twelve modules merged (M12 last) & 28 & Module tests pass (M2 and M4 tests completed in Sprint 8) \\
 MS7 & Final regression run and submission & 32 & Full test run on 26 Oct 2026 (Chapter~\ref{chap:testing}) \\
 \hline\hline
 \end{tabularx}}
@@ -67,7 +67,7 @@ Budget & None: no paid service is used. \\
 
 Quality is checked inside every sprint, not only at the end:
 \begin{itemize}[nosep]
-    \item Each module is tested in its own sprint: xUnit API integration tests, Playwright end-to-end tests for its web screens and unit tests for its desktop logic. The full regression suite is rerun after each group of fixes.
+    \item Each module is tested in its own sprint (the M2 and M4 tests, moved after the FYP-I review, were completed in Sprint 8): xUnit API integration tests, Playwright end-to-end tests for its web screens and unit tests for its desktop logic. The full regression suite is rerun after each group of fixes.
     \item Checks that need a real lab PC go on the manual lab checklist (Table~\ref{tab:st_pending}).
     \item AI output is advisory: the teacher reviews and can override every suggested mark, and no violation leads to an automatic penalty.
     \item The supervisor reviews each increment at the Sprint Review. Chapter~\ref{chap:testing} gives the test plan and the results.
@@ -112,7 +112,7 @@ I & Integration, system testing, documentation and demo & All & 4 & H \\
 \subsubsection{Work Breakdown Structure}
 \label{sec:wbs}
 
-The WBS splits the project into work packages \cite{wbs1}. Figure~\ref{fig:wbs} goes down to module level: each module is one work package (2.x.y) that includes its own tests, so package 3 (Sprint 8) holds only system-level work: final integration, end-to-end tests, the full regression run and bug fixing. In the sprint backlog each module is split further into tasks, and each task has one WBS code and one owner from the role split in Section~\ref{sec:managerial}.
+The WBS splits the project into work packages \cite{wbs1}. Figure~\ref{fig:wbs} goes down to module level: each module is one work package (2.x.y) that includes its own tests, so package 3 (Sprint 8) holds system-level work: final integration, end-to-end tests, the full regression run and bug fixing, plus the M2, M4 and refresh-token rotation tests moved after the FYP-I review. In the sprint backlog each module is split further into tasks, and each task has one WBS code and one owner from the role split in Section~\ref{sec:managerial}.
 
 \begin{figure}[!htbp]
 \centering

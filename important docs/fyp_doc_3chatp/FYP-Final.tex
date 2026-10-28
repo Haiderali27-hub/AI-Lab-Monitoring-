@@ -20,6 +20,12 @@
 \setlength{\intextsep}{5pt}
 % Long-table captions may use the full text width (no hyphenated wraps).
 \setlength{\LTcapwidth}{\textwidth}
+% Contents lists: a wider page-number column, so a title that fills the
+% line still keeps a gap before its page number.
+\makeatletter
+\renewcommand{\@pnumwidth}{2.2em}
+\renewcommand{\@tocrmarg}{3.2em}
+\makeatother
 
 \makeatletter
 \def\@makechapterhead#1{%

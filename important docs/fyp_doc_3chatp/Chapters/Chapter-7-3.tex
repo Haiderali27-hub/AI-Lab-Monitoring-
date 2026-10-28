@@ -24,7 +24,7 @@ IT-02 & Replayed refresh token revokes the family & 1. Refresh with token RT1 to
 IT-03 & Binding reset signs the old PC out & 1. Student signs in on OLD-PC. \newline 2. Admin deletes the binding; old tokens are used. \newline 3. Student signs in on NEW-PC. & \texttt{TEST\_\allowbreak{}HWID\_\allowbreak{}HASH\_\allowbreak{}ABC123} \newline {\footnotesize\textit{Ref: M1-I-14}} & Old tokens 401; \texttt{DEVICE\_\allowbreak{}BINDING\_\allowbreak{}RESET} audited; NEW-PC 200. & Pass\\
 \end{longtable}}
 
-Table~\ref{tab:it_users_exams} checks how the role rules of User and Role Management (FR7) apply to accounts and to exams of Exam Creation and Configuration (FR8), including exam announcements and notices. Announcements are in-app only; schedule and grades notices also try SMTP, which fails silently on the test host, so email was not tested.
+Table~\ref{tab:it_users_exams} checks how the role rules of User and Role Management (FR7) apply to accounts and to exams of Exam Creation and Configuration (FR8), including exam announcements and notices. In these tests the announcement is sent in the app only (the panel's e-mail switch is off by default); schedule and grade notices also try SMTP, which fails silently on the test host, so e-mail delivery was not tested.
 
 {\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
 \begin{longtable}{@{}P{1.1cm}P{2.5cm}P{3.5cm}P{2.6cm}P{2.9cm}>{\centering\arraybackslash}p{1.8cm}@{}}
