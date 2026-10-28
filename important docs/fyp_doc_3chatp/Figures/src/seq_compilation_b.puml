@@ -2,7 +2,6 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
-skinparam maxMessageSize 200
 hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
@@ -17,40 +16,37 @@ skinparam sequence {
 ' Open arrowheads (->>) are one-way: Enqueue writes the id to an unbounded channel, and GradingCompleted is
 ' IHubContext<MonitoringHub>.Clients.Group("exam:{id}").SendAsync(...).
 
-participant "GradingQueue\n(filled by\nFinalizeAsync)" as GQ
-participant "GradingWorker\n(MaxParallel: 2\nconsumers)" as GW
+participant "GradingWorker" as GW
 participant "GradingService" as GS
 database "AppDbContext" as DB
-participant "DockerCodeRunner\n(or LocalMingw\nCodeRunner)" as DR
-participant "LiveMonitor\nPage (web)" as WEB
-loop each answerId (continued)
+participant "Code Runner\n(Docker or\nMinGW)" as DR
+participant "Live Monitor\n(web)" as WEB
+loop each queued coding answer (continued)
 activate GW
 activate GS
-  alt no runner, or language not C/C++
-    GS -> GS : 0 marks, Low,\n"Not compiled - teacher review"
-  else runner available (Docker shown)
-    loop attempt 1..MaxAttempts (3) until a RunReport;\nback-off 2 s x attempt after an exception
-      GS -> DR : RunAsync(CodeJob: source,\ncases, limits)
+  alt no runner, or not C/C++
+    GS -> GS : 0 marks;\nteacher review
+  else runner available
+    loop up to 3 attempts, until a run report
+      GS -> DR : run code job
       activate DR
-      DR -> DR : docker run:\ncompile once,\nrun each case\n(own time limit)
-      DR --> GS : RunReport (compile output,\nexit code, time, output per case)\n| exception
+      DR -> DR : compile once;\nrun each test case\nwith its time limit
+      DR --> GS : run report\nor error
       deactivate DR
     end
     note over GS, DR
-      Docker run options: network none, read-only,
-      cap-drop ALL, memory 256m, cpus 0.5, pids-limit 64,
-      user 65534; gcc -std=c11 / g++ -std=c++17 -O0.
-      LocalMingwCodeRunner: same flags, static build,
-      each case in a Windows Job Object (not isolated).
+      Docker sandbox: no network,
+      read-only, limited
+      memory and CPU
     end note
-    alt RunReport returned
-      GS -> GS : TestCaseScorer.Score\n(OutputComparer) +\nCodeAnalyzer.Analyze
+    alt run report returned
+      GS -> GS : score test cases;\nanalyse code
     else every attempt failed
-      GS -> GS : 0 marks, Low,\nStatus = Failed;\ncases NotRun
+      GS -> GS : 0 marks;\nstatus Failed
     end
   end
-  GS -> DB : AiGradingResult (marks, confidence,\njustification) + TestCaseResults;\nAuditLog AI_GRADING_COMPLETED\n(or _FAILED); SaveChanges
-  GS ->> WEB : GradingCompleted {examId,\nsessionId, answerId, status}
+  GS -> DB : save result, test case\nresults, audit entry
+  GS ->> WEB : GradingCompleted
   GS --> GW : done
   deactivate GS
   deactivate GW

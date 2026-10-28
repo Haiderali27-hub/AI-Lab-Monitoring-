@@ -84,6 +84,30 @@
 \newcommand{\DiagramBarrier}{\par\begingroup\let\@elt\relax
   \edef\@tempa{\@botlist\@deferlist\@dbldeferlist}%
   \ifx\@tempa\@empty\else\clearpage\fi\endgroup}
+% \SoftBarrier flushes waiting figures only when the current page is already
+% well filled, so a figure stays close to its paragraph without leaving a
+% near-empty text page: one waiting figure at 75% of the page, two at 40%,
+% three or more at 20%.
+\newcount\sb@n \newcount\sb@s
+\def\sb@count#1{\global\advance\sb@n\@ne
+  \ifdim\ht#1<0.6\textheight\global\advance\sb@s\@ne\fi}
+\def\sb@a{0.75}\def\sb@b{0.4}\def\sb@c{0.2}
+% The flush is \newpage when at most one small figure waits (it then goes to
+% the top of the next page, beside text) and \clearpage otherwise.
+\def\sb@flush{\ifnum\sb@s>\@ne\clearpage\else\newpage\fi}
+\newcommand{\SoftBarrier}{\par\begingroup
+  \global\sb@n\z@ \global\sb@s\z@ \let\@elt\sb@count \@deferlist
+  \ifdim\pagegoal=\maxdimen \dimen@\z@ \else \dimen@\pagetotal \fi
+  \@tempswafalse
+  \ifnum\sb@n>\z@  \ifdim\dimen@>\sb@a\pagegoal \@tempswatrue\fi\fi
+  \ifnum\sb@n>\@ne \ifdim\dimen@>\sb@b\pagegoal \@tempswatrue\fi\fi
+  \ifnum\sb@n>\tw@ \ifdim\dimen@>\sb@c\pagegoal \@tempswatrue\fi\fi
+  \if@tempswa\aftergroup\sb@flush\fi\endgroup}
+% \SoftBarrierN (Chapter 6 screenshots) only ends the page (\newpage), so a
+% screenshot too small for a page of its own waits for the top of the next
+% page instead of standing alone; its limits are 60%, 30% and 15%.
+\newcommand{\SoftBarrierN}{{\let\sb@flush\newpage
+  \def\sb@a{0.6}\def\sb@b{0.3}\def\sb@c{0.15}\SoftBarrier}}
 \makeatother
 
 \begin{document}

@@ -1,0 +1,146 @@
+\section{Software Project Management Plan}
+
+\subsection{Project Planning}
+
+We plan in eight four-week sprints (Table~\ref{tab:timeframe}). Sprint 1 covers requirements and architecture, Sprints 2--7 deliver the modules, and Sprint 8 is for integration, testing and the demonstration. A task is done when its code and tests pass and its thesis section is updated. The work itself is broken down in the Work Breakdown Structure (WBS) of Section~\ref{sec:wbs} \cite{wbs1}, and the four plans below set the milestones, the documents, the resources and the quality checks.
+
+\subsubsection{Milestones Plan}
+\label{sec:milestones}
+
+Table~\ref{tab:milestones} lists the checkpoints of the baseline plan, each with the evidence that shows it is reached. Each row gives the milestone, the week at whose end it falls due and that evidence. MS3, MS5 and MS6 are shown by passing module tests, while MS4 and MS7 are the two formal reviews (FYP-I and final submission) and appear as diamonds in Figure~\ref{fig:ganttchart}. After the FYP-I review, M2, M4 and refresh-token rotation moved into Sprints 5--8, as noted below Table~\ref{tab:timeframe}.
+
+\begin{table}[!ht]
+\centering
+\caption{Project Milestones}
+\label{tab:milestones}
+{\small\renewcommand{\arraystretch}{1.1}
+\begin{tabularx}{\textwidth}{c>{\raggedright\arraybackslash}X>{\centering\arraybackslash}p{1.4cm}>{\raggedright\arraybackslash}p{4.9cm}}
+\hline\hline
+\textbf{ID} & \textbf{Milestone} & \textbf{Week} & \textbf{Evidence of completion} \\
+\hline
+MS1 & FYP-I proposal submitted & Before 1 & Proposal, 24 Feb 2026 \\
+MS2 & Requirements, product backlog and architecture agreed (activity A) & 4 & Scope approved \\
+MS3 & Login, device binding and roles working (M1, M7) & 8 & Module tests pass \\
+MS4 & FYP-I review & 16 & FYP-I report (Chapters 1--6) submitted on 18 Jun 2026 \\
+MS5 & Supervision, submission and evaluation working (M5, M6, M10, M11) & 24 & Module tests pass \\
+MS6 & All twelve modules merged (M12 last) & 28 & Module tests pass (M2 and M4 tests completed in Sprint 8) \\
+MS7 & Final regression run and submission & 32 & Full test run on 26 Oct 2026 (Chapter~\ref{chap:testing}) \\
+\hline\hline
+\end{tabularx}}
+\end{table}
+
+\subsubsection{Documentation Plan}
+
+The report and its sources are kept in step with the code:
+\begin{itemize}[nosep]
+    \item This report is written in LaTeX, and the section a task changes is updated in that task (R9).
+    \item Diagrams are kept as text sources (PlantUML, and Graphviz for the critical path network) beside the report, so they are redrawn when the design changes.
+    \item Each version of the report is recorded in the Revision History with its author and checker; supervisor feedback from the Sprint Review goes into the next sprint's backlog.
+    \item The testing owner keeps the test catalogue in the code repository (Chapter~\ref{chap:testing}).
+\end{itemize}
+
+\subsubsection{Resources Plan}
+\label{sec:resources_plan}
+
+Table~\ref{tab:resources} lists what the project uses. The table has one row per kind of resource: people, hardware, software, services and budget. The project has no budget, so each service is a free tier or is off by default (Section~\ref{sec:constraints}). Lab PCs are needed only for the manual lockdown and webcam checks; the automated tests run on our own PCs.
+
+\begin{table}[!ht]
+\centering
+\caption{Project Resources}
+\label{tab:resources}
+{\small\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}X}
+\hline\hline
+\textbf{Resource} & \textbf{Allocation} \\
+\hline
+People & Three members, each owning one area (Section~\ref{sec:managerial}); the supervisor reviews every sprint. \\
+Hardware & Our own PCs for development and the automated tests; Windows lab workstations, with webcams where an exam needs one, for the manual lockdown and webcam checks. \\
+Software & .NET~9 (ASP.NET Core API and WPF client), React web panel, EF Core with PostgreSQL, OpenCV with the YuNet and YOLOX-Nano models, Docker with the \texttt{gcc:13} image, xUnit, Playwright, Git, and LaTeX with PlantUML for this report. \\
+Services & Neon serverless PostgreSQL (free tier), an SMTP mail account for e-mail notifications, and an optional LLM API for theory grading that is off by default. \\
+Budget & None: no paid service is used. \\
+\hline\hline
+\end{tabularx}}
+\end{table}
+
+\filbreak
+\subsubsection{Quality Plan}
+
+Quality is checked inside every sprint, not only at the end:
+\begin{itemize}[nosep]
+    \item Each module is tested in its own sprint (the M2 and M4 tests, moved after the FYP-I review, were completed in Sprint 8): xUnit API integration tests, Playwright end-to-end tests for its web screens and unit tests for its desktop logic. The full regression suite is rerun after each group of fixes.
+    \item Checks that need a real lab PC go on the manual lab checklist (Table~\ref{tab:st_pending}).
+    \item AI output is advisory: the teacher reviews and can override every suggested mark, and no violation leads to an automatic penalty.
+    \item The supervisor reviews each increment at the Sprint Review. Chapter~\ref{chap:testing} gives the test plan and the results.
+\end{itemize}
+
+\subsection{Project Scheduling}
+\label{sec:scheduling}
+
+\subsubsection{Gantt Chart}
+
+Figure~\ref{fig:ganttchart} shows the baseline plan of Table~\ref{tab:timeframe}: one bar for each activity of Table~\ref{tab:cpm}, with arrows for its dependencies \cite{gantt1}. The diamonds mark milestones MS4 and MS7 of Table~\ref{tab:milestones}. The progress actually reached at the FYP-I review is given below Table~\ref{tab:timeframe}.
+
+Table~\ref{tab:cpm} lists the nine activities A--I with the modules each covers, its length in weeks and the activities it must wait for. Reading the Depends on column gives the chain of work: for example, D needs both B and C, so exam creation starts only when login and roles are ready. The Gantt chart and the critical path network below are both drawn from this table.
+
+In Figure~\ref{fig:ganttchart} the horizontal axis counts project weeks 1--32, and each sprint heading groups the bars of that sprint. The bar labels are short forms: A is requirements, product backlog and architecture; B is M1 authentication and device binding; C is M7 user and role management; D is M8 exam set-up with M9 eligibility and seat assignment; E is M2 readiness check and practice exam, M3 student exam dashboard and M4 secure exam environment (lockdown); F is M5 live monitoring client and M10 live proctoring dashboard; G is M6 submission and backup with M11 AI-assisted evaluation; H is M12 hash-chained audit log, analytics and exports; and I is integration, system tests, documentation and the final demo. Red bars lie on the critical path A--B--D--E--F--G--H--I, and the grey bar C has two weeks of float. The FYP-I review diamond falls at the end of Week 16 and the final submission diamond at the end of Week 32. In the baseline plan each module is tested in its own sprint, so each bar includes the tests of its modules.
+
+\begin{table}[!htbp]
+\centering
+\caption{Project Activities, Durations and Dependencies}
+\label{tab:cpm}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{c>{\raggedright\arraybackslash}p{7.2cm}lcc}
+\hline\hline
+\textbf{ID} & \textbf{Activity} & \textbf{Modules} & \textbf{Weeks} & \textbf{Depends on} \\
+\hline
+A & Requirements, backlog and architecture & -- & 4 & -- \\
+B & Authentication and device binding & M1 & 4 & A \\
+C & User and role management & M7 & 2 & A \\
+D & Exam creation and eligibility & M8, M9 & 4 & B, C \\
+E & Readiness check, student dashboard and lockdown & M2--M4 & 4 & D \\
+F & Monitoring client and live proctoring dashboard & M5, M10 & 4 & E \\
+G & Submission, backup and AI-assisted evaluation & M6, M11 & 4 & F \\
+H & Hash-chained audit log, analytics and reports & M12 & 4 & G \\
+I & Integration, system testing, documentation and demo & All & 4 & H \\
+\hline\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{Figures/gantt_chart.png}
+\caption{Project Gantt Chart (Baseline Plan, Eight Sprints)}
+\label{fig:ganttchart}
+\end{figure}
+
+\subsubsection{Work Breakdown Structure}
+\label{sec:wbs}
+
+The WBS splits the project into work packages \cite{wbs1}. Figure~\ref{fig:wbs} goes down to module level: each module is one work package (2.x.y) that includes its own tests, so package 3 (Sprint 8) holds system-level work: final integration, end-to-end tests, the full regression run and bug fixing, plus the M2, M4 and refresh-token rotation tests moved after the FYP-I review.
+
+The tree in Figure~\ref{fig:wbs} is read from the top: the root is the whole project, the four boxes below it are the main packages, and each lower box is a part of the box above it. Labels are kept short. Package 1 is Planning and Requirements (1.1 covers requirements and use cases), package 3 is Integration and System Testing, and package 4 is Documentation and Delivery. Under package 2, Module Development, 2.1 is access and identity, 2.5 is submission and evaluation and 2.6 is logs and reporting, and each module package includes its own tests. Each leaf is a short form of a module name from Chapter~\ref{chap:introduction}: for example, 2.1.1 is M1 Authentication and Device Binding, 2.1.2 is M7 User and Role Management, 2.2.1 is M8 Exam Creation and Configuration, 2.2.2 is M9 Eligibility and Access Control, 2.3.1 is M2 Pre-Exam Verification and Practice Exam, 2.3.3 is M4 Secure Exam Environment, 2.4.2 is M10 Live Proctoring Dashboard, 2.5.2 is M11 AI-Assisted Evaluation and 2.6.1 is M12 Logs, Analytics and Audit Trail. In package 3, 3.1 is the final integration of M1--M12, 3.2 the end-to-end system tests and 3.3 the full regression run with xUnit and Playwright. In the sprint backlog each module is split further into tasks, and each task has one WBS code and one owner from the role split in Section~\ref{sec:managerial}.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{Figures/work_breakdown_structure.png}
+\caption{Work Breakdown Structure}
+\label{fig:wbs}
+\end{figure}
+
+\subsubsection{Critical Path Method}
+
+The critical path is the longest chain of dependent activities; any delay on it delays the project \cite[Sec.~6.5.2.2]{pmbok6}. Table~\ref{tab:cpm} lists our activities and Figure~\ref{fig:criticalpath} shows the network. Each box in the figure is one activity: its top row gives the earliest start (ES), the duration and the earliest finish (EF), and its bottom row the latest start (LS), the float and the latest finish (LF), all in weeks elapsed. Red boxes joined by solid arrows form the critical path, while the grey box C with its dashed arrows is the only activity with float.
+
+The critical path is A $\rightarrow$ B $\rightarrow$ D $\rightarrow$ E $\rightarrow$ F $\rightarrow$ G $\rightarrow$ H $\rightarrow$ I, which takes 32 weeks ($8 \times 4$); the only other chain, through C, takes 30 weeks. Only C has float: it takes two weeks alongside B, so it can slip two weeks without moving the end date. Since almost all work is on the critical path, a late sprint delays every later one.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{Figures/critical_path.png}
+\caption{Critical Path Network}
+\label{fig:criticalpath}
+\end{figure}
+
+\subsubsection{Schedule Control}
+\label{sec:schedule_control}
+
+We track progress with sprint burn-down charts \cite{scrum1}. If less than 80\% of a sprint's story points are done at the review, we hold a recovery meeting and move or cut backlog items before the next sprint starts.

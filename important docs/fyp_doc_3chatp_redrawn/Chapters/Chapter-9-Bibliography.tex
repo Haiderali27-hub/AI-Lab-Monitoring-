@@ -1,0 +1,138 @@
+%% Entries are ordered by first citation through the whole thesis (checked against the .aux citation order).
+%% Web sources were checked on 26 October 2026. The PMI, Sparx and MOSS pages
+%% refuse automated requests (403 / connection refused); they were confirmed
+%% to exist in the earlier audit but could not be re-fetched on that date.
+
+%% \bibalias{oldkey} placed after a \bibitem makes \cite{oldkey} print that
+%% entry's number. It keeps older cite keys working while the chapters move
+%% to the new keys; delete an alias line once no chapter cites the old key.
+\makeatletter
+\providecommand*{\bibalias}[1]{%
+  \if@filesw\immediate\write\@auxout{\string\bibcite{#1}{\the\value{\@listctr}}}\fi}
+\makeatother
+
+\begin{thebibliography}{99}
+\addcontentsline{toc}{chapter}{\bibname}
+\raggedright
+%% Let long URLs break after hyphens as well (url package is loaded in FYP-Final.tex).
+\expandafter\def\expandafter\UrlBreaks\expandafter{\UrlBreaks\do\-}
+
+%% First cited in front
+\bibitem{pmbok6} Project Management Institute, \textit{A Guide to the Project Management Body of Knowledge (PMBOK Guide)}, 6th ed. Newtown Square, PA, USA: PMI, 2017.
+
+%% First cited in Chapter 1
+\bibitem{respondus1} Respondus, ``Respondus LockDown Browser.'' [Online]. Available: \url{https://web.respondus.com/he/lockdownbrowser/} (accessed Oct. 26, 2026).
+
+\bibitem{respondus_monitor} Respondus, ``Respondus Monitor: Automated proctoring solution for higher ed.'' [Online]. Available: \url{https://web.respondus.com/he/monitor/} (accessed Oct. 26, 2026).
+
+\bibitem{respondus_webcam} Respondus, ``Using LockDown Browser with a webcam: The student experience.'' [Online]. Available: \url{https://web.respondus.com/using-lockdown-browser-with-a-webcam-the-student-experience/} (accessed Oct. 26, 2026).
+
+\bibitem{seb1} Safe Exam Browser, ``About: Overview.'' [Online]. Available: \url{https://safeexambrowser.org/about_overview_en.html} (accessed Oct. 26, 2026).
+
+\bibitem{sebserver1} ETH Zurich, ``Exam monitoring,'' in \textit{SEB Server Documentation}. [Online]. Available: \url{https://seb-server.readthedocs.io/en/latest/monitoring.html} (accessed Oct. 26, 2026).
+
+\bibitem{moss1} A. Aiken, ``MOSS: A system for detecting software similarity,'' Stanford University. [Online]. Available: \url{https://theory.stanford.edu/~aiken/moss/} (accessed Oct. 26, 2026).
+
+\bibitem{examsoft1} ExamSoft (Turnitin), ``ExamSoft by Turnitin: Secure assessment in the age of AI.'' [Online]. Available: \url{https://examsoft.com/} (accessed Oct. 26, 2026).
+
+\bibitem{examsoft_id} ExamSoft, ``ExamID: Product specifications.'' [Online]. Available: \url{https://examsoft.com/product-specifications/exam-id} (accessed Oct. 26, 2026).
+
+\bibitem{examsoft_monitor} ExamSoft, ``ExamMonitor: Product specifications.'' [Online]. Available: \url{https://examsoft.com/product-specifications/exam-monitor/} (accessed Oct. 26, 2026).
+
+\bibitem{moodle1} Moodle, ``Moodle and assessment.'' [Online]. Available: \url{https://moodle.com/moodle-and-assessment/} (accessed Oct. 26, 2026).
+
+\bibitem{proctorio1} Proctorio, ``Online proctoring software \& assessment security.'' [Online]. Available: \url{https://proctorio.com/} (accessed Oct. 26, 2026).
+
+\bibitem{honorlock1} Honorlock, ``What is online proctoring? Types, features, and integrations,'' Oct. 7, 2025. [Online]. Available: \url{https://honorlock.com/blog/what-is-proctored-testing/} (accessed Oct. 26, 2026).
+
+\bibitem{blackboard1} Blackboard, ``A leading LMS for modern education \& learning experiences.'' [Online]. Available: \url{https://www.blackboard.com/solutions/lms} (accessed Oct. 26, 2026).
+
+\bibitem{canvas1} Instructure, ``Canvas by Instructure: World leading LMS for teaching \& learning.'' [Online]. Available: \url{https://www.instructure.com/canvas} (accessed Oct. 26, 2026).
+
+\bibitem{gclassroom1} Google for Education, ``Google Classroom.'' [Online]. Available: \url{https://edu.google.com/workspace-for-education/products/classroom/} (accessed Oct. 26, 2026).
+
+\bibitem{gclassroom_quiz} Google, ``Create a quiz assignment,'' Classroom Help. [Online]. Available: \url{https://support.google.com/edu/classroom/answer/9095575} (accessed Oct. 26, 2026).
+
+\bibitem{doran1981} G. T. Doran, ``There's a S.M.A.R.T. way to write management's goals and objectives,'' \textit{Management Review}, vol. 70, no. 11, pp. 35--36, 1981.
+
+\bibitem{rbac1} NIST Computer Security Resource Center, ``Role based access control.'' [Online]. Available: \url{https://csrc.nist.gov/projects/role-based-access-control} (accessed Oct. 26, 2026).
+
+\bibitem{mit_cbt} C. Zilles, ``Computer-based testing: Secure, efficient, cost effective,'' MIT Open Learning. [Online]. Available: \url{https://openlearning.mit.edu/mit-faculty/residential-digital-innovations/computer-based-testing-secure-efficient-cost-effective} (accessed Oct. 26, 2026).
+
+\bibitem{zilles2019} C. Zilles, M. West, G. Herman, and T. Bretl, ``Every university should have a computer-based testing facility,'' in \textit{Proc. 11th Int. Conf. Computer Supported Education (CSEDU)}, Heraklion, Greece, 2019, pp. 414--420, doi: 10.5220/0007753304140420.
+
+\bibitem{rfc7519} M. Jones, J. Bradley, and N. Sakimura, ``JSON Web Token (JWT),'' IETF, RFC 7519, May 2015, doi: 10.17487/RFC7519.
+
+\bibitem{rfc9700} T. Lodderstedt, J. Bradley, A. Labunets, and D. Fett, ``Best current practice for OAuth 2.0 security,'' IETF, RFC 9700 (BCP 240), Jan. 2025, doi: 10.17487/RFC9700.
+
+\bibitem{eassess1} G. Conole and B. Warburton, ``A review of computer-assisted assessment,'' \textit{ALT-J, Research in Learning Technology}, vol. 13, no. 1, pp. 17--31, 2005.
+
+\bibitem{alamutka2005} K. M. Ala-Mutka, ``A survey of automated assessment approaches for programming assignments,'' \textit{Computer Science Education}, vol. 15, no. 2, pp. 83--102, 2005, doi: 10.1080/08993400500150747.
+
+\bibitem{salton1988} G. Salton and C. Buckley, ``Term-weighting approaches in automatic text retrieval,'' \textit{Information Processing \& Management}, vol. 24, no. 5, pp. 513--523, 1988, doi: 10.1016/0306-4573(88)90021-0.
+
+\bibitem{agile1} Atlassian, ``What is Agile?'' [Online]. Available: \url{https://www.atlassian.com/agile} (accessed Oct. 26, 2026).
+
+\bibitem{scrumguide2020} K. Schwaber and J. Sutherland, \textit{The Scrum Guide: The Definitive Guide to Scrum: The Rules of the Game}, Nov. 2020. [Online]. Available: \url{https://scrumguides.org/docs/scrumguide/v2020/2020-Scrum-Guide-US.pdf} (accessed Oct. 26, 2026).
+
+\bibitem{agilemanifesto} K. Beck \textit{et al.}, ``Manifesto for Agile software development,'' 2001. [Online]. Available: \url{https://agilemanifesto.org/} (accessed Oct. 26, 2026).
+
+\bibitem{srs1} \textit{Systems and Software Engineering -- Life Cycle Processes -- Requirements Engineering}, ISO/IEC/IEEE 29148:2018, 2nd ed., Nov. 2018. (Supersedes IEEE Std 830-1998.)
+
+%% First cited in Chapter 2
+\bibitem{iso25010} \textit{Systems and Software Engineering -- Systems and Software Quality Requirements and Evaluation (SQuaRE) -- Product Quality Model}, ISO/IEC 25010:2023, Nov. 2023.
+
+\bibitem{owasp_pwd} OWASP Foundation, ``Password storage cheat sheet,'' OWASP Cheat Sheet Series. [Online]. Available: \url{https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html} (accessed Oct. 26, 2026).
+
+\bibitem{nist80063b} D. Temoshok \textit{et al.}, ``Digital identity guidelines: Authentication and authenticator management,'' NIST, Gaithersburg, MD, USA, Special Publication 800-63B-4, Jul. 2025, doi: 10.6028/NIST.SP.800-63B-4.
+
+\bibitem{elicit1} K. Pohl, \textit{Requirements Engineering: Fundamentals, Principles, and Techniques}. Berlin, Germany: Springer, 2010.
+
+\bibitem{sommerville} I. Sommerville, \textit{Software Engineering}, 10th ed. Boston, MA, USA: Pearson, 2015.
+
+\bibitem{del1} Atlassian, ``What are project deliverables in project management?'' [Online]. Available: \url{https://www.atlassian.com/work-management/project-management/project-deliverables} (accessed Oct. 26, 2026).
+
+%% First cited in Chapter 3
+\bibitem{wbs1} S. A. Brotherton, R. T. Fried, and E. S. Norman, ``Applying the work breakdown structure to the project management lifecycle,'' in \textit{Proc. PMI Global Congress 2008 -- North America}, Denver, CO, USA, 2008. [Online]. Available: \url{https://www.pmi.org/learning/library/applying-work-breakdown-structure-project-lifecycle-6979} (accessed Oct. 26, 2026).
+
+\bibitem{gantt1} TeamGantt, ``Gantt chart guide: What it is, how to build one, and examples.'' [Online]. Available: \url{https://www.teamgantt.com/resources/articles/gantt-chart} (accessed Oct. 26, 2026).
+
+\bibitem{scrum1} Atlassian, ``What is Scrum? Guide to the Agile framework.'' [Online]. Available: \url{https://www.atlassian.com/agile/scrum} (accessed Oct. 26, 2026).
+
+\bibitem{yunet} W. Wu, H. Peng, and S. Yu, ``YuNet: A tiny millisecond-level face detector,'' \textit{Machine Intelligence Research}, vol. 20, no. 5, pp. 656--665, 2023, doi: 10.1007/s11633-023-1423-y.
+
+\bibitem{yolox} Z. Ge, S. Liu, F. Wang, Z. Li, and J. Sun, ``YOLOX: Exceeding YOLO series in 2021,'' 2021, \textit{arXiv:2107.08430}.
+
+\bibitem{risk1} \textit{Risk Management -- Guidelines}, ISO 31000:2018, Feb. 2018.
+
+\bibitem{iec31010} \textit{Risk Management -- Risk Assessment Techniques}, IEC 31010:2019, 2nd ed., Jun. 2019.
+
+\bibitem{uml_systems_analysis} A. Dennis, B. H. Wixom, and D. Tegarden, \textit{Systems Analysis and Design with UML}, 5th ed. Hoboken, NJ, USA: Wiley, 2015.
+
+%% First cited in Chapter 4
+\bibitem{user_stories_applied} M. Cohn, \textit{User Stories Applied: For Agile Software Development}. Boston, MA, USA: Addison-Wesley, 2004.
+
+\bibitem{use_case_definition} K. Brush, ``What is a use case?'' TechTarget, Nov. 28, 2022. [Online]. Available: \url{https://www.techtarget.com/it-infrastructure/definition/use-case} (accessed Oct. 26, 2026).
+
+\bibitem{winnowing} S. Schleimer, D. S. Wilkerson, and A. Aiken, ``Winnowing: Local algorithms for document fingerprinting,'' in \textit{Proc. ACM SIGMOD Int. Conf. Management of Data}, San Diego, CA, USA, 2003, pp. 76--85, doi: 10.1145/872757.872770.
+
+\bibitem{elmasri2016} R. Elmasri and S. B. Navathe, \textit{Fundamentals of Database Systems}, 7th ed. Boston, MA, USA: Pearson, 2016.
+
+\bibitem{omg_uml251} Object Management Group, \textit{OMG Unified Modeling Language (OMG UML)}, Version 2.5.1, formal/17-12-05, Dec. 2017. [Online]. Available: \url{https://www.omg.org/spec/UML/2.5.1/} (accessed Oct. 26, 2026).
+
+\bibitem{class_diagram_uml} K. Fakhroutdinov, ``UML class diagrams,'' UML-Diagrams.org. [Online]. Available: \url{https://www.uml-diagrams.org/class-diagrams.html} (accessed Oct. 26, 2026).
+
+\bibitem{class_diagram_sparx} Sparx Systems, ``UML 2 tutorial -- Class diagram.'' [Online]. Available: \url{https://sparxsystems.com/resources/tutorials/uml2/class-diagram.html} (accessed Oct. 26, 2026).
+
+%% First cited in Chapter 5
+\bibitem{deployment_diagram_vp} Visual Paradigm, ``What is deployment diagram?'' [Online]. Available: \url{https://www.visual-paradigm.com/guide/uml-unified-modeling-language/what-is-deployment-diagram/} (accessed Oct. 26, 2026).
+
+\bibitem{activity_diagram_vp} Visual Paradigm, ``What is activity diagram?'' [Online]. Available: \url{https://www.visual-paradigm.com/guide/uml-unified-modeling-language/what-is-activity-diagram/} (accessed Oct. 26, 2026).
+
+\bibitem{sequence_diagram_vp} Visual Paradigm, ``What is sequence diagram?'' [Online]. Available: \url{https://www.visual-paradigm.com/guide/uml-unified-modeling-language/what-is-sequence-diagram/} (accessed Oct. 26, 2026).
+
+\bibitem{rfc8018} K. Moriarty, Ed., B. Kaliski, and A. Rusch, ``PKCS \#5: Password-based cryptography specification version 2.1,'' IETF, RFC 8018, Jan. 2017, doi: 10.17487/RFC8018.
+
+\bibitem{nielsen_heuristics} J. Nielsen, ``10 usability heuristics for user interface design,'' Nielsen Norman Group, Apr. 24, 1994, updated Jan. 30, 2024. [Online]. Available: \url{https://www.nngroup.com/articles/ten-usability-heuristics/} (accessed Oct. 26, 2026).
+
+\end{thebibliography}

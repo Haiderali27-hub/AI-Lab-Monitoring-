@@ -2,19 +2,17 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
-skinparam maxMessageSize 200
+skinparam maxMessageSize 220
 hide footbox
 hide unlinked
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 4
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
 }
-' Code: Backend_API/Controllers/ExamsController.cs (Submit); Services/SubmissionService.cs (FinalizeAsync);
-' Services/Grading/GradingService.cs (StageAsync), TheoryGrader.cs, PlagiarismService.cs (DetectAsync),
+' Code: Services/SubmissionService.cs (FinalizeAsync); Services/Grading/PlagiarismService.cs (DetectAsync),
 ' PlagiarismEngine.cs, PlagiarismFingerprintCache.
-' Background code grading of the queued answers: seq_compilation.puml. Teacher heat map: seq_plagiarism_matrix.puml.
 ' Open arrowheads (->>) are one-way: Enqueue writes to an unbounded channel; SessionFinalized is a SignalR group push.
 
 participant "Submission\nService" as SS
@@ -23,30 +21,30 @@ participant "Plagiarism\nService" as PS
 participant "Plagiarism\nEngine" as PE
 database "AppDbContext" as DB
 activate SS
-opt not a practice exam (IsMock = false)
-  SS -> PS : DetectAsync(session, answers)
+opt not a practice exam
+  SS -> PS : check plagiarism
   activate PS
-  loop each non-MCQ, non-empty answer
-    PS -> DB : same question's answers in other\nfinalised sessions of the exam
-    DB --> PS : others
+  loop each coding or theory answer (non-empty)
+    PS -> DB : same question's answers in\nother finalised sessions
+    DB --> PS : other answers
     loop each other non-empty answer
-      PS -> PE : Compare(fingerprints, from\nPlagiarismFingerprintCache)
+      PS -> PE : compare fingerprints
       activate PE
-      PE --> PS : Similarity (5-gram winnowing,\nw = 4, Jaccard x 100), segments
+      PE --> PS : similarity
       deactivate PE
-      opt Similarity >= Exam.PlagiarismThreshold\nand the pair is not stored yet
-        PS -> DB : add PlagiarismResult(UserIdA, UserIdB,\nSimilarityScore, MatchingSegments)
+      opt similarity >= exam threshold,\npair not stored yet
+        PS -> DB : add PlagiarismResult
       end
     end
   end
   PS --> SS : done
   deactivate PS
 end
-SS -> DB : Status = Submitted, ReceiptSha256;\nAuditLog SESSION_SUBMITTED; SaveChanges
-loop each id in toGrade (none when AI evaluation is off)
-  SS ->>] : GradingQueue.Enqueue(id)
+SS -> DB : mark Submitted, receipt hash;\naudit SESSION_SUBMITTED; save
+loop each answer to queue
+  SS ->>] : add to grading queue
 end
-SS ->>] : SessionFinalized\n(SignalR group exam:{id})
-[<-- SS : receipt {sessionId, submittedAt,\nanswerCount, sha256}
+SS ->>] : SessionFinalized\n(SignalR)
+[<-- SS : receipt
 deactivate SS
 @enduml

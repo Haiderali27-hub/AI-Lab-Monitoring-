@@ -2,6 +2,15 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 6
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
 ' Reports and audit chain (Module 12). Web: Admin_Web_Panel/src/pages/analytics/ReportsPage.tsx (analyticsApi.generateReport,
 ' generateExport(type, examId), getReportHistory, getReportDownloadUrl + fetch with Bearer token) and
 ' pages/admin/AuditLogsPage.tsx (auditApi.verifyChain, GET /api/audit-logs/verify, Admin/SuperAdmin only).
@@ -15,69 +24,42 @@ skinparam ArrowFontSize 14
 '   404 file not under Reports/ or missing).
 ' Controllers/AuditController.Verify -> AuditChain.VerifyAsync {valid, brokenAt, reason, checkedCount, unsealed,
 ' lastVerifiedSequence, lastVerifiedHash}.
-hide footbox
-hide unlinked
-skinparam ParticipantPadding 2
-skinparam BoxPadding 0
-skinparam maxMessageSize 200
-skinparam sequence {
-  MessageAlign left
-  LifeLineBackgroundColor #E6E6E6
-}
 
-actor "Admin, or the\nexam's owner\nTeacher (exports)" as T
-participant "ReportsPage\n(web)" as RP
+actor "Admin or\nexam owner" as T
+participant "Reports\npage (web)" as RP
 participant "Analytics\nController" as AC
 participant "ReportExport\nService" as RES
-database "AppDb\nContext" as DB
-participant "Audit\nController" as AUC
-participant "AuditLogs\nPage (web)" as ALP
+database "AppDbContext" as DB
 
 T -> RP : pick export
 activate RP
-RP -> AC : POST /api/analytics/\nreports/{type} {examId}
+RP -> AC : generate export
 activate AC
-AC -> AC : type known (400)?\nowner or admin\n(else 403)?
-AC -> RES : GenerateAsync(type,\nexamId, userId)
+AC -> AC : known type?\nowner or admin?
+AC -> RES : generate file
 activate RES
 RES -> DB : load exam data
 activate DB
 DB --> RES : sessions, events,\nscores, evidence
 deactivate DB
-RES -> RES : PDF / XLSX /\nZIP in Reports/;\nfile SHA-256
-RES -> DB : SaveChangesAsync()
+RES -> RES : build PDF / XLSX / ZIP;\nfile SHA-256
+RES -> DB : save report row +\nREPORT_GENERATED entry
 activate DB
-note over RES, DB
-+ExamReport row and
-+AuditLog REPORT_GENERATED
-{type, fileName, sha256,
-size}; AuditChain seals
-the row (Sequence,
-PrevHash, Hash)
-end note
-DB --> RES : saved
+DB --> RES : saved; entry sealed\ninto the chain
 deactivate DB
-RES --> AC : fileName, sha256
+RES --> AC : file name, hash
 deactivate RES
-AC --> RP : 200 {fileName,\nsha256,\ndownloadUrl}
+AC --> RP : file name, hash, link
 deactivate AC
-note right
-The exam summary PDF
-(POST .../exams/{id}/report,
-AnalyticsService) is built
-the same way but writes
-no audit row.
-end note
-RP -> AC : GET /api/analytics/\nreports/{fileName}
+RP -> AC : download file
 activate AC
-AC -> DB : ExamReport by bare\nfile name (else 400)
+AC -> DB : find report row
 activate DB
-DB --> AC : row (else 404)
+DB --> AC : row
 deactivate DB
-AC -> AC : owner or admin\n(403)? file in\nReports/ (404)?
-AC --> RP : file stream
+AC -> AC : owner or admin?\nfile exists?
+AC --> RP : file
 deactivate AC
 RP --> T : file saved
 deactivate RP
-
 @enduml

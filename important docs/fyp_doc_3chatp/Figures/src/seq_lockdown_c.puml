@@ -17,7 +17,6 @@ hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
 skinparam BoxPadding 2
-skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
@@ -25,21 +24,19 @@ skinparam sequence {
 
 participant "Exam\nWindow" as EW
 participant "Lockdown\nCoordinator" as LC
-participant "TaskManager\nRegistry\nGuard" as TM
-participant "Keyboard\nHook\nService" as KB
-participant "Clipboard\nGuard\nService" as CB
-participant "Process\nGuard\nService" as PG
-participant "Device\nGuard\nService" as DG
-participant "Live\nMonitoring\nService" as LMS
-participant "ApiClient" as API
+participant "Task Manager\nGuard" as TM
+participant "Keyboard\nHook" as KB
+participant "Clipboard\nGuard" as CB
+participant "Process\nGuard" as PG
+participant "Device\nGuard" as DG
 == submit, force-submit, crash or exit ==
-EW -> LC : Dispose() (Window_\nClosing; crash or exit\nhandlers call Stop())
+EW -> LC : stop
 activate LC
-LC -> TM : Restore()
-LC -> KB : Uninstall()
-LC -> CB : Stop()
-LC -> PG : Stop()
-LC -> DG : Stop()
+LC -> TM : restore\nTask Manager
+LC -> KB : remove hook
+LC -> CB : stop
+LC -> PG : stop
+LC -> DG : stop
 LC --> EW
 deactivate LC
 @enduml

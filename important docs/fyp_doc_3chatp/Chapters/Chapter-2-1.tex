@@ -12,8 +12,12 @@ The SRS covers the twelve modules M1--M12: authentication and device binding, pr
 Database schemas, API routes, screen layouts and deployment settings are not part of this chapter. They are given in the design chapters.
 
 \subsection{Audience}
+This document is written for everyone who builds, checks, runs or uses SmartExam. Each group reads it for a different reason:
 \begin{itemize}
-    \item \textbf{Project team:} the SRS is our contract. Every requirement maps to a module and to test cases. We do not build a feature that is not listed here unless the SRS is updated first.
-    \item \textbf{Supervisor and evaluators:} they use it to judge whether the scope is clear and realistic for a two-semester FYP.
-    \item \textbf{Future maintainers:} lab administrators, university IT staff or later FYP groups can use it to see what the system does and where it can be extended.
+    \item \textbf{Software developers:} they use the requirements to know exactly what each module M1--M12 must do, so the desktop client, the API and the web panel are built to the same rules.
+    \item \textbf{Testers:} they use each requirement and its limits as a test target, so every test case in Chapter~\ref{chap:testing} can be traced back to an FR or NFR.
+    \item \textbf{Managers:} the supervisor and the project team use the requirements and the time frame to plan the sprints and to check progress at each review.
+    \item \textbf{End-users:} students, teachers, invigilators and administrators can see what the system will do for them, from logging in and sitting an exam to watching a lab and grading answers.
+    \item \textbf{Business and academic stakeholders:} the department and the evaluators can judge whether the scope is clear, fair to students and realistic for a two-semester FYP.
+    \item \textbf{Data and quality assurance analysts:} they can see which logs, reports and exports the system produces and how the hash-chained audit log keeps that data trustworthy.
 \end{itemize}

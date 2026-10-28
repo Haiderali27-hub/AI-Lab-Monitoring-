@@ -1,0 +1,65 @@
+@startuml
+!include style.iuml
+' Allowed applications: CreateExamPage + AllowedAppsPicker (utils/allowedApps.ts), ExamsController POST/PUT
+' (Exam.AllowedApps JSON, Exam.LockdownMode, default Report), GET /api/exams/student/current (practice exam: Report,
+' no list), LockdownCoordinator (Start does nothing when Mode = Off), LockdownPolicy.Evaluate, ProcessGuardService
+' (2 s scan, own Windows session; Enforce kills every time, Report raises once per app via _reported),
+' LockdownCoordinator.Report (drops a repeat of the same reason|detail within ReportCooldown = 15 s) ->
+' LiveMonitoringService.ReportViolation (urgent event in the encrypted outbox + CaptureForViolation).
+' Simplified labels: always-allowed processes, the 15 s repeat filter and practice-exam rules are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 28
+skinparam ArrowFontSize 27
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 29
+}
+
+|Teacher (Web Panel)|
+start
+repeat
+  :Pick or type
+  an app (.exe);
+repeat while (Valid\nname?) is ([no]) not ([yes])
+:Choose lockdown
+mode: Off, Report
+or Enforce, save;
+|Server|
+:Save allowed
+apps and mode
+on the exam;
+|Desktop App|
+:Load exam rules,
+build lockdown
+policy;
+if (Mode
+Off?) then ([yes])
+  stop
+else ([no])
+endif
+repeat
+  :Scan processes
+  every 2 s;
+  if (App not
+  allowed?) then ([yes])
+    if (Mode?) then ([Enforce])
+      :Kill the
+      process tree;
+      :Report violation,
+      capture screen;
+    else ([Report])
+      if (First report
+of this app?) then ([yes])
+        :Report violation,
+        capture screen;
+      else ([no])
+      endif
+    endif
+  else ([no])
+  endif
+repeat while (Session\nrunning?) is ([yes]) not ([no])
+:Stop guards;
+stop
+@enduml

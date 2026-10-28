@@ -5,7 +5,7 @@ skinparam ArrowFontSize 14
 skinparam maxMessageSize 200
 hide footbox
 hide unlinked
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 6
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
@@ -18,37 +18,36 @@ skinparam sequence {
 ' start gate: ExamsController student/start returns NOT_ELIGIBLE.
 
 actor Teacher as T
-participant "EligibilityPage\n(web)" as UI
+participant "Eligibility\npage (web)" as UI
 participant "Exams\nController" as EC
-participant "AuditService" as AS
+participant "Audit\nService" as AS
 database "AppDbContext" as DB
 
-T -> UI : toggle students and add\nnotes, then Save; or Clear\noverride on one student's row
+T -> UI : set eligibility or\nnotes, Save; or\nClear override
 activate UI
-UI -> EC : PUT /api/exams/{examId}/\neligibility {assignments:\nchanged rows, or that one\nrow with clearOverride: true}
+UI -> EC : save eligibility\n(changed rows)
 activate EC
-EC -> EC : LoadManagedExamAsync
-break exam missing, or not the teacher's own section
-  EC --> UI : 404 / 403
+EC -> EC : load exam
+break exam missing or\nnot own section
+  EC --> UI : refused
 end
-EC -> DB : ExamAssignments of the exam
+EC -> DB : exam assignments
 loop each row sent
-  alt clearOverride
-    EC -> EC : Overridden = false;\nSource = null
-    EC -> AS : Add(ELIGIBILITY_\nOVERRIDE_CLEARED)
-  else eligibility or note changed
-    EC -> AS : Add(ELIGIBILITY_OVERRIDDEN\n{isEligible, note, previous})
-    EC -> EC : IsEligible, EligibilityNote;\nOverridden = true;\nSource = Manual
+  alt clear override
+    EC -> EC : override off
+    EC -> AS : ELIGIBILITY_\nOVERRIDE_CLEARED
+  else eligibility or\nnote changed
+    EC -> AS : ELIGIBILITY_\nOVERRIDDEN
+    EC -> EC : set eligibility, note;\noverride on (Manual)
   end
 end
-EC -> AS : Add(ELIGIBILITY_UPDATED\n{overridden, cleared})
+EC -> AS : ELIGIBILITY_\nUPDATED
 activate AS
-AS -> DB : AuditLogs.Add (staged)
+AS -> DB : add audit row
 deactivate AS
-EC -> DB : SaveChanges
-EC --> UI : 200 {overridden, cleared}
+EC -> DB : save
+EC --> UI : overridden,\ncleared
 deactivate EC
-UI --> T : updated list; after Clear\noverride, a notice to Recalculate
+UI --> T : updated list; after\nClear override, a\nRecalculate notice
 deactivate UI
-note over UI, DB : A later recalculation skips overridden students; an ineligible\nstudent's start is refused with NOT_ELIGIBLE (UC-04).
 @enduml

@@ -2,49 +2,49 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
-skinparam maxMessageSize 200
+skinparam maxMessageSize 220
 hide footbox
 hide unlinked
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 4
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
 }
-' Code: Admin_Web_Panel/src/pages/teacher/live/StudentDrawer.tsx, ScreenshotCarousel.tsx;
-' Backend_API/Controllers/MonitoringEvidenceController.cs; Services/ExamAccessService.cs; EvidenceStorage.
+' Code: Admin_Web_Panel/src/pages/teacher/live/ScreenshotCarousel.tsx;
+' Backend_API/Controllers/MonitoringEvidenceController.cs (screenshots, content); Services/ExamAccessService.cs; EvidenceStorage.
 
 actor "Teacher /\nInvigilator /\nAdmin" as U
-participant "StudentDrawer +\nScreenshotCarousel\n(Live Monitor)" as UI
+participant "Live Monitor\nstudent drawer\n(web panel)" as UI
 participant "MonitoringEvidence\nController" as MC
 participant "ExamAccess\nService" as EA
 participant "Evidence\nStorage" as ES
 database "AppDbContext" as DB
 activate UI
-UI -> MC : GET /api/exams/{examId}/\nsessions/{sessionId}/screenshots
+UI -> MC : get capture list
 activate MC
-MC -> EA : DenyUnlessAsync (same rule)
+MC -> EA : check access (same rule)
 activate EA
-EA --> MC : null | 404 | 403
+EA --> MC : allowed, 404 or 403
 deactivate EA
-MC -> DB : session in exam (else 404); its Screenshots, newest first
+MC -> DB : session (none: 404) and its\nscreenshots, newest first
 DB --> MC : rows
-MC --> UI : 200 [{screenshotId, kind,\ntrigger, capturedAt, contentUrl}]
+MC --> UI : 200 capture list
 deactivate MC
 loop each capture shown
-  UI -> MC : GET /api/screenshots/{id}/content
+  UI -> MC : get image
   activate MC
-  MC -> DB : Screenshot(id) (else 404)
-  DB --> MC : shot
-  MC -> EA : GetAsync(user, shot.ExamId)
+  MC -> DB : find screenshot (none: 404)
+  DB --> MC : screenshot
+  MC -> EA : check access (none: 403)
   activate EA
-  EA --> MC : ExamAccess (None -> 403)
+  EA --> MC : access level
   deactivate EA
-  MC -> ES : OpenRead(StoragePath)
+  MC -> ES : open image file
   activate ES
-  ES --> MC : image stream | null (-> 404)
+  ES --> MC : file (missing: 404)
   deactivate ES
-  MC --> UI : JPEG/PNG blob\n(Cache-Control: private)
+  MC --> UI : image
   deactivate MC
 end
 UI --> U : timeline + captures

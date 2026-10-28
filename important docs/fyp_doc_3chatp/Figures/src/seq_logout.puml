@@ -2,46 +2,45 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
-skinparam maxMessageSize 200
+skinparam maxMessageSize 220
 hide footbox
 hide unlinked
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 4
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
 }
-' Code: Student_Desktop_App/Services/ApiClient.cs (TokenRefreshGate), Views/ExamDashboard.xaml.cs (LogoutButton_OnClick);
-' Backend_API/Controllers/AuthController.cs (Refresh, Logout); Services/RefreshTokenService.cs.
+' Code: Student_Desktop_App/Services/ApiClient.cs (TokenRefreshGate);
+' Backend_API/Controllers/AuthController.cs (Refresh); Services/RefreshTokenService.cs (RotateAsync).
 
 actor Student
-participant "ExamDashboard\n+ ApiClient (WPF)" as UI
+participant "ExamDashboard\n(WPF client)" as UI
 participant "AuthController" as AC
 participant "RefreshToken\nService" as RT
 database "AppDbContext" as DB
 
-== token refresh: access token near expiry, or a 401 (TokenRefreshGate) ==
-UI -> AC : POST /api/auth/refresh\n{refreshToken}
+== token refresh (token near expiry, or a 401) ==
+UI -> AC : refresh request\n(refresh token)
 activate UI
 activate AC
-AC -> RT : RotateAsync(refreshToken, ip)
+AC -> RT : rotate token
 activate RT
-RT -> DB : RefreshToken by SHA-256 hash (+ User)
-DB --> RT : row | null
-alt row already Rotated (replay)
-  RT -> DB : revoke family + its UserSessions;\nAuditLog REFRESH_TOKEN_REUSE
-  RT --> AC : Fail(REFRESH_TOKEN_REUSED)
+RT -> DB : find token by hash
+DB --> RT : token or none
+alt token already used (replay)
+  RT -> DB : revoke whole family and\nits sessions; audit\nREFRESH_TOKEN_REUSE
+  RT --> AC : reused
   AC --> UI : 401 REFRESH_TOKEN_REUSED
-else unknown, revoked, expired, or user\ndeactivated (family revoked)
-  RT --> AC : Fail(INVALID_REFRESH_TOKEN\n| REFRESH_TOKEN_EXPIRED)
-  AC --> UI : 401 with that code
+else unknown, revoked or expired,\nor user deactivated (family revoked)
+  RT --> AC : invalid or expired
+  AC --> UI : 401
 else valid
-  RT -> DB : old token Rotated; successor (same\nfamily) + new UserSession; SaveChanges
-  RT --> AC : Ok(TokenResponse)
-  AC --> UI : 200 TokenResponse (new pair)
+  RT -> DB : mark old token used; add new\ntoken (same family) and session
+  RT --> AC : new token pair
+  AC --> UI : 200 new token pair
 end
 deactivate RT
 deactivate AC
 deactivate UI
-
 @enduml

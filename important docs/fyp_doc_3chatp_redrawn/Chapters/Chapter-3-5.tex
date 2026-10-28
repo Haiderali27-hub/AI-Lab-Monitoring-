@@ -1,0 +1,54 @@
+\section{Managerial Process}
+\label{sec:managerial}
+
+Our three-member team follows a few simple rules for priorities, communication and change \cite{pmbok6}. The roles are those of the FYP-I proposal: Muhammad Haider Ali is project manager and owns the architecture, backend API and database; Zain Ali Mehmood owns the student desktop application, lockdown and monitoring client; and Roshaan Ali Shah owns AI evaluation, plagiarism detection, and testing and validation.
+
+\subsection{Management Objectives and Priorities}
+
+Our objective is a system that lets a teacher run a fair lab exam from start to finish.
+
+\DiagramBarrier
+\textbf{Goals.} We measure progress towards it with four goals:
+\begin{itemize}
+    \item Deliver all twelve modules, each with its own tests, within the 32 weeks, and end with a full regression run in Week 32.
+    \item Test every functional requirement FR1--FR12 (Chapter~\ref{chap:testing}), and keep any check that needs a lab PC on the lab checklist.
+    \item Use no paid services.
+    \item Show the supervisor a working increment at the end of every sprint.
+\end{itemize}
+
+\textbf{Priorities.} When time is short, we protect work in this order:
+\begin{enumerate}
+    \item \textbf{Foundations:} roles and accounts, exam creation and the student dashboard (M7, M8, M3).
+    \item \textbf{Exam integrity:} device binding, the readiness check, eligibility and seat checks, and lockdown (M1, M2, M9, M4).
+    \item \textbf{No lost work:} autosave, encrypted backup and server deadline enforcement (M6).
+    \item \textbf{Live supervision:} monitoring client and proctoring dashboard (M5, M10).
+    \item \textbf{Evaluation support:} test-case grading, theory scoring and plagiarism checks (M11).
+    \item \textbf{Reporting:} audit logs, analytics and PDF reports (M12).
+\end{enumerate}
+Lower items are cut first.
+
+\subsection{Assumptions and Constraints}
+\label{sec:constraints}
+
+\textbf{Assumptions}
+\begin{itemize}
+    \item Lab PCs run Windows 10 or 11 (we tested on Windows 11), and we can install the client with administrator rights.
+    \item Each PC reaches the API over the lab network, through HTTPS at a TLS endpoint in deployment (the shipped localhost configuration is plain HTTP); short outages may happen.
+    \item Each student uses one assigned workstation, with a webcam when the exam needs one.
+    \item Teachers supply test cases and model answers for automated grading.
+\end{itemize}
+
+\textbf{Constraints}
+\begin{itemize}
+    \item Three members and 32 weeks over two semesters.
+    \item No budget for paid services: we use the Neon free tier, and AI features run offline on the CPU (TF-IDF scoring, OpenCV YuNet face detection \cite{yunet} and YOLOX-Nano phone detection \cite{yolox}). LLM grading is off by default.
+    \item The client is Windows-only (WPF) and cannot block Ctrl+Alt+Del.
+    \item Isolated code execution (C and C++ only) needs Docker on the grading server. Without it, a local MinGW runner that is not isolated is used, and with no runner the answer is left for the teacher.
+    \item For privacy, no face recognition or identity matching is performed. Screenshots and webcam snapshots can be viewed only by the exam's owner, the staff assigned to supervise it and administrators, and are deleted after 30 days.
+\end{itemize}
+
+\subsection{Communication, Review and Change Control}
+
+We follow the Scrum framework in a light form \cite{scrumguide2020}. Each sprint opens with Sprint Planning, where we set the sprint goal from the product backlog, and ends with a Sprint Review of the results with our supervisor, whose feedback goes into the next sprint's backlog. Short written check-ins replace the daily stand-up \cite{scrum1}, and a blocker unsolved after 24 hours goes to a team discussion. A proposed change is accepted only if it improves the project, fits in the sprint and does not put a working module at risk \cite[Sec.~4.6]{pmbok6}. Otherwise it goes to the future-work list.
+
+\textbf{Changes since the FYP-I proposal.} The twelve proposal modules were regrouped. Role management moved to M7 and device authorisation joined login in M1. Exam scheduling joined exam creation (M8), and the scheduling dashboard became M3. Behaviour analysis became the violation classifier used by M5 and M10, and eligibility, a Phase-1 item of the proposal, became its own module (M9). We added the Invigilator role to separate supervision from exam ownership, and the SuperAdmin role to guard the Admin accounts. Of the two databases the proposal allowed, we chose PostgreSQL, hosted on Neon. Grading and plagiarism checks run inside the C\# API instead of the optional Python microservice, which avoids a second runtime. The prototype uses this cloud database; moving it to a university-hosted server is a deployment step that is not yet done.

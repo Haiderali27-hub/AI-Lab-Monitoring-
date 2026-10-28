@@ -1,0 +1,63 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Auto-save and crash recovery (Module 6): ViewModels/ExamSessionViewModel (OnAnswerEdited; SyncTickAsync every 1 s:
+' AutosaveScheduler.TakeDue -> SendAsync -> SendPendingAsync, then FlushOfflineAsync when the 5 s OfflineRetryDelay has passed,
+' then WriteBackupIfDirty; SaveAnswerAsync on question change / focus lost; RestoreAnswersAsync).
+' Services/ApiClient.SaveAnswerAsync -> OfflineSaveQueue.Classify: 2xx Accepted, 409 STALE_REVISION Stale, no reply / 401 / 408 /
+' 429 / 5xx Offline (queued), anything else Rejected (status "Not saved: ..."; dropped from the queue, kept in the local backup).
+' ExamsController.SaveAnswer: 404 not own session; 400 TimeOverMessage when TimedOut or SubmissionService.IsClosed(session, now)
+' (exam end + ExtraMinutes + 2 min DeadlineGrace, server clock); 400 when not InProgress; 409 STALE_REVISION.
+' Core/Submission/OfflineSaveQueue (newest revision per answer, FlushAsync oldest first, stops at the first Offline),
+' Core/Backup/AnswerBackupStore (AES-256-GCM, key wrapped by DPAPI; Load -> BackupLoadResult Ok / Missing / Tampered),
+' AnswerMerge (higher revision wins; with a tampered backup only the server copy is merged; a backup of another user/exam is ignored).
+' Relaunch: DashboardViewModel.StartExamAsync -> POST /api/exams/student/start returns the InProgress session.
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+
+actor Student
+participant "ExamSession\nViewModel" as VM
+participant "Answer\nBackupStore" as BS
+participant "Offline\nSaveQueue" as Q
+participant "ApiClient" as API
+participant "Exams\nController" as EC
+
+Student ->> VM : edit answer\n(revision + 1)
+loop every 1 s
+  [->> VM : timer tick
+  activate VM
+  opt save due (10 s after the first unsaved edit,\nor at once on question change\nor window focus loss)
+    VM -> API : save answer
+    activate API
+    API -> EC : POST save-answer
+    activate EC
+    alt session in progress, before the deadline
+      EC --> API : saved, or stale
+      API --> VM : Accepted / Stale
+    else deadline passed or not in progress
+      EC --> API : refused
+      deactivate EC
+      API --> VM : "Not saved";\nkept in local backup
+    else no reply or temporary error
+      API --> VM : Offline
+      deactivate API
+      VM -> Q : queue newest revision
+    end
+  end
+  opt queue not empty, 5 s since last try
+    VM -> Q : flush
+    activate Q
+    Q --> VM : sent oldest first;\nstops at first Offline
+    deactivate Q
+  end
+  VM -> BS : write encrypted\nbackup if changed
+  deactivate VM
+end
+@enduml

@@ -15,7 +15,6 @@ hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
 skinparam BoxPadding 0
-skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
@@ -23,36 +22,34 @@ skinparam sequence {
 
 actor Student
 participant "Exam\nDashboard" as UI
-participant "Exam\nWindow" as EW
-participant "Dashboard\nViewModel" as VM
 participant "ApiClient" as API
 participant "Exams\nController" as EC
 database "AppDbContext" as DB
-Student -> UI : pick exam, Practice
+Student -> UI : choose exam,\nPractice
 activate UI
-UI -> API : StartSessionAsync(examId)
+UI -> API : start session
 activate API
-API -> EC : POST /api/exams/\n{id}/start-session
+API -> EC : POST start-session
 activate EC
-EC -> DB : ExamAssignment\n(+Exam,\nWorkstation)
+EC -> DB : load assignment
 activate DB
 DB --> EC : assignment
 deactivate DB
-EC -> EC : assigned (else 403)?\neligible? not ended?\nopen? seat?
-alt a gate refuses
-  EC --> API : 403 / 400 {code,\nmessage}, e.g. EXAM_\nNOT_STARTED
-else a practice attempt is InProgress
-  EC --> API : 200 {sessionId}\n(same attempt)
-else new attempt; RequireReadiness,\nno pass in the last 30 min
-  EC --> API : 400 READINESS_REQUIRED
+EC -> EC : assigned? eligible?\nopen? right seat?
+alt a check fails
+  EC --> API : refused, with reason
+else practice attempt in progress
+  EC --> API : same session
+else new attempt, readiness required\nand no pass in the last 30 min
+  EC --> API : readiness required
 else new attempt
-  EC -> DB : SaveChangesAsync\n(+ExamSession)
+  EC -> DB : save new ExamSession
   activate DB
   DB --> EC : saved
   deactivate DB
-  EC --> API : 200 {sessionId}
+  EC --> API : session id
 end
 deactivate EC
-API --> UI : (sessionId or null, message)
+API --> UI : session id or message
 deactivate API
 @enduml

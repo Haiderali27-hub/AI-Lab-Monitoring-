@@ -1,0 +1,21 @@
+\section{Problem Statement / Limitations}
+
+One or two invigilators cannot watch 40 students in a computer lab at the same time, and students know this. Computer-based testing is secure only when the testing environment is controlled \cite{mit_cbt,zilles2019}. Without technical controls, cheating comes down to opportunity. We see three problems in the way lab exams are run today.
+
+\textbf{Scattered scheduling.} The exam date, the lab and the seating plan sit in spreadsheets, printouts and group chats. Students end up at the wrong machine, and there is no single record of who should sit where.
+
+\textbf{Weak live visibility.} With 30 or more students in the room, staff miss unauthorised programs, switches to other windows and idle students. Nothing is recorded for later review.
+
+\textbf{Poor evidence.} When an incident happens, the invigilator has to recall it from memory. There is no log of application launches, session times or screen activity to settle a dispute.
+
+These problems feed each other. Poor scheduling causes confusion on exam day, weak supervision misses what happens during the exam, and the lack of records makes disputes hard to resolve afterwards.
+
+\textbf{System boundaries.} SmartExam is a two-semester prototype for Windows lab PCs. The following are out of scope:
+\begin{itemize}[noitemsep]
+\item face recognition, i.e.\ matching a student's face to a stored identity (the webcam checks detect camera problems, missing or extra faces, a head turned away and a phone in view, without identifying anyone);
+\item eye-gaze tracking (only a coarse head-pose check is made);
+\item automatic grading of code in languages other than C and C++ (such answers are left for the teacher);
+\item pausing a running exam;
+\item a dual cloud and LAN-only deployment mode;
+\item multi-campus deployment, other operating systems and single sign-on (SSO).
+\end{itemize}

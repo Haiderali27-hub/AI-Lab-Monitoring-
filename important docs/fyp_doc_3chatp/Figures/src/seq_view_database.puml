@@ -2,20 +2,20 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
-skinparam maxMessageSize 200
+skinparam maxMessageSize 220
 hide footbox
 hide unlinked
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 4
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
 }
-' Code: Admin_Web_Panel/src/pages/teacher/live/StudentDrawer.tsx, ScreenshotCarousel.tsx;
-' Backend_API/Controllers/MonitoringEvidenceController.cs; Services/ExamAccessService.cs; EvidenceStorage.
+' Code: Admin_Web_Panel/src/pages/teacher/live/StudentDrawer.tsx;
+' Backend_API/Controllers/MonitoringEvidenceController.cs (timeline); Services/ExamAccessService.cs.
 
 actor "Teacher /\nInvigilator /\nAdmin" as U
-participant "StudentDrawer +\nScreenshotCarousel\n(Live Monitor)" as UI
+participant "Live Monitor\nstudent drawer\n(web panel)" as UI
 participant "MonitoringEvidence\nController" as MC
 participant "ExamAccess\nService" as EA
 participant "Evidence\nStorage" as ES
@@ -23,22 +23,22 @@ database "AppDbContext" as DB
 
 U -> UI : open a student's tile
 activate UI
-UI -> MC : GET /api/exams/{examId}/\nsessions/{sessionId}/timeline\n(roles Teacher, Admin,\nSuperAdmin, Invigilator)
+UI -> MC : get session timeline
 activate MC
-MC -> EA : DenyUnlessAsync\n(user, examId, Proctor)
+MC -> EA : check exam access
 activate EA
-EA -> DB : Exam -> Section.TeacherId; ExamProctors
+EA -> DB : exam owner and\nassigned invigilators
 DB --> EA : rows
-EA --> MC : null | 404 | 403
+EA --> MC : allowed, 404 or 403
 deactivate EA
-break unknown exam, or caller not owner teacher,\nassigned invigilator or admin
-  MC --> UI : 404 "Exam not found." | 403 "You are\nnot assigned to supervise this exam."
+break unknown exam (404), or not owner,\nassigned invigilator or admin (403)
+  MC --> UI : 404 or 403
 end
-MC -> DB : ExamSession(sessionId, examId) (none: 404)
+MC -> DB : load session (none: 404)
 DB --> MC : session
-MC -> DB : MonitoringEvents (no Heartbeat), Screenshots,\nNotifications (warnings), Incidents, AuditLogs
+MC -> DB : events (no heartbeats),\nscreenshots, warnings,\nincidents, audit logs
 DB --> MC : rows
-MC -> MC : merge, newest first, limit 200 (max 500)
-MC --> UI : 200 [TimelineItem]
+MC -> MC : merge, newest\nfirst (limit 200)
+MC --> UI : 200 timeline
 deactivate MC
 @enduml

@@ -4,8 +4,8 @@
 ' /teacher/exams/:examId/edit) and ExamsController.CreateExam / UpdateExam / ValidateExamPayloadAsync /
 ' RefuseOtherTeachersStudentsAsync (own sections or no section, else 403 STUDENT_NOT_IN_YOUR_SECTIONS) / MapQuestions.
 ' The save stages audit EXAM_CREATED (UpdateExam: EXAM_UPDATED) in the same SaveChanges.
-' Sized for a full-width figure: dpi 96 with a large font (PlantUML gaps are fixed in pixels).
-' Printed pt = fontSize * 72 * printed_width_in / png_width_px.
+' Simplified labels: routes, status codes and the full validation list are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
 skinparam dpi 96
 skinparam defaultFontSize 28
 skinparam ArrowFontSize 27
@@ -17,52 +17,42 @@ skinparam swimlane {
 
 |Web Panel (Teacher)|
 start
-:Open /teacher/create-exam
-(edit: /teacher/exams/{id}/edit);
-:1 Basic info: title, section,
-date, start time, duration;
-:2 Questions: MCQ (options,
-correct answer), Theory,
-Coding (public or hidden
-test cases);
-:3 Rules and settings: allowed
-apps, lockdown mode, webcam,
-mic, readiness, practice
-exam, seat, capture intervals;
-:4 Assign students (each
-step checked before Next);
+:Open the exam
+wizard (create
+or edit);
+:1 Basic info;
+:2 Questions: MCQ,
+theory, coding
+with test cases;
+:3 Rules: apps,
+lockdown, webcam,
+readiness, seat;
+:4 Assign
+students;
 repeat
-  :POST /api/exams
-  (edit: PUT /api/exams/{id});
+  :Save the
+  exam;
   |Server|
-  :PUT only: 404 if no such exam,
-  403 if not own section,
-  409 if not Scheduled;
-  :ValidateExamPayloadAsync:
-  own section, at least one
-  question, marks > 0, MCQ with
-  2+ options, a test case per
-  coding question, C/C++ only;
-  :RefuseOtherTeachersStudentsAsync
-  (Teacher role; PUT: added
-  students only): students of own
-  sections or of no section, else
-  403 STUDENT_NOT_IN_YOUR_
-  SECTIONS;
+  :Edit only: exam
+  exists, own section,
+  still Scheduled;
+  :Validate section,
+  questions, marks
+  and test cases;
+  :Teacher role: check
+  students are in
+  own sections;
   |Web Panel (Teacher)|
-  backward :Show the server
-  message, fix the step;
+  backward :Show the
+  error, fix
+  the step;
   |Server|
-repeat while (Payload and\naccess OK?) is ([no: 4xx]) not ([yes])
-:Save Exam (Scheduled,
-AllowedApps as JSON list),
-Questions, TestCases,
-ExamAssignments and the
-audit row EXAM_CREATED (PUT:
-EXAM_UPDATED) in one
-SaveChanges; 201 Created
-(PUT: 200 OK);
+repeat while (All checks\npass?) is ([no]) not ([yes])
+:Save exam, questions,
+students and audit
+entry together;
 |Web Panel (Teacher)|
-:Return to the dashboard;
+:Back to the
+dashboard;
 stop
 @enduml

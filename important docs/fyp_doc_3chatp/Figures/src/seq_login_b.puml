@@ -2,10 +2,10 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
-skinparam maxMessageSize 200
+skinparam maxMessageSize 220
 hide footbox
 hide unlinked
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 4
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
@@ -13,34 +13,33 @@ skinparam sequence {
 }
 ' Code: Student_Desktop_App/ViewModels/LoginViewModel.cs, Core/DeviceFingerprint.cs;
 ' Backend_API/Controllers/AuthController.cs (StudentLogin); Services/RefreshTokenService.cs.
-' Token refresh is drawn with logout in seq_logout.puml.
 
 actor Student
-participant "LoginViewModel\n+ ApiClient (WPF)" as VM
+participant "LoginViewModel\n(WPF client)" as VM
 participant "AuthController" as AC
 participant "RefreshToken\nService" as RT
 database "AppDbContext" as DB
 activate VM
 activate AC
-alt no DeviceBinding (first login)
-  AC -> DB : add DeviceBinding (HwidHash = SHA-256(v2));\nAuditLog DEVICE_BOUND
-else v1 binding, legacy fingerprint matches
-  AC -> DB : HwidHash = SHA-256(v2), HwidVersion = 2;\nAuditLog DEVICE_REBOUND
+alt first login (no binding)
+  AC -> DB : bind device (SHA-256 of v2);\naudit DEVICE_BOUND
+else old v1 binding matches
+  AC -> DB : upgrade binding to v2;\naudit DEVICE_REBOUND
 end
-break SHA-256(v2) != HwidHash
-  AC -> DB : AuditLog DEVICE_MISMATCH
+break fingerprint hash differs from binding
+  AC -> DB : audit DEVICE_MISMATCH
   AC --> VM : 401 DEVICE_MISMATCH
 end
-AC -> AC : JwtHelper.GenerateToken -> JWT + jti
-AC -> DB : add AuditLog LOGIN_SUCCESS, UserSession(Jti)
-AC -> RT : IssueForLoginAsync\n(user, jti, StudentClient)
+AC -> AC : create JWT (with jti)
+AC -> DB : audit LOGIN_SUCCESS;\nadd UserSession
+AC -> RT : issue refresh token
 activate RT
-RT -> DB : add RefreshToken (new FamilyId,\nSHA-256 hash only)
-RT --> AC : raw refresh token
+RT -> DB : store token hash\n(new family)
+RT --> AC : refresh token
 deactivate RT
-AC -> DB : SaveChanges
-AC --> VM : 200 TokenResponse {accessToken,\nrefreshToken, user, deviceBound}
+AC -> DB : save changes
+AC --> VM : 200 access token\n+ refresh token
 deactivate AC
-VM --> Student : SessionStore.Set;\nopen ExamDashboard
+VM --> Student : open exam dashboard
 deactivate VM
 @enduml

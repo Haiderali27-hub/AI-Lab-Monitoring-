@@ -1,0 +1,54 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' Code: Services/Grading/GradingQueue.cs (GradingQueue, GradingWorker), GradingService.cs (ProcessAsync, GradeCodeAsync),
+' CodeRunnerResolver.cs, DockerCodeRunner.cs, LocalMingwCodeRunner.cs, TestCaseScorer.cs, CodeAnalyzer.cs.
+' The submit side (StageAsync, Enqueue, receipt) is drawn in seq_ai_plagiarism.puml.
+' Open arrowheads (->>) are one-way: Enqueue writes the id to an unbounded channel, and GradingCompleted is
+' IHubContext<MonitoringHub>.Clients.Group("exam:{id}").SendAsync(...).
+
+participant "GradingWorker" as GW
+participant "GradingService" as GS
+database "AppDbContext" as DB
+participant "Code Runner\n(Docker or\nMinGW)" as DR
+participant "Live Monitor\n(web)" as WEB
+loop each queued coding answer (continued)
+activate GW
+activate GS
+  alt no runner, or not C/C++
+    GS -> GS : 0 marks;\nteacher review
+  else runner available
+    loop up to 3 attempts, until a run report
+      GS -> DR : run code job
+      activate DR
+      DR -> DR : compile once;\nrun each test case\nwith its time limit
+      DR --> GS : run report\nor error
+      deactivate DR
+    end
+    note over GS, DR
+      Docker sandbox: no network,
+      read-only, limited
+      memory and CPU
+    end note
+    alt run report returned
+      GS -> GS : score test cases;\nanalyse code
+    else every attempt failed
+      GS -> GS : 0 marks;\nstatus Failed
+    end
+  end
+  GS -> DB : save result, test case\nresults, audit entry
+  GS ->> WEB : GradingCompleted
+  GS --> GW : done
+  deactivate GS
+  deactivate GW
+end
+@enduml

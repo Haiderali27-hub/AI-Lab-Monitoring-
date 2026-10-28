@@ -1,0 +1,152 @@
+@startuml
+!include style.iuml
+' dpi only sets resolution; printed text size = fontSize * 72 * W_in / layout width.
+skinparam dpi 110
+' Component diagram (three tiers). Names are the real classes / folders:
+' Student_Desktop_App/Views, ViewModels, Services/*, Core/*; Admin_Web_Panel/src/*;
+' Backend_API/Controllers, Hubs/MonitoringHub.cs, Services/*, Data/AppDbContext.cs.
+' IHubContext<MonitoringHub> pushes: MonitoringController (ViolationEvent ...), SubmissionService (SessionFinalized),
+' SeatGuard (ViolationEvent), HeartbeatWatchdogService (StudentDisconnected), GradingService (GradingCompleted).
+' AppDbContext is injected into controllers, MonitoringHub and services alike.
+' Portrait, width linewidth (text about 11 pt printed). Boxes name the parts only; the chapter text lists the classes.
+' Provided interfaces (lollipop): REST /api/* on the controllers, SignalR /hubs/monitoring on MonitoringHub; required (socket): ApiClient, api/client.ts, LiveMonitorPage.
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam nodesep 10
+skinparam ranksep 26
+skinparam defaultTextAlignment left
+set separator none
+skinparam package {
+  BorderColor #555555
+  BackgroundColor #FFFFFF
+  FontSize 24
+}
+
+package "Desktop client (WPF)" {
+  component VIEWS [
+    <b>Windows and</b>
+    <b>view models</b>
+  ]
+  component READY [
+    <b>Readiness</b>
+    <b>checks</b>
+  ]
+  component LOCK [
+    <b>Lockdown</b>
+    keyboard, process,
+    clipboard, device
+    guards
+  ]
+  component LMS [
+    <b>Live monitoring</b>
+    event spool,
+    warnings
+  ]
+  component CAP [
+    <b>Capture + webcam</b>
+    <b>vision</b>
+  ]
+  component APIC [
+    <b>ApiClient</b>
+  ]
+}
+package "Web panel (React)" {
+  component PAGES [
+    <b>Pages</b>
+  ]
+  component AXIOS [
+    <b>API client</b>
+    (axios)
+  ]
+  component SIG [
+    <b>Live monitor</b>
+    (SignalR)
+  ]
+}
+
+package "Server" as SRV {
+  component CTRL [
+    <b>REST controllers</b>
+    (16)
+  ]
+  component HUB [
+    <b>MonitoringHub</b>
+    (SignalR)
+  ]
+  package "Services" as SVC {
+    component DOM [
+      <b>Domain services</b>
+      submission, access,
+      audit chain, reports
+    ]
+    component BG [
+      <b>Hosted services</b>
+      grading worker,
+      heartbeat watchdog,
+      evidence retention
+    ]
+    component GRD [
+      <b>Grading</b>
+      code runners,
+      theory grader,
+      plagiarism
+    ]
+  }
+}
+
+package "Data" {
+  component EF [
+    <b>AppDbContext</b>
+    (EF Core)
+  ]
+  database PG [
+    <b>Neon PostgreSQL</b>
+  ]
+  folder EVD [
+    Evidence and
+    report files
+  ]
+}
+
+' Interface names sit on the provider links (as edge labels) so that no line runs through them.
+() " " as IREST
+() " " as IHUB
+CTRL -up- IREST : REST\n(JWT)
+HUB -up- IHUB : SignalR
+
+VIEWS --> READY
+VIEWS --> LOCK
+VIEWS --> LMS
+VIEWS --> APIC
+LMS --> CAP
+LOCK -left-> LMS : violations
+READY -[hidden]right- LMS
+LOCK --> APIC : fallback
+LMS --> APIC
+READY --> APIC
+CAP -right-> APIC
+PAGES --> AXIOS
+PAGES --> SIG
+AXIOS -[hidden]down- SIG
+VIEWS -[hidden]right- PAGES
+
+EF -[hidden]right- EVD
+
+APIC -down-( IREST
+AXIOS -down-( IREST
+SIG -down-( IHUB
+CTRL .right.> HUB : push
+CTRL --> DOM
+CTRL --> GRD
+HUB --> DOM
+DOM -right-> GRD : grading,\nplagiarism
+BG -up-> DOM
+BG -up-> GRD
+BG --> EVD : purge
+DOM .up.> HUB
+BG .up.> HUB
+GRD .up.> HUB
+SRV --> EF
+EF -left-> PG
+DOM --> EVD
+@enduml

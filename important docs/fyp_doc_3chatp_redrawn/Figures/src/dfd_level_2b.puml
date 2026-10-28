@@ -1,0 +1,92 @@
+@startuml
+!include style.iuml
+' Part (a): grading, processes 5.1-5.4; 5.5 and 5.6 are in dfd_level_2b_reports.puml (part b).
+' DFD level 2 of process 5.0 (Evaluation and reporting). Process 3.0 is in
+' dfd_level_2.puml. Same entities, numbers and stores (D1..D8) as level 1.
+' Yourdon/DeMarco notation: circle = process, rectangle = external entity,
+' two lines = data store, dashed circle = level-1 process outside 5.0,
+' dashed rectangle = optional entity, * = store or entity drawn twice.
+skinparam defaultFontSize 16
+skinparam ArrowFontSize 16
+skinparam nodesep 18
+skinparam ranksep 40
+skinparam defaultTextAlignment center
+skinparam rectangle<<entity>> {
+  BorderThickness 2
+  RoundCorner 0
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle<<optional>> {
+  RoundCorner 0
+  BorderStyle dashed
+  BackgroundColor #FFFFFF
+}
+skinparam usecase {
+  BorderColor #333333
+  BorderThickness 2
+  BackgroundColor #F2F2F2
+}
+skinparam usecase<<ref>> {
+  BorderStyle dashed
+  BorderThickness 1
+  BackgroundColor #FFFFFF
+}
+skinparam label {
+  FontSize 16
+}
+hide stereotype
+
+top to bottom direction
+
+usecase "**2.0**\nConfigure exams and\nrun sessions" <<ref>> as P2
+label D2 [
+----
+**D2** Exams
+----
+]
+label D4 [
+----
+**D4** Sessions and
+answers
+----
+]
+usecase "**5.1**\nRun code against\ntest cases" as P51
+usecase "**5.2**\nScore MCQ and\ntheory answers" as P52
+usecase "**5.3**\nCompare answers\n(winnowing)" as P53
+rectangle "LLM grader\n(optional)" <<optional>> as LLM
+usecase "**5.4**\nSave marks, pairs\nand overrides" as P54
+rectangle "Teacher" <<entity>> as TEA
+label D6 [
+----
+**D6** Grading and
+reports
+----
+]
+label D8 [
+----
+**D8** Audit log
+----
+]
+
+' ---- rank 0: 2.0, D4; rank 1: 5.1-5.3 with D2 between 5.1 and 5.2; rank 2: LLM;
+' ---- rank 3: 5.4; rank 4: teacher and stores written. "X <-- P" keeps X above P.
+' ---- Short labels; the chapter text gives the conditions and audit names.
+P2 --> P51 : code answers
+P2 --> P52 : MCQ and\ntheory answers
+P2 --> P53 : submitted\nsession
+D2 -left-> P51 : test cases
+D2 -right-> P52 : answer key,\nmodel answer
+D4 --> P53 : answers of\nthe exam
+P51 ..> LLM : test results
+P51 <.. LLM : code summary
+P52 ..> LLM : theory\nanswer
+P52 <.. LLM : suggested\nmark
+P51 --> P54 : test-case\nresults
+P52 --> P54 : suggested\nmark
+P53 --> P54 : similarity\npairs
+P54 <-- TEA : accept /\noverride
+P54 --> TEA : marks,\nsimilarity
+P54 --> D6 : marks, pairs,\noverrides
+P54 --> D8 : grading\nevents
+LLM -[hidden]-> P54
+@enduml

@@ -3,14 +3,14 @@
 ' Numbering: 1-4 = phases; 2.x = sprint groups (Sprints 2-7, tab:timeframe in Chapter-2-2);
 ' 2.x.y = one module each. Every module package includes its own tests (definition of done,
 ' Chapter-3-3), so package 3 holds only the final integration and full regression of Sprint 8.
-' Legibility: labels are wrapped to keep the PNG about 1250 px wide, so 13 pt text prints
-' at about 7 pt at \linewidth.
+' Simplified labels; long module labels wrap onto two lines so the tree is narrow enough
+' for 16 pt text to print at about 6.9 pt at full text width. Full module names are in Chapter 1.
 ' Render: java -jar plantuml.jar -tpng work_breakdown_structure.puml
 skinparam dpi 150
 <style>
 wbsDiagram {
   FontName Arial
-  FontSize 13
+  FontSize 16
   BackgroundColor white
   LineColor #555555
   node {
@@ -23,7 +23,7 @@ wbsDiagram {
     BackgroundColor #B03A2E
     FontColor white
     FontStyle bold
-    FontSize 14
+    FontSize 17
     LineColor #B03A2E
   }
   :depth(1) {
@@ -36,38 +36,38 @@ wbsDiagram {
 }
 </style>
 * SmartExam
-** 1 Planning and\nRequirements\n(Sprint 1)
-*** 1.1 Requirements\nand use cases
-*** 1.2 Product\nbacklog
+** 1 Planning\n(Sprint 1)
+*** 1.1 Requirements
+*** 1.2 Product backlog
 *** 1.3 Architecture
-*** 1.4 Scope\napproval
-** 2 Module Development\n(Sprints 2-7; each\nmodule with its tests)
-*** <b>2.1 Access, identity</b>\n(Sprint 2)
-**** 2.1.1 M1\nAuthentication and\ndevice binding
-**** 2.1.2 M7 User and\nrole management
+*** 1.4 Scope approval
+** 2 Module Development\n(Sprints 2-7)
+*** <b>2.1 Identity</b>\n(Sprint 2)
+**** 2.1.1 M1\nAuthentication
+**** 2.1.2 M7 User\nmanagement
 *** <b>2.2 Exam set-up</b>\n(Sprint 3)
-**** 2.2.1 M8 Exam\ncreation and\nconfiguration
-**** 2.2.2 M9 Eligibility\nand access control
+**** 2.2.1 M8 Exam\ncreation
+**** 2.2.2 M9\nEligibility
 *** <b>2.3 Student client</b>\n(Sprint 4)
-**** 2.3.1 M2 Readiness\ncheck, practice exam
-**** 2.3.2 M3 Student\nexam dashboard
-**** 2.3.3 M4 Secure\nexam environment
+**** 2.3.1 M2 Readiness\ncheck
+**** 2.3.2 M3 Student\ndashboard
+**** 2.3.3 M4 Lockdown
 *** <b>2.4 Monitoring</b>\n(Sprint 5)
-**** 2.4.1 M5 Live\nmonitoring client
-**** 2.4.2 M10 Live\nproctoring dashboard
-*** <b>2.5 Submission,</b>\n<b>evaluation</b> (Sprint 6)
-**** 2.5.1 M6 Submission\nand backup
-**** 2.5.2 M11\nAI-assisted\nevaluation
-*** <b>2.6 Logs, reporting</b>\n(Sprint 7)
-**** 2.6.1 M12 Logs,\nanalytics, audit trail
-** 3 Integration and\nSystem Testing\n(Sprint 8)
-*** 3.1 Final integration\nof M1-M12
-*** 3.2 End-to-end\nsystem tests
-*** 3.3 Full regression\n(xUnit, Playwright)
+**** 2.4.1 M5 Monitoring\nclient
+**** 2.4.2 M10 Proctoring\ndashboard
+*** <b>2.5 Submission,</b>\n<b>grading</b>\n(Sprint 6)
+**** 2.5.1 M6 Submission,\nbackup
+**** 2.5.2 M11 AI\nevaluation
+*** <b>2.6 Audit, reports</b>\n(Sprint 7)
+**** 2.6.1 M12 Audit,\nanalytics
+** 3 Integration\nand Testing\n(Sprint 8)
+*** 3.1 Final integration
+*** 3.2 System tests
+*** 3.3 Full regression
 *** 3.4 Bug fixing
-** 4 Documentation\nand Delivery\n(all sprints)
-*** 4.1 Sprint\nreviews
-*** 4.2 FYP-I\nreport
-*** 4.3 Final\nthesis
-*** 4.4 Final\ndemo
+** 4 Documentation\n(all sprints)
+*** 4.1 Sprint reviews
+*** 4.2 FYP-I report
+*** 4.3 Final thesis
+*** 4.4 Final demo
 @endwbs

@@ -1,0 +1,53 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 6
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' Attendance import and eligibility (Module 9, UC-20), part (c): manual override.
+' Code: Admin_Web_Panel/src/pages/teacher/EligibilityPage.tsx (handleSave sends only changed rows; handleClearOverride),
+' src/api/exams.api.ts (examsApi.updateEligibility);
+' Backend_API/Controllers/ExamsController.cs (UpdateEligibility, LoadManagedExamAsync); Services/AuditService.cs (Add);
+' start gate: ExamsController student/start returns NOT_ELIGIBLE.
+
+actor Teacher as T
+participant "Eligibility\npage (web)" as UI
+participant "Exams\nController" as EC
+participant "Audit\nService" as AS
+database "AppDbContext" as DB
+
+T -> UI : set eligibility or\nnotes, Save; or\nClear override
+activate UI
+UI -> EC : save eligibility\n(changed rows)
+activate EC
+EC -> EC : load exam
+break exam missing or\nnot own section
+  EC --> UI : refused
+end
+EC -> DB : exam assignments
+loop each row sent
+  alt clear override
+    EC -> EC : override off
+    EC -> AS : ELIGIBILITY_\nOVERRIDE_CLEARED
+  else eligibility or\nnote changed
+    EC -> AS : ELIGIBILITY_\nOVERRIDDEN
+    EC -> EC : set eligibility, note;\noverride on (Manual)
+  end
+end
+EC -> AS : ELIGIBILITY_\nUPDATED
+activate AS
+AS -> DB : add audit row
+deactivate AS
+EC -> DB : save
+EC --> UI : overridden,\ncleared
+deactivate EC
+UI --> T : updated list; after\nClear override, a\nRecalculate notice
+deactivate UI
+@enduml

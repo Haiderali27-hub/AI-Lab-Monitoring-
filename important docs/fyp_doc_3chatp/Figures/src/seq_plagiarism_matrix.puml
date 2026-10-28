@@ -2,9 +2,9 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
-skinparam maxMessageSize 200
+skinparam maxMessageSize 220
 hide footbox
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 4
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
@@ -21,29 +21,29 @@ participant "Plagiarism\nService" as PS
 participant "Plagiarism\nEngine" as PE
 database "AppDbContext" as DB
 
-T -> GC : GET /api/exams/{examId}/\nplagiarism/matrix?questionId=
+T -> GC : open heat map
 activate GC
-GC -> DB : Exam(examId)
-DB --> GC : exam | null (-> 404)
-GC -> EA : GetAsync(user, examId)
+GC -> DB : find exam
+DB --> GC : exam (none: 404)
+GC -> EA : check access
 activate EA
-EA --> GC : ExamAccess
+EA --> GC : access level
 deactivate EA
-break access < Owner, or exam.IsMock
-  GC --> T : 403 | 400 MOCK_EXAM
+break not owner teacher or admin (403),\nor practice exam (400)
+  GC --> T : 403 or 400
 end
-GC -> PS : BuildMatrixAsync(examId, questionId)
+GC -> PS : build matrix
 activate PS
-PS -> DB : non-MCQ Questions, latest finalised\nsession per student, their Answers
+PS -> DB : coding and theory answers\n(latest finalised session\nper student)
 DB --> PS : rows
-loop each pair of students, each shared question
-  PS -> PE : Compare(fingerprints)
+loop each student pair, each shared question
+  PS -> PE : compare fingerprints
   activate PE
-  PE --> PS : Similarity
+  PE --> PS : similarity
   deactivate PE
 end
-PS --> GC : students x students matrix\n(highest similarity per pair)
+PS --> GC : student x student matrix\n(highest similarity per pair)
 deactivate PS
-GC --> T : 200 {students, questions,\nmatrix, threshold}
+GC --> T : 200 matrix + threshold
 deactivate GC
 @enduml

@@ -5,7 +5,7 @@ skinparam ArrowFontSize 14
 skinparam maxMessageSize 200
 hide footbox
 hide unlinked
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 6
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
@@ -18,42 +18,41 @@ skinparam sequence {
 ' Services/RefreshTokenService.cs (RevokeOtherSessionsAsync); Services/AuditService.cs (Add, LogAsync).
 
 actor "Admin /\nSuperAdmin" as A
-participant "UsersPage\n(web)" as UI
+participant "Users\npage (web)" as UI
 participant "Users\nController" as UC
 participant "RefreshToken\nService" as RT
-participant "AuditService" as AS
+participant "Audit\nService" as AS
 database "AppDbContext" as DB
 
-A -> UI : Reset device\nbinding (confirm)
+A -> UI : reset device\nbinding (confirm)
 activate UI
-UI -> UC : DELETE /api/users/\n{id}/device-binding
+UI -> UC : reset binding
 activate UC
-UC -> UC : GuardExistingAsync\n("reset-device-binding", id)
-alt target is Admin or SuperAdmin\nand caller is not SuperAdmin
-  UC -> AS : LogAsync(PRIVILEGED_\nACCOUNT_DENIED)
+UC -> UC : may the caller\nact on this user?
+alt target is Admin / SuperAdmin,\ncaller not SuperAdmin
+  UC -> AS : log denial
   activate AS
-  AS -> DB : AuditLogs.Add;\nSaveChanges
+  AS -> DB : save PRIVILEGED_\nACCOUNT_DENIED
   AS --> UC
   deactivate AS
-  UC --> UI : 403 {code:\nSUPERADMIN_REQUIRED}
-else no DeviceBinding row
-  UC --> UI : 404 "No device\nbinding found."
+  UC --> UI : refused
+else no binding
+  UC --> UI : not found
 else allowed
-  UC -> RT : RevokeOtherSessionsAsync\n(id, null, DeviceReset)
+  UC -> RT : revoke sessions
   activate RT
-  RT -> DB : refresh tokens and\nUserSessions revoked;\nSaveChanges
-  RT --> UC : (revokedRefreshTokens,\nrevokedSessions)
+  RT -> DB : revoke tokens\nand sessions
+  RT --> UC : counts
   deactivate RT
-  UC -> DB : DeviceBindings.Remove
-  UC -> AS : Add(DEVICE_\nBINDING_RESET)
+  UC -> DB : remove binding
+  UC -> AS : DEVICE_\nBINDING_RESET
   activate AS
-  AS -> DB : AuditLogs.Add\n(staged)
+  AS -> DB : add audit row
   deactivate AS
-  UC -> DB : SaveChanges
-  UC --> UI : 200 "Device binding\nreset. ..."
+  UC -> DB : save
+  UC --> UI : binding reset
 end
 deactivate UC
 UI --> A : result message
 deactivate UI
-note over UI, DB : The student is signed out everywhere; the next login\nbinds the new PC as a first binding (DEVICE_BOUND).
 @enduml

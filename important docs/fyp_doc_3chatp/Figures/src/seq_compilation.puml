@@ -2,7 +2,6 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
-skinparam maxMessageSize 200
 hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
@@ -17,23 +16,21 @@ skinparam sequence {
 ' Open arrowheads (->>) are one-way: Enqueue writes the id to an unbounded channel, and GradingCompleted is
 ' IHubContext<MonitoringHub>.Clients.Group("exam:{id}").SendAsync(...).
 
-participant "GradingQueue\n(filled by\nFinalizeAsync)" as GQ
-participant "GradingWorker\n(MaxParallel: 2\nconsumers)" as GW
+participant "GradingQueue" as GQ
+participant "GradingWorker\n(2 in parallel)" as GW
 participant "GradingService" as GS
 database "AppDbContext" as DB
-participant "DockerCodeRunner\n(or LocalMingw\nCodeRunner)" as DR
-participant "LiveMonitor\nPage (web)" as WEB
 
-loop each answerId read from the channel (coding answer shown)
-  GQ ->> GW : answerId (ReadAllAsync)
+loop each queued coding answer
+  GQ ->> GW : answer id
   activate GW
-  GW -> GS : ProcessAsync(answerId)
+  GW -> GS : grade answer
   activate GS
-  GS -> DB : AiGradingResult row + Answer,\nQuestion, TestCases
+  GS -> DB : load result row,\nanswer, test cases
   DB --> GS : row
-  break row missing or not Pending
-    GS --> GW : return
+  break row missing or\nnot pending
+    GS --> GW : skip
   end
-  GS -> GS : CodeRunnerResolver\n.ResolveAsync(): Docker\n(daemon + gcc:13 image),\nelse MinGW g++, else none
+  GS -> GS : choose runner:\nDocker, else MinGW,\nelse none
 end
 @enduml

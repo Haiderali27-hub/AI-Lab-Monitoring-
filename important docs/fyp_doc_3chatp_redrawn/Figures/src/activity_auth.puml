@@ -1,0 +1,66 @@
+@startuml
+!include style.iuml
+' Student login with HWID v2 device binding
+' (LoginViewModel, Core/DeviceFingerprint, AuthController.StudentLogin [EnableRateLimiting("login"):
+' 10 requests/min per IP], HwidHelper.CanUpgradeToV2, Services/SessionStore, AuthController.Refresh)
+' Simplified labels: endpoint, status codes, fingerprint parts and the PBKDF2 re-hash are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 22
+skinparam ArrowFontSize 22
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  TitleFontSize 23
+}
+!pragma useVerticalIf on
+
+|Desktop App|
+start
+:Read device fingerprint,
+send login;
+|Server|
+if (Over 10 tries a
+minute from this IP?) then ([yes])
+  :Refuse:
+  too many
+  requests;
+([no]) elseif (Password OK,
+account active?) then ([no])
+  :Refuse, audit
+  LOGIN_FAILED;
+([yes]) elseif (Student account,
+device ID sent?) then ([no])
+  :Refuse;
+else ([yes])
+  if (Device
+  bound?) then ([no])
+    :Bind device hash,
+    audit DEVICE_BOUND;
+  else ([yes])
+    if (Old v1 binding
+    matches?) then ([yes])
+      :Upgrade to v2,
+      audit DEVICE_REBOUND;
+    else ([no])
+    endif
+  endif
+  if (Same
+  device?) then ([no])
+    :Refuse, audit
+    DEVICE_MISMATCH;
+  else ([yes])
+    :Issue tokens, audit
+    LOGIN_SUCCESS;
+  endif
+endif
+|Desktop App|
+if (Login OK?) then ([yes])
+  :Save tokens,
+  open dashboard;
+else ([no])
+  :Show the
+  error;
+endif
+stop
+@enduml

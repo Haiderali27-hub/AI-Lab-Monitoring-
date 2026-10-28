@@ -4,23 +4,18 @@ The models below show how SmartExam stores and moves heartbeats, screenshots, an
 
 \subsection{Entity Relationship Diagram}
 
-The data lives in Neon PostgreSQL and the schema is created by Entity Framework (EF) Core migrations from the models in \texttt{Backend\_API/Models}. We chose a relational database because marks, receipts and audit records need foreign keys and unique constraints \cite{elmasri2016}. Every table except \texttt{ExamProctors} (composite key \texttt{ExamId}, \texttt{UserId}) has a GUID primary key. Figures~\ref{fig:erd_diagram} and~\ref{fig:erd_diagram_b} show the schema in crow's-foot notation (\texttt{Users} and \texttt{Exams} are drawn in full in part (a) and as dashed key-only boxes in part (b)) with each table's keys, a few key columns and the unique indexes. Columns marked (ref) hold an id without a foreign-key constraint. \texttt{AuditLogs.ActorId} is one of them: each audit row's hash covers it, so it must keep the actor's id even after that user is deleted.
+The data lives in Neon PostgreSQL and the schema is created by Entity Framework (EF) Core migrations from the models in \texttt{Backend\_API/Models}. We chose a relational database because marks, receipts and audit records need foreign keys and unique constraints \cite{elmasri2016}. Every table except \texttt{ExamProctors} (composite key \texttt{ExamId}, \texttt{UserId}) has a GUID (uuid) primary key. \texttt{AuditLogs.ActorId} holds an id without a foreign-key constraint: each audit row's hash covers it, so it must keep the actor's id even after that user is deleted.
+
+Figure~\ref{fig:erd_diagram} shows the entity relationship diagram in crow's-foot notation. It has 14 entities; each box lists the primary key (PK) above a line and the other columns below it, with their data types and the foreign keys (FK) marked. \texttt{Users} sits in the centre and is linked to \texttt{Roles}, \texttt{DeviceBindings}, \texttt{Exams}, \texttt{AuditLogs}, \texttt{ExamSessions} and \texttt{SeatingMaps}, while \texttt{Exams} owns the questions, allowed apps, sessions and seating maps, and each answer has one \texttt{AiGradingResults} row. The figure shows the main entities only. In the built schema the keys are GUIDs, not INT, the role is a column on \texttt{Users} instead of a \texttt{Roles} table, allowed apps are a JSON column on \texttt{Exams}, and the seat is stored on \texttt{ExamAssignments} with \texttt{Labs} and \texttt{Workstations} instead of \texttt{SeatingMaps}.
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{Figures/erd_diagram.png}
-\caption{Entity Relationship Diagram of the SmartExam Database (a): Identity, Notifications, Academic Structure, Labs, Exams and Assignments}
+\includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{Figures/erd_diagram.png}
+\caption{Entity Relationship Diagram}
 \label{fig:erd_diagram}
 \end{figure}
 
-\begin{figure}[!htbp]
-\centering
-\includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{Figures/erd_diagram_b.png}
-\caption{Entity Relationship Diagram of the SmartExam Database (b): Questions, Readiness, Exam Sessions, Monitoring, Grading, Reports and Audit}
-\label{fig:erd_diagram_b}
-\end{figure}
-
-\texttt{AppDbContext} defines 29 tables. Table~\ref{tab:db_tables} groups them by module.
+\texttt{AppDbContext} defines 29 tables. Table~\ref{tab:db_tables} groups them by module. Each row gives a group with the modules that use it, its tables, and a note on the column or index that matters most. The eight groups together hold all 29 tables.
 
 \begin{table}[!htb]
 \centering
@@ -30,7 +25,7 @@ The data lives in Neon PostgreSQL and the schema is created by Entity Framework 
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{5.0cm}>{\raggedright\arraybackslash}X}
 \hline\hline
 \textbf{Group} & \textbf{Tables} & \textbf{Notes} \\
-\hline\hline
+\hline
 Identity (M1, M7) & Users, DeviceBindings, UserSessions, RefreshTokens & Role is an enum column on \texttt{Users}; one binding per user (unique \texttt{UserId}). \\
 Academic (M7, M9) & Departments, Courses, Sections, SectionEnrollments, AttendanceRecords & Attendance is unique per section and student. \\
 Labs (M9) & Labs, Workstations & PC name and IP address used for seat checks. \\
@@ -52,98 +47,37 @@ The main relationships are:
 
 \subsection{Data Flow Diagram}
 
-The Data Flow Diagrams (DFDs) use the Yourdon/DeMarco notation: a circle is a process, a rectangle an external entity, a pair of horizontal lines a data store and a labelled arrow a data flow; a two-headed arrow means that the process reads and updates the store. A dashed circle is a process drawn in full in another figure, the dashed rectangle is the optional LLM grader, and an entity or store drawn twice to avoid crossing lines is marked *. The stores are named after the tables they hold: D1 identity (Users, DeviceBindings, UserSessions, RefreshTokens); D2 exams (Exams, Questions, TestCases); D3 academic, lab and assignment data (Departments, Courses, Sections, SectionEnrollments, Labs, Workstations, AttendanceRecords, ExamAssignments, ExamProctors); D4 sessions, answers and readiness checks; D5 monitoring evidence; D6 grading results and reports; D7 Notifications; D8 AuditLogs. All levels use the same numbers, and every flow of a process appears again in its decomposition.
-
-As in the use-case diagram, the system is the whole of SmartExam: the desktop client with its lockdown, the web panel and the API. The student is the external entity, so the activity on the lab PC (applications, keys, USB drives, monitors), the screen and the webcam image enter the system as flows from the student. An Admin or SuperAdmin can also do everything a teacher can; those flows are drawn only from the Teacher.
+The Data Flow Diagrams (DFDs) show how data moves between the users, the processes and the data stores. In the figures, a green rounded box is a process, a blue box with an icon is an external entity, an orange cylinder is a data store and a labelled arrow is a data flow. The system is the whole of SmartExam: the desktop client with its lockdown, the web panel and the API.
 
 \subsubsection{DFD Level 0}
 
-Figure~\ref{fig:dfd_level_0} shows SmartExam as one process with its six external entities.
-
-\begin{figure}[!htb]
-\centering
-\includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{Figures/dfd_level_0.png}
-\caption{DFD Level 0: Context Diagram}
-\label{fig:dfd_level_0}
-\end{figure}
-
-\begin{itemize}[nosep]
-    \item \textbf{Student:} sends credentials, the PC's hardware IDs, start, answers and submit, and is the source of the PC activity, screen and webcam image; receives the sign-in result, exam list, questions and receipt hash, the lockdown, warnings, extra time and unlocks, and on the web portal the results, violation history, performance and notifications.
-    \item \textbf{Teacher and Invigilator:} the teacher sends exam settings, attendance, seats, invigilator assignments and announcements, accepts or overrides marks and requests reports; both send warnings, time extensions, unlocks, force-submits and incidents for the exams they supervise (the invigilator only for assigned exams) and receive live status over SignalR, and timelines and screenshots from the API on request. The teacher also receives suggested marks, the similarity matrix and the PDF, Excel and evidence-ZIP reports.
-    \item \textbf{Admin/SuperAdmin:} sends user, role, device-binding, department, course, lab and workstation changes; receives the audit log with its hash-chain status and system analytics.
-    \item \textbf{Email server (SMTP):} receives exam schedule, grade and announcement emails.
-    \item \textbf{LLM grader (Groq or Gemini, optional, off by default):} receives theory answers with the model answer and rubric keywords, and code test results; returns a suggested mark or a code summary.
-\end{itemize}
-
-\subsubsection{DFD Level 1}
-
-Level 1 has five processes. To keep its labels legible it is drawn on two landscape pages that share the stores: Figure~\ref{fig:dfd_level_1} holds 1.0--3.0 and Figure~\ref{fig:dfd_level_1b} holds 4.0 and 5.0, and the dashed circles show the flows between the two parts.
-
-\begin{sidewaysfigure}
-\centering
-\includegraphics[width=\linewidth,height=415pt,keepaspectratio]{Figures/dfd_level_1.png}
-\caption{DFD Level 1 (a): Sign-in, Exam Set-up and Exam Session (Processes 1.0--3.0)}
-\label{fig:dfd_level_1}
-\end{sidewaysfigure}
-
-\begin{sidewaysfigure}
-\centering
-\includegraphics[width=\linewidth,height=415pt,keepaspectratio]{Figures/dfd_level_1b.png}
-\caption{DFD Level 1 (b): Live Proctoring and Evaluation (Processes 4.0 and 5.0)}
-\label{fig:dfd_level_1b}
-\end{sidewaysfigure}
-
-\begin{sloppypar}
-\begin{enumerate}[nosep]
-    \item \textbf{1.0 Authenticate and bind device:} reads the password hash and device binding from D1, writes the binding, sessions and refresh tokens, and audits login, device and user events in D8. Admin user, role and binding-reset changes enter here.
-    \item \textbf{2.0 Configure exams and run sessions:} stores exams, questions and test cases (D2), departments, courses, labs and workstations, attendance, eligibility, seats and invigilator assignments (D3), and sessions, answers and readiness results (D4); writes announcements and schedule and grade notices to D7 and sends them as emails; audits exam, eligibility, assignment, academic-structure and lab changes in D8; and passes each submitted session to 5.0.
-    \item \textbf{3.0 Lockdown and telemetry:} the client applies the exam's lockdown mode and allowed apps (D2) to the PC and sends heartbeats, event batches, screenshots and webcam snapshots. The API checks the assigned seat (D3), reads the session's violations (D5) for the live tile status, and returns the session's extra time and unlock (D4) and unread warnings (D7) in the heartbeat reply. It writes events and captures to D5, \texttt{LastHeartbeatAt} and the disconnected flag to D4, \texttt{LastSeenAt} to D1 and seat, violation and connection events to D8, and passes heartbeats, classed events and alerts to 4.0.
-    \item \textbf{4.0 Live proctoring:} checks \texttt{ExamProctors} (D3), pushes live status to teachers and invigilators over SignalR, serves timelines and screenshots (D5) on request over REST, and stores their warnings (D7), extra time, unlocks and force-submits (D4), incidents (D5) and an audit entry for each action (D8).
-    \item \textbf{5.0 Evaluation and reporting:} grades submitted answers (calling the LLM only if enabled), compares submissions within an exam, stores marks, similarity pairs, overrides and reports (D6), builds reports from D3--D6 and D8, audits grading and report events in D8, and serves the audit log, analytics and student results.
-\end{enumerate}
-\end{sloppypar}
-
-\DiagramBarrier
-\subsubsection{DFD Level 2}
-
-Level 2 expands processes 3.0 and 5.0 with the same stores as level 1; each is drawn in two parts, and a dashed circle stands for the process in the other part.
-
-\begin{sloppypar}
-\begin{enumerate}[nosep]
-    \item \textbf{3.1--3.5 Lockdown and telemetry (Figures~\ref{fig:dfd_level_2} and~\ref{fig:dfd_level_2_api}):} on the lab PC, 3.1 enforces the lockdown with \texttt{ProcessGuardService}, the keyboard hook and the USB, monitor, remote-session and VM guards, reports each breach as an event, and relaxes the lock while an unlock from the heartbeat reply is valid. 3.2 runs the webcam checks, takes screenshots and webcam snapshots, spools events, sends a heartbeat every 10~s and event batches every 5~s, and shows the warnings, extra time and remaining time from the reply. In the API, \texttt{MonitoringController} receives the uploads, checks the seat with \texttt{SeatGuard} and builds the reply (3.3). 3.4 updates \texttt{LastHeartbeatAt} and \texttt{LastSeenAt}, stores a heartbeat event when something changed or at least every 60~s, sets the tile status from the session's violations, and lets the watchdog mark a student silent for 30~s as disconnected. \texttt{ViolationClassifier} gives each event its type and severity (Warning, Suspicious or Violation); events are saved, de-duplicated by \texttt{ClientEventId}, and violations are pushed as \texttt{ViolationEvent} (3.5). Seat mismatches, violations, disconnects and reconnects are audited.
-\end{enumerate}
-\end{sloppypar}
+Figure~\ref{fig:dfd_level_0} shows SmartExam as one process, 0.0 SmartExam Platform, with four external entities around it: the Student User, the Teacher User, the System Administrator and the AI Grading Service. Each entity has one arrow into the process and one arrow out of it, so the student sends credentials, the HWID, telemetry and answers and receives the JWT token, questions and notifications. The teacher sends exam rules, seat maps and overrides and gets live alerts, PDF reports and grades, and the administrator sends configurations and unbinding approvals and gets audit logs and performance reports. In SmartExam the AI Grading Service is the optional LLM API for theory grading, which is off by default; the TF-IDF theory scores and the similarity scores are computed inside the API.
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{Figures/dfd_level_2.png}
-\caption{DFD Level 2 of Process 3.0 (a): Client Side, Processes 3.1 and 3.2}
-\label{fig:dfd_level_2}
+\includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{Figures/dfd_level_0.png}
+\caption{Level 0 Data Flow Diagram}
+\label{fig:dfd_level_0}
 \end{figure}
 
-\begin{sloppypar}
-\begin{enumerate}[nosep,start=2]
-    \item \textbf{5.1--5.6 Evaluation and reporting (Figures~\ref{fig:dfd_level_2b} and~\ref{fig:dfd_level_2b_reports}):} grading runs only when the exam has AI evaluation enabled, and practice exams are not compared. The code runner tests each C or C++ answer against its test cases (5.1); MCQs are scored by key and theory answers by TF-IDF, or by the optional LLM (5.2); k-gram winnowing compares answers pairwise within the exam (5.3). Suggested marks, similarity pairs and the teacher's accept or override decisions are saved and audited (5.4). On request, 5.5 builds the exam summary PDF, the attendance, violations and scores PDFs (QuestPDF), the Excel workbook and the evidence ZIP, lists each file in \texttt{ExamReports} and audits each export except the summary PDF as \texttt{REPORT\_GENERATED} with the file's SHA-256. 5.6 serves the audit log and its hash-chain check (valid, or the first broken row), system analytics, and each student's results, violation history, performance and notifications.
-\end{enumerate}
-\end{sloppypar}
+\subsubsection{DFD Level 1}
 
-\begin{sidewaysfigure}
-\centering
-\includegraphics[width=\linewidth,height=415pt,keepaspectratio]{Figures/dfd_level_2_api.png}
-\caption{DFD Level 2 of Process 3.0 (b): API Side, Processes 3.3--3.5}
-\label{fig:dfd_level_2_api}
-\end{sidewaysfigure}
+Figure~\ref{fig:dfd_level_1} splits the system into five processes: 1.0 Authenticate \& Bind Device, 2.0 Manage Exam Configuration, 3.0 Stream Telemetry \& Lockdown, 4.0 Monitor Live Proctoring \& Overrides and 5.0 Process Evaluation \& Reporting. The processes use the stores D1 Users \& Bindings, D2 Exams \& Whitelists, D4 Monitoring Events, D5 AI Grading \& Plagiarism and D6 Security Audit Logs, and the flows run from the sign-in at the top to grading and reporting at the bottom. Process 5.0 sends subjective answers to the AI Grading Service only when LLM grading is switched on, receives its scores, and returns final grades and PDF reports to the Teacher User.
 
-\begin{sidewaysfigure}
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\linewidth,height=415pt,keepaspectratio]{Figures/dfd_level_2b.png}
-\caption{DFD Level 2 of Process 5.0 (a): Grading, Processes 5.1--5.4}
-\label{fig:dfd_level_2b}
-\end{sidewaysfigure}
+\includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{Figures/dfd_level_1.png}
+\caption{Level 1 Data Flow Diagram}
+\label{fig:dfd_level_1}
+\end{figure}
 
-\begin{sidewaysfigure}
+\subsubsection{DFD Level 2}
+
+Figure~\ref{fig:dfd_level_2} expands two processes of level 1. The upper box, 5.0 Evaluation \& Plagiarism Pipeline, reads D3 Exam \& Answers into 5.1 Run Isolated Compiler, 5.2 AI Semantic Grader and 5.3 Execute Plagiarism Checker, whose results meet in 5.4 Aggregate Grades; 5.4 writes the final grades to D5 and passes the data to 5.5 Render PDF Report for the Teacher User. The lower box, 3.0 Telemetry Streaming \& Analysis, takes the student's raw JSON packets through 3.1 Ingest Client Telemetry, 3.2 Validate Allowed Apps (with D2 Allowed Apps), 3.3 Analyze Anomalies and 3.4 Route Alerts \& Save Logs, which writes to D4 Monitoring Events and sends WebSocket warnings to the Teacher User. In the code, the plagiarism check (5.3) runs inside the API by k-gram winnowing and does not call the AI Grading Service, and the allowed-apps check (3.2) runs on the student's PC; the server then classifies the events it receives and passes violations to the live monitor through SignalR.
+
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\linewidth,height=415pt,keepaspectratio]{Figures/dfd_level_2b_reports.png}
-\caption{DFD Level 2 of Process 5.0 (b): Reports and Read-only Services, Processes 5.5 and 5.6}
-\label{fig:dfd_level_2b_reports}
-\end{sidewaysfigure}
+\includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{Figures/dfd_level_2.png}
+\caption{Level 2 Data Flow Diagrams}
+\label{fig:dfd_level_2}
+\end{figure}

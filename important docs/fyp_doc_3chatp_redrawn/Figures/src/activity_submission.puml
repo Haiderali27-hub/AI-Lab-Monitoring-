@@ -1,0 +1,74 @@
+@startuml
+!include style.iuml
+' Exam submission (Views/ExamWindow.SubmitButton_Click / AutoSubmitOnExpiry / DoSubmit + _submitRetry,
+' ExamSessionViewModel.SubmitAsync / SubmitCoreAsync, ExamsController.Submit, SubmissionService.FinalizeAsync
+' (IsClosed: exam end + ExtraMinutes + 2 min DeadlineGrace), ReceiptHasher, SessionTimeoutService).
+' One flush attempt per submit; Offline or Failed keeps the window open:
+' auto submit retries every 10 s (_submitRetry), a manual submit asks the student to press Submit again.
+' Simplified labels: endpoint, status codes and the 30 s timeout sweep are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 22
+skinparam ArrowFontSize 22
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  TitleFontSize 23
+}
+!pragma useVerticalIf on
+
+|Desktop App|
+start
+if (Timer
+reached 0?) then ([yes])
+  :Automatic
+  submit;
+else ([no: Submit pressed])
+  if (Submit anyway
+  (N unanswered)?) then ([no])
+    :Back to
+    the exam;
+    stop
+  else ([yes])
+  endif
+endif
+note right
+  No submit at all: the
+  server times the session
+  out after end + grace
+end note
+repeat
+  :Send pending answers,
+  update local backup;
+  if (All
+  sent?) then ([no])
+  else ([yes])
+    :Submit;
+    |Server|
+    if (Session in
+    progress?) then ([yes])
+      :Finalise: receipt,
+      grade if AI on,
+      plagiarism check
+      if not practice;
+    else ([no])
+    endif
+    |Desktop App|
+    if (Result?) then ([submitted])
+      :Verify
+      receipt;
+    ([failed]) elseif (Session
+    already ended?) then ([yes])
+      :Show "already
+      ended";
+    else ([no])
+    endif
+  endif
+backward :Keep window open.
+Auto: retry in 10 s,
+manual: Submit again;
+repeat while (Submitted or\nalready ended?) is ([no]) not ([yes])
+:Release lockdown,
+close window;
+stop
+@enduml

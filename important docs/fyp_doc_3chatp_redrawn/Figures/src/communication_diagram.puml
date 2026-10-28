@@ -1,0 +1,50 @@
+@startuml
+!include style.iuml
+' dpi only sets resolution; printed text size = fontSize * 72 * W_in / layout width.
+skinparam dpi 120
+' Communication diagram (UML 2.5): one link per pair of objects, every message on its link with a direction arrow
+' (U+25B2 up, U+25BC down, U+25C4 left, U+25BA right), sequence numbers and guards in [..].
+' Decimal numbering (UML 2.5.1 Cl. 17.9): a message sent in reaction to message n is n.1, n.2, ...
+' Labels are kept short; the chapter text gives the details (URLs, audit event names, ack contents).
+' Sources: Views/ExamWindow.xaml.cs:43-46, Services/Lockdown/LockdownCoordinator.cs:150-169,
+' Services/LiveMonitoringService.cs, Views/ExamDashboard.xaml.cs:39-41, Controllers/MonitoringController.cs
+' (PushEventBatch, Heartbeat), Hubs/MonitoringHub.cs (SendWarning, ForceSubmitSessionById),
+' Services/ExamAccessService.cs, Services/SubmissionService.cs (FinalizeAsync -> SessionFinalized), LiveMonitorPage.tsx.
+' Portrait page: include at width \linewidth.
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam nodesep 16
+skinparam ranksep 50
+skinparam rectangle {
+  BackgroundColor #F2F2F2
+}
+
+actor "Teacher /\nInvigilator" as STAFF
+rectangle "<u>:LiveMonitorPage</u>\n(web panel)" as WEB
+rectangle "<u>:MonitoringHub</u>" as HUB
+rectangle "<u>:ExamAccessService</u>" as ACC
+rectangle "<u>:SubmissionService</u>" as SUB
+rectangle "<u>:MonitoringController</u>" as CTRL
+rectangle "<u>:AppDbContext</u>\n(PostgreSQL)" as DB
+rectangle "<u>:LockdownCoordinator</u>\n(WPF)" as LOCK
+rectangle "<u>:LiveMonitoringService</u>\n(WPF)" as LMS
+rectangle "<u>:ExamDashboard</u>\n(WPF)" as EDB
+rectangle "<u>:ExamWindow</u>\n(WPF)" as WIN
+
+STAFF -down- WEB : <U+25BC> 2: warn or\nforce submit
+WEB -down- HUB : <U+25BC> 2.1 [warn]: SendWarning\n<U+25BC> 2.2 [force]: force submit\n<U+25B2> 2.1.4: ProctorWarningSent
+SUB -right- HUB : <U+25C4> 2.2.4 [allowed]:\nFinalizeAsync
+HUB -down- ACC : <U+25BC> 2.1.2, 2.2.2:\ncheck access
+HUB ---- DB : <U+25BC> 2.1.1, 2.2.1: find session\n<U+25BC> 2.1.3 [allowed]:\nsave warning, audit\n<U+25BC> 2.2.3 [allowed]: audit
+SUB ---- DB : <U+25BC> 2.2.4.1: mark\nForceSubmitted,\nsave
+WEB -down- "<U+25B2> 2.2.4.2:\nSessionFinalized" SUB
+LMS -down- LOCK : <U+25B2> 1: ReportViolation
+LMS -up- CTRL : <U+25B2> 1.1: event batch\n<U+25B2> 3: ack := heartbeat
+CTRL -up- WEB : <U+25B2> 1.1.2:\nViolationEvent
+CTRL ---- DB : <U+25BC> 1.1.1: save\nevent, audit\n<U+25BC> 3.1: read warnings\nand status
+LMS -down- EDB : <U+25BC> 4: warnings /\nstatus update
+EDB -down- WIN : <U+25BC> 4.1: show warning /\nupdate status
+
+HUB -[hidden]right- CTRL
+ACC -[hidden]down- DB
+@enduml

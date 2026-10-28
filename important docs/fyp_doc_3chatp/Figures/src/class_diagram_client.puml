@@ -4,7 +4,8 @@
 ' (a) this file: windows, view models, local storage and monitoring; (b) class_diagram_client_b.puml:
 ' lockdown, ApiClient and the four API controllers it calls (Auth, Exams, Monitoring, Notifications).
 ' Part 1 (EF Core entities) is class_diagram.puml, parts 3 and 4 (server) are class_diagram_server*.puml.
-' Only key members; parameters abbreviated as (..). Arrows: --> holds / creates, ..> calls or uses, *-- owns.
+' Only key members; parameters omitted. The legend no longer says that DashboardViewModel and
+' ExamSessionViewModel also hold ApiClient (arrows omitted); the chapter text says it. Arrows: --> holds / creates, ..> calls or uses, *-- owns.
 ' A dashed white box is a class whose members are drawn in the other figure.
 ' Sources: Views/ExamDashboard.xaml.cs:29-30,203,237; Views/ExamWindow.xaml.cs:43-47; Views/LoginWindow.xaml.cs:15;
 ' ViewModels/*.cs; Core/Backup/AnswerBackupStore.cs; Core/Submission/OfflineSaveQueue.cs; Services/ApiClient.cs.
@@ -25,42 +26,42 @@ class LoginWindow <<Window>> #E8F0FB
 class ExamDashboard <<Window>> #E8F0FB
 class ExamWindow <<Window>> #E8F0FB {
   +ShowProctorWarnings()
-  +OnServerSessionStatus(status)
-  +ApplyUnlockDeadline(until)
+  +OnServerSessionStatus()
+  +ApplyUnlockDeadline()
 }
 class LoginViewModel #E8F0FB {
-  +LoginAsync(password, ct) : bool
+  +LoginAsync()
 }
 class DashboardViewModel #E8F0FB {
-  +RunReadinessAsync(ct) : bool
-  +RetryReadinessItemAsync(check, ct)
-  +StartExamAsync(ct) : bool
+  +RunReadinessAsync()
+  +RetryReadinessItemAsync()
+  +StartExamAsync()
 }
 class ExamSessionViewModel #E8F0FB {
-  +LoadAsync() : bool
-  +SaveAnswerAsync(q)
+  +LoadAsync()
+  +SaveAnswerAsync()
   +SubmitAsync()
 }
 class AnswerBackupStore #E8F0FB {
-  +Save(state)
-  +Load(sessionId)
-  +MarkSubmitted(sessionId, receipt)
+  +Save()
+  +Load()
+  +MarkSubmitted()
 }
 class OfflineSaveQueue #E8F0FB {
-  +Enqueue(save)
-  +FlushAsync(send, ct)
+  +Enqueue()
+  +FlushAsync()
 }
 class ReadinessCheckService #E8F0FB {
-  +RunAllAsync(req, ct)
-  +RunAsync(check, req, ct)
+  +RunAllAsync()
+  +RunAsync()
 }
 class LockdownCoordinator #FFFFFF ##[dashed]
 class LiveMonitoringService #E8F0FB {
-  -_captures : EvidenceCaptureService?
-  -_webcam : WebcamMonitorService?
-  +Start(token, sessionId, ..)
-  +ReportViolation(reason, detail)
-  +ReportEvent(type, payload, ..)
+  -_captures : EvidenceCaptureService
+  -_webcam : WebcamMonitorService
+  +Start()
+  +ReportViolation()
+  +ReportEvent()
   +event WarningsReceived
   +event SessionStatusUpdated
 }
@@ -70,9 +71,9 @@ class WebcamMonitorService #E8F0FB {
   +event IssueChanged
 }
 class WebcamVision #E8F0FB {
-  +FaceModelFile = "face_detection_yunet_2023mar.onnx"
-  +PhoneModelFile = "yolox_nano.onnx"
-  +Analyze(frame) : VisionResult?
+  +FaceModelFile (YuNet)
+  +PhoneModelFile (YOLOX-Nano)
+  +Analyze()
 }
 class ApiClient #FFFFFF ##[dashed]
 
@@ -89,16 +90,13 @@ ExamSessionViewModel *-- OfflineSaveQueue
 AnswerBackupStore -[hidden]down- OfflineSaveQueue
 ReadinessCheckService --> ApiClient
 LoginViewModel --> ApiClient
-LockdownCoordinator ..> LiveMonitoringService : ReportViolation\n(violationSink)
+LockdownCoordinator ..> LiveMonitoringService : reports\nviolations
 LiveMonitoringService *-- WebcamMonitorService
 WebcamMonitorService ..> WebcamVision
 LiveMonitoringService --> ApiClient
 
 skinparam legendFontSize 14
 legend bottom right
-  <back:#E8F0FB>      </back>  Student<U+005F>Desktop<U+005F>App (WPF client).
-  Dashed box: members drawn in part (b).
-  DashboardViewModel and ExamSessionViewModel
-  also hold ApiClient (arrows omitted).
+  Dashed box: members in figure (b).
 endlegend
 @enduml

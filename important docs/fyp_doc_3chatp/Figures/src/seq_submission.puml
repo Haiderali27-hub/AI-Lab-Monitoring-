@@ -17,7 +17,6 @@ hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
 skinparam BoxPadding 0
-skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
@@ -28,22 +27,19 @@ participant "Exam\nWindow" as EW
 participant "ExamSession\nViewModel" as VM
 participant "ApiClient" as API
 participant "Exams\nController" as EC
-participant "Submission\nService" as SS
-database "AppDb\nContext" as DB
 
-Student -> EW : Submit and confirm\n(or timer reaches 0)
+Student -> EW : Submit and confirm\n(or timer ends)
 activate EW
-EW -> VM : SubmitAsync()
+EW -> VM : submit
 activate VM
-VM -> VM : queue unsent\nedits; Flush-\nOfflineAsync()
+VM -> VM : send unsent\nsaves first
 break a save is still offline
   VM --> EW : Offline
-  EW --> Student : "Waiting for network";\nwindow stays open;\nauto submit retries\nevery 10 s
+  EW --> Student : "Waiting for network";\nwindow stays open
 end
-  note right of VM : queue empty (saved, or\nrefused after the deadline)
-  VM -> API : SubmitExamAsync(sid)
-  activate API
-  API -> EC : POST /api/exams/\nsessions/{sid}/\nsubmit
-  activate EC
-  EC -> EC : desktop token?\nown session\n(else 404)?\nInProgress\n(else 400)?
+VM -> API : submit exam
+activate API
+API -> EC : POST submit
+activate EC
+EC -> EC : desktop app?\nown session?\nin progress?
 @enduml

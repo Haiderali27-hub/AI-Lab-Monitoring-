@@ -1,0 +1,91 @@
+@startgantt
+' SmartExam baseline schedule: 8 sprints x 4 weeks (project Weeks 1-32).
+' One bar per activity A-I of tab:cpm (Chapter-3-3); sprint contents as tab:timeframe
+' (Chapter-2-2) and the sprint list in Chapter-1-8. One time unit = one project week.
+' The arrows are the dependencies of tab:cpm; C -> D does not move D (C has 2 weeks of float).
+' Simplified labels: short task names; full module names are in Chapter 1.
+' Render: java -jar plantuml.jar -tpng gantt_chart.puml
+skinparam dpi 150
+printscale daily zoom 0.85
+<style>
+ganttDiagram {
+  BackgroundColor white
+  FontName Arial
+  task {
+    FontName Arial
+    FontSize 12
+    FontColor black
+    BackGroundColor #E6B0AA
+    LineColor #B03A2E
+  }
+  milestone {
+    FontName Arial
+    FontSize 12
+    FontStyle bold
+    FontColor #B03A2E
+    BackGroundColor #B03A2E
+    LineColor #B03A2E
+  }
+  separator {
+    FontName Arial
+    FontSize 12
+    FontStyle bold
+    LineColor #9E9E9E
+  }
+  timeline {
+    FontName Arial
+    FontSize 11
+    BackgroundColor #F5F5F5
+  }
+  arrow {
+    LineColor #555555
+  }
+}
+footer {
+  FontName Arial
+  FontSize 12
+  FontColor #333333
+  HorizontalAlignment left
+  Margin 4
+}
+</style>
+
+-- Sprint 1 (Weeks 1-4) --
+[A: Requirements and design] as [A] lasts 4 days
+
+-- Sprint 2 (Weeks 5-8) --
+[B: M1 Authentication] as [B] lasts 4 days
+[B] starts at [A]'s end
+[C: M7 User management] as [C] lasts 2 days
+[C] starts at [A]'s end
+[C] is colored in #E0E0E0/#6E6E6E
+
+-- Sprint 3 (Weeks 9-12) --
+[D: M8 Exam creation, M9 Eligibility] as [D] lasts 4 days
+[D] starts at [B]'s end
+[C] -> [D]
+
+-- Sprint 4 (Weeks 13-16) --
+[E: M2 Readiness, M3 Student dashboard, M4 Lockdown] as [E] lasts 4 days
+[E] starts at [D]'s end
+[FYP-I review] happens at [E]'s end
+
+-- Sprint 5 (Weeks 17-20) --
+[F: M5 Monitoring, M10 Proctoring] as [F] lasts 4 days
+[F] starts at [E]'s end
+
+-- Sprint 6 (Weeks 21-24) --
+[G: M6 Submission, M11 AI evaluation] as [G] lasts 4 days
+[G] starts at [F]'s end
+
+-- Sprint 7 (Weeks 25-28) --
+[H: M12 Audit and reports] as [H] lasts 4 days
+[H] starts at [G]'s end
+
+-- Sprint 8 (Weeks 29-32) --
+[I: Integration and testing] as [I] lasts 4 days
+[I] starts at [H]'s end
+[Final submission] happens at [I]'s end
+
+footer Red: critical path (32 weeks). Grey: task C has 2 weeks of float. Diamond: milestone.
+@endgantt

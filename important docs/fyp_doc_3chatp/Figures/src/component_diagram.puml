@@ -8,7 +8,7 @@ skinparam dpi 110
 ' IHubContext<MonitoringHub> pushes: MonitoringController (ViolationEvent ...), SubmissionService (SessionFinalized),
 ' SeatGuard (ViolationEvent), HeartbeatWatchdogService (StudentDisconnected), GradingService (GradingCompleted).
 ' AppDbContext is injected into controllers, MonitoringHub and services alike.
-' Sized for includegraphics width 0.92 linewidth (about 8 pt printed, about 8.6 in tall).
+' Portrait, width linewidth (text about 11 pt printed). Boxes name the parts only; the chapter text lists the classes.
 ' Provided interfaces (lollipop): REST /api/* on the controllers, SignalR /hubs/monitoring on MonitoringHub; required (socket): ApiClient, api/client.ts, LiveMonitorPage.
 skinparam defaultFontSize 24
 skinparam ArrowFontSize 24
@@ -22,141 +22,97 @@ skinparam package {
   FontSize 24
 }
 
-package "Client: Student_Desktop_App (WPF)" {
+package "Desktop client (WPF)" {
   component VIEWS [
-    <b>Views + ViewModels</b>
-    LoginWindow,
-    ExamDashboard,
-    ExamWindow
+    <b>Windows and</b>
+    <b>view models</b>
   ]
   component READY [
-    <b>ReadinessCheck</b>
-    <b>Service</b>
-    ReadinessPolicy
+    <b>Readiness</b>
+    <b>checks</b>
   ]
   component LOCK [
-    <b>LockdownCoordinator</b>
-    KeyboardHookService,
-    ProcessGuardService,
-    ClipboardGuardService,
-    DeviceGuardService,
-    TaskManagerRegistryGuard
+    <b>Lockdown</b>
+    keyboard, process,
+    clipboard, device
+    guards
   ]
   component LMS [
-    <b>LiveMonitoring</b>
-    <b>Service</b>
-    MonitoringSpool,
-    EventBatcher,
-    WarningInbox
+    <b>Live monitoring</b>
+    event spool,
+    warnings
   ]
   component CAP [
-    <b>Capture + vision</b>
-    EvidenceCaptureService,
-    WebcamMonitorService,
-    WebcamVision
-    (YuNet, YOLOX-Nano)
+    <b>Capture + webcam</b>
+    <b>vision</b>
   ]
   component APIC [
     <b>ApiClient</b>
-    TokenRefreshGate
   ]
 }
-package "Client: Admin_Web_Panel (React)" {
+package "Web panel (React)" {
   component PAGES [
     <b>Pages</b>
-    admin, teacher,
-    analytics, student
   ]
   component AXIOS [
-    <b>api/client.ts</b>
-    axios + JWT
-    refresh
+    <b>API client</b>
+    (axios)
   ]
   component SIG [
-    <b>LiveMonitorPage</b>
-    @microsoft/
-    signalr
+    <b>Live monitor</b>
+    (SignalR)
   ]
 }
 
 package "Server" as SRV {
   component CTRL [
-    <b>Backend_API REST controllers</b>
-    /api/*:
-    Auth, Users, Labs, Departments,
-    Courses, Attendance, Exams,
-    Monitoring, MonitoringEvidence,
-    Incidents, Grading, Analytics,
-    Audit, Notifications,
-    StudentPortal, AdminMaintenance
+    <b>REST controllers</b>
+    (16)
   ]
   component HUB [
     <b>MonitoringHub</b>
-    /hubs/monitoring
-    JoinExamGroup, SendWarning,
-    ForceSubmitSessionById,
-    ExtendStudentTime,
-    UnlockSession, RelockSession
+    (SignalR)
   ]
   package "Services" as SVC {
     component DOM [
       <b>Domain services</b>
-      SubmissionService,
-      ExamAccessService,
-      SeatGuard, AuditService,
-      AuditChain (hash chain),
-      RefreshTokenService,
-      ViolationClassifier,
-      EligibilityCalculator,
-      NotificationService,
-      EmailService,
-      AnalyticsService,
-      ReportExportService,
-      EvidenceStorage
+      submission, access,
+      audit chain, reports
     ]
     component BG [
       <b>Hosted services</b>
-      GradingWorker,
-      HeartbeatWatchdogService,
-      SessionTimeoutService,
-      EvidenceRetentionService
+      grading worker,
+      heartbeat watchdog,
+      evidence retention
     ]
     component GRD [
-      <b>Grading (Module 11)</b>
-      GradingService,
-      GradingQueue,
-      CodeRunnerResolver:
-      DockerCodeRunner /
-      LocalMingwCodeRunner,
-      TheoryGrader (TF-IDF),
-      PlagiarismService
-      (winnowing),
-      LlmGrader (optional)
+      <b>Grading</b>
+      code runners,
+      theory grader,
+      plagiarism
     ]
   }
 }
 
-package "Data tier" {
+package "Data" {
   component EF [
     <b>AppDbContext</b>
-    EF Core + Npgsql
+    (EF Core)
   ]
   database PG [
     <b>Neon PostgreSQL</b>
-    29 tables
   ]
   folder EVD [
-    Evidence/ files,
-    Reports/: PDF,
-    Excel, ZIP
+    Evidence and
+    report files
   ]
 }
 
 ' Interface names sit on the provider links (as edge labels) so that no line runs through them.
 () " " as IREST
 () " " as IHUB
-CTRL -up- IREST : REST /api/*\n(JWT)
-HUB -up- IHUB : SignalR\n/hubs/monitoring
+CTRL -up- IREST : REST\n(JWT)
+HUB -up- IHUB : SignalR
 
 VIEWS --> READY
 VIEWS --> LOCK
@@ -174,23 +130,23 @@ PAGES --> SIG
 AXIOS -[hidden]down- SIG
 VIEWS -[hidden]right- PAGES
 
-EVD -[hidden]right- PG
+EF -[hidden]right- EVD
 
 APIC -down-( IREST
 AXIOS -down-( IREST
 SIG -down-( IHUB
-CTRL .right.> HUB : IHubContext\npush
+CTRL .right.> HUB : push
 CTRL --> DOM
 CTRL --> GRD
 HUB --> DOM
-DOM -right-> GRD : stage grading,\nplagiarism,\nenqueue
+DOM -right-> GRD : grading,\nplagiarism
 BG -up-> DOM
 BG -up-> GRD
 BG --> EVD : purge
 DOM .up.> HUB
 BG .up.> HUB
 GRD .up.> HUB
-SRV --> EF : controllers, hub\nand services
+SRV --> EF
 EF -left-> PG
 DOM --> EVD
 @enduml

@@ -1,0 +1,59 @@
+@startuml agile_workflow_detailed
+' SmartExam process model (Chapter-1-8, fig:agileworkflowdetailed): Scrum-style sprints as
+' described in Chapter-1-8, Chapter-3-3 (definition of done, schedule control) and
+' Chapter-3-5 (sprint meetings, written check-ins, 24-hour blocker rule, change control).
+' Output name is agile_workflow_detailed.png (set by the @startuml name above).
+' UML 2.5 activity diagram: partitions, initial/final nodes, fork/join, guarded decisions.
+' Legibility: 13 pt text in a PNG about 1180 px wide prints at about 7 pt at 0.9\linewidth.
+' Render: java -jar plantuml.jar -tpng agile_workflow.puml
+!include style.iuml
+skinparam defaultFontSize 13
+skinparam ArrowFontSize 13
+skinparam note {
+  FontSize 13
+}
+skinparam swimlane {
+  TitleFontSize 13
+  TitleFontStyle bold
+  BorderColor #999999
+}
+
+|Development team (3 members)|
+start
+:Product backlog
+(FR1-FR12, modules M1-M12);
+repeat
+  :Sprint planning: sprint goal and
+  sprint backlog (each task has one
+  WBS code and one owner);
+  fork
+    :Develop the module;
+  fork again
+    :Write its xUnit and
+    Playwright tests;
+  end fork
+  note right
+    4-week sprint:
+    written check-ins;
+    blocker unsolved
+    for 24 h -> team
+    discussion
+  end note
+  :Increment: tasks meet the definition
+  of done (code and tests pass,
+  thesis section updated);
+  |Supervisor|
+  :Sprint review: the increment is
+  demonstrated; feedback on it and
+  on the backlog priorities;
+  |Development team (3 members)|
+  :Schedule check: if under 80 % of
+  story points are done, move or
+  cut backlog items;
+  :Feedback and accepted changes
+  go into the product backlog;
+repeat while (Sprint 8 finished?) is ([no: next sprint]) not ([yes])
+:Integrated system, final
+thesis and demo (Week 32);
+stop
+@enduml

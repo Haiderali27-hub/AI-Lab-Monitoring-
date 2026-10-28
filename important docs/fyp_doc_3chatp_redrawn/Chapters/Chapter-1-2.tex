@@ -1,0 +1,338 @@
+\section{Product Scope}
+
+SmartExam covers a lab exam from set-up to final report. We drew the scope boundary \cite[ch.~5]{pmbok6} around the institution's own lab: exams on Windows PCs on campus, not at home. The WPF client on each workstation and the React web panel both call an ASP.NET Core 9 API that stores data in PostgreSQL on Neon. They use REST calls, over plain HTTP on the shipped localhost configuration and HTTPS behind a TLS endpoint in a lab deployment; the API itself does not enforce HTTPS. SignalR carries live updates between the API and the web dashboard. The desktop client uses REST only and receives invigilator warnings, extra time, unlocks and force-submits in the reply to its next heartbeat (every 10 s). The work is split into twelve modules:
+
+\begin{itemize}[noitemsep]
+\item \textbf{M1 Authentication and Device Binding:} login rate limit, hardware-ID workstation binding, PBKDF2 password hashes, JWTs with rotating refresh tokens.
+\item \textbf{M2 Pre-Exam Verification and Practice Exam:} network, clock, webcam and secure-mode checks, practice exams.
+\item \textbf{M3 Student Exam Dashboard:} assigned exam with start countdown, readiness and eligibility status, student web portal.
+\item \textbf{M4 Secure Exam Environment (lockdown):} fullscreen window, blocked shortcuts, clipboard guard, Report or Enforce mode for unapproved apps.
+\item \textbf{M5 Live Monitoring Client Service:} 10~s heartbeats, batched events, randomised screenshots, on-PC webcam checks.
+\item \textbf{M6 Submission and Backup:} autosave, encrypted local backup, offline queue, server-side deadline and receipt.
+\item \textbf{M7 User and Role Management:} account management and CSV import, five roles, binding reset, departments and courses.
+\item \textbf{M8 Exam Creation and Configuration:} MCQ, coding and theory questions, test cases, allowed apps and lockdown mode, exam notices.
+\item \textbf{M9 Eligibility and Access Control:} attendance import, 75\% rule, audited overrides, seat assignment.
+\item \textbf{M10 Live Proctoring Dashboard:} live tiles, warnings and extra time, unlock and force-submit, incidents.
+\item \textbf{M11 AI-Assisted Evaluation:} test-case grading of C and C++, MCQ marking, TF-IDF theory scoring, plagiarism matrix.
+\item \textbf{M12 Logs, Analytics and Audit Trail:} hash-chained audit log, analytics, PDF reports, Excel and evidence-ZIP exports.
+\end{itemize}
+
+\subsection{Existing System Description}
+\label{sec:existingsystems}
+
+The manual process is described in Section~\ref{sec:productpurpose}. Existing tools each solve one part of it. We reviewed ten of them. Each is summarised below with its main features and its limitations for an exam held in a campus lab, and Table~\ref{tab:comparison} compares all ten.
+
+Table~\ref{tab:Abbreviations} lists the abbreviations used in this report. The rows are numbered and sorted alphabetically, and each gives a short form and its full form. A reader who meets an unfamiliar short form in a later chapter, such as HWID or WBS, can look it up here.
+
+\begin{longtable}{cl>{\raggedright\arraybackslash}p{9.6cm}}
+\caption{Abbreviations}
+\label{tab:Abbreviations}\\
+\hline\hline
+\textbf{Serial \#} & \textbf{Abbreviation} & \textbf{Definition} \\
+\hline
+\endfirsthead
+\multicolumn{3}{c}{\tablename~\thetable{} -- continued from previous page}\\
+\hline\hline
+\textbf{Serial \#} & \textbf{Abbreviation} & \textbf{Definition} \\
+\hline
+\endhead
+\hline
+\endfoot
+\hline\hline
+\endlastfoot
+1 & AES-256-GCM & Advanced Encryption Standard in Galois/Counter Mode \\
+2 & AI & Artificial Intelligence \\
+3 & API & Application Programming Interface \\
+4 & BIOS & Basic Input/Output System \\
+5 & CPU & Central Processing Unit \\
+6 & CSV & Comma-Separated Values \\
+7 & DFD & Data Flow Diagram \\
+8 & DPAPI & Data Protection API (Windows) \\
+9 & EF Core & Entity Framework Core \\
+10 & ERD & Entity Relationship Diagram \\
+11 & FK & Foreign Key \\
+12 & FR & Functional Requirement \\
+13 & FYP & Final Year Project \\
+14 & GUID & Globally Unique Identifier \\
+15 & HMAC & Hash-based Message Authentication Code \\
+16 & HTTP(S) & Hypertext Transfer Protocol (Secure) \\
+17 & HWID & Hardware Identifier \\
+18 & IP & Internet Protocol \\
+19 & IT & Information Technology; Integration Test (IDs IT-$nn$) \\
+20 & JSON & JavaScript Object Notation \\
+21 & JWT & JSON Web Token \\
+22 & LAN & Local Area Network \\
+23 & LLM & Large Language Model \\
+24 & LMS & Learning Management System \\
+25 & MCQ & Multiple-Choice Question \\
+26 & NFR & Non-Functional Requirement \\
+27 & ONNX & Open Neural Network Exchange \\
+28 & PBKDF2 & Password-Based Key Derivation Function 2 \\
+29 & PC & Personal Computer \\
+30 & PDF & Portable Document Format \\
+31 & RDP & Remote Desktop Protocol \\
+32 & REST & Representational State Transfer \\
+33 & SHA-256 & Secure Hash Algorithm with a 256-bit digest \\
+34 & SMTP & Simple Mail Transfer Protocol \\
+35 & SRS & Software Requirements Specification \\
+36 & ST & System Test (IDs ST-$nn$) \\
+37 & TF-IDF & Term Frequency--Inverse Document Frequency \\
+38 & TLS & Transport Layer Security \\
+39 & UC & Use Case (IDs UC-$nn$) \\
+40 & UI & User Interface \\
+41 & UML & Unified Modeling Language \\
+42 & URL & Uniform Resource Locator \\
+43 & USB & Universal Serial Bus \\
+44 & UT & Unit Test (IDs UT-$nn$) \\
+45 & UTC & Coordinated Universal Time \\
+46 & VM & Virtual Machine \\
+47 & WBS & Work Breakdown Structure \\
+48 & WMI & Windows Management Instrumentation \\
+49 & WPF & Windows Presentation Foundation \\
+50 & XAML & Extensible Application Markup Language \\
+\end{longtable}
+
+\noindent\textbf{Respondus LockDown Browser} is a locked browser for LMS quizzes taken in a classroom or a proctored lab \cite{respondus1}. The student opens the quiz in this browser instead of a normal one, and the browser stays locked until the quiz is submitted.
+
+\noindent The main features of the application are listed below:
+\begin{itemize}[noitemsep]
+\item It blocks other applications and websites while the quiz is open.
+\item It disables printing, screen capture and copy-paste.
+\item It works inside Blackboard, Brightspace, Canvas, Moodle, Sakai and Schoology.
+\item The separate Respondus Monitor add-on records the student with a webcam \cite{respondus_monitor}.
+\item Respondus Monitor also adds an ID check and automated flagging of suspicious behaviour \cite{respondus_webcam}.
+\end{itemize}
+
+\noindent Limitations:
+\begin{itemize}[noitemsep]
+\item A student is not bound to a lab workstation.
+\item Invigilators get no live view of the lab.
+\item Code answers are neither compiled nor graded.
+\item It has no code plagiarism check.
+\item Exam scheduling and results are left to the LMS.
+\end{itemize}
+
+\noindent\textbf{Safe Exam Browser} (SEB) is an open-source browser that limits a Windows, macOS or iOS device to an online exam page \cite{seb1}. The exam itself runs on an LMS or exam system, and SEB keeps the student on that page.
+
+\noindent The main features of the application are listed below:
+\begin{itemize}[noitemsep]
+\item It locks a Windows, macOS or iOS device to the exam page.
+\item It is open source.
+\item A configuration file decides which sites are allowed.
+\item The optional SEB Server lets exam supporters monitor connected clients live \cite{sebserver1}.
+\item SEB Server can also run screen-capture proctoring \cite{sebserver1}.
+\end{itemize}
+
+\noindent Limitations:
+\begin{itemize}[noitemsep]
+\item It has no compiler or code grading.
+\item A student is not bound to a lab workstation.
+\item It has no webcam analysis.
+\item It has no code plagiarism check.
+\item Exam scheduling and results are left to the exam system it opens.
+\end{itemize}
+
+\noindent\textbf{MOSS} (Measure Of Software Similarity) is Stanford's similarity checker for source code \cite{moss1}. A teacher sends the students' files to the MOSS server, which compares them and reports the pairs that look alike.
+
+\noindent The main features of the application are listed below:
+\begin{itemize}[noitemsep]
+\item It compares the files submitted by different students.
+\item It ignores starter code that every student was given.
+\item It supports many programming languages, including C and C++.
+\item Its results page ranks pairs of files by similarity and marks the matching parts.
+\item It is free for teaching use.
+\end{itemize}
+
+\noindent Limitations:
+\begin{itemize}[noitemsep]
+\item It does not lock machines.
+\item It does not check who is sitting the exam.
+\item It does not run or grade code.
+\item It does not watch the exam live.
+\item The files have to be sent to the MOSS server by a script after the exam.
+\end{itemize}
+
+\noindent\textbf{ExamSoft} delivers exams through Examplify, a locked desktop client that runs exams offline \cite{examsoft1}. The exam is downloaded before the sitting and the answers are uploaded when the student is done.
+
+\noindent The main features of the application are listed below:
+\begin{itemize}[noitemsep]
+\item Examplify runs exams offline in a locked desktop client.
+\item It schedules exams.
+\item It manages exam results.
+\item ExamID adds a photo identity check \cite{examsoft_id}.
+\item ExamMonitor adds webcam and screen recording \cite{examsoft_monitor}.
+\end{itemize}
+
+\noindent Limitations:
+\begin{itemize}[noitemsep]
+\item It does not execute code against test cases.
+\item It has no seat assignment or workstation binding.
+\item It has no code plagiarism check.
+\item The identity check and webcam recording need the separate ExamID and ExamMonitor add-ons.
+\item It is a commercial product that the institution has to license.
+\end{itemize}
+
+\noindent\textbf{Moodle} is an open-source LMS \cite{moodle1}. Universities install and run it on their own servers and extend it with plugins.
+
+\noindent The main features of the application are listed below:
+\begin{itemize}[noitemsep]
+\item It is open source.
+\item It manages courses and their content.
+\item It runs quizzes with set opening and closing times.
+\item It grades quizzes and keeps the marks in a gradebook.
+\item It has a large plugin library.
+\end{itemize}
+
+\noindent Limitations:
+\begin{itemize}[noitemsep]
+\item Its core has no workstation lockdown.
+\item It has no live supervision console.
+\item It has no way to run submitted code.
+\item It does not bind a student to a lab workstation.
+\item Its core has no code plagiarism check.
+\end{itemize}
+
+\noindent\textbf{Proctorio} is a proctoring service for remote exams that plugs into common LMS portals \cite{proctorio1}. It watches the student through the webcam and the browser during an online exam.
+
+\noindent The main features of the application are listed below:
+\begin{itemize}[noitemsep]
+\item It plugs into common LMS portals.
+\item It records webcam video during the exam.
+\item It analyses the student's behaviour automatically and flags suspicious actions.
+\item It locks the browser.
+\item It checks the student's identity.
+\end{itemize}
+
+\noindent Limitations:
+\begin{itemize}[noitemsep]
+\item It is built for exams taken at home.
+\item It cannot tie a student to a lab workstation or its network address.
+\item It does not run code against test cases.
+\item It has no code plagiarism check.
+\item Exam scheduling and results are left to the LMS.
+\end{itemize}
+
+\noindent\textbf{Honorlock} is a proctoring service for online exams \cite{honorlock1}. It combines software checks with live proctors who can join a session.
+
+\noindent The main features of the application are listed below:
+\begin{itemize}[noitemsep]
+\item It checks the student's identity.
+\item It offers live remote proctoring.
+\item It locks the browser.
+\item It flags suspicious behaviour seen on the webcam.
+\item It works with common LMS portals.
+\end{itemize}
+
+\noindent Limitations:
+\begin{itemize}[noitemsep]
+\item It targets remote candidates.
+\item It has no workstation binding or seat control.
+\item It does not execute code.
+\item It has no code plagiarism check.
+\item Exam scheduling and results are left to the LMS.
+\end{itemize}
+
+\noindent\textbf{Blackboard Learn} is an LMS for courses, assignments and grades \cite{blackboard1}. Teachers use it to share material, set work and record marks.
+
+\noindent The main features of the application are listed below:
+\begin{itemize}[noitemsep]
+\item It holds course content.
+\item It manages assignments.
+\item It runs scheduled assessments.
+\item It keeps results in a gradebook.
+\item It has discussion boards for each course.
+\end{itemize}
+
+\noindent Limitations:
+\begin{itemize}[noitemsep]
+\item It does not control lab machines, so lockdown needs an add-on such as LockDown Browser.
+\item It has no live supervision of the lab.
+\item It does not run code against test cases.
+\item It does not bind a student to a lab workstation.
+\item It has no code plagiarism check.
+\end{itemize}
+
+\noindent\textbf{Canvas LMS}, from Instructure, is an LMS for teaching and learning \cite{canvas1}. Teachers use it to run courses, set assignments and quizzes, and grade the work.
+
+\noindent The main features of the application are listed below:
+\begin{itemize}[noitemsep]
+\item It manages courses.
+\item It manages assignments.
+\item It runs scheduled quizzes.
+\item It grades submitted work.
+\item It has mobile apps for students and teachers.
+\end{itemize}
+
+\noindent Limitations:
+\begin{itemize}[noitemsep]
+\item Canvas itself does not lock a PC.
+\item It does not bind a student to a PC.
+\item Invigilators have no live view of the room.
+\item Code answers are not run against test cases.
+\item It has no code plagiarism check.
+\end{itemize}
+
+\noindent\textbf{Google Classroom} is Google's tool for class assignments and grades \cite{gclassroom1}. It is part of Google Workspace for Education.
+
+\noindent The main features of the application are listed below:
+\begin{itemize}[noitemsep]
+\item It manages assignments and grading.
+\item Quiz assignments can be scheduled.
+\item Quiz assignments can be auto-graded.
+\item It has a locked mode for quizzes \cite{gclassroom_quiz}.
+\item It works with Google Drive, Docs and Forms.
+\end{itemize}
+
+\noindent Limitations:
+\begin{itemize}[noitemsep]
+\item Locked mode works only on school-managed Chromebooks, not on Windows lab PCs.
+\item It has no workstation binding.
+\item It has no live supervision.
+\item It does not execute code.
+\item It has no webcam or identity check.
+\end{itemize}
+
+None of these tools combines desktop lockdown, workstation binding, live supervision, code execution against test cases and an audit trail for an exam held in a physical lab. SmartExam is built to fill that gap.
+
+Table~\ref{tab:comparison} sets the ten tools against SmartExam on eight features. Each column is one tool and each row is one feature, so reading down a column shows what that tool offers. The last column, Proposed System, is SmartExam: it is the only one marked for code execution against test cases and for workstation binding, and only MOSS shares the code plagiarism check. SmartExam is not marked for a photo or face identity check, because it does no face matching.
+
+\begin{table}[H]
+\centering
+\caption{Applications Comparison}
+\label{tab:comparison}
+\renewcommand{\arraystretch}{1.3}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}XC{0.6cm}C{0.6cm}C{0.6cm}C{0.6cm}C{0.6cm}C{0.6cm}C{0.6cm}C{0.6cm}C{0.6cm}C{0.6cm}C{1.0cm}}
+\hline\hline
+\multicolumn{1}{c}{\multirow{2}{*}{\textbf{Features}}} & \multicolumn{11}{c}{\textbf{Applications}} \\ \cline{2-12}
+\multicolumn{1}{c}{} &
+\rotatebox{90}{Respondus LockDown~\cite{respondus1}\hspace{0.2cm}} &
+\rotatebox{90}{Safe Exam Browser~\cite{seb1}\hspace{0.2cm}} &
+\rotatebox{90}{MOSS~\cite{moss1}\hspace{0.2cm}} &
+\rotatebox{90}{ExamSoft~\cite{examsoft1}\hspace{0.2cm}} &
+\rotatebox{90}{Moodle~\cite{moodle1}\hspace{0.2cm}} &
+\rotatebox{90}{Proctorio~\cite{proctorio1}\hspace{0.2cm}} &
+\rotatebox{90}{Honorlock~\cite{honorlock1}\hspace{0.2cm}} &
+\rotatebox{90}{Blackboard Learn~\cite{blackboard1}\hspace{0.2cm}} &
+\rotatebox{90}{Canvas LMS~\cite{canvas1}\hspace{0.2cm}} &
+\rotatebox{90}{Google Classroom~\cite{gclassroom1}\hspace{0.2cm}} &
+\rotatebox{90}{\textbf{Proposed System}\hspace{0.2cm}} \\
+\hline
+Browser / Desktop Lockdown        & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & \xmark & \xmark & \cmark \\
+Photo ID / Face Identity Check    & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & \xmark & \xmark & \xmark \\
+Webcam and Activity Flagging      & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & \xmark & \xmark & \cmark \\
+Exam Scheduling                   & \xmark & \xmark & \xmark & \cmark & \cmark & \xmark & \xmark & \cmark & \cmark & \cmark & \cmark \\
+Result Management                 & \xmark & \xmark & \xmark & \cmark & \cmark & \xmark & \xmark & \cmark & \cmark & \cmark & \cmark \\
+Code Execution Against Test Cases & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
+Code Plagiarism Check             & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
+Workstation Binding and Seat Control & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
+\hline\hline
+\end{tabularx}
+\end{table}
+
+\noindent\textbf{Note:} the marks were checked against each vendor's official product and documentation pages in October 2026 \cite{respondus1}--\cite{gclassroom_quiz}. A \cmark{} means that the feature is built in or offered as an official add-on, and a \xmark{} means that we found neither. Respondus is marked for photo/ID check and webcam flagging through its Monitor add-on \cite{respondus_webcam}, and ExamSoft through its ExamID and ExamMonitor add-ons. SEB Server adds live client monitoring and screen proctoring but no webcam analysis. Google Classroom's locked mode works only on school-managed Chromebooks \cite{gclassroom_quiz}, so it is not marked for lockdown. Moodle is marked without plugins. SmartExam's webcam check, used when an exam requires it, flags an unavailable, covered or frozen camera, no face or several faces, a head turned away and a phone in view, but does not match a face to an identity.
+
+\subsection{Future System Usage Analysis}
+
+The administrator registers departments, courses, labs, workstations and users. The teacher creates the exam, imports attendance, sets eligibility and assigns each eligible student a workstation. On exam day each student logs in at the assigned PC, passes the readiness check and works in the locked client while invigilators watch the live dashboard. As each student submits, the server marks the answers and compares the code with other submissions; the teacher then confirms or overrides the marks and generates PDF reports and exports on request. Once the exam has ended, students see their results on the web portal. Logins, device bindings, violations, grade changes and other security-relevant staff actions are kept in a hash-chained audit log. Lockdown and monitoring suit any lab exam, including database and networking labs, but automatic test-case grading covers only C and C++; other code is left for the teacher to mark.

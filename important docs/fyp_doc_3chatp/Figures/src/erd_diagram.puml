@@ -39,21 +39,17 @@ entity UserSessions <<Id>> #E8F0FB {
   --
   UserId <<FK>>
   Jti <<UQ>>
-  IsRevoked
 }
 entity RefreshTokens <<Id>> #E8F0FB {
   * TokenId <<PK>>
   --
   UserId <<FK>>
-  FamilyId
   TokenHash <<UQ>>
 }
 entity Notifications <<Gr>> #F1EAF8 {
   * NotificationId <<PK>>
   --
   RecipientId <<FK>>
-  Type
-  IsRead
 }
 entity Departments <<Ac>> #EAF6EA {
   * DeptId <<PK>>
@@ -71,7 +67,6 @@ entity Sections <<Ac>> #EAF6EA {
   --
   CourseId <<FK>>
   TeacherId <<FK>>
-  Semester
 }
 entity SectionEnrollments <<Ac>> #EAF6EA {
   * EnrollmentId <<PK>>
@@ -96,8 +91,7 @@ entity Workstations <<Ac>> #EAF6EA {
   * WorkstationId <<PK>>
   --
   LabId <<FK>>
-  MachineNumber
-  IpAddress, HostName
+  HostName, IpAddress
 }
 entity Exams <<Ex>> #FFF6E0 {
   * ExamId <<PK>>
@@ -105,21 +99,18 @@ entity Exams <<Ex>> #FFF6E0 {
   SectionId <<FK>>
   StartTime, DurationMinutes
   AllowedApps (JSON)
-  Status, LockdownMode
 }
 entity ExamAssignments <<Ex>> #FFF6E0 {
   * AssignmentId <<PK>>
   --
   ExamId <<FK>>
   UserId <<FK>>
-  WorkstationId <<FK, null>>
+  WorkstationId <<FK>>
   IsEligible
 }
 entity ExamProctors <<Ex>> #FFF6E0 {
   * ExamId <<PK, FK>>
   * UserId <<PK, FK>>
-  --
-  AssignedBy (ref)
 }
 
 Users ||-up-o| DeviceBindings
@@ -143,9 +134,7 @@ Users ||--o{ ExamProctors
 
 skinparam legendFontSize 14
 legend bottom right
-  <back:#E8F0FB> Identity </back>  <back:#EAF6EA> Academic / Labs </back>  <back:#FFF6E0> Exam </back>  <back:#FBE9E9> Monitoring </back>  <back:#F1EAF8> Grading / Audit </back>
-  PK = primary key (uuid; ExamProctors has a composite key)
-  FK = foreign key, UQ = unique index (single or composite), null = optional
-  (ref) = id column without a foreign-key constraint
+  <back:#E8F0FB> Identity </back>  <back:#EAF6EA> Academic / Labs </back>  <back:#FFF6E0> Exam </back>  <back:#F1EAF8> Grading / Audit </back>
+  PK primary key, FK foreign key, UQ unique
 endlegend
 @enduml

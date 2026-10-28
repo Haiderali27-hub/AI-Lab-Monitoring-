@@ -2,53 +2,49 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
-skinparam maxMessageSize 200
+skinparam maxMessageSize 220
 hide footbox
 hide unlinked
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 4
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
 }
-' Code: Student_Desktop_App/Views/ExamDashboard.xaml.cs, ViewModels/DashboardViewModel.cs, Services/LiveMonitoringService.cs;
-' Backend_API/Controllers/ExamsController.cs (student/start), MonitoringController.cs (heartbeat, events/batch, screenshot);
+' Code: Student_Desktop_App/Services/LiveMonitoringService.cs; Backend_API/Controllers/MonitoringController.cs (screenshot);
 ' Services/Monitoring/HeartbeatWatchdogService.cs; Hubs/MonitoringHub.cs; Admin_Web_Panel/src/pages/teacher/LiveMonitorPage.tsx.
-' Open arrowheads (->>) are one-way messages: Start() returns at once, and every push to the web page is
-' IHubContext<MonitoringHub>.Clients.Group("exam:{id}").SendAsync(...), with no reply.
 
-participant "ExamDashboard\n+ Dashboard\nViewModel" as VM
+participant "ExamDashboard\n(WPF client)" as VM
 participant "LiveMonitoring\nService" as LM
 participant "Exams\nController" as EC
 participant "Monitoring\nController" as MC
-participant "Heartbeat\nWatchdog\nService" as WD
+participant "Heartbeat\nWatchdog" as WD
 database "AppDbContext" as DB
-participant "LiveMonitorPage\n(web), in group\nexam:{id}" as WEB
+participant "Live Monitor\npage (web)" as WEB
 participant "Monitoring\nHub" as HUB
 == screen and webcam captures; disconnect watchdog ==
-note over LM, MC : Runs in parallel with the heartbeat\nand event-batch loops of part (a)
-loop screen every 0.5-1.5 x ScreenshotInterval\nSeconds, webcam if RequireWebcam, and\non a violation; spool uploaded every 5 s
-    LM -> MC : POST /api/monitoring/screenshot\n(multipart JPEG, kind, trigger)
-    activate MC
-    MC -> DB : Screenshots row (file saved by\nEvidenceStorage.SaveAsync)
-    MC ->> WEB : ScreenshotUploaded
-    MC --> LM : {screenshotId, capturedAt}
-    deactivate MC
-  end
+note over LM, MC : Runs in parallel with\nthe loops of part (a)
+loop screen at random intervals,\nwebcam if required, and on a violation
+  LM -> MC : upload capture
+  activate MC
+  MC -> DB : store image;\nadd Screenshots row
+  MC ->> WEB : ScreenshotUploaded
+  MC --> LM : screenshot id
+  deactivate MC
+end
 
-loop SweepAsync every 5 s
-  WD -> DB : InProgress, not flagged,\nsilent >= 30 s
+loop every 5 s
+  WD -> DB : find sessions silent\nfor 30 s or more
   activate WD
   DB --> WD : silent sessions
   loop each silent session
-    WD -> DB : IsDisconnected = true;\nDisconnected event; AuditLog\nSESSION_DISCONNECTED
+    WD -> DB : mark disconnected; add\nDisconnected event; audit\nSESSION_DISCONNECTED
     WD ->> WEB : StudentDisconnected
   end
   deactivate WD
 end
 note over LM, WEB
-Next heartbeat: IsDisconnected cleared, Reconnected
-event, AuditLog SESSION_RECONNECTED,
-StudentReconnected pushed.
+The next heartbeat marks the session reconnected, adds a
+Reconnected event, audits SESSION_RECONNECTED and pushes StudentReconnected.
 end note
 @enduml

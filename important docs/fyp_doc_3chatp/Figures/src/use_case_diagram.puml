@@ -1,6 +1,6 @@
 @startuml
 ' UML 2.5 use case diagram. Subject = SmartExam (two subsystems); actors outside.
-' Every use case carries its ID (UC-nn, as in the Chapter 4 description tables) and its FR.
+' Every use case carries its ID (UC-nn, as in Chapter 4); the UC-to-FR mapping is given in the text.
 ' Drawn as two figures: (a) this file: the student's use cases and live supervision;
 ' (b) use_case_diagram_b.puml: the staff use cases of the web panel (Teacher, Admin, SuperAdmin).
 !include style.iuml
@@ -24,22 +24,22 @@ actor "Student" as STU
 actor "Invigilator" as INV
 
 rectangle "SmartExam" {
-  rectangle "Student desktop client (WPF)" as DESK {
-    usecase "UC-01 Log in and\nbind device (FR1)" as U01
-    usecase "UC-02 Run readiness\ncheck (FR2)" as U02
-    usecase "UC-03 Take practice\nexam (FR2)" as U03
-    usecase "UC-04 View assigned exam,\ncheck in and start (FR3, FR9)" as U04
-    usecase "UC-05 Receive warning,\nextra time or unlock (FR10)" as U05
-    usecase "UC-06 Sit locked\nexam (FR4)" as U06
-    usecase "UC-07 Send heartbeats,\nevents, screenshots (FR5)" as U07
-    usecase "UC-08 Autosave and\nsubmit answers (FR6)" as U08
+  rectangle "Desktop client" as DESK {
+    usecase "UC-01 Log in and\nbind device" as U01
+    usecase "UC-02 Run\nreadiness check" as U02
+    usecase "UC-03 Take\npractice exam" as U03
+    usecase "UC-04 Check in\nand start exam" as U04
+    usecase "UC-05 Receive\ninvigilator action" as U05
+    usecase "UC-06 Sit\nlocked exam" as U06
+    usecase "UC-07 Send\nmonitoring data" as U07
+    usecase "UC-08 Autosave and\nsubmit answers" as U08
   }
-  rectangle "Web panel (React)" as WEB {
-    usecase "UC-09 View timeline, screenshots\nand webcam snapshots (FR10)" as U09
-    usecase "UC-10 Supervise exam\nlive (FR10)" as U10
-    usecase "UC-11 Warn, extend time, unlock,\nforce-submit, log incident (FR10)" as U11
-    usecase "UC-12 Sign in, change\npassword, sign out (FR1)" as U12
-    usecase "UC-14 View results, violations,\nperformance, notifications (FR3)" as U13
+  rectangle "Web panel" as WEB {
+    usecase "UC-09 View\nstudent evidence" as U09
+    usecase "UC-10 Supervise\nexam live" as U10
+    usecase "UC-11 Take action\non a student" as U11
+    usecase "UC-12 Web\nsign-in" as U12
+    usecase "UC-14 View\nresults" as U13
   }
 }
 

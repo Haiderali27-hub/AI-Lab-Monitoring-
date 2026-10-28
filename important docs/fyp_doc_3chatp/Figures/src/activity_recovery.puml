@@ -3,8 +3,8 @@
 ' Auto-save and crash recovery (ViewModels/ExamSessionViewModel, Core/Submission/AutosaveScheduler,
 ' OfflineSaveQueue, AnswerMerge, Core/Backup/AnswerBackupStore + AnswerBackupCodec,
 ' ExamsController.SaveAnswer / StudentStart / GetSessionAnswers, Core/Dashboard/StartGate.CanResume)
-' Print sizing (D6): large font at dpi 96, so PlantUML's fixed pixel gaps stay small next to the text;
-' printed size = 22 * (printed width in pt) / (PNG width px), at least 7 pt at the width used in Chapter 5.
+' Simplified labels: AES-256-GCM, DPAPI, status codes and endpoints are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
 skinparam dpi 96
 skinparam defaultFontSize 22
 skinparam ArrowFontSize 22
@@ -17,50 +17,45 @@ skinparam swimlane {
 |Desktop App|
 start
 repeat
-  :Edit answer (Revision + 1),
-  backup .seb rewritten within
-  1 s (AES-256-GCM, key
-  wrapped by DPAPI);
-  :10 s after the first unsaved
-  edit, on question change or
-  focus loss: POST save-answer;
+  :Edit answer, update
+  encrypted local
+  backup within 1 s;
+  :Save after 10 s, on
+  question change or
+  focus loss;
   if (Server
   reachable?) then ([no])
-    :OfflineSaveQueue keeps
-    the newest revision,
-    replays in order later;
+    :Queue offline,
+    replay later;
   else ([yes])
     |Server|
-    :save-answer keeps the
-    newer revision: 200 OK
-    or 409 STALE_REVISION;
+    :Keep the newer
+    revision;
     |Desktop App|
   endif
 repeat while (Exam still\nrunning?) is ([yes]) not ([no])
-if (Closed by a crash
-or power cut?) then ([no])
-  :Submitted or ended by
-  the server: normal close
-  (see submission flow);
+if (Crash or
+power cut?) then ([no])
+  :Normal close;
   stop
 else ([yes])
 endif
 :Relaunch, log in,
-press Resume Exam;
+Resume Exam;
 |Server|
-:student/start returns the
-same InProgress session;
-:GET /api/exams/\nsessions/{sid}/answers;
+:Return the same
+session and its
+answers;
 |Desktop App|
-if (Backup passes the
-AES-GCM tag check?) then ([yes])
-  :AnswerMerge: higher
-  revision wins; replay
-  what the server lacks;
+if (Backup
+intact?) then ([yes])
+  :Merge: higher
+  revision wins;
 else ([no])
-  :Use the server copy,
-  report BackupTampered;
+  :Use server copy,
+  report tampering;
 endif
-:Continue the exam;
+:Continue
+the exam;
 stop
 @enduml

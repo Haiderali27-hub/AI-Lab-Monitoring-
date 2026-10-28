@@ -17,7 +17,6 @@ hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
 skinparam BoxPadding 2
-skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
@@ -25,43 +24,41 @@ skinparam sequence {
 
 participant "Exam\nWindow" as EW
 participant "Lockdown\nCoordinator" as LC
-participant "TaskManager\nRegistry\nGuard" as TM
-participant "Keyboard\nHook\nService" as KB
-participant "Clipboard\nGuard\nService" as CB
-participant "Process\nGuard\nService" as PG
-participant "Device\nGuard\nService" as DG
-participant "Live\nMonitoring\nService" as LMS
-participant "ApiClient" as API
+participant "Task Manager\nGuard" as TM
+participant "Keyboard\nHook" as KB
+participant "Clipboard\nGuard" as CB
+participant "Process\nGuard" as PG
+participant "Device\nGuard" as DG
 
-EW -> LC : Start(this)
+EW -> LC : start
 activate LC
-opt mode is Report or Enforce (Off: returns)
-  LC -> TM : Apply()
+opt mode Report or Enforce
+  LC -> TM : disable\nTask Manager
   activate TM
   TM --> LC : result
   deactivate TM
-  LC -> KB : Install()
+  LC -> KB : install hook
   activate KB
   KB --> LC : installed?
   deactivate KB
-  opt Apply or Install failed
-    LC -> LC : Report("Lockdown\nDegraded", detail)
+  opt either step failed
+    LC -> LC : report\n"LockdownDegraded"
   end
-  LC -> CB : Start(window)
-  LC -> PG : Start() (scan every 2 s)
-  LC -> DG : Start() (WMI watchers)
+  LC -> CB : start
+  LC -> PG : start (scan\nevery 2 s)
+  LC -> DG : start
 end
 LC --> EW
 deactivate LC
 
-== during the exam: one guard raises an event ==
+== during the exam: a guard raises an event ==
 alt keyboard
-  KB ->> LC : KeyBlocked(keys): Alt+Tab,\nWin, Alt+F4, Ctrl+Esc, PrtScn
+  KB ->> LC : key blocked\n(Alt+Tab, Win, ...)
 else clipboard
-  CB ->> LC : ExternalClipboardBlocked(owner)
+  CB ->> LC : outside clipboard\nblocked
 else process
-  PG ->> LC : UnauthorizedProcess(name, action):\nreported (Report) or killed (Enforce)
+  PG ->> LC : unapproved app\n(reported or killed)
 else device
-  DG ->> LC : DeviceViolation(reason, detail): UsbInserted,\nMultiMonitor, RemoteSession, VirtualMachine
+  DG ->> LC : USB, second monitor,\nremote session or VM
 end
 @enduml

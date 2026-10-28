@@ -1,0 +1,74 @@
+\section{Project Risk Management}
+
+We identify risks early, rate them, and plan one response for each \cite{risk1}.
+
+\subsection{Risk Management Plan}
+
+\subsubsection{Purpose}
+
+The plan sets how we find, rate, answer and track the risks that could stop a fair exam or delay the 32-week schedule, and who does each step.
+
+\subsubsection{Roles and Responsibilities}
+
+\begin{description}
+    \item[Risk Manager and Project Manager:] Muhammad Haider Ali keeps the risk register (Table~\ref{tab:risk_matrix}) and owns the schedule, academic and staffing risks R8--R10 (owner PM).
+    \item[Risk Analysts and Owners:] each area owner rates the risks of that area and carries out their responses: Zain Ali Mehmood for the desktop client (Client), Muhammad Haider Ali for the API and database (Backend), and Roshaan Ali Shah for AI evaluation and quality assurance (AI/QA).
+    \item[Project Team Members:] all three members report a new risk at the written check-ins (Section~\ref{sec:managerial}).
+    \item[Stakeholders:] our supervisor, Ms.~Zainab Iftikhar Chaudhary, sees the re-rated risks at each Sprint Review.
+\end{description}
+
+\subsection{Risk Management Activities}
+
+\subsubsection{Risk Identification}
+
+We identified twelve risks and placed each in one of four categories: technical, schedule, academic or resource (the Category column of Table~\ref{tab:risk_matrix}).
+
+\subsubsection{Risk Analysis}
+
+Table~\ref{tab:risk_matrix} rates each risk for likelihood and impact on a consequence/likelihood matrix \cite{iec31010}. With Low = 1, Medium = 2 and High = 3, the priority is likelihood $\times$ impact: 6--9 is High, 3--4 Medium and 1--2 Low. The Owner column names the area from the roles above. Each row gives one risk with its category, likelihood, impact, resulting priority, owner and response type. Four risks are High (R1--R3 and R8): three threaten the exam itself (device spoofing, lockdown bypass and network loss), and one is the integration deadline. Seven risks are Medium and only R10 is Low.
+
+\begin{table}[!tb]
+\centering
+\caption{Risk Likelihood and Impact Assessment}
+\label{tab:risk_matrix}
+{\footnotesize\setlength{\tabcolsep}{3pt}\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{@{}c>{\raggedright\arraybackslash}Xlcccll@{}}
+\hline\hline
+\textbf{ID} & \textbf{Risk} & \textbf{Category} & \textbf{Likelihood} & \textbf{Impact} & \textbf{Priority} & \textbf{Owner} & \textbf{Response} \\ \hline
+R1 & Hardware ID spoofing or virtual machine use & Technical & Medium & High & High & Client & Mitigate \\
+R2 & Lockdown bypass, or antivirus blocking the hooks & Technical & Medium & High & High & Client & Mitigate \\
+R3 & Network loss during an exam & Technical & Medium & High & High & Client & Mitigate \\
+R4 & API or database overload during live monitoring & Technical & Low & High & Medium & Backend & Mitigate \\
+R5 & Inconsistent automated grading & Technical & Medium & Medium & Medium & AI/QA & Mitigate \\
+R6 & Runtime or library end of support & Technical & Medium & Medium & Medium & Backend & Mitigate \\
+R7 & Exposure of student data or records & Technical & Low & High & Medium & Backend & Mitigate \\
+R8 & Incomplete module integration before the deadline & Schedule & Medium & High & High & PM & Mitigate \\
+R9 & Thesis text drifting from the implementation & Academic & Medium & Medium & Medium & PM & Mitigate \\
+R10 & Team member unavailable during a critical sprint & Resource & Low & Medium & Low & PM & Mitigate \\
+R11 & Lab workstations unavailable for testing & Resource & Low & High & Medium & AI/QA & Mitigate \\
+R12 & False webcam alerts (lighting, camera angle, slow CPU) & Technical & Medium & Medium & Medium & Client & Mitigate \\ \hline\hline
+\end{tabularx}}
+\end{table}
+
+\subsubsection{Risk Response Planning}
+
+A risk can be avoided, transferred to another party, mitigated or accepted. All twelve of our responses are mitigations that lower the likelihood, the impact or both; no risk is passed to another party or left without action. Each response below matches the risk with the same ID in Table~\ref{tab:risk_matrix}.
+
+\begin{description}
+    \item[R1:] The client reads the BIOS, system-disk and baseboard serials; the server hashes them with SHA-256 and binds the account to that hash at the first login. Logins from another device are refused (\texttt{DEVICE\_MISMATCH}). Virtual machines and Remote Desktop sessions fail the readiness Secure-mode check and are reported by \texttt{DeviceGuardService} during the exam.
+    \item[R2:] A low-level keyboard hook blocks Alt+Tab and the Windows key, Task Manager is disabled, and the exam window stays fullscreen and topmost. Ctrl+Alt+Del cannot be blocked, so focus loss is logged. If antivirus blocks the keyboard hook, the readiness Secure-mode check fails in Report and Enforce mode alike; if the hook or the Task Manager policy fails during the exam, the client sends \texttt{LockdownDegraded}, which the invigilator sees on the tile. The lab then adds the client to the antivirus allow-list; failing that, the teacher turns off the readiness requirement for that exam and the invigilator watches that seat. Report mode helps only when antivirus stops the client from closing applications.
+    \item[R3:] Every edit is written within about 1 s to an AES-256-GCM encrypted local backup, and each answer is saved to the server 10 s after its first unsaved edit (at once on a question change, focus loss or submit). Failed saves are queued and resent on reconnect, the client restores answers after a crash, and an automatic submit at the deadline retries every 10 s. The teacher can extend time.
+    \item[R4:] The client sends a small REST heartbeat every 10 s, which the server stores only when it changes or every 60 s. Screenshots are taken at random intervals around the exam's mean (30--90 s by default) or on a violation, with at most 30 per minute per session. SignalR is used only between the API and the web dashboard; the desktop client receives warnings in its heartbeat reply. We check Neon usage weekly.
+    \item[R5:] Coding answers run in a fixed \texttt{gcc:13} Docker image when Docker is available (otherwise in a local MinGW runner, which is not isolated, or they are left for the teacher). Theory scoring uses deterministic TF-IDF, and LLM grading is off by default. Teachers review and can override every mark.
+    \item[R6:] The API and the client target .NET~9, a standard-term release whose support ends in November 2026, so we plan to move to .NET~10 (long-term support) once the full test suite passes on it. NuGet versions are fixed in the project files and npm versions in \texttt{package-lock.json}, and are updated only when the full test suite passes.
+    \item[R7:] Passwords are stored as salted PBKDF2-HMAC-SHA256 hashes (600,000 iterations). Every endpoint except the two login endpoints, token refresh and the health check requires a valid JWT and a permitted role. In deployment, traffic uses HTTPS through a TLS endpoint; the API itself does not enforce HTTPS, and the shipped localhost configuration is plain HTTP. No face recognition is performed, and screenshots and webcam snapshots are visible only to the exam's owner, the staff assigned to supervise it and administrators and are deleted after 30 days.
+    \item[R8:] Each module is merged with its xUnit tests, and its web screens with headless Playwright tests, so modules are integrated as they are built. Sprint 8 adds no new modules: it is kept for final integration, the full regression run and fixes, and it also completed the M2, M4 and refresh-token rotation tests moved after the FYP-I review.
+    \item[R9:] Updating the thesis section is part of each task's definition of done.
+    \item[R10:] Work is split by area (Section~\ref{sec:managerial}) in a shared Git repository, so another member can take over a module.
+    \item[R11:] Most tests run on our own PCs against an in-memory backend. Lab PCs are booked only for manual lockdown and webcam checks before each demo.
+    \item[R12:] Frames are analysed on the PC, and each finding must persist before it is raised: no face for 5 s, several faces or the head turned away for 3 s, and a phone in two consecutive checks. The head turn is measured against the student's own baseline. An issue sends one event with a webcam snapshot; the classifier only labels it, no penalty is automatic, and the invigilator decides. The readiness check tests the camera before the exam.
+\end{description}
+
+\subsubsection{Risk Monitoring and Control}
+
+The owners re-rate their risks at every Sprint Review. A risk that rises to High is taken to the supervisor at that review with a recovery action, as for a sprint below the 80\% burn-down mark (Section~\ref{sec:schedule_control}). A new risk takes the next free ID, and a risk is closed when it can no longer occur; for example, R8 can be closed once the final regression run of Week 32 passes.

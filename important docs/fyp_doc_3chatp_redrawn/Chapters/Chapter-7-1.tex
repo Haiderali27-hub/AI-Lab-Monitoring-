@@ -1,0 +1,158 @@
+\chapter{TEST PLAN}
+\label{chap:testing}
+
+% Chapter 7 tables follow the department sample (Sample Test Case Tables): no vertical rules,
+% a double rule above the header, a single rule under it, no rules between rows and a double rule at the end.
+This chapter describes how SmartExam was tested: the objective, the test levels, the test management process and the test cases with their results. Every result reported here comes from one final automated regression run on 26 October 2026 (code commit \texttt{d8345f8}). Checks that need a real lab PC and were not executed in that run are not marked as passed.
+
+\section{Objective of the Testing Phase}
+\label{sec:test_objective}
+
+Testing checks that each functional requirement FR1--FR12 (Table~\ref{tab:functionalrequirements}) works as specified and that the quality levels NFR1--NFR10 in Sections~\ref{sec:qualityattributes} and~\ref{sec:othernfr} are met \cite{iso25010, sommerville}. For an exam system three properties matter most: a student cannot sit an exam from the wrong PC or outside the allowed time, answers are not lost when the network or the client fails, and staff see only the exams and students they are responsible for. Testing is also used to find defects early; they are listed in the bugs report (Table~\ref{tab:bugs}).
+
+\section{Levels of Tests for Testing Software}
+\label{sec:test_levels}
+
+\subsection{Unit Testing}
+\begin{sloppypar}
+Unit tests check one class at a time without a database, network or Windows API. In \texttt{Backend\_\allowbreak{}API.\allowbreak{}Tests} (xUnit 2.9) they cover pure services such as \texttt{PasswordHelper}, \texttt{ViolationClassifier}, \texttt{TestCaseScorer}, \texttt{OutputComparer}, \texttt{TheoryGrader} and the plagiarism engine. In \texttt{Student\_\allowbreak{}Desktop\_\allowbreak{}App.\allowbreak{}Tests} (xUnit, \texttt{net9.0-\allowbreak{}windows}) they cover the policy classes of the WPF client: \texttt{ReadinessPolicy}, \texttt{LockdownPolicy}, \texttt{AutosaveScheduler}, the offline save queue, \texttt{DeviceFingerprint} and \texttt{TokenRefreshGate}. These classes take plain values (latency, monitor count, registry values, a fake clock), so the rules can be tested on any Windows PC. A few backend unit rows (M9-U-01 to M9-U-03, M11-U-08 to M11-U-10, M12-U-01 to M12-U-03 and M12-U-05) check their rule through the in-memory test host instead; the tables say so. Unit test cases have the prefix UT (Section~\ref{subsec:unit_tests}).
+\end{sloppypar}
+
+\subsection{Integration Testing}
+\begin{sloppypar}
+Integration tests check that the API, the database layer, authentication and the SignalR hub work together. Two tools are used:
+\begin{itemize}[nosep]
+  \item \textbf{xUnit acceptance tests.} \texttt{TestWebAppFactory} (based on \texttt{WebApplication\allowbreak{}Factory<Program>}) and \texttt{TestHost} start the real ASP.NET Core pipeline in memory, with routing, JWT validation, role policies, the rate limiter and the hub. The PostgreSQL \texttt{DbContext} is replaced by an EF Core InMemory database per factory, seeded by \texttt{TestSeeder}.
+  \item \textbf{Playwright \texttt{api} project.} Black-box HTTP tests against a separately started backend that check status codes, error codes and response bodies.
+\end{itemize}
+Integration test cases have the prefix IT (Section~\ref{sec:it_cases}).
+\end{sloppypar}
+
+\subsection{System Testing}
+\begin{sloppypar}
+System tests run complete user flows across the web panel, the backend and the student client. The Playwright \texttt{chromium} project drives the React panel in headless Chromium. In the same test, a student desktop-client simulator (\texttt{tests/\allowbreak{}support/\allowbreak{}studentClient.ts}) sends the HTTP calls of the WPF client: \texttt{student-\allowbreak{}login} with a hardware fingerprint, start, save-answer, heartbeat, violation events, captures and submit. A test can therefore check, for example, that a focus-loss event sent by a student appears on the teacher's Live Monitor. The WPF windows themselves are not driven by a UI automation tool; those checks are on the manual lab checklist. System test cases have the prefix ST (Section~\ref{subsec:system_tests}).
+\end{sloppypar}
+
+\section{Test Management Process}
+\label{sec:test_management}
+
+\subsection{Design the Test Strategy}
+\begin{itemize}[nosep]
+  \item \textbf{Requirement-based IDs.} Each module has test IDs of the form \texttt{M<module>-\allowbreak{}<layer>-\allowbreak{}<nn>} (security-hardening tests use \texttt{SEC-\allowbreak{}<layer>-\allowbreak{}<nn>}) in the test catalogue (\texttt{Docs/\allowbreak{}TEST\_CASES.md}), with layers U (unit), I (in-process integration), A (black-box API), E (browser end-to-end), D (desktop UI on a lab PC), M (manual lab check) and P (load). Every UT, IT and ST row gives its catalogue ID in the Test Data column.
+  \item \textbf{Tests before or with the feature.} Tests for a feature not yet built are committed as pending (\texttt{Skip} in xUnit, \texttt{test.fixme} in Playwright) and are enabled in the change that adds the feature.
+  \item \textbf{Isolation.} No test uses the Neon production database. The backend suites run on a fresh seeded in-memory database, and most tests create their own exams and users.
+  \item \textbf{Defects.} Each defect (D-01 to D-49) is recorded with the test, review or implementation step that found it, and is then fixed; a test that found a defect stays in the suite as a regression test.
+  \item \textbf{Entry and exit criteria.} Entry: the solution builds and the module's test cases are written. Exit: zero failed tests in all suites, no open defect, and every catalogue row marked as automated maps to at least one passing test.
+\end{itemize}
+
+\subsection{Test Objectives}
+\begin{itemize}[nosep]
+  \item \textbf{Functional verification:} each FR from FR1 to FR12 behaves as specified, including its error responses (\texttt{DEVICE\_\allowbreak{}MISMATCH}, \texttt{READINESS\_\allowbreak{}REQUIRED}, \texttt{EXAM\_\allowbreak{}NOT\_\allowbreak{}STARTED}, \texttt{SEAT\_\allowbreak{}MISMATCH}, \texttt{ALREADY\_\allowbreak{}SUBMITTED}, \texttt{DESKTOP\_\allowbreak{}CLIENT\_\allowbreak{}REQUIRED}). The parts of FR2--FR6, FR9 and FR10 that need a lab PC (desktop windows, keyboard and USB events, the webcam, crash relaunch, the wrong seat, the warning banner) are verified only at the decision-logic level and stay on the lab checklist (Table~\ref{tab:st_pending}).
+  \item \textbf{Access control:} each role, exam owner and assigned invigilator sees only their own data; other users receive 401, 403 or 404.
+  \item \textbf{Exam integrity:} the server enforces start time, deadline, seat and a single sitting, and returns a receipt hash on submission.
+  \item \textbf{Resilience and regression:} answers and monitoring events survive network loss, client restart and crashes, and the full suite is rerun after every fix.
+\end{itemize}
+
+\subsection{Test Criteria}
+Table~\ref{tab:test_criteria} lists measurable criteria for grading accuracy and for each non-functional requirement NFR1--NFR10, taken from the requirement and from the limits set in the code, with the tests that check them. Each row names one scenario, states its limit in numbers where the code sets one, and gives the catalogue IDs of the tests that check it. Where a criterion was not measured in the final run, such as the 40-client load target of NFR4 or HTTPS for NFR8, the row says so instead of claiming a pass.
+
+{\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
+\begin{longtable}{@{}P{2.8cm}P{8.9cm}P{3.6cm}@{}}
+\caption{Test Criteria}\label{tab:test_criteria}\\ \hline\hline
+\textbf{Test Scenario} & \textbf{Test Criteria Description} & \textbf{Verified by}\\ \hline
+\endfirsthead
+\multicolumn{3}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\textbf{Test Scenario} & \textbf{Test Criteria Description} & \textbf{Verified by}\\ \hline
+\endhead
+\hline \multicolumn{3}{r}{\footnotesize Continued on next page}\\
+\endfoot
+\hline\hline
+\endlastfoot
+Grading accuracy (FR11.1--FR11.3) & MCQ answers get full or zero marks. A coding answer is scored by test-case weight (weights 1, 1, 2 with the two weight-1 cases passed gives 50\%). Plagiarism similarity is at least 90\% after renaming, at least 95\% after comment and layout changes, and below 30\% for different algorithms. & M11-U-01/02, M11-U-03, M11-U-08 to M11-U-10\\
+NFR1 Security & Passwords are PBKDF2 hashes with 600,000 iterations, and an older hash is flagged for upgrade; access tokens live 1,800~s; a reused refresh token revokes its family; logins are rate-limited per IP (HTTP 429). Requests without a token get 401, a student calling a staff endpoint gets 403, and a login from a second PC gets 401 \texttt{DEVICE\_\allowbreak{}MISMATCH}. & SEC-U-01, SEC-U-02, M1-I-04, M1-I-03, SEC-I-04, SEC-A-02, SEC-A-03, M1-A-04\\
+NFR2 Reliability & Offline events keep their order and survive a restart; failed answer saves are replayed in order; the local backup is encrypted (AES-256-GCM) and a modified file is rejected; the Task Manager policy is restored after a crash, and a running session can be resumed. & M5-U-01, M5-U-03, M6-U-06, M6-U-03, M6-U-04, M4-U-17, M6-U-09\\
+NFR3 Usability & A failed login shows an error and stays on the login page; a student who opens an admin URL is redirected; every refused start returns an error code and message for the client to show. The desktop screens were not checked on a lab PC, and no formal user study was carried out. & M1-E-02, SEC-E-01, M2-I-02, M3-I-01, M9-I-06\\
+NFR4 Performance & Readiness fails a PC whose best API round trip exceeds 2~s or whose clock differs from the server by more than 60~s. Autosave fires 10~s after an edit. A test-case run is stopped at its time limit (default 2~s) and the other cases still run. The load target for 40 clients (p95 below 2~s) is not yet measured. & M2-U-01, M2-U-02, M6-U-02, M11-U-05; M5-P-01 pending\\
+NFR5 Maintainability & Every module M1--M12 has automated tests that run headless on one PC, and a full regression run takes under 20 minutes. & All suites (Table~\ref{tab:test_summary})\\
+NFR6 Data Integrity & Saves after the deadline (plus the 2-minute grace) are refused and a late submission locks the session; an older revision gets 409 \texttt{STALE\_\allowbreak{}REVISION}; the client and the server compute the same SHA-256 receipt; a changed or deleted audit row breaks the hash chain. & M6-A-02, M6-I-06, M6-I-01, M6-U-05, M6-I-13, M12-U-02, M12-U-03, M12-I-02\\
+NFR7 Compatibility & The client targets Windows 10/11 with .NET~9 and the panel Chrome or Edge. The run used Windows~11 Pro and headless Chromium only; Windows~10 and Edge were not tested. Coding answers ran in both runners: Docker \texttt{gcc:13} (isolated) and local MinGW (not isolated). & All suites; M11-U-18, M11-U-19\\
+NFR8 Connectivity & The client uses REST only: warnings, unlocks, extra time and force-submits arrive in the heartbeat reply. The web panel receives live updates over SignalR. HTTPS was not tested, because the test backend runs on plain HTTP on localhost. & M10-I-09, M10-I-10, M6-E-06, M6-I-18, M4-E-01\\
+NFR9 Privacy & Screenshots and webcam snapshots can be read only by the exam's owner, its assigned invigilators and administrators; students and other teachers get 403. Captures older than the retention period are deleted. & M5-A-03, M5-I-04, M5-I-10, M5-I-12, M5-I-09\\
+NFR10 Backup and Recovery & After a client crash the session is resumed and the answers are rebuilt from the server and the local backup (higher revision wins). Database point-in-time restore is a Neon provider feature and copying the evidence folder is an operations task; neither was tested. & M6-U-07, M6-U-08, M6-U-09, M6-I-09; M6-D-01 pending\\
+\end{longtable}}
+
+\subsection{Resource Planning}
+Testing duties follow the roles in Section~\ref{sec:managerial}: each member writes the tests for the modules they build, the testing and validation owner runs the full regression and keeps the test catalogue, and the supervisor reviews the results at each sprint review. Table~\ref{tab:test_tools} lists the software used, with each tool's version in the first column and its use in the second. The .NET tools serve the two xUnit projects, while Playwright drives both the HTTP tests and the browser tests. Docker and MinGW are needed only by the grading tests that compile and run real C++ answers.
+
+\begin{table}[H]
+\centering
+\caption{Testing Tools}
+\label{tab:test_tools}
+\vspace{4pt}
+{\small\setlength{\doublerulesep}{1pt}
+\begin{tabular}{@{}P{5.0cm}P{10.4cm}@{}}
+\hline\hline
+\textbf{Tool (version)} & \textbf{Use} \\ \hline
+xUnit 2.9.2, FluentAssertions 6.12 & Unit and acceptance tests in both .NET test projects \\
+Microsoft.\allowbreak{}AspNetCore.\allowbreak{}Mvc.\allowbreak{}Testing 9.0 & In-memory host for the API (\texttt{WebApplicationFactory}) \\
+EF Core InMemory 9.0, Bogus 35.5 & Throw-away database per test host; generated test data \\
+Playwright 1.60 & \texttt{api} project (HTTP black-box) and \texttt{chromium} project (browser end-to-end) \\
+Docker (\texttt{gcc:13}), MinGW g++ & Real compilation and execution of C++ answers in the grading tests \\
+coverlet, Git & Coverage collection; version control of code and tests \\
+\hline\hline
+\end{tabular}}
+\end{table}
+
+\subsection{Plan Test Environment}
+\begin{itemize}[nosep]
+  \item \textbf{Hardware and operating system:} one development PC running Windows~11 Pro (build 26200); .NET software development kit (SDK) 9.0.315 and Node.js 22.23; the web panel is served by Vite on port 5173.
+  \item \textbf{Backend for Playwright:} \texttt{dotnet run} on port 5050 with \texttt{E2E\_\_InMemory=true}, so it uses a seeded in-memory database. Login and refresh rate limits are raised for the suite and LLM grading is off. Playwright starts its own servers, so a run cannot reach a backend connected to Neon.
+  \item \textbf{Browser:} headless Chromium with the Desktop Chrome profile; one worker and one retry; 30~s per test by default, and 60--90~s for the submission, live-monitor and grading suites, which wait for grading or for the 30~s disconnect watchdog. No retry was needed in the final run.
+  \item \textbf{Code runner:} Docker with the \texttt{gcc:13} image, or MinGW g++ (not isolated). Tests that need one of them skip when it is missing; both were present in the final run.
+\end{itemize}
+
+\subsection{Schedule and Estimation}
+Tests are written in the same sprint as the module they check, as required by the definition of done in Chapter~\ref{chap:spp}. Table~\ref{tab:test_schedule} maps the test work to the sprints of Table~\ref{tab:timeframe}; each row gives a sprint with its weeks and the modules whose tests were written in it. Read from top to bottom, it shows that testing ran alongside development from Sprint~2 onward, and that Sprint~8 was kept for system tests, the full regression and defect fixing. M2, M4 and refresh-token rotation moved into Sprints 5--8 after the FYP-I review; their tests were completed in Sprint 8. A full regression run takes about 17 minutes (backend 2~min~41~s, desktop 25~s, Playwright 13.7~min on one worker), so every suite is rerun after each group of fixes.
+
+\begin{table}[H]
+\centering
+\caption{Test Schedule}
+\label{tab:test_schedule}
+\vspace{4pt}
+{\small\setlength{\doublerulesep}{1pt}
+\begin{tabular}{@{}P{3.4cm}P{12.0cm}@{}}
+\hline\hline
+\textbf{Sprint (Weeks)} & \textbf{Testing activity} \\ \hline
+Sprint 2 (5--8) & M1, M7: login, device binding, roles (unit and API tests) \\
+Sprint 3 (9--12) & M8, M9: exam creation, eligibility, seat checks \\
+Sprint 4 (13--16) & M3: start-gate and student dashboard tests (M2 and M4 moved to Sprints 5--8) \\
+Sprint 5 (17--20) & M5, M10: monitoring client rules, heartbeat and Live Monitor tests \\
+Sprint 6 (21--24) & M6, M11: autosave, backup, submission, grading and plagiarism tests \\
+Sprint 7 (25--28) & M12: audit, hash-chain and report-export tests \\
+Sprint 8 (29--32) & M2 readiness, M4 lockdown and refresh-token rotation tests; system tests, full regression, defect fixing, final run on 26 Oct 2026 \\
+\hline\hline
+\end{tabular}}
+\end{table}
+
+\subsection{Test Execution Summary}
+Table~\ref{tab:test_summary} gives the totals of the final run. Each row is one test suite, with its number of tests and how many of them passed, failed or were skipped. The two xUnit projects hold 740 of the 921 tests and the two Playwright projects hold the other 181.
+
+\begin{table}[H]
+\centering
+\caption{Final Test Run Results (26 October 2026)}
+\label{tab:test_summary}
+\vspace{4pt}
+{\small\setlength{\doublerulesep}{1pt}
+\begin{tabular}{@{}p{6.4cm}cccc@{}}
+\hline\hline
+\textbf{Suite} & \textbf{Tests} & \textbf{Passed} & \textbf{Failed} & \textbf{Skipped} \\ \hline
+Backend\_API.Tests (xUnit) & 507 & 507 & 0 & 0 \\
+Student\_Desktop\_App.Tests (xUnit) & 233 & 233 & 0 & 0 \\
+Playwright \texttt{api} project & 68 & 67 & 0 & 1 \\
+Playwright \texttt{chromium} project & 113 & 113 & 0 & 0 \\ \hline
+\textbf{Total} & \textbf{921} & \textbf{920} & \textbf{0} & \textbf{1} \\
+\hline\hline
+\end{tabular}}
+\end{table}
+
+No test failed, and no Playwright test needed its one configured retry. The one skipped test is not counted as passed: it is SEC-A-01, the login rate-limit test, which cannot run against the Playwright backend because that backend raises the limit; the same rule is checked by SEC-I-04 in xUnit. Of the 472 rows in the test catalogue, 440 have at least one passing test. The other 32 (18 desktop-UI rows, 13 manual lab checks and the M5-P-01 load test) need a lab PC or a load rig and were not run. Four further desktop-UI rows (M3-D-01, M4-D-07, M6-D-01, M6-D-02) are counted among the 440 because their decision logic passed in unit tests; their on-screen step is still pending. Table~\ref{tab:st_pending} lists all 36.

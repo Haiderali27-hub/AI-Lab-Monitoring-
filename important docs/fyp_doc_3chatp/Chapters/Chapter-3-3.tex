@@ -2,12 +2,12 @@
 
 \subsection{Project Planning}
 
-We plan in eight four-week sprints (Table~\ref{tab:timeframe}). Sprint 1 covers requirements and architecture, Sprints 2--7 deliver the modules, and Sprint 8 is for integration, testing and the demonstration. A task is done when its code and tests pass and its thesis section is updated. The work itself is broken down in the Work Breakdown Structure (WBS) of Section~\ref{sec:wbs} \cite{wbs1}, and the four plans below set the milestones, the documents, the resources and the quality checks.
+We plan in eight four-week sprints (Table~\ref{tab:timeframe}). Sprint 1 covers the requirements, the product backlog and the architecture, Sprints 2--7 deliver the modules, and Sprint 8 covers integration, testing, validation and final refinement. A task is done when its code and tests pass and its thesis section is updated. The work itself is broken down in the Work Breakdown Structure (WBS) of Section~\ref{sec:wbs} \cite{wbs1}, and the four plans below set the milestones, the documents, the resources and the quality checks.
 
 \subsubsection{Milestones Plan}
 \label{sec:milestones}
 
-Table~\ref{tab:milestones} lists the checkpoints of the baseline plan, each with the evidence that shows it is reached. After the FYP-I review, M2, M4 and refresh-token rotation moved into Sprints 5--8, as noted below Table~\ref{tab:timeframe}.
+Table~\ref{tab:milestones} lists the checkpoints of the baseline plan, each with the evidence that shows it is reached. Each row gives the milestone, the week at whose end it falls due and that evidence. MS3, MS5 and MS6 are shown by passing module tests, while MS4 and MS7 are the two formal reviews (FYP-I and final submission). After the FYP-I review, M2, M4 and refresh-token rotation moved into Sprints 5--8, as noted below Table~\ref{tab:timeframe}.
 
 \begin{table}[!ht]
 \centering
@@ -17,9 +17,9 @@ Table~\ref{tab:milestones} lists the checkpoints of the baseline plan, each with
 \begin{tabularx}{\textwidth}{c>{\raggedright\arraybackslash}X>{\centering\arraybackslash}p{1.4cm}>{\raggedright\arraybackslash}p{4.9cm}}
 \hline\hline
 \textbf{ID} & \textbf{Milestone} & \textbf{Week} & \textbf{Evidence of completion} \\
-\hline\hline
+\hline
 MS1 & FYP-I proposal submitted & Before 1 & Proposal, 24 Feb 2026 \\
-MS2 & Requirements, product backlog and architecture agreed (activity A) & 4 & Scope approved \\
+MS2 & Requirements, product backlog and architecture agreed & 4 & Scope approved \\
 MS3 & Login, device binding and roles working (M1, M7) & 8 & Module tests pass \\
 MS4 & FYP-I review & 16 & FYP-I report (Chapters 1--6) submitted on 18 Jun 2026 \\
 MS5 & Supervision, submission and evaluation working (M5, M6, M10, M11) & 24 & Module tests pass \\
@@ -34,7 +34,7 @@ MS7 & Final regression run and submission & 32 & Full test run on 26 Oct 2026 (C
 The report and its sources are kept in step with the code:
 \begin{itemize}[nosep]
     \item This report is written in LaTeX, and the section a task changes is updated in that task (R9).
-    \item Diagrams are kept as text sources (PlantUML, and Graphviz for the critical path network) beside the report, so they are redrawn when the design changes.
+    \item The PlantUML text sources of the diagrams are kept beside the report, so a diagram can be redrawn when the design changes.
     \item Each version of the report is recorded in the Revision History with its author and checker; supervisor feedback from the Sprint Review goes into the next sprint's backlog.
     \item The testing owner keeps the test catalogue in the code repository (Chapter~\ref{chap:testing}).
 \end{itemize}
@@ -42,7 +42,7 @@ The report and its sources are kept in step with the code:
 \subsubsection{Resources Plan}
 \label{sec:resources_plan}
 
-Table~\ref{tab:resources} lists what the project uses. The project has no budget, so each service is a free tier or is off by default (Section~\ref{sec:constraints}).
+Table~\ref{tab:resources} lists what the project uses. The table has one row per kind of resource: people, hardware, software, services and budget. The project has no budget, so each service is a free tier or is off by default (Section~\ref{sec:constraints}). Lab PCs are needed only for the manual lockdown and webcam checks; the automated tests run on our own PCs.
 
 \begin{table}[!ht]
 \centering
@@ -52,7 +52,7 @@ Table~\ref{tab:resources} lists what the project uses. The project has no budget
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}X}
 \hline\hline
 \textbf{Resource} & \textbf{Allocation} \\
-\hline\hline
+\hline
 People & Three members, each owning one area (Section~\ref{sec:managerial}); the supervisor reviews every sprint. \\
 Hardware & Our own PCs for development and the automated tests; Windows lab workstations, with webcams where an exam needs one, for the manual lockdown and webcam checks. \\
 Software & .NET~9 (ASP.NET Core API and WPF client), React web panel, EF Core with PostgreSQL, OpenCV with the YuNet and YOLOX-Nano models, Docker with the \texttt{gcc:13} image, xUnit, Playwright, Git, and LaTeX with PlantUML for this report. \\
@@ -78,59 +78,57 @@ Quality is checked inside every sprint, not only at the end:
 
 \subsubsection{Gantt Chart}
 
-Figure~\ref{fig:ganttchart} shows the baseline plan of Table~\ref{tab:timeframe}: one bar for each activity of Table~\ref{tab:cpm}, with arrows for its dependencies \cite{gantt1}. The diamonds mark milestones MS4 and MS7 of Table~\ref{tab:milestones}. The progress actually reached at the FYP-I review is given below Table~\ref{tab:timeframe}.
+Figure~\ref{fig:ganttchart} shows the eight sprints of Table~\ref{tab:timeframe} on a timeline from March to October 2026 \cite{gantt1}. Each bar is one sprint of about one month, and the sprints run one after another: Sprint 1 (User \& Access Management + Backlog), Sprint 2 (Exam Configuration and Scheduling), Sprint 3 (Laboratory and Workstation Control), Sprint 4 (Student Exam Execution + Submission), Sprint 5 (Live Monitoring + AI Alerts), Sprint 6 (Evidence Logging and Incident Tracking), Sprint 7 (Reporting and Administrative Review) and Sprint 8 (Integration, Testing, Validation \& Final Refinement). The bars carry the phase names of Table~\ref{tab:timeframe}; the modules built in each sprint are listed with the process model in Chapter~\ref{chap:introduction}, and the progress actually reached at the FYP-I review is given below Table~\ref{tab:timeframe}.
 
-\begin{table}[!htbp]
+\begin{figure}[!htbp]
 \centering
-\caption{Project Activities, Durations and Dependencies}
-\label{tab:cpm}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{c>{\raggedright\arraybackslash}p{7.2cm}lcc}
-\hline\hline
-\textbf{ID} & \textbf{Activity} & \textbf{Modules} & \textbf{Weeks} & \textbf{Depends on} \\
-\hline\hline
-A & Requirements, backlog and architecture & -- & 4 & -- \\
-B & Authentication and device binding & M1 & 4 & A \\
-C & User and role management & M7 & 2 & A \\
-D & Exam creation and eligibility & M8, M9 & 4 & B, C \\
-E & Readiness check, student dashboard and lockdown & M2--M4 & 4 & D \\
-F & Monitoring client and live proctoring dashboard & M5, M10 & 4 & E \\
-G & Submission, backup and AI-assisted evaluation & M6, M11 & 4 & F \\
-H & Hash-chained audit log, analytics and reports & M12 & 4 & G \\
-I & Integration, system testing, documentation and demo & All & 4 & H \\
-\hline\hline
-\end{tabular}
-\end{table}
-
-\begin{figure}[!tb]
-\centering
-\includegraphics[width=\linewidth]{Figures/gantt_chart.png}
-\caption{Project Gantt Chart (Baseline Plan, Eight Sprints)}
+\includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{Figures/gantt_chart.png}
+\caption{Gantt Chart}
 \label{fig:ganttchart}
 \end{figure}
 
 \subsubsection{Work Breakdown Structure}
 \label{sec:wbs}
 
-The WBS splits the project into work packages \cite{wbs1}. Figure~\ref{fig:wbs} goes down to module level: each module is one work package (2.x.y) that includes its own tests, so package 3 (Sprint 8) holds system-level work: final integration, end-to-end tests, the full regression run and bug fixing, plus the M2, M4 and refresh-token rotation tests moved after the FYP-I review. In the sprint backlog each module is split further into tasks, and each task has one WBS code and one owner from the role split in Section~\ref{sec:managerial}.
+The WBS splits the project into smaller parts of work \cite{wbs1}. Figure~\ref{fig:wbs} is read from the top: the root box is the whole AI-Driven Lab Exam Monitoring and Management System, and the four boxes below it are the main branches. System Requirements is split into functional and non-functional requirements; System Development into lockdown browser integration, admin dashboard creation and AI monitoring module development; Testing \& Evaluation into unit testing, integration testing and user evaluation; and Deployment \& Maintenance into system deployment and ongoing maintenance. In SmartExam, lockdown browser integration is the WPF lockdown client (M4), the AI monitoring module is the monitoring client and violation classifier (M5), and system deployment is the installation in the labs that follows submission. In the sprint backlog each part is split further into tasks, and each task has one owner from the role split in Section~\ref{sec:managerial}.
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[width=\linewidth]{Figures/work_breakdown_structure.png}
+\includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{Figures/work_breakdown_structure.png}
 \caption{Work Breakdown Structure}
 \label{fig:wbs}
 \end{figure}
 
 \subsubsection{Critical Path Method}
 
-The critical path is the longest chain of dependent activities; any delay on it delays the project \cite[Sec.~6.5.2.2]{pmbok6}. Table~\ref{tab:cpm} lists our activities and Figure~\ref{fig:criticalpath} shows the network.
+The critical path is the longest chain of dependent activities; any delay on it delays the project \cite[Sec.~6.5.2.2]{pmbok6}. Table~\ref{tab:cpm} lists the nine activities A--I of Figure~\ref{fig:criticalpath} with their durations and the activities each one waits for. In the figure each box is one activity with its letter, name and duration, and the arrows show the order of work from Start to End. The orange boxes form the critical path A $\rightarrow$ B $\rightarrow$ E $\rightarrow$ G $\rightarrow$ H $\rightarrow$ I, which takes 10 weeks of the figure's estimates (the sprint plan spreads the whole project over 32 weeks); the blue chain C $\rightarrow$ D and the purple activity F run alongside it and are not on the critical path. In SmartExam the question bank of activity D is the question editor of exam creation (M8), and the student exam interface of activity F is the WPF exam window.
 
-The critical path is A $\rightarrow$ B $\rightarrow$ D $\rightarrow$ E $\rightarrow$ F $\rightarrow$ G $\rightarrow$ H $\rightarrow$ I, which takes 32 weeks ($8 \times 4$); the only other chain, through C, takes 30 weeks. Only C has float: it takes two weeks alongside B, so it can slip two weeks without moving the end date. Since almost all work is on the critical path, a late sprint delays every later one.
+\begin{table}[!htbp]
+\centering
+\caption{Project Activities, Durations and Dependencies}
+\label{tab:cpm}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{c>{\raggedright\arraybackslash}p{7.2cm}cc}
+\hline\hline
+\textbf{ID} & \textbf{Activity} & \textbf{Weeks} & \textbf{Depends on} \\
+\hline
+A & Gather requirements & 1 & -- \\
+B & Lockdown browser integration & 3 & A \\
+C & Admin dashboard development & 2 & A \\
+D & Question bank module development & 2 & C \\
+E & AI monitoring module development & 3 & B \\
+F & Student exam interface development & 2 & A \\
+G & Unit testing & 1 & D, E, F \\
+H & Integration testing & 1 & G \\
+I & System deployment & 1 & H \\
+\hline\hline
+\end{tabular}
+\end{table}
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.95\linewidth]{Figures/critical_path.png}
-\caption{Critical Path Network}
+\includegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio]{Figures/critical_path.png}
+\caption{Critical Path Method}
 \label{fig:criticalpath}
 \end{figure}
 

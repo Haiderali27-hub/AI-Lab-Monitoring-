@@ -5,7 +5,7 @@ skinparam ArrowFontSize 14
 skinparam maxMessageSize 200
 hide footbox
 hide unlinked
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 6
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
@@ -18,39 +18,38 @@ skinparam sequence {
 ' Helpers/PasswordHelper.cs.
 
 actor "Admin /\nSuperAdmin" as A
-participant "UsersPage\n(web)" as UI
+participant "Users\npage (web)" as UI
 participant "Users\nController" as UC
-participant "AuditService" as AS
+participant "Audit\nService" as AS
 database "AppDbContext" as DB
 
-A -> UI : Add User: name, email,\npassword, role (roll no.\nfor a student)
+A -> UI : Add User: name, email,\npassword, role
 activate UI
-UI -> UC : POST /api/users\n{name, email, password,\nrole, rollNumber}
+UI -> UC : create user
 activate UC
-UC -> UC : Enum.IsDefined(role);\nGuardPrivilegedAsync\n("create", role)
-alt role not defined
-  UC --> UI : 400 "Unknown role."
-else role is Admin or SuperAdmin and caller is not SuperAdmin
-  UC -> AS : LogAsync(PRIVILEGED_\nACCOUNT_DENIED)
+UC -> UC : role valid?\nrole allowed?
+alt unknown role
+  UC --> UI : error
+else Admin / SuperAdmin role,\ncaller not SuperAdmin
+  UC -> AS : log denial
   activate AS
-  AS -> DB : AuditLogs.Add;\nSaveChanges
+  AS -> DB : save PRIVILEGED_\nACCOUNT_DENIED
   AS --> UC
   deactivate AS
-  UC --> UI : 403 {code: SUPERADMIN_REQUIRED}
-else email or roll number already in use
-  UC --> UI : 409 Conflict ({message})
+  UC --> UI : refused
+else email or roll no. in use
+  UC --> UI : conflict
 else allowed
-  UC -> UC : PasswordHelper:\nGenerateSalt, HashPassword\n(PBKDF2, 600,000 iterations)
-  UC -> DB : Users.Add(user)
-  UC -> AS : Add(USER_CREATED)
+  UC -> UC : hash password\n(PBKDF2)
+  UC -> DB : add user
+  UC -> AS : USER_CREATED
   activate AS
-  AS -> DB : AuditLogs.Add (staged)
+  AS -> DB : add audit row
   deactivate AS
-  UC -> DB : SaveChanges (audit row\nsealed into the chain)
-  UC --> UI : 201 Created\n{userId, name, email, role}
+  UC -> DB : save
+  UC --> UI : created
 end
 deactivate UC
-UI --> A : refreshed user list,\nor the error message
+UI --> A : updated list,\nor the error
 deactivate UI
-note over UI, UC : The page offers Admin and SuperAdmin roles only to a SuperAdmin;\nthe API check also stops a direct call. PUT /api/users/{id}\n(USER_UPDATED) uses the same guard; an invalid roll number gives 400.
 @enduml

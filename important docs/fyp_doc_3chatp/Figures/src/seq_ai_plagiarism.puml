@@ -2,20 +2,18 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
-skinparam maxMessageSize 200
+skinparam maxMessageSize 220
 hide footbox
 hide unlinked
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 4
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
 }
 ' Code: Backend_API/Controllers/ExamsController.cs (Submit); Services/SubmissionService.cs (FinalizeAsync);
-' Services/Grading/GradingService.cs (StageAsync), TheoryGrader.cs, PlagiarismService.cs (DetectAsync),
-' PlagiarismEngine.cs, PlagiarismFingerprintCache.
+' Services/Grading/GradingService.cs (StageAsync), TheoryGrader.cs.
 ' Background code grading of the queued answers: seq_compilation.puml. Teacher heat map: seq_plagiarism_matrix.puml.
-' Open arrowheads (->>) are one-way: Enqueue writes to an unbounded channel; SessionFinalized is a SignalR group push.
 
 participant "Submission\nService" as SS
 participant "Grading\nService" as GS
@@ -23,26 +21,26 @@ participant "Plagiarism\nService" as PS
 participant "Plagiarism\nEngine" as PE
 database "AppDbContext" as DB
 
-[-> SS : ExamsController.Submit\n-> FinalizeAsync\n(session, Submitted)
+[-> SS : student submits exam
 activate SS
-SS -> DB : session's Answers (+ Question)
+SS -> DB : load session's answers
 DB --> SS : answers
-opt Exam.AiEvaluationEnabled
-  SS -> GS : StageAsync(answers)
+opt AI evaluation enabled for the exam
+  SS -> GS : stage answers
   activate GS
   loop each answer not graded yet
-    alt Theory, LLM grader off (default) or blank
-      GS -> GS : TheoryGrader.Grade:\n0.7 x TF-IDF cosine vs\nReferenceAnswer + 0.3 x\nkey-term coverage
-    else Non-blank: Coding with a runner, or Theory with LLM on
-      GS -> GS : Pending (queued)
-    else Coding blank, or Grading:Runner = None
-      GS -> GS : graded at once\n(0 marks / not run)
+    alt theory with LLM grader off,\nor blank theory answer
+      GS -> GS : TF-IDF theory\ngrader
+    else coding with a runner,\nor theory with LLM on
+      GS -> GS : queue (Pending)
+    else blank coding answer,\nor no runner set
+      GS -> GS : grade at once\n(0 / not run)
     else MCQ
-      GS -> GS : marked by option index
+      GS -> GS : mark by\nchosen option
     end
-    GS -> DB : add AiGradingResult
+    GS -> DB : add grading result
   end
-  GS --> SS : toGrade (answerIds)
+  GS --> SS : answers to queue
   deactivate GS
 end
 @enduml

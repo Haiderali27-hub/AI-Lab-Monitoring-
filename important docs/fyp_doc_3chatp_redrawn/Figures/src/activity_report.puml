@@ -1,0 +1,54 @@
+@startuml
+!include style.iuml
+' PDF report: ReportsPage -> POST /api/analytics/exams/{examId}/report (AnalyticsController, Roles
+' Admin,SuperAdmin,Teacher), ExamAccessService.DenyUnlessAsync(Owner), AnalyticsService.GetExamSummaryAsync
+' + GenerateExamReportPdfAsync (QuestPDF; file in Reports/, row in ExamReports), GET /api/analytics/exams/{examId}/reports,
+' GET /api/analytics/reports/{fileName} (bare name 400, no row 404, not owner 403, file missing 404). The summary PDF is
+' not audited; the Module 12 exports (POST /api/analytics/reports/{type}) are audited as REPORT_GENERATED with the
+' file's SHA-256 (ReportExportService).
+' Simplified labels: endpoints, status codes and file details are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 28
+skinparam ArrowFontSize 27
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 29
+}
+|Staff (ReportsPage)|
+start
+:Select an exam,
+click Generate
+New Report;
+|Server|
+if (Exam exists, caller\nowner or admin?) then ([no])
+  :Refuse;
+  stop
+else ([yes])
+endif
+:Compute summary: marks,
+score buckets, question
+averages, violations;
+:Build PDF: summary,
+per-question results,
+score distribution;
+:Save file, record it,
+return a link;
+note right
+  Not audited. Other
+  exports are audited
+  with a SHA-256 hash.
+end note
+|Staff (ReportsPage)|
+:Reload history,
+click Download;
+|Server|
+if (Valid name, known\nreport, owner or admin?) then ([yes])
+  :Return
+  the PDF;
+else ([no])
+  :Refuse;
+endif
+stop
+@enduml

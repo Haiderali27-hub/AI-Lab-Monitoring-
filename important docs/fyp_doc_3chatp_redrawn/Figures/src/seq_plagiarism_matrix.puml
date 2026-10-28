@@ -1,0 +1,49 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' Code: Admin_Web_Panel plagiarism heat map; Backend_API/Controllers/GradingController.cs (GetMatrix);
+' Services/ExamAccessService.cs; Services/Grading/PlagiarismService.cs (BuildMatrixAsync), PlagiarismEngine.cs.
+' Split from seq_ai_plagiarism.puml so that both figures print legibly.
+
+actor "Teacher /\nAdmin" as T
+participant "Grading\nController" as GC
+participant "ExamAccess\nService" as EA
+participant "Plagiarism\nService" as PS
+participant "Plagiarism\nEngine" as PE
+database "AppDbContext" as DB
+
+T -> GC : open heat map
+activate GC
+GC -> DB : find exam
+DB --> GC : exam (none: 404)
+GC -> EA : check access
+activate EA
+EA --> GC : access level
+deactivate EA
+break not owner teacher or admin (403),\nor practice exam (400)
+  GC --> T : 403 or 400
+end
+GC -> PS : build matrix
+activate PS
+PS -> DB : coding and theory answers\n(latest finalised session\nper student)
+DB --> PS : rows
+loop each student pair, each shared question
+  PS -> PE : compare fingerprints
+  activate PE
+  PE --> PS : similarity
+  deactivate PE
+end
+PS --> GC : student x student matrix\n(highest similarity per pair)
+deactivate PS
+GC --> T : 200 matrix + threshold
+deactivate GC
+@enduml

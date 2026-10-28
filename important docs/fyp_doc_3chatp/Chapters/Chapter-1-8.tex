@@ -4,13 +4,15 @@ SmartExam's twelve modules depend on each other, and design reviews with our sup
 
 \subsection{Process Model Introduction}
 
-We used Agile, following the Scrum framework with fixed-length sprints \cite{agile1,scrumguide2020}. We describe Scrum's roles by what each party does. The three members form the development team and plan each sprint together; our supervisor reviews each increment and the backlog priorities at the sprint review; and written check-ins replace daily stand-ups, with a blocker unsolved for 24 hours taken to a team discussion (Section~\ref{sec:managerial}). Each sprint ends with a working part of the system that we can demonstrate. Changes from review feedback go into the next sprint \cite{agilemanifesto}, and integration problems show up early instead of at the end, where they cost more to fix. This mattered for SmartExam because device binding, lockdown, monitoring and grading only work when they are joined end to end. Figure~\ref{fig:agileworkflowdetailed} shows one sprint: planning, development with tests, the supervisor's review, the schedule check and the feedback loop into the product backlog.
+We used Agile, following the Scrum framework with fixed-length sprints \cite{agile1,scrumguide2020}. The three members plan each sprint together; our supervisor reviews each increment and the backlog priorities at the end of the sprint; and written check-ins keep the team up to date, with a blocker unsolved for 24 hours taken to a team discussion (Section~\ref{sec:managerial}). Each sprint ends with a working part of the system that we can demonstrate. Changes from review feedback go into the next sprint \cite{agilemanifesto}, and integration problems show up early instead of at the end, where they cost more to fix. This mattered for SmartExam because device binding, lockdown, monitoring and grading only work when they are joined end to end.
 
-\begin{figure}[!htbp]
+Figure~\ref{fig:agilemethodology} shows the Agile methodology as a cycle. Work starts with Plan and moves into Design, then round the circle through Develop, Test, Deploy and Review, and the Review arrow leads back to Design for the next round. The Launch arrow leaves the cycle once the product is ready to be released.
+
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.9\linewidth]{Figures/agile_workflow_detailed.png}
-\caption{Agile Workflow with Sprint Feedback and Review Loops}
-\label{fig:agileworkflowdetailed}
+\includegraphics[width=0.85\linewidth,height=0.8\textheight,keepaspectratio]{Figures/agile_methodology.png}
+\caption{Agile Methodology}
+\label{fig:agilemethodology}
 \end{figure}
 
 \subsection{Justification of Proposing the Process Model}
@@ -19,7 +21,7 @@ The modules carry different levels of risk. Login, roles and exam set-up are wel
 
 \subsection{Steps of Process Model}
 
-The project runs over eight four-week sprints. Each sprint delivers modules that can be demonstrated. Table~\ref{tab:timeframe} in Chapter 2 gives the baseline schedule and the progress at the FYP-I review. Every sprint goes through the steps of Figure~\ref{fig:agileworkflowdetailed}:
+The project runs over eight four-week sprints. Each sprint delivers modules that can be demonstrated. Table~\ref{tab:timeframe} in Chapter~\ref{chap:srs} gives the baseline schedule, and the text below it gives the progress at the FYP-I review. Every sprint goes through the following steps:
 \begin{enumerate}[noitemsep]
 \item \textbf{Product backlog:} FR1--FR12, grouped by module M1--M12 (Chapter~\ref{chap:srs}).
 \item \textbf{Sprint planning:} a sprint goal and a sprint backlog in which each task has one WBS code and one owner.

@@ -3,8 +3,8 @@
 ' Practice exam: Exam.IsMock = true, same exam window and save/submit endpoints as a real exam
 ' (ExamDashboard.PracticeButton_OnClick, ExamsController.GetPracticeExams / StartSession,
 ' SubmissionService.FinalizeAsync, StudentPortalController and AnalyticsService leave IsMock out)
-' Print sizing (D6): large font at dpi 96, so PlantUML's fixed pixel gaps stay small next to the text;
-' printed size = 22 * (printed width in pt) / (PNG width px), at least 7 pt at the width used in Chapter 5.
+' Simplified labels: endpoints and error codes are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
 skinparam dpi 96
 skinparam defaultFontSize 22
 skinparam ArrowFontSize 22
@@ -16,35 +16,34 @@ skinparam swimlane {
 
 |Desktop App|
 start
-:GET /api/exams/student/practice,\npick a practice exam, press Practice:\nPOST /api/exams/{id}/start-session;
+:Pick a practice exam,
+press Practice;
 |Server|
-if (Eligible, open, seat OK,
-readiness (if required)?) then ([yes])
-  :Running attempt or
-  a new ExamSession;
+if (Eligible, open,
+seat and readiness OK?) then ([yes])
+  :Resume or create
+  the session;
 else ([no])
-  :400/403 with a message
-  (EXAM_NOT_STARTED,
-  SEAT_MISMATCH,
-  READINESS_REQUIRED);
+  :Refuse with
+  a message;
   |Desktop App|
-  :Show message box;
+  :Show the
+  message;
   stop
 endif
 |Desktop App|
-:Start monitoring (no webcam),
-open ExamWindow in Report
-lockdown (apps only reported);
-:Answer, auto-save via
-save-answer, then POST
-submit (see submission flow);
+:Open exam window
+in Report mode,
+no webcam;
+:Answer, auto-save,
+submit;
 |Server|
-:FinalizeAsync: receipt; auto-marked
-if AI evaluation on; no plagiarism
-check; left out of the student's
-results and analytics;
+:Finalise with receipt,
+auto-mark if AI on,
+no plagiarism check,
+not in results;
 |Desktop App|
-:Show the receipt (no mark),
-attempt count + 1;
+:Show receipt
+(no mark);
 stop
 @enduml

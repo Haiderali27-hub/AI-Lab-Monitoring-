@@ -1,0 +1,50 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' Code: Services/SubmissionService.cs (FinalizeAsync); Services/Grading/PlagiarismService.cs (DetectAsync),
+' PlagiarismEngine.cs, PlagiarismFingerprintCache.
+' Open arrowheads (->>) are one-way: Enqueue writes to an unbounded channel; SessionFinalized is a SignalR group push.
+
+participant "Submission\nService" as SS
+participant "Grading\nService" as GS
+participant "Plagiarism\nService" as PS
+participant "Plagiarism\nEngine" as PE
+database "AppDbContext" as DB
+activate SS
+opt not a practice exam
+  SS -> PS : check plagiarism
+  activate PS
+  loop each coding or theory answer (non-empty)
+    PS -> DB : same question's answers in\nother finalised sessions
+    DB --> PS : other answers
+    loop each other non-empty answer
+      PS -> PE : compare fingerprints
+      activate PE
+      PE --> PS : similarity
+      deactivate PE
+      opt similarity >= exam threshold,\npair not stored yet
+        PS -> DB : add PlagiarismResult
+      end
+    end
+  end
+  PS --> SS : done
+  deactivate PS
+end
+SS -> DB : mark Submitted, receipt hash;\naudit SESSION_SUBMITTED; save
+loop each answer to queue
+  SS ->>] : add to grading queue
+end
+SS ->>] : SessionFinalized\n(SignalR)
+[<-- SS : receipt
+deactivate SS
+@enduml

@@ -1,0 +1,53 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Pre-exam readiness check (Module 2):
+' ViewModels/DashboardViewModel.InitializeAsync (GET /api/exams/student/current gives the requirements) / RunReadinessAsync /
+' RetryReadinessItemAsync / ReportReadinessAsync (status "Could not reach server" when the POST fails), UpdateStartEligibility
+' (CanStartExam = CanResumeExam || (gateOpen && AttendanceConfirmed && (!RequireReadiness || ReadinessPassed))),
+' Services/Readiness/ReadinessCheckService.RunAsync, Core/Readiness/ReadinessPolicy (EvaluateNetwork, EvaluateCamera,
+' EvaluateSecureMode), Services/ApiClient.SubmitReadinessAsync,
+' Controllers/ExamsController.SubmitReadiness (POST /api/exams/{id}/readiness: 404 when not assigned; READINESS_PASSED /
+' READINESS_FAILED audit row; SaveChangesAsync seals it via AuditChain; hub "ReadinessUpdated" to group exam:{id}).
+' Open arrowhead (->>) = asynchronous message with no reply (SignalR push).
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+
+actor Student
+participant "Dashboard\nViewModel" as VM
+participant "Readiness\nCheckService" as RCS
+participant "ApiClient" as API
+participant "Exams\nController" as EC
+database "AppDbContext" as DB
+
+Student -> VM : Run check
+activate VM
+loop for each of the 7 checks
+  VM -> RCS : run check
+  activate RCS
+  RCS --> VM : pass or fail
+  deactivate RCS
+end
+note over RCS, API
+Network, clock, screen capture,
+camera*, microphone*, secure mode,
+free disk space
+(* only if the exam needs it)
+end note
+VM -> API : submit results
+activate API
+API -> EC : POST readiness
+activate EC
+EC -> EC : student assigned?\nall checks passed?
+EC -> DB : save ReadinessCheck\n+ audit entry
+activate DB
+DB --> EC : saved (audit\nrow hash-chained)
+deactivate DB
+@enduml

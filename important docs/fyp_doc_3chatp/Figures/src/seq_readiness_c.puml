@@ -15,7 +15,6 @@ hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
 skinparam BoxPadding 0
-skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
@@ -25,24 +24,20 @@ actor Student
 participant "Exam\nDashboard" as UI
 participant "Exam\nWindow" as EW
 participant "Dashboard\nViewModel" as VM
-participant "ApiClient" as API
-participant "Exams\nController" as EC
-database "AppDbContext" as DB
 activate UI
-alt no sessionId
-  UI --> Student : MessageBox(message)
-else sessionId
-  UI -> EW : new ExamWindow(lockdown\n"Report", no allowed apps,\nno webcam); ShowDialog()
+alt no session
+  UI --> Student : show message
+else session id
+  UI -> EW : open exam window\n(Report mode,\nno webcam)
   activate EW
   ref over EW, VM
-  Save and submit with the same calls as a real
-  exam (auto-save and submission diagrams);
-  FinalizeAsync auto-marks if AiEvaluationEnabled,
-  skips plagiarism (IsMock)
+  Save and submit as in a real exam;
+  auto-marked if AI grading is on;
+  no plagiarism check
   end ref
-  EW --> UI : closed after the receipt
+  EW --> UI : closed after receipt
   deactivate EW
-  UI -> VM : InitializeAsync()
+  UI -> VM : refresh dashboard
   activate VM
   VM --> UI : list refreshed
   deactivate VM

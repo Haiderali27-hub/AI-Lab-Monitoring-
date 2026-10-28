@@ -1,0 +1,90 @@
+@startuml
+!include style.iuml
+' dpi only sets resolution; printed text size = fontSize * 72 * W_in / layout width.
+skinparam dpi 120
+' Deployment diagram (UML 2.5: nodes, <<device>> and <<executionEnvironment>> nodes, artifacts, protocols on paths).
+' Matches Program.cs, appsettings*.json, Admin_Web_Panel/src/utils/constants.ts + vite.config.ts,
+' Student_Desktop_App/appsettings.desktop.json + Student_Desktop_App.csproj (Models\*.onnx),
+' Services/Grading/* (DockerCodeRunner, LocalMingwCodeRunner, LlmClient), Services/Notifications/EmailService.cs,
+' Services/Analytics/ReportExportService.cs (Reports/: PDF, Excel, ZIP).
+' Port 5050: the clients' default base URL (appsettings.desktop.json:2, constants.ts:1); the API is started with
+' --urls http://localhost:5050 (playwright.config.ts:47), while launchSettings.json uses :5281.
+' Sized for width \linewidth, height cap 360pt (text about 9.6 pt printed; labels kept short, details in the chapter text). The client paths end on the
+' execution environment, and the server title is padded with no-break spaces, so no path crosses a node title.
+' Local stores: AES-256-GCM, key wrapped by DPAPI CurrentUser (AnswerBackupCodec.cs, RecordCipher.cs, DpapiKeyProtector.cs).
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam nodesep 14
+skinparam ranksep 46
+skinparam defaultTextAlignment left
+skinparam artifact {
+  BorderColor #333333
+  BackgroundColor #FFFFFF
+}
+skinparam node<<optional>> {
+  BorderStyle dashed
+  BackgroundColor #FFFFFF
+}
+hide <<optional>> stereotype
+
+node "<b>Lab workstation</b>\n(Windows, one per seat)" as WS {
+  artifact "Desktop app\n(WPF, .NET 9)" as EXE
+  artifact "ONNX models\n(YuNet,\nYOLOX-Nano)" as ONNX
+  artifact "Encrypted\noutbox and\nanswer backup" <<file>> as LOCAL
+  node "Webcam" <<device>> as CAM
+}
+
+node "<b>Staff / student PC</b>" as PC {
+  node "Web browser" <<executionEnvironment>> as BR {
+    artifact "Web panel\n(React)" as SPA
+  }
+}
+
+node "<b>Web host</b>\n(static server)" as WEBHOST {
+  artifact "Web panel\nbuild" as DIST
+}
+
+node "<U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><b>Application server</b>" as SRV {
+  node "ASP.NET Core 9" <<executionEnvironment>> as API {
+    artifact "Backend API\n(REST, SignalR hub,\nbackground services)" as BAPI
+  }
+  node "Docker Engine" <<executionEnvironment>> as DOCKER {
+    node "gcc:13\ncontainer\n(no network)" <<container>> as GCC
+  }
+  artifact "MinGW g++\n(fallback)" as MINGW
+  artifact "Evidence and\nreport files" <<file>> as FILES
+}
+
+database DB [
+  <b>Neon</b>
+  <b>PostgreSQL</b>
+  (cloud)
+]
+node SMTP [
+  <b>SMTP server</b>
+  (email)
+]
+node LLM <<optional>> [
+  <b>LLM API</b>
+  (optional)
+]
+
+EXE -down-> API : REST + JWT
+SPA -down-> API : REST + JWT,\nSignalR
+DIST -right-> SPA
+EXE -[hidden]right- ONNX
+LOCAL -[hidden]right- CAM
+ONNX -[hidden]right- LOCAL
+BAPI -down-> DOCKER : docker run
+BAPI -down-> MINGW : g++, run
+BAPI -down-> FILES : writes
+BAPI -down-> DB : EF Core\n(SSL)
+BAPI -down-> SMTP : MailKit\n(TLS)
+BAPI ..> LLM : HTTPS
+SMTP -[hidden]right- DB
+' Docker left, then MinGW, then the short Evidence/Reports artifact: keeps the MailKit path and its label
+' clear of the Docker node and of the server node's right border.
+DOCKER -[hidden]right- MINGW
+MINGW -[hidden]right- FILES
+DB -[hidden]right- LLM
+@enduml

@@ -1,0 +1,42 @@
+@startuml
+!include style.iuml
+' Pre-exam readiness check (Core/Readiness/ReadinessPolicy, Services/Readiness/ReadinessCheckService,
+' DashboardViewModel.RunReadinessAsync / RetryReadinessItemAsync / ReportReadinessAsync /
+' ConfirmAttendanceAsync / UpdateStartEligibility, Core/Dashboard/StartGate, ExamsController.SubmitReadiness / OpensAt)
+' Simplified labels: thresholds, endpoint and event names are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 22
+skinparam ArrowFontSize 22
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  TitleFontSize 23
+}
+
+|Desktop App|
+start
+:Load exam rules,
+press Run check;
+repeat
+  :Run 7 checks: network,
+  clock, screen capture,
+  camera*, microphone*,
+  secure mode, disk
+  (* only if required);
+  |Server|
+  :Recompute the result,
+  save and audit it,
+  update live monitor;
+  |Desktop App|
+repeat while (Passed, or\nnot required?) is ([no: fix,\nRetry]) not ([yes])
+if (Checked in?) then ([no])
+  :Press
+  Check In;
+else ([yes])
+endif
+:Start enabled when the
+exam opens (pass valid
+for 30 min);
+stop
+@enduml

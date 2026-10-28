@@ -1,0 +1,69 @@
+' Shared look for all thesis UML diagrams: plain, monochrome-friendly, prints well.
+' Include with:  !include style.iuml   (render from this folder)
+skinparam dpi 150
+skinparam shadowing false
+skinparam monochrome false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam backgroundColor white
+skinparam ArrowColor #333333
+skinparam ArrowFontSize 10
+skinparam roundCorner 6
+skinparam padding 2
+skinparam nodesep 30
+skinparam ranksep 40
+
+skinparam actor {
+  BorderColor #333333
+  BackgroundColor white
+}
+skinparam usecase {
+  BorderColor #333333
+  BackgroundColor #F2F2F2
+}
+skinparam rectangle {
+  BorderColor #333333
+  BackgroundColor white
+}
+skinparam class {
+  BorderColor #333333
+  BackgroundColor #FAFAFA
+  HeaderBackgroundColor #E6E6E6
+  AttributeFontSize 10
+}
+skinparam entity {
+  BorderColor #333333
+  BackgroundColor #FAFAFA
+}
+skinparam component {
+  BorderColor #333333
+  BackgroundColor #F2F2F2
+}
+skinparam node {
+  BorderColor #333333
+  BackgroundColor #FAFAFA
+}
+skinparam database {
+  BorderColor #333333
+  BackgroundColor #F2F2F2
+}
+skinparam activity {
+  BorderColor #333333
+  BackgroundColor #F2F2F2
+  DiamondBorderColor #333333
+  DiamondBackgroundColor white
+}
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #777777
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #F2F2F2
+  ActorBorderColor #333333
+  ActorBackgroundColor white
+  GroupBorderColor #777777
+  BoxBorderColor #999999
+}
+skinparam note {
+  BorderColor #999999
+  BackgroundColor #FFFDE7
+}

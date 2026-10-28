@@ -15,7 +15,6 @@ hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
 skinparam BoxPadding 0
-skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
@@ -27,31 +26,28 @@ participant "Readiness\nCheckService" as RCS
 participant "ApiClient" as API
 participant "Exams\nController" as EC
 database "AppDbContext" as DB
-participant "Monitoring\nHub" as HUB
 
 Student -> VM : Run check
 activate VM
 loop for each of the 7 checks
-  VM -> RCS : RunAsync(check,\nrequirements)
+  VM -> RCS : run check
   activate RCS
-  RCS --> VM : ReadinessItemResult
+  RCS --> VM : pass or fail
   deactivate RCS
 end
-note over RCS, DB
-requirements (RequireWebcam, RequireMic, BlockMultiMonitor, LockdownMode)
-come from GET /api/exams/student/current, loaded with the dashboard
-Network: GET /api/health, best try <= 2 s;  ClockSkew <= 60 s;  ScreenCapture works
-Camera*: picture not dark, exactly one face (YuNet);  Microphone*: device found
-SecureMode (unless Off): 1 monitor if multi-monitor blocked; no RDP; no VM;
-keyboard hook installs;  Disk >= 200 MB free   (*) only if the exam requires it
+note over RCS, API
+Network, clock, screen capture,
+camera*, microphone*, secure mode,
+free disk space
+(* only if the exam needs it)
 end note
-VM -> API : SubmitReadinessAsync(examId,\n{passedAll, machineName, results})
+VM -> API : submit results
 activate API
-API -> EC : POST /api/exams/\n{id}/readiness
+API -> EC : POST readiness
 activate EC
-EC -> EC : assigned (else 404)?\npassedAll = all passed\n+ required Camera/Mic
-EC -> DB : SaveChangesAsync\n(+ReadinessCheck,\n+AuditLog READINESS_\nPASSED or _FAILED)
+EC -> EC : student assigned?\nall checks passed?
+EC -> DB : save ReadinessCheck\n+ audit entry
 activate DB
-DB --> EC : saved; AuditChain\nsealed the AuditLog\nrow (Sequence,\nPrevHash, Hash)
+DB --> EC : saved (audit\nrow hash-chained)
 deactivate DB
 @enduml

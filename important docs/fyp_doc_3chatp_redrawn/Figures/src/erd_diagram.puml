@@ -1,0 +1,140 @@
+@startuml
+!include style.iuml
+' Drawn as two figures: (a) this file: identity, academic structure, labs and exam set-up;
+' (b) erd_diagram_b.puml: exam delivery, monitoring, grading, reports and audit.
+' ERD generated from Backend_API/Data/AppDbContext.cs (29 DbSets at HEAD) and the EF model snapshot.
+' Every table has a uuid (Guid) primary key except ExamProctors (composite key ExamId + UserId).
+' Only PK / FK and a few key columns are shown. Columns marked (ref) hold an id without a database FK.
+hide circle
+hide empty methods
+skinparam nodesep 8
+skinparam ranksep 30
+hide stereotype
+skinparam class {
+  FontSize 14
+  AttributeFontSize 14
+}
+skinparam entity {
+  FontSize 14
+  AttributeFontSize 14
+}
+skinparam ArrowColor #444444
+skinparam ArrowFontSize 14
+
+entity Users <<Id>> #E8F0FB {
+  * UserId <<PK>>
+  --
+  Email <<UQ>>
+  Role (enum)
+  RollNumber <<UQ>>
+}
+entity DeviceBindings <<Id>> #E8F0FB {
+  * BindingId <<PK>>
+  --
+  UserId <<FK, UQ>>
+  HwidHash
+}
+entity UserSessions <<Id>> #E8F0FB {
+  * SessionId <<PK>>
+  --
+  UserId <<FK>>
+  Jti <<UQ>>
+}
+entity RefreshTokens <<Id>> #E8F0FB {
+  * TokenId <<PK>>
+  --
+  UserId <<FK>>
+  TokenHash <<UQ>>
+}
+entity Notifications <<Gr>> #F1EAF8 {
+  * NotificationId <<PK>>
+  --
+  RecipientId <<FK>>
+}
+entity Departments <<Ac>> #EAF6EA {
+  * DeptId <<PK>>
+  --
+  Name <<UQ>>
+}
+entity Courses <<Ac>> #EAF6EA {
+  * CourseId <<PK>>
+  --
+  DeptId <<FK>>
+  Code <<UQ with DeptId>>
+}
+entity Sections <<Ac>> #EAF6EA {
+  * SectionId <<PK>>
+  --
+  CourseId <<FK>>
+  TeacherId <<FK>>
+}
+entity SectionEnrollments <<Ac>> #EAF6EA {
+  * EnrollmentId <<PK>>
+  --
+  SectionId <<FK>>
+  UserId <<FK>>
+}
+entity AttendanceRecords <<Ac>> #EAF6EA {
+  * AttendanceId <<PK>>
+  --
+  SectionId <<FK>>
+  UserId <<FK>>
+  AttendedClasses
+  UQ (SectionId, UserId)
+}
+entity Labs <<Ac>> #EAF6EA {
+  * LabId <<PK>>
+  --
+  Name
+}
+entity Workstations <<Ac>> #EAF6EA {
+  * WorkstationId <<PK>>
+  --
+  LabId <<FK>>
+  HostName, IpAddress
+}
+entity Exams <<Ex>> #FFF6E0 {
+  * ExamId <<PK>>
+  --
+  SectionId <<FK>>
+  StartTime, DurationMinutes
+  AllowedApps (JSON)
+}
+entity ExamAssignments <<Ex>> #FFF6E0 {
+  * AssignmentId <<PK>>
+  --
+  ExamId <<FK>>
+  UserId <<FK>>
+  WorkstationId <<FK>>
+  IsEligible
+}
+entity ExamProctors <<Ex>> #FFF6E0 {
+  * ExamId <<PK, FK>>
+  * UserId <<PK, FK>>
+}
+
+Users ||-up-o| DeviceBindings
+Users ||-up-o{ UserSessions
+Users ||-up-o{ RefreshTokens
+Users ||-up-o{ Notifications
+Departments ||--o{ Courses
+Courses ||--o{ Sections
+Users ||--o{ Sections : teaches
+Sections ||--o{ SectionEnrollments
+Users ||--o{ SectionEnrollments
+Sections ||--o{ AttendanceRecords
+Users ||--o{ AttendanceRecords
+Labs ||--o{ Workstations
+Sections ||--o{ Exams
+Exams ||--o{ ExamAssignments
+Users ||--o{ ExamAssignments
+Workstations |o--o{ ExamAssignments
+Exams ||--o{ ExamProctors
+Users ||--o{ ExamProctors
+
+skinparam legendFontSize 14
+legend bottom right
+  <back:#E8F0FB> Identity </back>  <back:#EAF6EA> Academic / Labs </back>  <back:#FFF6E0> Exam </back>  <back:#F1EAF8> Grading / Audit </back>
+  PK primary key, FK foreign key, UQ unique
+endlegend
+@enduml

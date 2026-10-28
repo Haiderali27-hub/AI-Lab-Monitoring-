@@ -17,7 +17,6 @@ hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
 skinparam BoxPadding 0
-skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
@@ -30,36 +29,35 @@ participant "Offline\nSaveQueue" as Q
 participant "ApiClient" as API
 participant "Exams\nController" as EC
 
-Student ->> VM : edit answer (Revision+1)
+Student ->> VM : edit answer\n(revision + 1)
 loop every 1 s
-  [->> VM : tick: SyncTickAsync()
+  [->> VM : timer tick
   activate VM
-  opt save due (10 s after the first unsaved edit;\nat once on question change or focus loss)
-    VM -> API : SaveAnswerAsync(sid, {questionId, text, revision})
+  opt save due (10 s after the first unsaved edit,\nor at once on question change\nor window focus loss)
+    VM -> API : save answer
     activate API
-    API -> EC : POST /api/exams/sessions/\n{sid}/save-answer
+    API -> EC : POST save-answer
     activate EC
-    alt own session, InProgress, before the deadline
-      EC --> API : 200, or 409 STALE_REVISION
+    alt session in progress, before the deadline
+      EC --> API : saved, or stale
       API --> VM : Accepted / Stale
-    else after the deadline (end + extra minutes\n+ 2 min, server clock) or not InProgress
-      EC --> API : 400 "Exam time is over" / "inactive session"
+    else deadline passed or not in progress
+      EC --> API : refused
       deactivate EC
-      API --> VM : Rejected: "Not saved"; kept only in the local backup
-    else no reply, 401 / 408 / 429 / 5xx
+      API --> VM : "Not saved";\nkept in local backup
+    else no reply or temporary error
       API --> VM : Offline
       deactivate API
-      VM -> Q : Enqueue(save): newest revision per answer
+      VM -> Q : queue newest revision
     end
   end
-  opt queue not empty and 5 s retry delay passed
-    VM -> Q : FlushAsync(SendPendingAsync)
+  opt queue not empty, 5 s since last try
+    VM -> Q : flush
     activate Q
-    Q --> VM : FlushResult: sent oldest\nfirst as above; delivered\nand rejected saves leave\nthe queue, the first\nOffline stops
+    Q --> VM : sent oldest first;\nstops at first Offline
     deactivate Q
   end
-  VM -> BS : Save(snapshot) if\nchanged (AES-256-GCM)
+  VM -> BS : write encrypted\nbackup if changed
   deactivate VM
 end
-
 @enduml

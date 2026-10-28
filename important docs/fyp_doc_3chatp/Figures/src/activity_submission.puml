@@ -5,8 +5,8 @@
 ' (IsClosed: exam end + ExtraMinutes + 2 min DeadlineGrace), ReceiptHasher, SessionTimeoutService).
 ' One flush attempt per submit; Offline or Failed keeps the window open:
 ' auto submit retries every 10 s (_submitRetry), a manual submit asks the student to press Submit again.
-' Print sizing (D6): large font at dpi 96, so PlantUML's fixed pixel gaps stay small next to the text;
-' printed size = 22 * (printed width in pt) / (PNG width px), at least 7 pt at the width used in Chapter 5.
+' Simplified labels: endpoint, status codes and the 30 s timeout sweep are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
 skinparam dpi 96
 skinparam defaultFontSize 22
 skinparam ArrowFontSize 22
@@ -21,56 +21,54 @@ skinparam swimlane {
 start
 if (Timer
 reached 0?) then ([yes])
-  :"Time is up": automatic submit;
+  :Automatic
+  submit;
 else ([no: Submit pressed])
-  if ("N unanswered question(s).
-  Submit anyway?") then ([no])
-    :Back to the exam;
+  if (Submit anyway
+  (N unanswered)?) then ([no])
+    :Back to
+    the exam;
     stop
   else ([yes])
   endif
 endif
 note right
-  No submit arrives: every 30 s
-  SessionTimeoutService finalises
-  sessions past exam end + extra
-  time + 2 min grace as TimedOut
+  No submit at all: the
+  server times the session
+  out after end + grace
 end note
 repeat
-  :Save current answer, flush OfflineSaveQueue
-  (one attempt), rewrite local backup;
-  if (All answers
-  flushed?) then ([no: offline])
+  :Send pending answers,
+  update local backup;
+  if (All
+  sent?) then ([no])
   else ([yes])
-    :POST /api/exams/\nsessions/{sid}/submit;
+    :Submit;
     |Server|
-    if (Session
-    InProgress?) then ([yes])
-      :FinalizeAsync: Submitted,
-      ReceiptSha256, grading if AI
-      evaluation on, plagiarism if
-      not practice, hub event
-      "SessionFinalized";
-    else ([no: 400])
+    if (Session in
+    progress?) then ([yes])
+      :Finalise: receipt,
+      grade if AI on,
+      plagiarism check
+      if not practice;
+    else ([no])
     endif
     |Desktop App|
-    if (Submit
-    result?) then ([200 Submitted])
-      :ReceiptHasher:
-      Verified or Mismatch;
-    ([400 / failed]) elseif (GET answers:
-    not InProgress?) then ([yes])
-      :Show "already force-
-      submitted or timed out";
+    if (Result?) then ([submitted])
+      :Verify
+      receipt;
+    ([failed]) elseif (Session
+    already ended?) then ([yes])
+      :Show "already
+      ended";
     else ([no])
     endif
   endif
-backward :Window stays open,
-answers in backup.
+backward :Keep window open.
 Auto: retry in 10 s,
 manual: Submit again;
 repeat while (Submitted or\nalready ended?) is ([no]) not ([yes])
 :Release lockdown,
-close ExamWindow;
+close window;
 stop
 @enduml

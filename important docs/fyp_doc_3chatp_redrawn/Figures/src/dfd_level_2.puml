@@ -1,0 +1,58 @@
+@startuml
+!include style.iuml
+' Part (a): the client-side processes 3.1 and 3.2; 3.3-3.5 are in dfd_level_2_api.puml (part b).
+' DFD level 2 of process 3.0 (Lockdown and telemetry). Process 5.0 is in
+' dfd_level_2b.puml. Same entities, numbers and stores (D1..D8) as level 1.
+' Yourdon/DeMarco notation: circle = process, rectangle = external entity,
+' two lines = data store, two-headed arrow = read and update,
+' dashed circle = level-1 process outside 3.0, * = store drawn twice.
+' 3.1 and 3.2 run in the WPF client on the lab PC; 3.3-3.5 run in the API.
+skinparam defaultFontSize 16
+skinparam ArrowFontSize 16
+skinparam nodesep 24
+skinparam ranksep 30
+skinparam defaultTextAlignment center
+skinparam rectangle<<entity>> {
+  BorderThickness 2
+  RoundCorner 0
+  BackgroundColor #FFFFFF
+}
+skinparam usecase {
+  BorderColor #333333
+  BorderThickness 2
+  BackgroundColor #F2F2F2
+}
+skinparam usecase<<ref>> {
+  BorderStyle dashed
+  BorderThickness 1
+  BackgroundColor #FFFFFF
+}
+skinparam label {
+  FontSize 16
+}
+hide stereotype
+top to bottom direction
+
+rectangle "Student" <<entity>> as STU
+usecase "**3.1**\nEnforce lockdown\n(client guards)" as P31
+usecase "**3.2**\nMonitor and send\n(client)" as P32
+label D2 [
+----
+**D2** Exams
+----
+]
+usecase "**3.3**\nReceive telemetry\n(API, part b)" <<ref>> as P33
+
+' ---- client side (3.1, 3.2); short labels, the chapter text gives the detail
+STU --> P31 : PC activity
+STU <-- P31 : blocked keys,\nclosed apps
+D2 --> P31 : lockdown mode,\nallowed apps
+STU --> P32 : screen,\nwebcam
+STU <-- P32 : warnings,\ntime left
+D2 --> P32 : capture\nsettings
+P31 --> P32 : lockdown\nevents
+P31 <-- P32 : unlock
+
+P32 --> P33 : heartbeat,\nevents, images
+P32 <-- P33 : reply: warnings,\nextra time, unlock
+@enduml

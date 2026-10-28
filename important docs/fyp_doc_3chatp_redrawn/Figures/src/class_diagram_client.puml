@@ -1,0 +1,102 @@
+@startuml
+!include style.iuml
+' Class diagram, part 2 of 4 (desktop client), drawn as two figures:
+' (a) this file: windows, view models, local storage and monitoring; (b) class_diagram_client_b.puml:
+' lockdown, ApiClient and the four API controllers it calls (Auth, Exams, Monitoring, Notifications).
+' Part 1 (EF Core entities) is class_diagram.puml, parts 3 and 4 (server) are class_diagram_server*.puml.
+' Only key members; parameters omitted. The legend no longer says that DashboardViewModel and
+' ExamSessionViewModel also hold ApiClient (arrows omitted); the chapter text says it. Arrows: --> holds / creates, ..> calls or uses, *-- owns.
+' A dashed white box is a class whose members are drawn in the other figure.
+' Sources: Views/ExamDashboard.xaml.cs:29-30,203,237; Views/ExamWindow.xaml.cs:43-47; Views/LoginWindow.xaml.cs:15;
+' ViewModels/*.cs; Core/Backup/AnswerBackupStore.cs; Core/Submission/OfflineSaveQueue.cs; Services/ApiClient.cs.
+hide empty members
+hide circle
+skinparam classAttributeIconSize 0
+skinparam nodesep 14
+skinparam ranksep 30
+skinparam class {
+  FontSize 14
+  AttributeFontSize 14
+  StereotypeFontSize 13
+}
+skinparam ArrowFontSize 14
+skinparam stereotypeFontSize 14
+
+class LoginWindow <<Window>> #E8F0FB
+class ExamDashboard <<Window>> #E8F0FB
+class ExamWindow <<Window>> #E8F0FB {
+  +ShowProctorWarnings()
+  +OnServerSessionStatus()
+  +ApplyUnlockDeadline()
+}
+class LoginViewModel #E8F0FB {
+  +LoginAsync()
+}
+class DashboardViewModel #E8F0FB {
+  +RunReadinessAsync()
+  +RetryReadinessItemAsync()
+  +StartExamAsync()
+}
+class ExamSessionViewModel #E8F0FB {
+  +LoadAsync()
+  +SaveAnswerAsync()
+  +SubmitAsync()
+}
+class AnswerBackupStore #E8F0FB {
+  +Save()
+  +Load()
+  +MarkSubmitted()
+}
+class OfflineSaveQueue #E8F0FB {
+  +Enqueue()
+  +FlushAsync()
+}
+class ReadinessCheckService #E8F0FB {
+  +RunAllAsync()
+  +RunAsync()
+}
+class LockdownCoordinator #FFFFFF ##[dashed]
+class LiveMonitoringService #E8F0FB {
+  -_captures : EvidenceCaptureService
+  -_webcam : WebcamMonitorService
+  +Start()
+  +ReportViolation()
+  +ReportEvent()
+  +event WarningsReceived
+  +event SessionStatusUpdated
+}
+class WebcamMonitorService #E8F0FB {
+  +Start()
+  +Stop()
+  +event IssueChanged
+}
+class WebcamVision #E8F0FB {
+  +FaceModelFile (YuNet)
+  +PhoneModelFile (YOLOX-Nano)
+  +Analyze()
+}
+class ApiClient #FFFFFF ##[dashed]
+
+LoginWindow -down-> LoginViewModel
+LoginWindow -right-> ExamDashboard : opens
+ExamDashboard --> DashboardViewModel
+ExamDashboard --> ExamWindow : opens
+ExamDashboard --> LiveMonitoringService
+DashboardViewModel --> ReadinessCheckService
+ExamWindow --> ExamSessionViewModel
+ExamWindow --> LockdownCoordinator
+ExamSessionViewModel --> AnswerBackupStore
+ExamSessionViewModel *-- OfflineSaveQueue
+AnswerBackupStore -[hidden]down- OfflineSaveQueue
+ReadinessCheckService --> ApiClient
+LoginViewModel --> ApiClient
+LockdownCoordinator ..> LiveMonitoringService : reports\nviolations
+LiveMonitoringService *-- WebcamMonitorService
+WebcamMonitorService ..> WebcamVision
+LiveMonitoringService --> ApiClient
+
+skinparam legendFontSize 14
+legend bottom right
+  Dashed box: members in figure (b).
+endlegend
+@enduml

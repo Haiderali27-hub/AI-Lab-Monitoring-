@@ -8,7 +8,8 @@
 ' MachineName | Ip | Either; ReportMismatchAsync audits SEAT_MISMATCH and pushes ViolationEvent),
 ' MonitoringController.Heartbeat (re-check; a SeatMismatch event only if none with the same payload within
 ' SeatMismatchDedupWindow = 5 min, and only while the session is InProgress).
-' Printed pt = fontSize * 72 * printed_width_in / png_width_px.
+' Simplified labels: endpoints, status codes and audit event names are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
 skinparam dpi 96
 skinparam defaultFontSize 28
 skinparam ArrowFontSize 27
@@ -20,62 +21,57 @@ skinparam swimlane {
 
 |Staff (Web Panel)|
 start
-:Admin / SuperAdmin (LabsPage)
-adds a workstation:
-MachineNumber, HostName,
-IpAddress;
+:Admin adds a
+workstation (number,
+host name, IP);
 |Server|
-if (LabsController: number\nunique in lab, IP valid?) then ([no])
-  :409 / 400;
+if (Number unique,\nIP valid?) then ([no])
+  :Refuse;
   stop
 else ([yes])
-  :Save, audit
-  WORKSTATION_CREATED;
+  :Save, audit;
 endif
 |Staff (Web Panel)|
-:Teacher / Admin (EligibilityPage)
-picks the seat: PUT
-.../assignments/{userId}/workstation;
+:Teacher or admin
+assigns a seat
+to a student;
 |Server|
-if (Seat taken by another\nstudent in this exam?) then ([yes])
-  :409 Conflict;
+if (Seat free in\nthis exam?) then ([no])
+  :Refuse;
   stop
-else ([no])
-  :Save WorkstationId, audit
-  WORKSTATION_ASSIGNED;
+else ([yes])
+  :Save seat,
+  audit;
 endif
 |Desktop App (Student)|
-:POST /api/exams
-/student/start;
+:Start the
+exam;
 |Server|
-if (Desktop client\ntoken?) then ([no])
-  :403 DESKTOP_CLIENT_
-  REQUIRED;
+if (Desktop\nclient?) then ([no])
+  :Refuse;
   stop
 else ([yes])
 endif
-:SeatGuard.Check: machine claim
-or request IP (SeatMatch setting);
-if (EnforceSeat and\nseat differs?) then ([yes])
-  :403 SEAT_MISMATCH,
-  audit SEAT_MISMATCH,
-  hub ViolationEvent;
+:Compare PC name
+or IP with the seat;
+if (Seat enforced\nand wrong PC?) then ([yes])
+  :Refuse, audit,
+  alert monitor;
   stop
 else ([no])
-  :Create ExamSession
-  (InProgress);
+  :Create the
+  session;
 endif
 repeat
   |Desktop App (Student)|
-  :POST heartbeat
-  (every 10 s);
+  :Heartbeat
+  (10 s);
   |Server|
-  if (SeatGuard.Check: mismatch\nnot recorded in last 5 min?) then ([yes])
-    :SeatMismatch event,
-    audit SEAT_MISMATCH,
-    hub ViolationEvent;
+  if (New seat\nmismatch?) then ([yes])
+    :Record, audit,
+    alert monitor;
   else ([no])
   endif
-repeat while (Session\nInProgress?) is ([yes]) not ([no])
+repeat while (In\nprogress?) is ([yes]) not ([no])
 stop
 @enduml

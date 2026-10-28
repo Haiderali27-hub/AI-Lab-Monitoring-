@@ -1,0 +1,40 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' Code: Student_Desktop_App/Views/ExamDashboard.xaml.cs (LogoutButton_OnClick);
+' Backend_API/Controllers/AuthController.cs (Logout); Services/RefreshTokenService.cs (RevokeFamilyByJtiAsync).
+
+actor Student
+participant "ExamDashboard\n(WPF client)" as UI
+participant "AuthController" as AC
+participant "RefreshToken\nService" as RT
+database "AppDbContext" as DB
+== logout ==
+Student -> UI : Logout
+activate UI
+UI -> UI : stop live monitoring
+UI -> AC : logout request (JWT)
+activate AC
+note over AC, DB : A revoked session's JWT is rejected (401).
+AC -> RT : revoke token family
+activate RT
+RT -> DB : revoke the family's\ntokens and sessions
+RT --> AC : revoked count
+deactivate RT
+AC -> DB : revoke this session;\naudit LOGOUT
+AC --> UI : 200 logged out
+deactivate AC
+UI -> UI : clear stored session
+UI --> Student : show login window
+deactivate UI
+@enduml

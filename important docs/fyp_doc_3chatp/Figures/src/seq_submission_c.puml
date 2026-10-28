@@ -17,7 +17,6 @@ hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
 skinparam BoxPadding 0
-skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
@@ -28,20 +27,18 @@ participant "Exam\nWindow" as EW
 participant "ExamSession\nViewModel" as VM
 participant "ApiClient" as API
 participant "Exams\nController" as EC
-participant "Submission\nService" as SS
-database "AppDb\nContext" as DB
 activate EW
 activate VM
 activate API
 activate EC
-  EC --> API : 200 {sha256,\nanswerCount,\nsubmittedAt}
-  deactivate EC
-  API --> VM : Submitted + receipt
-  deactivate API
-  VM -> VM : ReceiptHasher:\nlocal hash =\nserver hash?
-  VM --> EW : receipt (Verified\nor Mismatch)
-  EW --> Student : receipt: Verified\nor Mismatch
-  EW -> EW : Close(); lockdown\nDispose() on closing
+EC --> API : receipt
+deactivate EC
+API --> VM : Submitted\n+ receipt
+deactivate API
+VM -> VM : local hash =\nserver hash?
+VM --> EW : Verified\nor Mismatch
+EW --> Student : show receipt
+EW -> EW : close; lockdown\nreleased
 deactivate VM
 deactivate EW
 @enduml

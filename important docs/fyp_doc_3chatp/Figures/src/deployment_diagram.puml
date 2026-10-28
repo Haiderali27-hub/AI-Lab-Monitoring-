@@ -9,7 +9,7 @@ skinparam dpi 120
 ' Services/Analytics/ReportExportService.cs (Reports/: PDF, Excel, ZIP).
 ' Port 5050: the clients' default base URL (appsettings.desktop.json:2, constants.ts:1); the API is started with
 ' --urls http://localhost:5050 (playwright.config.ts:47), while launchSettings.json uses :5281.
-' Sized for width \linewidth, height cap 360pt (smallest text about 6.6 pt printed). The client paths end on the
+' Sized for width \linewidth, height cap 360pt (text about 9.6 pt printed; labels kept short, details in the chapter text). The client paths end on the
 ' execution environment, and the server title is padded with no-break spaces, so no path crosses a node title.
 ' Local stores: AES-256-GCM, key wrapped by DPAPI CurrentUser (AnswerBackupCodec.cs, RecordCipher.cs, DpapiKeyProtector.cs).
 skinparam defaultFontSize 24
@@ -28,55 +28,49 @@ skinparam node<<optional>> {
 hide <<optional>> stereotype
 
 node "<b>Lab workstation</b>\n(Windows, one per seat)" as WS {
-  artifact "Student_Desktop_\nApp.exe (WPF,\n.NET 9)" as EXE
-  artifact "YuNet +\nYOLOX-Nano\n.onnx (Open-\nCvSharp4)" as ONNX
-  artifact "AES-256-GCM\noutbox + answer\nbackup (DPAPI-\nwrapped key)" <<file>> as LOCAL
+  artifact "Desktop app\n(WPF, .NET 9)" as EXE
+  artifact "ONNX models\n(YuNet,\nYOLOX-Nano)" as ONNX
+  artifact "Encrypted\noutbox and\nanswer backup" <<file>> as LOCAL
   node "Webcam" <<device>> as CAM
 }
 
 node "<b>Staff / student PC</b>" as PC {
   node "Web browser" <<executionEnvironment>> as BR {
-    artifact "Admin_Web_Panel\n(React SPA)" as SPA
+    artifact "Web panel\n(React)" as SPA
   }
 }
 
-node "<b>Web host</b>\n(Vite :5173\nin dev, or any\nstatic server)" as WEBHOST {
-  artifact "Admin_Web_\nPanel build\n(dist/), served\nover HTTP" as DIST
+node "<b>Web host</b>\n(static server)" as WEBHOST {
+  artifact "Web panel\nbuild" as DIST
 }
 
-node "<U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><b>Application server</b>" as SRV {
-  node "ASP.NET Core 9 / Kestrel\n(:5050 via --urls)" <<executionEnvironment>> as API {
-    artifact "Backend_API\nREST /api/*,\nSignalR /hubs/monitoring,\nhosted services" as BAPI
+node "<U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><U+00A0><b>Application server</b>" as SRV {
+  node "ASP.NET Core 9" <<executionEnvironment>> as API {
+    artifact "Backend API\n(REST, SignalR hub,\nbackground services)" as BAPI
   }
   node "Docker Engine" <<executionEnvironment>> as DOCKER {
-    node "gcc:13\ncontainer\n--network\nnone,\nread-only" <<container>> as GCC
+    node "gcc:13\ncontainer\n(no network)" <<container>> as GCC
   }
-  artifact "Local\nMinGW g++\n(fallback,\nnot isolated)" as MINGW
-  artifact "Evidence/,\nReports/:\nPDF, Excel,\nZIP" <<file>> as FILES
+  artifact "MinGW g++\n(fallback)" as MINGW
+  artifact "Evidence and\nreport files" <<file>> as FILES
 }
 
 database DB [
   <b>Neon</b>
   <b>PostgreSQL</b>
-  (cloud,
-  neondb)
-  29 tables
+  (cloud)
 ]
 node SMTP [
   <b>SMTP server</b>
-  smtp.gmail
-  .com:587
+  (email)
 ]
 node LLM <<optional>> [
   <b>LLM API</b>
-  (Groq /
-  Gemini)
-  optional, off
-  by default
+  (optional)
 ]
 
-EXE -down-> API : HTTP(S) REST + JWT:\nheartbeat every 10 s,\nevent batches,\ncaptures, answers
-SPA -down-> API : HTTP(S) REST + JWT,\nSignalR WebSocket
+EXE -down-> API : REST + JWT
+SPA -down-> API : REST + JWT,\nSignalR
 DIST -right-> SPA
 EXE -[hidden]right- ONNX
 LOCAL -[hidden]right- CAM
@@ -84,8 +78,8 @@ ONNX -[hidden]right- LOCAL
 BAPI -down-> DOCKER : docker run
 BAPI -down-> MINGW : g++, run
 BAPI -down-> FILES : writes
-BAPI -down-> DB : Npgsql / EF Core\nSSL Mode=Require
-BAPI -down-> SMTP : MailKit\nSTARTTLS
+BAPI -down-> DB : EF Core\n(SSL)
+BAPI -down-> SMTP : MailKit\n(TLS)
 BAPI ..> LLM : HTTPS
 SMTP -[hidden]right- DB
 ' Docker left, then MinGW, then the short Evidence/Reports artifact: keeps the MailKit path and its label

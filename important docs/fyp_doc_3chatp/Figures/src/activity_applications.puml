@@ -6,7 +6,8 @@
 ' (2 s scan, own Windows session; Enforce kills every time, Report raises once per app via _reported),
 ' LockdownCoordinator.Report (drops a repeat of the same reason|detail within ReportCooldown = 15 s) ->
 ' LiveMonitoringService.ReportViolation (urgent event in the encrypted outbox + CaptureForViolation).
-' Printed pt = fontSize * 72 * printed_width_in / png_width_px.
+' Simplified labels: always-allowed processes, the 15 s repeat filter and practice-exam rules are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
 skinparam dpi 96
 skinparam defaultFontSize 28
 skinparam ArrowFontSize 27
@@ -19,49 +20,46 @@ skinparam swimlane {
 |Teacher (Web Panel)|
 start
 repeat
-  :Pick a catalogue app
-  or type an .exe name
-  (AllowedAppsPicker);
-repeat while (Valid exe\nname?) is ([no]) not ([yes])
-:Choose LockdownMode:
-Off, Report (default)
-or Enforce; POST / PUT
-/api/exams;
+  :Pick or type
+  an app (.exe);
+repeat while (Valid\nname?) is ([no]) not ([yes])
+:Choose lockdown
+mode: Off, Report
+or Enforce, save;
 |Server|
-:ExamsController
-saves AllowedApps
-(JSON list) and
-LockdownMode on
-the Exam;
+:Save allowed
+apps and mode
+on the exam;
 |Desktop App|
-:GET /api/exams/student/current returns
-allowedApps and lockdownMode (practice exam:
-Report, no list); the exam window's
-LockdownCoordinator builds LockdownPolicy;
-if (Mode = Off?) then ([yes: no guards])
+:Load exam rules,
+build lockdown
+policy;
+if (Mode
+Off?) then ([yes])
   stop
 else ([no])
 endif
 repeat
-  :ProcessGuardService scans every 2 s (own Windows
-  session); allows own app, AllowedApps, shell processes
-  and windowless apps (not browsers, remote tools,
-  Task Manager);
-  if (Unauthorised app found?) then ([yes])
+  :Scan processes
+  every 2 s;
+  if (App not
+  allowed?) then ([yes])
     if (Mode?) then ([Enforce])
-      :Kill the process tree: ProcessKilled
-      (kill failed: UnauthorizedProcess);
+      :Kill the
+      process tree;
+      :Report violation,
+      capture screen;
     else ([Report])
-    endif
-    if (Enforce, or app not\nyet reported?) then ([yes])
-      :LockdownCoordinator.Report (same reason
-      and app within 15 s dropped): urgent Violation
-      to the encrypted outbox, capture the screen;
-    else ([no])
+      if (First report
+of this app?) then ([yes])
+        :Report violation,
+        capture screen;
+      else ([no])
+      endif
     endif
   else ([no])
   endif
-repeat while (Session running?) is ([yes]) not ([no])
-:Stop all guards;
+repeat while (Session\nrunning?) is ([yes]) not ([no])
+:Stop guards;
 stop
 @enduml

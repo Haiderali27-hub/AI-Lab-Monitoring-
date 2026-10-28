@@ -1,0 +1,78 @@
+@startuml
+!include style.iuml
+' Class diagram, part 4 of 4 (server: authentication, evidence, reports and audit trail), drawn as two figures:
+' (a) this file: authentication and the audit trail; (b) class_diagram_server2_b.puml: evidence and reports.
+' Sources: Backend_API Controllers/AuthController.cs, Controllers/AuditController.cs, Services/RefreshTokenService.cs,
+' Helpers/PasswordHelper.cs, Services/AuditService.cs, Services/AuditChain.cs, Data/AppDbContext.cs (SaveChanges
+' seals new AuditLog rows, :52-65).
+' Only key members; parameters omitted. Arrows: --> holds / injects, ..> calls or uses.
+hide empty members
+hide circle
+skinparam classAttributeIconSize 0
+skinparam nodesep 14
+skinparam ranksep 40
+skinparam class {
+  FontSize 14
+  AttributeFontSize 14
+  StereotypeFontSize 13
+}
+skinparam ArrowFontSize 14
+skinparam stereotypeFontSize 13
+
+class AuthController <<controller>> #FFF6E0 {
+  +Login()
+  +StudentLogin()
+  +Refresh()
+  +Logout()
+  +ChangePassword()
+  +Health()
+}
+class RefreshTokenService #FFF6E0 {
+  +IssueForLoginAsync()
+  +RotateAsync()
+  +RevokeFamilyByJtiAsync()
+  +RevokeOtherSessionsAsync()
+}
+class PasswordHelper <<static>> #FFF6E0 {
+  +HashPassword()
+  +VerifyPassword()
+  +NeedsRehash()
+}
+class AuditController <<controller>> #FFF6E0 {
+  +GetLogs()
+  +Verify()
+  +Backfill()
+}
+class AuditService #FFF6E0 {
+  +Add()
+  +LogAsync()
+}
+class AuditChain <<static>> #FFF6E0 {
+  +ComputeHash()
+  +Seal()
+  +VerifyAsync()
+  +BackfillAsync()
+}
+class AppDbContext <<DbContext>> #FFF6E0 {
+  +AuditLogs : DbSet<AuditLog>
+  +SaveChanges()
+  +SaveChangesAsync()
+}
+
+AuthController --> RefreshTokenService
+AuthController ..> PasswordHelper
+AuthController --> AuditService
+RefreshTokenService --> AuditService
+AuditController --> AppDbContext
+AuditController ..> AuditChain : verify,\nbackfill
+AuditService --> AppDbContext : adds rows
+AppDbContext ..> AuditChain : seals new\nrows on save
+
+skinparam legendFontSize 14
+legend bottom left
+  Each new audit row stores the hash
+  of the row before it (hash chain).
+  AuthController and RefreshTokenService
+  also use AppDbContext (not drawn).
+endlegend
+@enduml

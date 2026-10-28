@@ -1,0 +1,51 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 6
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' Reports and audit chain (Module 12). Web: Admin_Web_Panel/src/pages/analytics/ReportsPage.tsx (analyticsApi.generateReport,
+' generateExport(type, examId), getReportHistory, getReportDownloadUrl + fetch with Bearer token) and
+' pages/admin/AuditLogsPage.tsx (auditApi.verifyChain, GET /api/audit-logs/verify, Admin/SuperAdmin only).
+' Controllers/Analytics/AnalyticsController [Roles "Admin,SuperAdmin,Teacher"], DenyUnlessOwnerAsync = exam owner or admin:
+'   GenerateReport (POST /api/analytics/exams/{id}/report -> AnalyticsService.GenerateExamReportPdfAsync: GetExamSummaryAsync,
+'   QuestPDF, ExamReports row; NOT audited);
+'   GenerateExport (POST /api/analytics/reports/{type}, body {examId}: 400 unknown type / missing examId, 403 not owner ->
+'   ReportExportService.GenerateAsync: file, SHA-256, ExamReports row + AuditLog REPORT_GENERATED {reportType, fileName,
+'   sha256, sizeBytes}, one SaveChangesAsync in which AuditChain seals the row);
+'   DownloadReport (GET /api/analytics/reports/{fileName}: 400 not a bare file name, 404 no ExamReport, 403 not owner,
+'   404 file not under Reports/ or missing).
+' Controllers/AuditController.Verify -> AuditChain.VerifyAsync {valid, brokenAt, reason, checkedCount, unsealed,
+' lastVerifiedSequence, lastVerifiedHash}.
+
+actor "Admin /\nSuperAdmin" as T
+participant "Audit Logs\npage (web)" as ALP
+participant "Audit\nController" as AUC
+database "AppDbContext" as DB
+
+T -> ALP : open Audit Logs
+activate ALP
+ALP -> AUC : verify chain
+activate AUC
+AUC -> DB : audit rows\nin sequence order
+activate DB
+DB --> AUC : rows
+deactivate DB
+AUC -> AUC : recompute\nevery hash
+note right
+Hash = SHA-256 of the
+previous hash and the
+row's fields
+end note
+AUC --> ALP : valid, first broken\nrow, or unsealed rows
+deactivate AUC
+ALP --> T : chain result
+deactivate ALP
+@enduml

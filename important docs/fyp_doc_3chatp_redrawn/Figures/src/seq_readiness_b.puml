@@ -1,0 +1,55 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Practice exam (Module 2). Client: ViewModels/DashboardViewModel.RefreshPracticeExamsAsync (ApiClient.GetPracticeExamsAsync),
+' Views/ExamDashboard.PracticeButton_OnClick (ApiClient.StartSessionAsync; refusal -> MessageBox; ExamWindow in "Report"
+' mode, no allowed-apps list, no webcam; afterwards DashboardViewModel.InitializeAsync refreshes the list).
+' Server: ExamsController.GetPracticeExams (GET /api/exams/student/practice: IsMock, assigned and eligible, open now) and
+' StartSession (POST /api/exams/{id}/start-session), whose gates run in this order: assignment (403), IsEligible (400),
+' exam closed and no open session (400), not open yet (400 EXAM_NOT_STARTED), seat (403 SEAT_MISMATCH), then an
+' InProgress practice attempt is returned as it is, and only a NEW attempt checks RequireReadiness (400 READINESS_REQUIRED).
+' Saving and submitting use the same calls as a real exam; SubmissionService.FinalizeAsync skips the plagiarism check
+' when Exam.IsMock and grades when AiEvaluationEnabled.
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+
+actor Student
+participant "Exam\nDashboard" as UI
+participant "ApiClient" as API
+participant "Exams\nController" as EC
+database "AppDbContext" as DB
+Student -> UI : choose exam,\nPractice
+activate UI
+UI -> API : start session
+activate API
+API -> EC : POST start-session
+activate EC
+EC -> DB : load assignment
+activate DB
+DB --> EC : assignment
+deactivate DB
+EC -> EC : assigned? eligible?\nopen? right seat?
+alt a check fails
+  EC --> API : refused, with reason
+else practice attempt in progress
+  EC --> API : same session
+else new attempt, readiness required\nand no pass in the last 30 min
+  EC --> API : readiness required
+else new attempt
+  EC -> DB : save new ExamSession
+  activate DB
+  DB --> EC : saved
+  deactivate DB
+  EC --> API : session id
+end
+deactivate EC
+API --> UI : session id or message
+deactivate API
+@enduml

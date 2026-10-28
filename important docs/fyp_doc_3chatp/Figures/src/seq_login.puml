@@ -2,10 +2,10 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
-skinparam maxMessageSize 200
+skinparam maxMessageSize 220
 hide footbox
 hide unlinked
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 4
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
@@ -13,30 +13,30 @@ skinparam sequence {
 }
 ' Code: Student_Desktop_App/ViewModels/LoginViewModel.cs, Core/DeviceFingerprint.cs;
 ' Backend_API/Controllers/AuthController.cs (StudentLogin); Services/RefreshTokenService.cs.
-' Token refresh is drawn with logout in seq_logout.puml.
+' Token refresh is drawn with logout in seq_logout.puml. Labels kept short; details are in the chapter text.
 
 actor Student
-participant "LoginViewModel\n+ ApiClient (WPF)" as VM
+participant "LoginViewModel\n(WPF client)" as VM
 participant "AuthController" as AC
 participant "RefreshToken\nService" as RT
 database "AppDbContext" as DB
 
 Student -> VM : email or roll no.\n+ password
 activate VM
-VM -> VM : DeviceFingerprint:\nraw "v2|BIOS|DISK|BOARD"\n+ legacy v1
-VM -> AC : POST /api/auth/student-login\n{usernameOrEmail, password,\nmachineName, hardwareFingerprint\n(v2), legacyHardwareFingerprint (v1)}
+VM -> VM : read device\nfingerprint (v2 + v1)
+VM -> AC : login request\n(credentials + fingerprints)
 activate AC
-AC -> DB : active User + DeviceBinding (by Email or RollNumber)
-DB --> AC : user | null
-break user null, or PasswordHelper.VerifyPassword = false
-  AC -> DB : AuditLog LOGIN_FAILED
+AC -> DB : find active user\nand device binding
+DB --> AC : user or none
+break no user, or wrong password
+  AC -> DB : audit LOGIN_FAILED
   AC --> VM : 401 UNAUTHORIZED
 end
-break Role != Student
+break role is not Student
   AC --> VM : 401 FORBIDDEN
 end
-AC -> AC : if NeedsRehash: re-hash, PBKDF2 600,000
-break hardwareFingerprint empty
-  AC --> VM : 400 BAD_REQUEST\n"HWID is required for student login."
+AC -> AC : re-hash old hash if needed\n(PBKDF2, 600,000)
+break no fingerprint sent
+  AC --> VM : 400 HWID required
 end
 @enduml

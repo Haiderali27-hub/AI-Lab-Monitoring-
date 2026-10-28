@@ -15,7 +15,6 @@ hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
 skinparam BoxPadding 0
-skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
@@ -23,26 +22,24 @@ skinparam sequence {
 
 actor Student
 participant "Dashboard\nViewModel" as VM
-participant "Readiness\nCheckService" as RCS
 participant "ApiClient" as API
 participant "Exams\nController" as EC
-database "AppDbContext" as DB
 participant "Monitoring\nHub" as HUB
 activate VM
 activate API
 activate EC
-EC ->> HUB : ReadinessUpdated\n{userId, passedAll}\nto group exam:{id}
-EC --> API : 200 {passedAll,\nvalidUntil: checkedAt\n+ 30 min}
+EC ->> HUB : ReadinessUpdated
+EC --> API : result; pass\nvalid 30 min
 deactivate EC
-API --> VM : (ok, passedAll)
+API --> VM : result
 deactivate API
-alt ok and passedAll
-  VM --> Student : "All checks passed";\nStart enabled once\nchecked in and open
-else ok, a check failed
+alt all checks passed
+  VM --> Student : "All checks passed";\nStart can be enabled
+else a check failed
   VM --> Student : failed rows,\neach with Retry
-  Student -> VM : Retry item
-  VM -> VM : re-run that check,\nthen submit again\n(as above)
-else request failed (offline or HTTP error)
+  Student -> VM : Retry
+  VM -> VM : re-run the check;\nsubmit again
+else request failed
   VM --> Student : "Could not reach\nserver"; Start\nstays disabled
 end
 deactivate VM

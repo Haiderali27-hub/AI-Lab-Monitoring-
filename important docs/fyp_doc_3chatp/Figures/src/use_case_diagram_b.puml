@@ -1,7 +1,7 @@
 @startuml
 ' UML 2.5 use case diagram, figure (b): the staff use cases of the web panel. Figure (a), the student's
 ' use cases and live supervision (UC-01 to UC-14), is use_case_diagram.puml.
-' Every use case carries its ID (UC-nn, as in the Chapter 4 description tables) and its FR.
+' Every use case carries its ID (UC-nn, as in Chapter 4); the UC-to-FR mapping is given in the text.
 !include style.iuml
 left to right direction
 skinparam packageStyle rectangle
@@ -19,29 +19,29 @@ skinparam rectangle {
   FontSize 14
 }
 
-actor "Email server\n(SMTP)" as SMTP <<system>>
+actor "Email\nserver" as SMTP <<system>>
 actor "Invigilator" as INV
 actor "Teacher" as TEA
 actor "Admin" as ADM
 actor "SuperAdmin" as SUP
 
 rectangle "SmartExam" {
-  rectangle "Web panel (React)" as WEB {
-    usecase "UC-12 Sign in, change\npassword, sign out (FR1)" as U12
-    usecase "UC-13 Create and\nconfigure exam (FR8)" as U14
-    usecase "UC-19 Announce exam, notify\nschedule and grades (FR8)" as U15
-    usecase "UC-20 Import attendance,\nset eligibility (FR9)" as U16
-    usecase "UC-15 Assign workstations\nand invigilators (FR9)" as U17
-    usecase "UC-16 Review suggested marks\n(FR11.1, FR11.2)" as U18
-    usecase "UC-17 Review similarity\nmatrix (FR11.3)" as U19
-    usecase "UC-18 Export reports\nand evidence (FR12)" as U20
-    usecase "UC-23 Manage users\nand roles (FR7)" as U21
-    usecase "UC-24 Manage departments\nand courses (FR7)" as U22
-    usecase "UC-25 Reset device\nbinding (FR1, FR7)" as U23
-    usecase "UC-26 Register labs and\nworkstations (FR9)" as U24
-    usecase "UC-21 Read audit log,\nverify hash chain (FR12)" as U25
-    usecase "UC-22 View system\nanalytics (FR12)" as U26
-    usecase "UC-27 Manage Admin and\nSuperAdmin accounts (FR7)" as U27
+  rectangle "Web panel" as WEB {
+    usecase "UC-12 Web\nsign-in" as U12
+    usecase "UC-13 Create and\nconfigure exam" as U14
+    usecase "UC-19 Send exam\nnotifications" as U15
+    usecase "UC-20 Set\neligibility" as U16
+    usecase "UC-15 Assign seats\nand invigilators" as U17
+    usecase "UC-16 Review\nsuggested marks" as U18
+    usecase "UC-17 Review\nsimilarity matrix" as U19
+    usecase "UC-18 Export\nreports" as U20
+    usecase "UC-23 Manage\nusers and roles" as U21
+    usecase "UC-24 Manage\ndepartments, courses" as U22
+    usecase "UC-25 Reset\ndevice binding" as U23
+    usecase "UC-26 Register\nlabs and PCs" as U24
+    usecase "UC-21 Verify\naudit log" as U25
+    usecase "UC-22 View\nsystem analytics" as U26
+    usecase "UC-27 Manage\nadmin accounts" as U27
   }
 }
 

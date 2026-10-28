@@ -2,59 +2,58 @@
 !include style.iuml
 skinparam defaultFontSize 14
 skinparam ArrowFontSize 14
-skinparam maxMessageSize 200
+skinparam maxMessageSize 220
 hide footbox
 hide unlinked
-skinparam ParticipantPadding 2
+skinparam ParticipantPadding 4
 skinparam BoxPadding 0
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
 }
 ' Code: Student_Desktop_App/Views/ExamDashboard.xaml.cs, ViewModels/DashboardViewModel.cs, Services/LiveMonitoringService.cs;
-' Backend_API/Controllers/ExamsController.cs (student/start), MonitoringController.cs (heartbeat, events/batch, screenshot);
-' Services/Monitoring/HeartbeatWatchdogService.cs; Hubs/MonitoringHub.cs; Admin_Web_Panel/src/pages/teacher/LiveMonitorPage.tsx.
-' Open arrowheads (->>) are one-way messages: Start() returns at once, and every push to the web page is
-' IHubContext<MonitoringHub>.Clients.Group("exam:{id}").SendAsync(...), with no reply.
+' Backend_API/Controllers/ExamsController.cs (student/start), MonitoringController.cs (heartbeat, events/batch);
+' Hubs/MonitoringHub.cs; Admin_Web_Panel/src/pages/teacher/LiveMonitorPage.tsx.
+' Open arrowheads (->>) are one-way: Start() returns at once; pushes to the web page go to the exam's hub group, no reply.
 
-participant "ExamDashboard\n+ Dashboard\nViewModel" as VM
+participant "ExamDashboard\n(WPF client)" as VM
 participant "LiveMonitoring\nService" as LM
 participant "Exams\nController" as EC
 participant "Monitoring\nController" as MC
-participant "Heartbeat\nWatchdog\nService" as WD
+participant "Heartbeat\nWatchdog" as WD
 database "AppDbContext" as DB
-participant "LiveMonitorPage\n(web), in group\nexam:{id}" as WEB
+participant "Live Monitor\npage (web)" as WEB
 participant "Monitoring\nHub" as HUB
 
-WEB -> HUB : JoinExamGroup\n(examId)
+WEB -> HUB : join exam group
 activate HUB
 HUB --> WEB : joined
 deactivate HUB
-VM -> EC : POST /api/exams/student/start
+VM -> EC : start exam
 activate EC
-EC -> DB : assignment, seat and readiness\ngates; insert ExamSession (InProgress)
-EC --> VM : 200 {id, status, startedAtUtc}
+EC -> DB : check assignment, seat\nand readiness; create session
+EC --> VM : 200 session
 deactivate EC
-VM ->> LM : Start(token,\nsessionId, ...)
+VM ->> LM : start monitoring
 
 par
   loop every 10 s
-    LM -> MC : POST /api/monitoring/heartbeat\n{examSessionId, cameraStatus,\nisForegroundExamApp, ...}
+    LM -> MC : heartbeat
     activate MC
-    MC -> DB : LastHeartbeatAt; Heartbeat event\n(on change or every 60 s); seat check
+    MC -> DB : save heartbeat;\ncheck seat
     MC ->> WEB : StudentHeartbeat
-    MC --> LM : HeartbeatAck {remaining\nSeconds, sessionStatus,\nwarnings, ...}
+    MC --> LM : ack (time left,\nstatus, warnings)
     deactivate MC
   end
 else
-  loop outbox every 5 s (at once on a violation)
-    LM -> MC : POST /api/monitoring/events/batch\n{examSessionId, events[...]}
+  loop every 5 s (at once on a violation)
+    LM -> MC : event batch
     activate MC
-    MC -> DB : insert MonitoringEvents (dedup); AuditLog\nMONITORING_VIOLATION if any violation
-    opt session InProgress, violation recorded <= 60 s ago
+    MC -> DB : save new events;\naudit violations
+    opt recent violation, session in progress
       MC ->> WEB : ViolationEvent
     end
-    MC --> LM : {accepted, duplicates}
+    MC --> LM : accepted,\nduplicates
     deactivate MC
   end
 end

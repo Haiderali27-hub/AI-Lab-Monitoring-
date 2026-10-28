@@ -1,0 +1,59 @@
+@startuml
+!include style.iuml
+' DFD level 0 (context diagram), Yourdon/DeMarco notation:
+' circle = process, rectangle = external entity (terminator),
+' dashed rectangle = optional external entity, labelled arrow = data flow.
+' System boundary = process 0 = the whole SmartExam system (WPF desktop client
+' with its lockdown, React web panel, ASP.NET Core API), as in the use-case
+' diagram. The lab PC the student sits at is the student's side of the boundary.
+' Labels are short on purpose; the chapter text lists every flow in full.
+skinparam defaultFontSize 16
+skinparam ArrowFontSize 16
+skinparam nodesep 30
+skinparam ranksep 60
+skinparam defaultTextAlignment center
+skinparam rectangle<<entity>> {
+  BorderThickness 2
+  RoundCorner 0
+  BackgroundColor #FFFFFF
+}
+skinparam usecase {
+  BorderColor #333333
+  BorderThickness 2
+  BackgroundColor #F2F2F2
+  FontSize 16
+}
+skinparam rectangle<<optional>> {
+  RoundCorner 0
+  BorderStyle dashed
+  BackgroundColor #FFFFFF
+}
+hide stereotype
+left to right direction
+
+rectangle "Student" <<entity>> as STU
+rectangle "Admin /\nSuperAdmin" <<entity>> as ADM
+rectangle "Teacher" <<entity>> as TEA
+rectangle "Invigilator" <<entity>> as INV
+rectangle "LLM grader\n(optional)" <<optional>> as LLM
+rectangle "Email server" <<entity>> as SMTP
+
+usecase "**0**\nSmartExam" as P0
+
+STU --> P0 : sign-in, answers,\nPC activity, webcam
+P0 --> STU : questions, lockdown,\nwarnings, results
+
+ADM --> P0 : users, courses,\nlabs
+ADM <-- P0 : audit log,\nanalytics
+
+P0 <-- TEA : exam set-up,\nproctor actions,\nmark decisions
+TEA <-- P0 : live status,\nmarks, reports
+
+P0 <-- INV : proctor actions
+INV <-- P0 : live status
+
+P0 ..> LLM : answers to grade
+LLM ..> P0 : suggested mark
+
+P0 --> SMTP : emails
+@enduml

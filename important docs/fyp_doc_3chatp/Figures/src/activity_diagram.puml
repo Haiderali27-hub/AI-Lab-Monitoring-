@@ -6,109 +6,87 @@
 ' Services/LiveMonitoringService), Backend_API (AuthController.StudentLogin, ExamsController.StartExam
 ' [POST api/exams/student/start], SaveAnswer, Submit, MonitoringController, SubmissionService.FinalizeAsync,
 ' Services/Grading/*, SessionTimeoutService, GradingController accept-ai, ExamsController answers/{id}/override).
-' Sized for includegraphics width 1.0 linewidth (about 6.8 pt printed; fork/join bars in the Desktop App lane, error codes on the 'no' guards). Large font + low dpi: PlantUML's gaps are fixed in pixels, so a large font raises the text-to-space ratio.
-' Printed size = fontSize * 72 * W_in / png_width_px (independent of dpi).
+' Simplified labels: endpoints, error codes and model names are given in the chapter text.
+' Large font at dpi 96 (PlantUML gaps are fixed in pixels). Printed pt = fontSize * printed_width_pt / png_width_px.
 skinparam dpi 96
-skinparam defaultFontSize 32
-skinparam ArrowFontSize 32
+skinparam defaultFontSize 30
+skinparam ArrowFontSize 29
 skinparam ArrowThickness 2
 skinparam activityBorderThickness 1.5
 skinparam padding 1
 skinparam swimlane {
   BorderColor #777777
-  TitleFontSize 33
+  TitleFontSize 31
 }
 
 |Student|
 start
-:Enter email
-or roll no. +
+:Enter ID and
 password;
 |Desktop App|
-:v2 fingerprint (BIOS,
-disk, baseboard), POST
-auth/student-login;
+:Send login with
+device fingerprint;
 |Server|
-if (Password,
-role, device
-hash OK?) then ([no: 401
-UNAUTHORIZED,
-FORBIDDEN,
-DEVICE_
-MISMATCH])
+if (Login and
+device OK?) then ([no])
+  :Refuse;
   stop
-else ([yes: JWT +\nrefresh token])
+else ([yes: tokens])
 endif
 |Desktop App|
 repeat
-:7 checks: Network, ClockSkew,
-ScreenCapture, Camera, Micro-
-phone, SecureMode, Disk; POST
-exams/{id}/readiness;
-repeat while (Required check
-failed and exam
-requires it?) is ([yes])
+:Run 7 readiness
+checks, send results;
+repeat while (Required
+check failed?) is ([yes])
 -> [no];
 |Student|
-:Check in, then
-click Start;
+:Check in,
+press Start;
 |Desktop App|
-:POST monitoring/event
-(Attendance), then POST
-exams/student/start;
+:Request exam start;
 |Server|
 if (Eligible, open,
-not submitted,
-seat OK, fresh
-readiness if
-required?) then ([no: e.g.
-NOT_ELIGIBLE,
-SEAT_MISMATCH,
-EXAM_NOT_
-STARTED,
-READINESS_
-REQUIRED])
+seat and readiness
+OK?) then ([no])
+  :Refuse;
   stop
-else ([yes: ExamSession\nInProgress or resumed])
+else ([yes])
+  :Start or resume
+  the session;
 endif
 |Desktop App|
 fork
   |Student|
-  :Answer MCQ,
-  theory, code;
+  :Answer
+  questions;
 fork again
   |Desktop App|
-  :Lockdown on, save-
-  answer, heartbeat 10 s,
-  event batches, captures,
-  YuNet + YOLOX-Nano;
+  :Lockdown, auto-save,
+  heartbeat, events,
+  captures, webcam AI;
   |Server|
   :Store, push to
-  MonitoringHub;
+  live monitor;
   |Desktop App|
 end fork
 :Session ends: submit,
-timer 0 (auto-submit),
-force-submit or timeout;
+timer, force-submit
+or timeout;
 |Server|
-:FinalizeAsync: lock session,
-SHA-256 receipt; if AI evaluation
-on, grade MCQ + theory (TF-IDF),
-queue code; winnowing if not practice;
+:Finalise with receipt,
+auto-grade if AI on,
+plagiarism check if
+not practice;
 |Desktop App|
 :Release lockdown,
-verify receipt after submit
-or auto-submit, or show
-Exam Ended after force-
-submit or timeout;
+verify receipt or
+show Exam Ended;
 |Server|
-:In the background, GradingWorker
-runs queued code tests in Docker
-gcc:13 or MinGW fallback;
+:Run code tests
+in background;
 |Teacher|
-:Accept AI marks via
-grading/accept-ai, or
-override via
-answers/{id}/override;
+:Accept AI marks
+or override;
 stop
 @enduml

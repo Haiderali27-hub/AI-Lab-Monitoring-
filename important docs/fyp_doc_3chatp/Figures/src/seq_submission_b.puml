@@ -17,33 +17,28 @@ hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
 skinparam BoxPadding 0
-skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
 }
 
-actor Student
-participant "Exam\nWindow" as EW
-participant "ExamSession\nViewModel" as VM
-participant "ApiClient" as API
 participant "Exams\nController" as EC
 participant "Submission\nService" as SS
 database "AppDb\nContext" as DB
 activate EC
-  EC -> SS : FinalizeAsync\n(session, Submitted)
-  activate SS
-  SS -> DB : load the session's Answers
-  activate DB
-  DB --> SS : answers
-  deactivate DB
-  SS -> SS : Status = Submitted;\nReceiptSha256 =\nReceiptHasher\n.Compute(answers)
-  SS -> DB : SaveChangesAsync\n(one write): session,\nstaged grades [Ai-\nEvaluationEnabled],\nplagiarism pairs\n[not IsMock],\n+AuditLog SESSION_\nSUBMITTED (receipt)
-  activate DB
-  DB --> SS : saved; AuditChain\nsealed the\nAuditLog row
-  deactivate DB
-  SS ->>] : GradingQueue\n.Enqueue(answerId)\nper coding answer
-  SS ->>] : MonitoringHub: SessionFinalized\nto group exam:{id}
-  SS --> EC : SubmissionReceipt
-  deactivate SS
+EC -> SS : finalise\nsession
+activate SS
+SS -> DB : load answers
+activate DB
+DB --> SS : answers
+deactivate DB
+SS -> SS : status Submitted;\nreceipt hash
+SS -> DB : one save: session,\ngrades (if AI on),\nplagiarism pairs\n(not practice),\naudit entry
+activate DB
+DB --> SS : saved (audit\nrow hash-chained)
+deactivate DB
+SS ->>] : queue coding\nanswers for grading
+SS ->>] : SessionFinalized\n(live monitor)
+SS --> EC : receipt
+deactivate SS
 @enduml

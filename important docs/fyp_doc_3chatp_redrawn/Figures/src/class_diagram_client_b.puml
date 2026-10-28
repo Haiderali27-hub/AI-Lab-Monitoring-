@@ -1,0 +1,98 @@
+@startuml
+!include style.iuml
+' Class diagram, part 2 of 4 (desktop client), figure (b): lockdown, ApiClient and the four
+' API controllers it calls (Auth, Exams, Monitoring, Notifications). Figure (a) is class_diagram_client.puml.
+' Only key members; parameters omitted. Arrows: --> holds / creates, ..> calls or uses, *-- owns.
+' A dashed white box is a class whose members are drawn in the other figure.
+' Sources: Core/Lockdown/LockdownCoordinator.cs; Services/ApiClient.cs; Backend_API/Controllers (Auth, Exams, Monitoring, Notifications).
+hide empty members
+hide circle
+skinparam classAttributeIconSize 0
+skinparam nodesep 22
+skinparam ranksep 30
+skinparam class {
+  FontSize 14
+  AttributeFontSize 14
+  StereotypeFontSize 14
+}
+skinparam ArrowFontSize 14
+skinparam stereotypeFontSize 14
+
+class ExamWindow <<Window>> #FFFFFF ##[dashed]
+class LiveMonitoringService #FFFFFF ##[dashed]
+class LockdownCoordinator #E8F0FB {
+  -_keyboard : KeyboardHookService
+  -_processes : ProcessGuardService
+  -_clipboard : ClipboardGuardService
+  -_devices : DeviceGuardService
+  -_taskManager : TaskManagerGuard
+  -_violationSink
+  +Start()
+  +Stop()
+  +Suspend()
+  +Resume()
+}
+class ApiClient #E8F0FB {
+  +StudentLoginAsync()
+  +RefreshAsync()
+  +LogoutAsync()
+  +ProbeHealthAsync()
+  +SubmitReadinessAsync()
+  +StartExamAsync()
+  +StartSessionAsync()
+  +SaveAnswerAsync()
+  +SubmitExamAsync()
+  +SendHeartbeatAsync()
+  +SendEventBatchAsync()
+  +SendMonitoringEventAsync()
+  +UploadCaptureAsync()
+  +GetNotificationsAsync()
+  +MarkNotificationReadAsync()
+}
+
+class AuthController <<controller>> #FFF6E0 {
+  +StudentLogin()
+  +Refresh()
+  +Logout()
+  +Health()
+}
+class NotificationsController <<controller>> #FFF6E0 {
+  +GetMine()
+  +MarkRead()
+}
+class ExamsController <<controller>> #FFF6E0 {
+  +GetStudentCurrentExam()
+  +SubmitReadiness()
+  +StartStudentExam()
+  +StartSession()
+  +SaveAnswer()
+  +Submit()
+}
+class MonitoringController <<controller>> #FFF6E0 {
+  +Heartbeat()
+  +PushEventBatch()
+  +PushEvent()
+  +UploadScreenshot()
+}
+
+ExamWindow --> LockdownCoordinator
+LockdownCoordinator ..> LiveMonitoringService : reports\nviolations
+
+LockdownCoordinator --> ApiClient : fallback
+LiveMonitoringService --> ApiClient
+
+ApiClient ..> AuthController
+ApiClient ..> ExamsController
+ApiClient ..> MonitoringController
+ApiClient ..> NotificationsController
+AuthController -[hidden]right- ExamsController
+ExamsController -[hidden]right- MonitoringController
+MonitoringController -[hidden]right- NotificationsController
+
+skinparam legendFontSize 14
+legend bottom right
+  <back:#E8F0FB>      </back>  Desktop client
+  <back:#FFF6E0>      </back>  Server controllers
+  Dashed box: members in figure (a)
+endlegend
+@enduml

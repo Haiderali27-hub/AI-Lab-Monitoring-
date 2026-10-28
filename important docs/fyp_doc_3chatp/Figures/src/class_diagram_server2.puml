@@ -5,7 +5,7 @@
 ' Sources: Backend_API Controllers/AuthController.cs, Controllers/AuditController.cs, Services/RefreshTokenService.cs,
 ' Helpers/PasswordHelper.cs, Services/AuditService.cs, Services/AuditChain.cs, Data/AppDbContext.cs (SaveChanges
 ' seals new AuditLog rows, :52-65).
-' Only key members; parameters abbreviated as (..). Arrows: --> holds / injects, ..> calls or uses.
+' Only key members; parameters omitted. Arrows: --> holds / injects, ..> calls or uses.
 hide empty members
 hide circle
 skinparam classAttributeIconSize 0
@@ -19,44 +19,44 @@ skinparam class {
 skinparam ArrowFontSize 14
 skinparam stereotypeFontSize 13
 
-class AuthController <<api/auth>> #FFF6E0 {
-  +Login(req)
-  +StudentLogin(req)
-  +Refresh(req)
+class AuthController <<controller>> #FFF6E0 {
+  +Login()
+  +StudentLogin()
+  +Refresh()
   +Logout()
-  +ChangePassword(req)
-  +Health()  [/api/health]
+  +ChangePassword()
+  +Health()
 }
 class RefreshTokenService #FFF6E0 {
-  +IssueForLoginAsync(user, jti, ..) : string
-  +RotateAsync(rawToken, ip) : RefreshOutcome
-  +RevokeFamilyByJtiAsync(jti, reason) : int
-  +RevokeOtherSessionsAsync(userId, keepJti, ..)
+  +IssueForLoginAsync()
+  +RotateAsync()
+  +RevokeFamilyByJtiAsync()
+  +RevokeOtherSessionsAsync()
 }
 class PasswordHelper <<static>> #FFF6E0 {
-  +HashPassword(password, salt) : string
-  +VerifyPassword(password, salt, hash) : bool
-  +NeedsRehash(hash) : bool
+  +HashPassword()
+  +VerifyPassword()
+  +NeedsRehash()
 }
-class AuditController <<api/audit-logs>> #FFF6E0 {
-  +GetLogs(eventType, take)
-  +Verify(ct)
-  +Backfill(ct)
+class AuditController <<controller>> #FFF6E0 {
+  +GetLogs()
+  +Verify()
+  +Backfill()
 }
 class AuditService #FFF6E0 {
-  +Add(actorId, eventType, entityType, ..)
-  +LogAsync(actorId, eventType, entityType, ..)
+  +Add()
+  +LogAsync()
 }
 class AuditChain <<static>> #FFF6E0 {
-  +ComputeHash(row, sequence, prevHash) : string
-  +Seal(rows, headSequence, headHash)
-  +VerifyAsync(db, ct) : ChainStatus
-  +BackfillAsync(db, actorId, ct) : int
+  +ComputeHash()
+  +Seal()
+  +VerifyAsync()
+  +BackfillAsync()
 }
 class AppDbContext <<DbContext>> #FFF6E0 {
   +AuditLogs : DbSet<AuditLog>
-  +SaveChanges(..) : int
-  +SaveChangesAsync(..) : Task<int>
+  +SaveChanges()
+  +SaveChangesAsync()
 }
 
 AuthController --> RefreshTokenService
@@ -64,16 +64,15 @@ AuthController ..> PasswordHelper
 AuthController --> AuditService
 RefreshTokenService --> AuditService
 AuditController --> AppDbContext
-AuditController ..> AuditChain : VerifyAsync,\nBackfillAsync
-AuditService --> AppDbContext : AuditLogs.Add
-AppDbContext ..> AuditChain : seals new rows\nin SaveChanges
+AuditController ..> AuditChain : verify,\nbackfill
+AuditService --> AppDbContext : adds rows
+AppDbContext ..> AuditChain : seals new\nrows on save
 
 skinparam legendFontSize 14
 legend bottom left
-  AuthController and RefreshTokenService also inject
-  AppDbContext (arrows omitted). AuditChain gives each new
-  AuditLog row the next Sequence, PrevHash = the previous
-  row's Hash, and Hash = SHA-256 over the row;
-  VerifyAsync re-checks the chain.
+  Each new audit row stores the hash
+  of the row before it (hash chain).
+  AuthController and RefreshTokenService
+  also use AppDbContext (not drawn).
 endlegend
 @enduml

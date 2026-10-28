@@ -3,8 +3,8 @@
 ' Student login with HWID v2 device binding
 ' (LoginViewModel, Core/DeviceFingerprint, AuthController.StudentLogin [EnableRateLimiting("login"):
 ' 10 requests/min per IP], HwidHelper.CanUpgradeToV2, Services/SessionStore, AuthController.Refresh)
-' Print sizing (D6): large font at dpi 96, so PlantUML's fixed pixel gaps stay small next to the text;
-' printed size = 22 * (printed width in pt) / (PNG width px), at least 7 pt at the width used in Chapter 5.
+' Simplified labels: endpoint, status codes, fingerprint parts and the PBKDF2 re-hash are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
 skinparam dpi 96
 skinparam defaultFontSize 22
 skinparam ArrowFontSize 22
@@ -17,59 +17,50 @@ skinparam swimlane {
 
 |Desktop App|
 start
-:Read v2 fingerprint (BIOS, disk,
-baseboard serials via WMI) and
-legacy v1; POST /api/auth/student-
-login with email or roll number,
-password and both fingerprints;
+:Read device fingerprint,
+send login;
 |Server|
-if (More than 10 requests
-this minute from this IP?) then ([yes])
-  :429 Too Many
-  Requests;
-([no]) elseif (Credentials OK and
+if (Over 10 tries a
+minute from this IP?) then ([yes])
+  :Refuse:
+  too many
+  requests;
+([no]) elseif (Password OK,
 account active?) then ([no])
-  :401 UNAUTHORIZED,
-  audit LOGIN_FAILED;
-([yes]) elseif (Role Student
-and HWID sent?) then ([no])
-  :401 FORBIDDEN or
-  400 BAD_REQUEST;
+  :Refuse, audit
+  LOGIN_FAILED;
+([yes]) elseif (Student account,
+device ID sent?) then ([no])
+  :Refuse;
 else ([yes])
-  if (DeviceBinding
-  exists?) then ([no])
-    :Save binding (SHA-256 of
-    fingerprint), audit
-    DEVICE_BOUND;
+  if (Device
+  bound?) then ([no])
+    :Bind device hash,
+    audit DEVICE_BOUND;
   else ([yes])
-    if (Old v1 binding and
-    v1 fingerprint matches?) then ([yes])
-      :Re-bind to v2,
+    if (Old v1 binding
+    matches?) then ([yes])
+      :Upgrade to v2,
       audit DEVICE_REBOUND;
     else ([no])
     endif
   endif
-  if (Hash matches
-  binding?) then ([no])
-    :401 DEVICE_MISMATCH,
-    audit DEVICE_MISMATCH;
+  if (Same
+  device?) then ([no])
+    :Refuse, audit
+    DEVICE_MISMATCH;
   else ([yes])
-    :Update LastSeenAt, re-hash
-    an old PBKDF2 password,
-    issue JWT, UserSession and
-    refresh token; audit
+    :Issue tokens, audit
     LOGIN_SUCCESS;
   endif
 endif
 |Desktop App|
 if (Login OK?) then ([yes])
-  :Store tokens in
-  SessionStore (renewed
-  via /api/auth/refresh),
-  open the dashboard;
+  :Save tokens,
+  open dashboard;
 else ([no])
   :Show the
-  error message;
+  error;
 endif
 stop
 @enduml

@@ -1,0 +1,124 @@
+@startuml
+!include style.iuml
+' DFD level 1, part (a): processes 1.0-3.0 (sign-in, exam set-up, the exam
+' session on the lab PC). Part (b) is dfd_level_1b.puml (4.0, 5.0).
+' Yourdon/DeMarco notation: circle = process, rectangle = external entity,
+' two horizontal lines = data store "Dn" (tables listed in the chapter text),
+' labelled arrow = data flow, two-headed arrow = read and update;
+' dashed circle = a process drawn in the other part; * = entity drawn twice.
+' Portrait layout, short labels; the chapter text gives every flow in full.
+skinparam defaultFontSize 16
+skinparam ArrowFontSize 16
+skinparam nodesep 16
+skinparam ranksep 40
+skinparam defaultTextAlignment center
+skinparam rectangle<<entity>> {
+  BorderThickness 2
+  RoundCorner 0
+  BackgroundColor #FFFFFF
+}
+skinparam usecase {
+  BorderColor #333333
+  BorderThickness 2
+  BackgroundColor #F2F2F2
+}
+skinparam usecase<<ref>> {
+  BorderStyle dashed
+  BorderThickness 1
+  BackgroundColor #FFFFFF
+}
+skinparam label {
+  FontSize 16
+}
+hide stereotype
+top to bottom direction
+
+rectangle "Admin /\nSuperAdmin" <<entity>> as ADM
+rectangle "Student" <<entity>> as STU
+rectangle "Teacher" <<entity>> as TEA
+rectangle "Email server" <<entity>> as SMTP
+rectangle "Student *" <<entity>> as STU2
+
+usecase "**1.0**\nAuthenticate\nand bind device" as P1
+usecase "**2.0**\nConfigure exams\nand run sessions" as P2
+usecase "**3.0**\nLockdown and\ntelemetry" as P3
+usecase "**4.0**\nLive proctoring\n(part b)" <<ref>> as P4
+usecase "**5.0**\nEvaluation and\nreporting (part b)" <<ref>> as P5
+
+label D1 [
+----
+**D1** Identity
+----
+]
+label D2 [
+----
+**D2** Exams
+----
+]
+label D3 [
+----
+**D3** Academic and
+lab data
+----
+]
+label D4 [
+----
+**D4** Sessions and
+answers
+----
+]
+label D5 [
+----
+**D5** Monitoring
+evidence
+----
+]
+label D7 [
+----
+**D7** Notifications
+----
+]
+label D8 [
+----
+**D8** Audit log
+----
+]
+
+' ---- rank 0: entities; rank 1: 1.0, 2.0; rank 2: stores; rank 3: 3.0;
+' ---- rank 4: the student at the PC, D5, 4.0. "X <-- P" keeps X above P.
+ADM --> P1 : users, roles
+STU --> P1 : credentials,\ndevice IDs
+P1 --> STU : sign-in result
+ADM --> P2 : courses, labs
+STU --> P2 : answers,\nsubmit
+P2 --> STU : questions,\nreceipt
+TEA --> P2 : exam set-up,\nseats, attendance
+P2 -left-> P5 : submitted\nsession
+P2 -right-> SMTP : emails
+
+' ---- 1.0
+P1 --> D1 : sessions,\nbinding
+P1 <-- D1 : password\nhash, binding
+P1 --> D8 : login events
+
+' ---- 2.0
+P2 <--> D2 : exams
+P2 <--> D3 : seats,\nattendance
+P2 <--> D4 : sessions,\nanswers
+P2 --> D7 : notices
+P2 --> D8 : changes
+
+' ---- 3.0
+D2 --> P3 : lockdown\nsettings
+D3 --> P3 : assigned\nseat
+D4 --> P3 : extra time,\nunlock
+D4 <-- P3 : heartbeat\nstatus
+D7 --> P3 : warnings
+D1 <-- P3 : last seen
+D8 <-- P3 : monitoring\nevents
+P3 --> D5 : events,\ncaptures
+P3 <-- D5 : violations
+P3 <-- STU2 : PC activity,\nscreen, webcam
+P3 --> STU2 : lockdown,\nwarnings
+P3 --> P4 : live\nupdates
+@enduml

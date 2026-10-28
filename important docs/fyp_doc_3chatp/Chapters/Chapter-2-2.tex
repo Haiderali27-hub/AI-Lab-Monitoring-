@@ -1,112 +1,72 @@
 \section{Functional Requirements}
-Table~\ref{tab:functionalrequirements} lists the functional requirements. FR$n$ belongs to module M$n$; module M11 has three (FR11.1--FR11.3). Each requirement states the limits that the tests in Chapter~\ref{chap:testing} check. Two rules apply across these requirements. Roles are kept apart, so only staff with access to an exam can read its monitoring data \cite{rbac1}. No penalty is automatic: the \texttt{ViolationClassifier} labels events, and all AI marks are suggestions that the teacher accepts or overrides; every override is audited.
+Functional requirements state what the system must do. Table~\ref{tab:functionalrequirements} lists the functional requirements of SmartExam. FR$n$ belongs to module M$n$; module M11 has three (FR11.1--FR11.3). Each requirement has an identifier and a short description. Two rules apply across these requirements. Roles are kept apart, so only staff with access to an exam can read its monitoring data \cite{rbac1}. No penalty is automatic: the \texttt{ViolationClassifier} labels events, and all AI marks are suggestions that the teacher accepts or overrides; every override is audited.
 
-{\small
+\begin{table}[H]
+\centering
+\caption{Functional Requirements of SmartExam}
+\label{tab:functionalrequirements}
 \renewcommand{\arraystretch}{1.2}
-\begin{longtable}{>{\raggedright\arraybackslash}p{1.3cm}>{\raggedright\arraybackslash}p{2.8cm}>{\raggedright\arraybackslash}p{10.3cm}}
-\caption{Functional Requirements Mapped to Modules}
-\label{tab:functionalrequirements}\\
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}X}
 \hline\hline
-\textbf{ID} & \textbf{Module} & \textbf{Description} \\
+\textbf{Requirement ID} & \textbf{Description} \\
+\hline
+FR1 & User can log in, and a student can log in only from the workstation the account is bound to. \\
+FR2 & User can run a readiness check before an exam and take practice exams. \\
+FR3 & User can see the assigned exam, its readiness and eligibility status, and the results on the student dashboard. \\
+FR4 & The system shall lock the workstation during an exam in Report or Enforce mode. \\
+FR5 & The system shall send heartbeats, monitoring events, screenshots and webcam issues from the client to the server. \\
+FR6 & The system shall save, back up and submit every answer without loss and return a submission receipt. \\
+FR7 & User can manage accounts, roles, departments and courses. \\
+FR8 & User can create, configure and announce exams with MCQ, coding and theory questions. \\
+FR9 & User can set exam eligibility from attendance and assign invigilators and a workstation to each student. \\
+FR10 & User can watch every student live and send warnings, extra time, unlocks or a forced submission. \\
+FR11.1 & The system shall compile C and C++ answers and grade them against test cases. \\
+FR11.2 & The system shall mark MCQ answers and suggest a score for theory answers. \\
+FR11.3 & User can view the answer similarity between submissions and the pairs flagged above the threshold. \\
+FR12 & User can verify the audit log and export analytics, PDF reports, an Excel workbook and an evidence ZIP. \\
 \hline\hline
-\endfirsthead
-\multicolumn{3}{c}{\tablename~\thetable{} -- continued from previous page}\\
-\hline\hline
-\textbf{ID} & \textbf{Module} & \textbf{Description} \\
-\hline\hline
-\endhead
-\hline \multicolumn{3}{r}{Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-FR1 & M1 Authentication and Device Binding & \textbf{Users log in; a student only from the bound workstation.} Log users in, allowing at most 10 login requests per minute from one IP address. Bind each student account to one workstation: the client sends its hardware ID (HWID: BIOS, system-disk and baseboard serials), the server stores only its SHA-256 hash, and a login from another PC is refused until an administrator resets the binding. Store passwords as salted PBKDF2 (Password-Based Key Derivation Function 2) hashes \cite{rfc8018} and issue JWTs \cite{rfc7519} that expire after 30 min, with single-use rotating refresh tokens. \\
-FR2 & M2 Pre-Exam Verification and Practice Exam & \textbf{Students pass a readiness check and can take practice exams.} Before an exam, check the network (best API round trip at most 2 s), clock skew (at most 60 s from the server), screen capture, webcam, microphone, secure mode (one monitor, no Remote Desktop Protocol (RDP) session, no virtual machine (VM), keyboard hook active) and free disk (at least 200 MB). When an exam requires readiness, a pass older than 30 min must be repeated. Offer practice exams with unlimited attempts, in Report lockdown mode and without the webcam; practice exams do not count towards results (they are auto-marked but never plagiarism-checked and are hidden from the student's results). \\
-FR3 & M3 Student Exam Dashboard & \textbf{Students see their assigned exams, their status and their results.} In the desktop client, show the student's current assigned exam with its instructions, start countdown, readiness status and eligibility; Start stays disabled, with the reason shown, while the student is ineligible. List the practice exams. In the student web portal, show the student's exams, results (once the exam has ended), violation history, performance trend and notifications. Exams can be taken only in the desktop client. \\
-FR4 & M4 Secure Exam Environment & \textbf{The client locks the workstation during the exam (Report or Enforce mode).} Run a fullscreen, topmost exam window; block Alt+Tab, the Windows key and Task Manager; guard the clipboard; report unauthorised processes (Report mode) or also close them (Enforce mode); detect newly mounted USB storage devices, extra monitors, remote sessions and VMs. In Off mode none of this applies, and an invigilator's unlock (FR10) pauses the lockdown for the granted minutes. \\
-FR5 & M5 Live Monitoring Client Service & \textbf{The client reports activity, screenshots and webcam issues to the server.} Send a REST heartbeat every 10 s (focus, processes, idle time, camera status) and monitoring events in batches every 5 s. Take screenshots at random intervals around a per-exam mean (default 60 s, i.e. 30--90 s; 10--600 s allowed) and immediately on a violation. When the exam requires the webcam, analyse frames on the PC for seven issues (camera unavailable, covered or frozen; no face; multiple faces; head turned away, by a coarse head-pose check; phone in view), send one event per episode, and upload webcam snapshots at the exam's interval and when an issue is raised. \\
-FR6 & M6 Submission and Backup & \textbf{Every answer is saved, backed up and submitted without loss.} Save each edited answer to the server 10 s after its first unsaved edit, and at once on a question change, focus loss or submit. Write every edit within about 1 s to an AES-256-GCM encrypted local backup, queue failed saves while offline and replay them in order, and after a crash resume with the server and backup answers merged. Return a SHA-256 receipt of the stored answers on submission. Enforce the deadline on the server (exam end plus the student's extra minutes and a 2-minute grace) and finalise overdue sessions as Timed out. \\
-FR7 & M7 User and Role Management & \textbf{Administrators manage accounts, roles, departments and courses.} Let administrators create, edit, import (CSV), deactivate and delete accounts, force a logout, reset a device binding and assign the roles SuperAdmin, Admin, Teacher, Invigilator and Student; only a SuperAdmin may create or manage Admin and SuperAdmin accounts. Let administrators maintain the academic structure of departments and courses. \\
-FR8 & M8 Exam Creation and Configuration & \textbf{Teachers create, configure and announce exams.} Let teachers and administrators create exams with multiple-choice (MCQ), coding and theory questions, test cases, an allowed-apps list, a lockdown mode (Off, Report or Enforce; default Report), the webcam requirement, and the screenshot and webcam intervals. Let them announce an exam and notify its students of the schedule and of their grades, in the app and by email (SMTP). \\
-FR9 & M9 Eligibility and Access Control & \textbf{Teachers control who may sit an exam and where.} Set eligibility from imported attendance (default minimum 75\%) with audited manual overrides. Let administrators manage labs and workstations, and let the teacher assign invigilators and a workstation to each student. Allow the exam only from the assigned workstation (matched by machine name by default). \\
-FR10 & M10 Live Proctoring Dashboard & \textbf{Invigilators watch every student live and act on issues.} Show a live tile per student over SignalR: Stable (Normal), Warning, Suspicious or Critical (Violation) from the event classes, Disconnected after 30 s of silence, and Submitted, Force submitted or Timed out at the end. Let staff (invigilators only on their assigned exams) send warnings, extend one student's time (1--180 min per grant, at most 600 min in total), unlock the PC (5 min from the drawer; the server allows 1--30 min) and relock it, record incidents (Low to Critical), force a submission, and view each student's timeline, screenshots and webcam snapshots. Commands reach the client in its next heartbeat reply. \\
-FR11.1 & M11 AI-Assisted Evaluation & \textbf{The server grades C and C++ code against test cases.} Compile C and C++ coding answers and run them against weighted test cases (default limit 2 s per case) in an isolated Docker \texttt{gcc:13} container when Docker is available; otherwise use a local MinGW g++ runner, which is not isolated, and with no runner leave the answer for teacher review. \\
-FR11.2 & M11 AI-Assisted Evaluation & \textbf{The server marks MCQ answers and scores theory answers.} Mark MCQ answers as full or zero. Score theory answers against the model answer with offline TF-IDF similarity \cite{salton1988} (0.7 cosine similarity plus 0.3 key-term coverage) and a confidence value. Large language model (LLM) grading is optional and off by default. \\
-FR11.3 & M11 AI-Assisted Evaluation & \textbf{Teachers see answer similarity between submissions and flagged pairs.} Compare the coding and theory answers of each non-practice exam pairwise by k-gram winnowing \cite{winnowing} (k = 5, window 4; code as normalised tokens, theory as words), show a similarity matrix, and flag pairs at or above the exam's threshold (default 70\%) for the teacher. \\
-FR12 & M12 Logs, Analytics and Audit Trail & \textbf{Exam owners and administrators get analytics, reports and exports; administrators verify the audit log.} Keep a tamper-evident audit log of security-relevant and staff actions, in which each row is chained to the previous one by a SHA-256 hash, and let administrators verify the chain. Produce exam analytics, an exam summary PDF, separate attendance, violations and scores PDFs, an Excel workbook and an evidence ZIP with a SHA-256 manifest; each export is audited with its file hash. \\
-\end{longtable}}
+\end{tabularx}
+\end{table}
 
 \section{Non-Functional Requirements}
-Non-functional requirements set quality levels and operating limits. We give them the identifiers NFR1--NFR10 and split them into quality attributes, based on ISO/IEC 25010:2023 \cite{iso25010}, and other requirements.
+Non-functional requirements set the quality levels and operating limits of the system. They do not say what the system does but how well it must do it. For an exam system the most important ones are security and data integrity, because a fair exam depends on them. We give them the identifiers NFR1--NFR10 and split them into software quality attributes, based on ISO/IEC 25010:2023 \cite{iso25010}, and other non-functional requirements.
 
-\subsection{Quality Attributes}
-Table~\ref{tab:nonfunctionalrequirements} gives NFR1--NFR6. Where our name differs from the standard, the ISO/IEC 25010 characteristic is shown in brackets.
-
-{\small
-\renewcommand{\arraystretch}{1.2}
-\begin{longtable}{>{\raggedright\arraybackslash}p{1.3cm}>{\raggedright\arraybackslash}p{2.9cm}>{\raggedright\arraybackslash}p{10.2cm}}
-\caption{Quality Attributes}
-\label{tab:nonfunctionalrequirements}\\
-\hline\hline
-\textbf{ID} & \textbf{Attribute} & \textbf{Requirement} \\
-\hline\hline
-\endfirsthead
-\multicolumn{3}{c}{\tablename~\thetable{} -- continued from previous page}\\
-\hline\hline
-\textbf{ID} & \textbf{Attribute} & \textbf{Requirement} \\
-\hline\hline
-\endhead
-\hline \multicolumn{3}{r}{Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-NFR1 & Security & Passwords are stored as PBKDF2-HMAC-SHA256 hashes with a 32-byte salt and 600,000 iterations \cite{owasp_pwd}; the iteration count is stored with each hash, so older hashes are upgraded at the next login \cite{nist80063b}. Access tokens expire after 30 min; refresh tokens are single-use and rotate, and reusing one revokes its whole family. Login allows 10 and refresh 30 requests per minute per IP address, then returns HTTP 429. Every endpoint except the two login endpoints, token refresh and the health check requires a valid JWT and a permitted role. In a lab deployment all traffic shall use HTTPS (NFR8). \\
-NFR2 & Reliability & A network outage of any length shall not lose an answer: every edit reaches the encrypted local backup within about 1 s, failed saves and monitoring events are queued and sent in order when the server is reachable again, and a restarted client resumes the session. An automatic submit at time-out retries every 10 s until the server answers. \\
-NFR3 & Usability (interaction capability) & A student shall be able to log in, pass the readiness check and start an exam using only the on-screen instructions. Every refusal (failed check, ineligibility, wrong workstation, failed login) shows its reason, and final actions (submitting with unanswered questions, force-submitting) ask for confirmation. \\
-NFR4 & Performance (performance efficiency) & With 40 desktop clients (the upper end of the 30--40 lab machines in Section~\ref{sec:productpurpose}) sending heartbeats every 10 s, login, exam start, answer saves and heartbeats shall complete within 2 s at the 95th percentile. The readiness check fails a PC whose best API round trip exceeds 2 s. \\
-NFR5 & Maintainability & One ASP.NET Core 9 API organised by module. Every module M1--M12 has automated tests (xUnit for the API and client logic, Playwright for the web panel) that run headless, so a full regression needs no lab PC. \\
-NFR6 & Data Integrity (security: integrity) & The server enforces the deadline, so a changed client clock cannot extend an exam. A save with an older revision than the stored answer is refused. Each submission returns a SHA-256 receipt of the stored answers, and verifying the hash-chained audit log reveals a changed row or a gap in the sequence. \\
-\end{longtable}}
+\subsection{Software Quality Attributes}
+\label{sec:qualityattributes}
+NFR1--NFR6 are the quality attributes of SmartExam. Where our name differs from the standard, the ISO/IEC 25010 characteristic is shown in brackets.
+\begin{itemize}
+    \item \textbf{Security (NFR1):} Passwords are stored as PBKDF2-HMAC-SHA256 hashes with a 32-byte salt and 600,000 iterations \cite{owasp_pwd}; older hashes are upgraded at the next login \cite{nist80063b}. Access tokens expire after 30 min, refresh tokens are single-use and rotate, and login allows 10 and refresh 30 requests per minute per IP address. Every endpoint except login, token refresh and the health check needs a valid JWT \cite{rfc7519} and a permitted role.
+    \item \textbf{Reliability (NFR2):} A network outage of any length shall not lose an answer. Every edit reaches the encrypted local backup within about 1 s, failed saves and events are queued and sent in order later, and a restarted client resumes the session.
+    \item \textbf{Usability (NFR3, interaction capability):} A student shall be able to log in, pass the readiness check and start an exam using only the on-screen instructions. Every refusal shows its reason, and final actions ask for confirmation.
+    \item \textbf{Performance (NFR4, performance efficiency):} With 40 desktop clients sending heartbeats every 10 s, login, exam start, answer saves and heartbeats shall complete within 2 s at the 95th percentile.
+    \item \textbf{Maintainability (NFR5):} The system is one ASP.NET Core 9 API organised by module. Every module M1--M12 has automated tests (xUnit and Playwright) that run headless, so a full regression needs no lab PC.
+    \item \textbf{Data Integrity (NFR6, security: integrity):} The server enforces the deadline, so a changed client clock cannot extend an exam. A save older than the stored answer is refused, each submission returns a SHA-256 receipt, and the hash-chained audit log shows any changed row or gap.
+\end{itemize}
 
 \subsection{Other Non-Functional Requirements}
-Table~\ref{tab:othernfr} gives NFR7--NFR10, the platform, connectivity, privacy and recovery constraints.
+\label{sec:othernfr}
+NFR7--NFR10 fix where and how the system runs and what happens to its data:
 
-{\small
-\renewcommand{\arraystretch}{1.2}
-\begin{longtable}{>{\raggedright\arraybackslash}p{1.3cm}>{\raggedright\arraybackslash}p{2.9cm}>{\raggedright\arraybackslash}p{10.2cm}}
-\caption{Other Non-Functional Requirements}
-\label{tab:othernfr}\\
-\hline\hline
-\textbf{ID} & \textbf{Category} & \textbf{Requirement} \\
-\hline\hline
-\endfirsthead
-\multicolumn{3}{c}{\tablename~\thetable{} -- continued from previous page}\\
-\hline\hline
-\textbf{ID} & \textbf{Category} & \textbf{Requirement} \\
-\hline\hline
-\endhead
-\hline \multicolumn{3}{r}{Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-NFR7 & Compatibility & Client on Windows 10 (22H2) or Windows 11 with the .NET 9 Desktop Runtime; tested on Windows 11. Web panel in Chrome or Edge 111 or later (the build target); tested on the Chromium bundled with Playwright. \\
-NFR8 & Connectivity & The client and the web panel call the API over REST, using plain HTTP on the shipped localhost configuration and HTTPS behind a TLS endpoint in a lab deployment; the API itself does not enforce HTTPS. No local lab server is needed. SignalR carries live updates between the API and the web dashboard; the desktop client uses REST only and receives invigilator warnings, extra time, unlocks and force-submits in the reply to its next heartbeat (every 10 s). \\
-NFR9 & Privacy & No face recognition or identity matching is performed. When an exam requires the webcam, frames are analysed on the PC (camera unavailable, covered or frozen, no face, multiple faces, head turned away, phone in view); webcam snapshots are uploaded at the exam's interval and when an issue is raised, can be viewed only by the exam's owner, its assigned invigilators and administrators, and are deleted after 30 days. The same access rule and 30-day retention apply to screenshots. \\
-NFR10 & Backup and Recovery & The database (Neon PostgreSQL) shall be restorable to a point in time within the provider's restore window. A crash on a student PC loses at most the last second of typing, because answers are restored from the encrypted local backup. Screenshots and webcam snapshots are kept on the API server's disk, which the database backup does not cover, so the evidence folder shall be copied to backed-up storage after each exam; generated reports are not backed up because they can be produced again from the database. \\
-\end{longtable}}
+\textbf{Compatibility (NFR7):} The client runs on Windows 10 (22H2) or Windows 11 with the .NET 9 Desktop Runtime and was tested on Windows 11. The web panel runs in Chrome or Edge 111 or later.
+
+\textbf{Connectivity (NFR8):} The client and the web panel call the API over REST, with HTTPS behind a TLS endpoint in a lab deployment; no local lab server is needed. SignalR carries live updates to the web dashboard, and the desktop client receives staff commands in the reply to its next heartbeat (every 10 s).
+
+\textbf{Privacy (NFR9):} No face recognition or identity matching is performed. Webcam frames are analysed on the PC, and webcam snapshots and screenshots can be viewed only by the exam's owner, its invigilators and administrators, and are deleted after 30 days.
+
+\textbf{Backup and Recovery (NFR10):} The Neon PostgreSQL database can be restored to a point in time within the provider's restore window, and a crash on a student PC loses at most the last second of typing. Screenshots and webcam snapshots are kept on the API server's disk, which the database backup does not cover, so the evidence folder shall be copied to backed-up storage after each exam.
 
 \section{Requirement Gathering Techniques Used}
 \label{sec:gathering}
-
-We used structured interviews, paper prototypes, two brainstorming sessions and an analysis of existing systems \cite{elicit1, sommerville}. Table~\ref{tab:gathering} links what each technique showed to the requirements it produced.
+To understand what the users of SmartExam need, we used structured interviews, paper prototypes, two brainstorming sessions and an analysis of existing systems \cite{elicit1, sommerville}. Table~\ref{tab:gathering} links what each technique showed to the requirements it produced.
 
 \subsection{Interviews}
 We asked teachers and lab coordinators how practical exams run today. Two needs came up most: watching workstations live, and keeping evidence that can settle disputes later.
 
 \subsection{Prototyping}
-We showed users paper prototypes of the login, dashboard, exam and submission screens \cite{sommerville}. Their feedback added a countdown timer on the exam screen, live alerts at the top of the teacher dashboard, and one question per screen.
+We showed users paper prototypes of the login, dashboard, exam and submission screens \cite{sommerville}. Their feedback added a countdown timer on the exam screen, a live alert count at the top of each student's tile on the live dashboard, and one question per screen.
 
 \subsection{Brainstorming Session 1: Academic Workflow}
-We mapped the life cycle of a lab exam and the manual steps that cost staff the most time. This set the order in which we built the foundation: role management, exam configuration and seat assignment (Sprints 2 and 3).
+We mapped the life cycle of a lab exam and the manual steps that cost staff the most time. This set the order in which we built the foundation: role management, exam configuration and seat assignment.
 
 \subsection{Brainstorming Session 2: Monitoring and Reporting}
 We discussed monitoring, proctoring and reports. Face recognition was left out of scope because of privacy concerns and the effort of reliable identity matching on lab webcams, so the webcam checks look only at the camera state and the faces in view; the coarse head-pose and phone checks were added later. We also agreed that every exam needs reports on attendance, violations and scores; these became separate PDF exports beside an exam summary PDF.
@@ -114,18 +74,20 @@ We discussed monitoring, proctoring and reports. Face recognition was left out o
 \subsection{Analysis of Existing Systems}
 Section~\ref{sec:existingsystems} reviews ten existing tools, and Table~\ref{tab:comparison} compares them feature by feature. No tool binds a student to a lab workstation or runs code against test cases, and only MOSS checks code for plagiarism. Some tools offer lockdown or live monitoring, but none combines them with these features for an exam in a physical lab. These gaps set FR1, FR4, FR9, FR10, FR11.1 and FR11.3.
 
+Table~\ref{tab:gathering} sums up the five techniques above. Each row gives one technique, its main finding and the requirements it led to.
+
 \begin{table}[H]
 \centering
 \caption{Requirement Gathering Findings and Resulting Requirements}
 \label{tab:gathering}
-\renewcommand{\arraystretch}{1.25}
+\renewcommand{\arraystretch}{1.2}
 \small
-\begin{tabular}{>{\raggedright\arraybackslash}p{2.9cm}>{\raggedright\arraybackslash}p{8.1cm}>{\raggedright\arraybackslash}p{3.4cm}}
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.9cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}}
 \hline\hline
 \textbf{Technique} & \textbf{Main finding} & \textbf{Requirements} \\
-\hline\hline
+\hline
 Interviews (teachers, lab coordinators) & Staff need to watch workstations live and to keep evidence that can settle a dispute. & FR5, FR10, FR12, NFR6 \\
-Paper prototypes & Users asked for a countdown timer, live alerts at the top of the teacher dashboard and one question per screen. & FR3, FR10 \\
+Paper prototypes & Users asked for a countdown timer, a live alert count at the top of each student's tile on the live dashboard and one question per screen. & FR3, FR10 \\
 Brainstorming 1 (team) & Mapping the exam life cycle and its most time-consuming manual steps set the build order of the foundation: role management, exam configuration and seat assignment. & FR7, FR8, FR9 \\
 Brainstorming 2 (team) & Face recognition is left out for privacy and effort; every exam needs attendance, violation and score reports. & NFR9, FR12 \\
 Existing systems & No tool combines workstation binding, code execution against test cases, code plagiarism checks and live lab supervision. & FR1, FR4, FR9, FR10, FR11.1, FR11.3 \\
@@ -134,29 +96,29 @@ Existing systems & No tool combines workstation binding, code execution against 
 \end{table}
 
 \section{Time Frame}
-The project runs over eight four-week sprints (Weeks 1--32), each ending with a working increment for supervisor review (Table~\ref{tab:timeframe}).
+The project runs over eight four-week sprints (Weeks 1--32), each ending with a working increment for supervisor review. Table~\ref{tab:timeframe} gives each sprint with its duration.
 
 \begin{table}[H]
 \centering
-\caption{Project Time Frame (8 Sprints)}
+\caption{Time Frame}
 \label{tab:timeframe}
-\renewcommand{\arraystretch}{1.25}
-\begin{tabular}{l>{\raggedright\arraybackslash}p{8.2cm}c}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lr}
 \hline\hline
-\textbf{Sprint} & \textbf{Major Activities} & \textbf{Duration} \\
-\hline\hline
-Sprint 1 (Weeks 1--4)   & Requirement analysis, product backlog, architecture and scope approval. & 4 Weeks \\
-Sprint 2 (Weeks 5--8)   & M1, M7: login, hardware-ID device binding, JWT and roles. & 4 Weeks \\
-Sprint 3 (Weeks 9--12)  & M8, M9: exam creation, test cases, allowed apps, eligibility and seats. & 4 Weeks \\
-Sprint 4 (Weeks 13--16) & M2, M3, M4: readiness check, practice exams, student dashboard, lockdown. & 4 Weeks \\
-Sprint 5 (Weeks 17--20) & M5, M10: monitoring client and live proctoring dashboard. & 4 Weeks \\
-Sprint 6 (Weeks 21--24) & M6, M11: autosave and backup, test-case grading, theory scoring, plagiarism. & 4 Weeks \\
-Sprint 7 (Weeks 25--28) & M12: hash-chained audit log, analytics, QuestPDF reports, and Excel and evidence-ZIP exports. & 4 Weeks \\
-Sprint 8 (Weeks 29--32) & Integration, end-to-end testing, bug fixing, documentation and demo. & 4 Weeks \\
+\textbf{Phase} & \textbf{Duration} \\
 \hline
-\multicolumn{2}{l}{\textbf{Total Duration}} & \textbf{32 Weeks} \\
+Sprint 1: User \& Access Management + Backlog & 4 weeks \\
+Sprint 2: Exam Configuration and Scheduling & 4 weeks \\
+Sprint 3: Laboratory and Workstation Control & 4 weeks \\
+Sprint 4: Student Exam Execution + Submission & 4 weeks \\
+Sprint 5: Live Monitoring + AI Alerts & 4 weeks \\
+Sprint 6: Evidence Logging and Incident Tracking & 4 weeks \\
+Sprint 7: Reporting and Administrative Review & 4 weeks \\
+Sprint 8: Integration, Testing, Validation \& Final Refinement & 4 weeks \\
+\hline
+\textbf{Total Duration} & \textbf{32 weeks} \\
 \hline\hline
-\end{tabular}
+\end{tabular*}
 \end{table}
 
 Table~\ref{tab:timeframe} is the baseline plan. It fits the FYP-I proposal's timeline (February 2026 to March 2027) into two semesters: Week 1 began in March 2026 and Week 32 ended with the final test run on 26 October 2026, and installation in the labs follows submission. At the FYP-I review (Week 16), M1, M3, M7, M8, M9 and M10 (at heartbeat level) were working; M2, M4 and refresh-token rotation moved into Sprints 5--8 with the remaining modules.

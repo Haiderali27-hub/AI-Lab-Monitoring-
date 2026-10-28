@@ -9,8 +9,8 @@
 ' 3.1 and 3.2 run in the WPF client on the lab PC; 3.3-3.5 run in the API.
 skinparam defaultFontSize 16
 skinparam ArrowFontSize 16
-skinparam nodesep 14
-skinparam ranksep 34
+skinparam nodesep 16
+skinparam ranksep 40
 skinparam defaultTextAlignment center
 skinparam rectangle<<entity>> {
   BorderThickness 2
@@ -31,40 +31,19 @@ skinparam label {
   FontSize 16
 }
 hide stereotype
+top to bottom direction
 
-usecase "**3.3**\nReceive telemetry\n(API, SeatGuard)" as P33
-usecase "**3.4**\nRecord heartbeat,\nwatch liveness" as P34
-usecase "**3.5**\nClassify and\nsave events" as P35
-usecase "**4.0**\nLive\nproctoring" <<ref>> as P4
-label D1 [
-----
-**D1** Users,
-DeviceBindings,
-UserSessions,
-RefreshTokens
-----
-]
+usecase "**3.2**\nMonitor and send\n(client, part a)" <<ref>> as P32
 label D3 [
 ----
-**D3** Departments,
-Courses, Sections,
-SectionEnrollments,
-Labs, Workstations,
-AttendanceRecords,
-ExamAssignments,
-ExamProctors
+**D3** Academic and
+lab data
 ----
 ]
 label D4 [
 ----
-**D4** ExamSessions,
-Answers, ReadinessChecks
-----
-]
-label D5 [
-----
-**D5** MonitoringEvents,
-Screenshots, Incidents
+**D4** Sessions and
+answers
 ----
 ]
 label D7 [
@@ -72,49 +51,71 @@ label D7 [
 **D7** Notifications
 ----
 ]
-label D8 [
+usecase "**3.3**\nReceive telemetry" as P33
+usecase "**3.4**\nRecord heartbeat,\nwatch liveness" as P34
+usecase "**3.5**\nClassify and\nsave events" as P35
+label D4b [
 ----
-**D8** AuditLogs
+**D4 *** Sessions
+and answers
 ----
 ]
-label D8b [
+label D1 [
 ----
-**D8 *** AuditLogs
+**D1** Identity
 ----
 ]
 label D5b [
 ----
-**D5 ***
-MonitoringEvents,
-Screenshots, Incidents
+**D5 *** Monitoring
+evidence
 ----
 ]
-usecase "**3.2**\nMonitor and send\n(client, part a)" <<ref>> as P32
+label D8b [
+----
+**D8 *** Audit log
+----
+]
+label D5 [
+----
+**D5** Monitoring
+evidence
+----
+]
+label D8 [
+----
+**D8** Audit log
+----
+]
+usecase "**4.0**\nLive\nproctoring" <<ref>> as P4
 
-' ---- API side (3.3-3.5)
-P32 --> P33 : heartbeat\n(10 s), event\nbatch (5 s),\nscreenshots,\nwebcam snapshots
-P32 <-- P33 : ack: warnings,\nextra time,\nunlock,\nremaining time
-D3 --> P33 : assigned seat
-D4 --> P33 : session, extra\ntime, unlock
-D7 --> P33 : unread warnings
-P33 --> P34 : heartbeat\ncontents
-P33 --> P35 : client events
-P33 --> D5 : screenshots,\nsnapshots,\nSeatMismatch\nevent
-P33 --> D8 : SEAT_MISMATCH
-P33 --> P4 : ScreenshotUploaded,\nViolationEvent\n(seat)
-D4 <--> P34 : LastHeartbeatAt,\nIsDisconnected
-P34 <-- D5b : session's\nviolations (tile\nstatus)
-P34 --> D5b : Heartbeat event\n(on change or\nevery 60 s),\nDisconnected
-P34 --> D1 : LastSeenAt
-P34 --> D8b : SESSION_DISCONNECTED,\nSESSION_RECONNECTED
-P34 --> P4 : StudentHeartbeat,\nStudent-\nDisconnected,\nStudentReconnected
-P35 --> D5 : new events,\nde-duplicated by\nClientEventId
-P35 --> D8 : MONITORING_\nVIOLATION
-P35 --> P4 : ViolationEvent
-D8 -[hidden]right- D5
-D5 -[hidden]right- P4
-P4 -[hidden]right- D5b
-D5b -[hidden]right- D8b
-D8b -[hidden]right- D1
-P35 -[hidden]right- P34
+' ---- rank 0: 3.2 and the stores 3.3 reads; rank 1: 3.3; rank 2: 3.4, 3.5 and
+' ---- D1 beside 3.4 (one-dash arrow, same rank; keeps the PNG narrow enough for
+' ---- 6.5 pt printed text); rank 3: stores written (3.4 on the left, 3.3 and 3.5
+' ---- on the right); rank 4: 4.0. "X <-- P" keeps X above P. * = store drawn twice.
+' ---- Short labels; the chapter text gives the message and audit names.
+P32 --> P33 : heartbeat,\nevents, images
+P32 <-- P33 : reply: warnings,\nextra time, unlock
+D3 --> P33 : assigned\nseat
+D4 --> P33 : extra time,\nunlock
+D7 --> P33 : warnings
+P33 --> P34 : heartbeat
+P33 --> P35 : events
+P33 --> D5 : images,\nseat mismatch
+P33 --> D8 : seat\nmismatch
+P33 --> P4 : screenshot,\nseat alerts
+
+P34 <--> D4b : heartbeat\nstatus
+D1 <- P34 : last seen
+P34 <-- D5b : violations
+P34 --> D5b : heartbeat,\ndisconnect
+P34 --> D8b : disconnect,\nreconnect
+P34 --> P4 : heartbeat,\nconnection
+
+P35 --> D5 : new events
+P35 --> D8 : violations
+P35 --> P4 : violations
+
+D5b -[hidden]-> P4
+D5 -[hidden]-> P4
 @enduml

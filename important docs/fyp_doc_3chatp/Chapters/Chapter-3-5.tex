@@ -44,7 +44,7 @@ Lower items are cut first.
     \item No budget for paid services: we use the Neon free tier, and AI features run offline on the CPU (TF-IDF scoring, OpenCV YuNet face detection \cite{yunet} and YOLOX-Nano phone detection \cite{yolox}). LLM grading is off by default.
     \item The client is Windows-only (WPF) and cannot block Ctrl+Alt+Del.
     \item Isolated code execution (C and C++ only) needs Docker on the grading server. Without it, a local MinGW runner that is not isolated is used, and with no runner the answer is left for the teacher.
-    \item For privacy, no face recognition or identity matching is performed. Screenshots and webcam snapshots can be viewed only by the exam's owner, its assigned invigilators and administrators, and are deleted after 30 days.
+    \item For privacy, no face recognition or identity matching is performed. Screenshots and webcam snapshots can be viewed only by the exam's owner, the staff assigned to supervise it and administrators, and are deleted after 30 days.
 \end{itemize}
 
 \subsection{Communication, Review and Change Control}

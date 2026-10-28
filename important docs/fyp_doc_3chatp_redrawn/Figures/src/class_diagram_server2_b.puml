@@ -1,0 +1,72 @@
+@startuml
+!include style.iuml
+' Class diagram, part 4 of 4 (server), figure (b): evidence and reports. Figure (a), authentication and the
+' audit trail, is class_diagram_server2.puml.
+' Sources: Backend_API Controllers/MonitoringEvidenceController.cs, Controllers/Analytics/AnalyticsController.cs,
+' Services/Monitoring/EvidenceStorage.cs, Services/Analytics/AnalyticsService.cs, Services/Analytics/ReportExportService.cs.
+' A dashed white box is a class whose members are drawn in another part (MonitoringController in part 2,
+' ExamAccessService in part 3, AuditService in figure (a)).
+' Only key members; parameters omitted. Arrows: --> holds / injects, ..> calls or uses.
+hide empty members
+hide circle
+skinparam classAttributeIconSize 0
+skinparam nodesep 14
+skinparam ranksep 40
+skinparam class {
+  FontSize 14
+  AttributeFontSize 14
+  StereotypeFontSize 13
+}
+skinparam ArrowFontSize 14
+skinparam stereotypeFontSize 13
+
+class MonitoringEvidenceController <<controller>> #FFF6E0 {
+  +ListScreenshots()
+  +ScreenshotContent()
+  +SessionTimeline()
+  +LiveSnapshot()
+  +SessionProcesses()
+}
+class MonitoringController <<controller>> #FFFFFF ##[dashed]
+class ExamAccessService #FFFFFF ##[dashed]
+class AuditService #FFFFFF ##[dashed]
+class EvidenceStorage #FFF6E0 {
+  +SaveAsync()
+  +OpenRead()
+  +Delete()
+}
+class AnalyticsController <<controller>> #FFF6E0 {
+  +GetExamSummary()
+  +GetSystemAnalytics()
+  +GenerateReport()
+  +GenerateExport()
+  +DownloadReport()
+  +GetReportHistory()
+}
+class AnalyticsService #FFF6E0 {
+  +GetExamSummaryAsync()
+  +GetSystemAnalyticsAsync()
+  +GenerateExamReportPdfAsync()
+}
+class ReportExportService #FFF6E0 {
+  +GenerateAsync()
+  +{static} ContentTypeFor()
+}
+
+MonitoringEvidenceController --> ExamAccessService : access check
+MonitoringEvidenceController --> EvidenceStorage
+MonitoringController --> EvidenceStorage : saves captures
+AnalyticsController --> ExamAccessService
+AnalyticsController --> AnalyticsService
+AnalyticsController --> ReportExportService
+ReportExportService --> AnalyticsService
+ReportExportService --> EvidenceStorage
+ReportExportService --> AuditService : audits report
+EvidenceStorage -[hidden]down- AnalyticsController
+
+skinparam legendFontSize 14
+legend bottom left
+  Dashed box: members in another part.
+  AppDbContext links are not drawn.
+endlegend
+@enduml

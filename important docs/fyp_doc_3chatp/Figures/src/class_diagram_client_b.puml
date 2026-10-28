@@ -2,7 +2,7 @@
 !include style.iuml
 ' Class diagram, part 2 of 4 (desktop client), figure (b): lockdown, ApiClient and the four
 ' API controllers it calls (Auth, Exams, Monitoring, Notifications). Figure (a) is class_diagram_client.puml.
-' Only key members; parameters abbreviated as (..). Arrows: --> holds / creates, ..> calls or uses, *-- owns.
+' Only key members; parameters omitted. Arrows: --> holds / creates, ..> calls or uses, *-- owns.
 ' A dashed white box is a class whose members are drawn in the other figure.
 ' Sources: Core/Lockdown/LockdownCoordinator.cs; Services/ApiClient.cs; Backend_API/Controllers (Auth, Exams, Monitoring, Notifications).
 hide empty members
@@ -13,7 +13,7 @@ skinparam ranksep 30
 skinparam class {
   FontSize 14
   AttributeFontSize 14
-  StereotypeFontSize 13
+  StereotypeFontSize 14
 }
 skinparam ArrowFontSize 14
 skinparam stereotypeFontSize 14
@@ -25,58 +25,58 @@ class LockdownCoordinator #E8F0FB {
   -_processes : ProcessGuardService
   -_clipboard : ClipboardGuardService
   -_devices : DeviceGuardService
-  -_taskManager : TaskManagerGuard?
-  -_violationSink : Action<string,string>?
-  +Start(window)
+  -_taskManager : TaskManagerGuard
+  -_violationSink
+  +Start()
   +Stop()
   +Suspend()
   +Resume()
 }
 class ApiClient #E8F0FB {
-  +StudentLoginAsync(..)
-  +RefreshAsync(..)
-  +LogoutAsync(..)
-  +ProbeHealthAsync(ct)
-  +SubmitReadinessAsync(..)
-  +StartExamAsync(..)
-  +StartSessionAsync(..)
-  +SaveAnswerAsync(..)
-  +SubmitExamAsync(..)
-  +SendHeartbeatAsync(..)
-  +SendEventBatchAsync(..)
-  +SendMonitoringEventAsync(..)
-  +UploadCaptureAsync(..)
-  +GetNotificationsAsync(..)
-  +MarkNotificationReadAsync(..)
+  +StudentLoginAsync()
+  +RefreshAsync()
+  +LogoutAsync()
+  +ProbeHealthAsync()
+  +SubmitReadinessAsync()
+  +StartExamAsync()
+  +StartSessionAsync()
+  +SaveAnswerAsync()
+  +SubmitExamAsync()
+  +SendHeartbeatAsync()
+  +SendEventBatchAsync()
+  +SendMonitoringEventAsync()
+  +UploadCaptureAsync()
+  +GetNotificationsAsync()
+  +MarkNotificationReadAsync()
 }
 
-class AuthController <<api/auth>> #FFF6E0 {
+class AuthController <<controller>> #FFF6E0 {
   +StudentLogin()
   +Refresh()
   +Logout()
-  +Health()  [/api/health]
+  +Health()
 }
-class NotificationsController <<api/notifications>> #FFF6E0 {
+class NotificationsController <<controller>> #FFF6E0 {
   +GetMine()
-  +MarkRead(id)
+  +MarkRead()
 }
-class ExamsController <<api/exams>> #FFF6E0 {
+class ExamsController <<controller>> #FFF6E0 {
   +GetStudentCurrentExam()
-  +SubmitReadiness(id, req)
+  +SubmitReadiness()
   +StartStudentExam()
-  +StartSession(id)
-  +SaveAnswer(sessionId, req)
-  +Submit(sessionId)
+  +StartSession()
+  +SaveAnswer()
+  +Submit()
 }
-class MonitoringController <<api/monitoring>> #FFF6E0 {
-  +Heartbeat(..)
-  +PushEventBatch(..)
-  +PushEvent(..)
-  +UploadScreenshot(..)
+class MonitoringController <<controller>> #FFF6E0 {
+  +Heartbeat()
+  +PushEventBatch()
+  +PushEvent()
+  +UploadScreenshot()
 }
 
 ExamWindow --> LockdownCoordinator
-LockdownCoordinator ..> LiveMonitoringService : ReportViolation\n(violationSink)
+LockdownCoordinator ..> LiveMonitoringService : reports\nviolations
 
 LockdownCoordinator --> ApiClient : fallback
 LiveMonitoringService --> ApiClient
@@ -91,10 +91,8 @@ MonitoringController -[hidden]right- NotificationsController
 
 skinparam legendFontSize 14
 legend bottom right
-  <back:#E8F0FB>      </back>  Student<U+005F>Desktop<U+005F>App (WPF client).
-  <back:#FFF6E0>      </back>  Backend<U+005F>API controllers (server: parts 3 and 4).
-  Dashed box: members drawn in part (a). The view models,
-  ReadinessCheckService and LiveMonitoringService (part a) also call ApiClient.
-  Dashed arrows from ApiClient: HTTP(S) REST calls with a JWT.
+  <back:#E8F0FB>      </back>  Desktop client
+  <back:#FFF6E0>      </back>  Server controllers
+  Dashed box: members in figure (a)
 endlegend
 @enduml

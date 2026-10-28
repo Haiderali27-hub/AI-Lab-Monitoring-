@@ -15,35 +15,31 @@ hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
 skinparam BoxPadding 0
-skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
 }
 
-actor Student
 participant "Exam\nDashboard" as UI
-participant "Exam\nWindow" as EW
 participant "Dashboard\nViewModel" as VM
 participant "ApiClient" as API
 participant "Exams\nController" as EC
 database "AppDbContext" as DB
 
-[-> VM : RefreshPracticeExamsAsync()\n(on dashboard load)
+[-> VM : dashboard loads
 activate VM
-VM -> API : GetPracticeExamsAsync()
+VM -> API : get practice exams
 activate API
-API -> EC : GET /api/exams/\nstudent/practice
+API -> EC : GET practice list
 activate EC
-EC -> DB : IsMock exams, assigned\n+ eligible, open now
+EC -> DB : open practice exams\nfor this student
 activate DB
 DB --> EC : exams, attempts
 deactivate DB
-EC --> API : 200 [PracticeExam\nSummary]
+EC --> API : practice list
 deactivate EC
-API --> VM : practice list
+API --> VM : list
 deactivate API
 VM -> UI : fill practice picker
 deactivate VM
-
 @enduml

@@ -1,0 +1,23 @@
+\chapter{SOFTWARE REQUIREMENTS SPECIFICATION}
+\label{chap:srs}
+
+This chapter gives the Software Requirements Specification (SRS) for SmartExam \cite{srs1}. It states what the system must do, the quality levels it must meet, and the limits it works within. How each feature is built is covered in the design chapters.
+
+\section{Introduction}
+SmartExam has five user roles, several exam phases and strict fairness rules. We wrote this SRS after interviews with lab staff, prototype walk-throughs, two team brainstorming sessions and a review of existing tools (Section~\ref{sec:gathering}).
+
+\subsection{Document Scope}
+The SRS covers the twelve modules M1--M12: authentication and device binding, pre-exam verification and practice exams, the student exam dashboard, the secure exam environment, the live monitoring client service, submission and backup, user and role management, exam creation and configuration, eligibility and access control, the live proctoring dashboard, AI-assisted evaluation, and logs, analytics and the audit trail. It also sets ten non-functional requirements (NFR1--NFR10) for security, reliability, usability, performance, maintainability, data integrity, compatibility, connectivity, privacy, and backup and recovery.
+
+Database schemas, API routes, screen layouts and deployment settings are not part of this chapter. They are given in the design chapters.
+
+\subsection{Audience}
+This document is written for everyone who builds, checks, runs or uses SmartExam. Each group reads it for a different reason:
+\begin{itemize}
+    \item \textbf{Software developers:} they use the requirements to know exactly what each module M1--M12 must do, so the desktop client, the API and the web panel are built to the same rules.
+    \item \textbf{Testers:} they use each requirement and its limits as a test target, so every test case in Chapter~\ref{chap:testing} can be traced back to an FR or NFR.
+    \item \textbf{Managers:} the supervisor and the project team use the requirements and the time frame to plan the sprints and to check progress at each review.
+    \item \textbf{End-users:} students, teachers, invigilators and administrators can see what the system will do for them, from logging in and sitting an exam to watching a lab and grading answers.
+    \item \textbf{Business and academic stakeholders:} the department and the evaluators can judge whether the scope is clear, fair to students and realistic for a two-semester FYP.
+    \item \textbf{Data and quality assurance analysts:} they can see which logs, reports and exports the system produces and how the hash-chained audit log keeps that data trustworthy.
+\end{itemize}

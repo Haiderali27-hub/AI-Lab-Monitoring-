@@ -1,0 +1,111 @@
+@startuml
+!include style.iuml
+' Class diagram, part 1 of 4 (core entities) from Backend_API/Models (EF Core). Entity ids are Guid.
+' Part 2 (desktop client) is class_diagram_client.puml, part 3 (server: monitoring, submission, grading) is
+' class_diagram_server.puml, part 4 (server: authentication, evidence, reports, audit) is class_diagram_server2.puml.
+' Key entities only (13 of the 29 tables, see the ERD); only key members are shown.
+' AuditLog.ActorId is a plain indexed Guid, not a foreign key (AppDbContext.cs:157-160), so AuditLog has no association.
+' Association names read top to bottom or left to right (subject above or left of object); no reading-direction
+' triangles, because PlantUML draws them against the line direction here.
+hide empty members
+hide circle
+skinparam classAttributeIconSize 0
+skinparam nodesep 34
+skinparam ranksep 50
+skinparam class {
+  FontSize 13
+  AttributeFontSize 12
+}
+skinparam ArrowFontSize 12
+skinparam stereotypeFontSize 12
+
+class User #EAF6EA {
+  +UserId : Guid
+  +Email : string
+  +Role : UserRole
+}
+enum UserRole <<enumeration>> #EAF6EA {
+  SuperAdmin
+  Admin
+  Teacher
+  Invigilator
+  Student
+}
+class DeviceBinding #EAF6EA {
+  +UserId : Guid
+  +HwidHash : string
+}
+class AuditLog #EAF6EA {
+  +LogId : Guid
+  +ActorId : Guid? {not a FK}
+  +EventType : string
+  +Sequence : long?
+  +PrevHash : string?
+  +Hash : string?
+}
+class Section #EAF6EA {
+  +SectionId : Guid
+  +TeacherId : Guid
+}
+class ExamProctor #EAF6EA {
+  +ExamId : Guid
+  +UserId : Guid
+}
+class Workstation #EAF6EA {
+  +WorkstationId : Guid
+  +MachineNumber : string
+  +HostName : string?
+}
+class Exam #EAF6EA {
+  +ExamId : Guid
+  +StartTime : DateTime
+  +AllowedApps : string {JSON}
+  +LockdownMode : LockdownMode
+}
+class Question #EAF6EA {
+  +Type : QuestionType
+  +Marks : int
+}
+class ExamAssignment #EAF6EA {
+  +WorkstationId : Guid?
+  +IsEligible : bool
+}
+class ExamSession #EAF6EA {
+  +SessionId : Guid
+  +Status : SessionStatus
+  +ExtraMinutes : int
+  +ReceiptSha256 : string?
+}
+class Answer #EAF6EA {
+  +AnswerText : string
+  +Revision : int
+}
+class MonitoringEvent #EAF6EA {
+  +EventType : MonitoringEventType
+  +Payload : string {JSON}
+}
+class AiGradingResult #EAF6EA {
+  +SuggestedMarks : double
+  +Confidence : string
+  +Status : string
+}
+
+User .left.> UserRole
+User "1" -right- "0..1" DeviceBinding : bound to
+User "1" -- "*" ExamProctor : invigilates
+User "1" -- "*" Section : teaches
+ExamProctor -[hidden]right- Section
+User "1" -- "*" ExamAssignment : assigned to
+User "1" -- "*" ExamSession : sits
+Section "1" -- "*" Exam : owns
+Exam "1" -- "*" ExamProctor
+Exam "1" *-- "*" Question
+Exam "1" -right- "*" ExamAssignment : has
+Workstation "0..1" -- "*" ExamAssignment : seat for
+Exam "1" -- "*" ExamSession
+ExamSession "1" *-- "*" Answer
+Question "1" -- "*" Answer
+ExamSession "1" *-- "*" MonitoringEvent
+Answer "1" -- "0..1" AiGradingResult
+AiGradingResult -[hidden]right- AuditLog
+@enduml

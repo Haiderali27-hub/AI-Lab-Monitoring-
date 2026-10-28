@@ -17,36 +17,28 @@ hide footbox
 hide unlinked
 skinparam ParticipantPadding 2
 skinparam BoxPadding 2
-skinparam maxMessageSize 200
 skinparam sequence {
   MessageAlign left
   LifeLineBackgroundColor #E6E6E6
 }
 
-participant "Exam\nWindow" as EW
 participant "Lockdown\nCoordinator" as LC
-participant "TaskManager\nRegistry\nGuard" as TM
-participant "Keyboard\nHook\nService" as KB
-participant "Clipboard\nGuard\nService" as CB
-participant "Process\nGuard\nService" as PG
-participant "Device\nGuard\nService" as DG
 participant "Live\nMonitoring\nService" as LMS
 participant "ApiClient" as API
-LC -> LC ++ : Report(reason, detail):\nonce per pair per 15 s
-alt violation sink set
-  LC -> LMS : ReportViolation(reason, detail)
+LC -> LC ++ : report: once per\nviolation per 15 s
+alt monitoring service set
+  LC -> LMS : report violation
   activate LMS
-  alt spool present
-    LMS -> LMS : add to encrypted spool; screenshot
-    LMS ->> API : SendEventBatchAsync\n(POST /api/monitoring/\nevents/batch), kept until sent
-  else no spool
-    LMS ->> API : SendMonitoringEventAsync\n(POST /api/monitoring/event)
+  alt encrypted outbox present
+    LMS -> LMS : store in outbox;\ntake screenshot
+    LMS ->> API : send event batch\n(kept until sent)
+  else no outbox
+    LMS ->> API : send one event
   end
   LMS --> LC
   deactivate LMS
-else no sink
-  LC ->> API : SendMonitoringEventAsync("Violation"): POST /api/monitoring/event
+else no monitoring service
+  LC ->> API : send one event
 end
 deactivate LC
-
 @enduml

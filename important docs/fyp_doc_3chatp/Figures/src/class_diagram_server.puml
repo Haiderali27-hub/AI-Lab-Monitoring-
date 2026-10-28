@@ -6,7 +6,7 @@
 ' Part 1 (entities) is class_diagram.puml; part 2 (client, with the members of ExamsController and
 ' MonitoringController) is class_diagram_client*.puml; part 4 (authentication, evidence, reports, audit,
 ' AuditService and AppDbContext) is class_diagram_server2*.puml.
-' Only key members; parameters abbreviated as (..). Arrows: --> holds / injects, ..> calls or uses.
+' Only key members; parameters omitted. Arrows: --> holds / injects, ..> calls or uses.
 ' A dashed white box is a class whose members are drawn in another part or figure.
 ' IHubContext<MonitoringHub> injections are listed in the legend instead of drawn (ExamsController, MonitoringController,
 ' SubmissionService, SeatGuard, GradingService, HeartbeatWatchdogService), and so are AuditService and AppDbContext.
@@ -23,21 +23,21 @@ skinparam class {
 skinparam ArrowFontSize 14
 skinparam stereotypeFontSize 13
 
-class ExamsController <<api/exams>> #FFFFFF ##[dashed]
-class MonitoringController <<api/monitoring>> #FFFFFF ##[dashed]
-class MonitoringHub <<SignalR /hubs/monitoring>> #FFF6E0 {
-  +JoinExamGroup(examId)
-  +LeaveExamGroup(examId)
-  +SendWarning(studentId, message)
-  +ForceSubmitSessionById(sessionId)
-  +ExtendStudentTime(sessionId, minutes)
-  +UnlockSession(sessionId, minutes, reason)
-  +RelockSession(sessionId)
+class ExamsController <<controller>> #FFFFFF ##[dashed]
+class MonitoringController <<controller>> #FFFFFF ##[dashed]
+class MonitoringHub <<SignalR hub>> #FFF6E0 {
+  +JoinExamGroup()
+  +LeaveExamGroup()
+  +SendWarning()
+  +ForceSubmitSessionById()
+  +ExtendStudentTime()
+  +UnlockSession()
+  +RelockSession()
 }
 class ExamAccessService #FFF6E0 {
-  +GetAsync(user, examId) : ExamAccess
-  +GetForSessionAsync(..) : ExamAccess
-  +DenyUnlessAsync(..) : IActionResult?
+  +GetAsync()
+  +GetForSessionAsync()
+  +DenyUnlessAsync()
 }
 enum ExamAccess <<enumeration>> #FFF6E0 {
   None
@@ -46,21 +46,21 @@ enum ExamAccess <<enumeration>> #FFF6E0 {
   Admin
 }
 class SeatGuard #FFF6E0 {
-  +Check(assignment, user, http)
-  +ReportMismatchAsync(..)
+  +Check()
+  +ReportMismatchAsync()
 }
 class ViolationClassifier <<static>> #FFF6E0 {
-  +Resolve(type, payload)
-  +IsViolation(type) : bool
-  +Classify(events) : string
+  +Resolve()
+  +IsViolation()
+  +Classify()
 }
 class SubmissionService #FFF6E0 {
-  +FinalizeAsync(session, status)
-  +{static} RemainingSeconds(..)
-  +{static} IsClosed(..)
+  +FinalizeAsync()
+  +{static} RemainingSeconds()
+  +{static} IsClosed()
 }
 class HeartbeatWatchdogService <<BackgroundService>> #FFF6E0 {
-  +SweepAsync(utcNow, ..) : int
+  +SweepAsync()
 }
 class PlagiarismService #FFFFFF ##[dashed]
 class GradingQueue #FFFFFF ##[dashed]
@@ -83,14 +83,8 @@ ExamAccess -[hidden]down- HeartbeatWatchdogService
 
 skinparam legendFontSize 14
 legend bottom
-  ExamsController, MonitoringController, SubmissionService, SeatGuard,
-  GradingService and HeartbeatWatchdogService inject IHubContext<MonitoringHub>
-  and push live updates to the web panel (arrows omitted); for example
-  MonitoringController and SeatGuard push "ViolationEvent",
-  HeartbeatWatchdogService "StudentDisconnected". Controllers, MonitoringHub
-  and the services also inject AuditService and AppDbContext (part 4).
-  MonitoringController uses only the static SubmissionService.RemainingSeconds
-  and IsClosed (dashed arrow).
-  Dashed box: members drawn in another part or figure.
+  Dashed box: members in another figure.
+  Live pushes to the web panel and the
+  AuditService and AppDbContext links are not drawn.
 endlegend
 @enduml

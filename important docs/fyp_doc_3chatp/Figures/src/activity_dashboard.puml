@@ -6,9 +6,8 @@
 ' /api/monitoring/events/batch, CaptureForViolation -> capture spool -> POST /api/monitoring/screenshot;
 ' MonitoringController pushes hub ViolationEvent / ScreenshotUploaded; ExamWindow.OnServerSessionStatus,
 ' ShowProctorWarnings, ApplyUnlockDeadline, ResyncRemaining).
-' The three regions run independently (event-driven), so each has its own loop.
-' Print sizing (D6): large font at dpi 96, so PlantUML's fixed pixel gaps stay small next to the text;
-' printed size = 22 * (printed width in pt) / (PNG width px), at least 7 pt at the width used in Chapter 5.
+' Simplified labels: guard event kinds, ack fields and endpoints are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
 skinparam dpi 96
 skinparam defaultFontSize 22
 skinparam ArrowFontSize 22
@@ -23,72 +22,52 @@ skinparam swimlane {
 |Server|
 |Desktop App|
 start
-:Full-screen ExamWindow; LockdownCoordinator
-starts keyboard, process, clipboard and USB
-guards (not if lockdown Off); webcam
-monitor if RequireWebcam;
+:Full-screen exam window,
+start guards (unless
+lockdown Off) and webcam
+monitor (if required);
 fork
   |Student|
   repeat
     :Answer a
     question
     (auto-saved);
-  repeat while (Session\nopen?) is ([yes]) not ([no])
+  repeat while (Session\nopen?) is ([yes])
 fork again
   |Desktop App|
   repeat
-    :Heartbeat every
-    10 s (focus, camera
-    status)>
-    :Ack received<
-    :Apply ack: resync
-    timer, warning
-    banner, pause or
-    resume lockdown;
-  repeat while (Session\nInProgress?) is ([yes]) not ([no: ended])
+    :Heartbeat
+    every 10 s>
+    :Ack<
+    :Apply: timer,
+    warnings,
+    lockdown;
+  repeat while (In\nprogress?) is ([yes])
 fork again
   |Desktop App|
   repeat
-    :Guard event<
-    note right
-      blocked key, clipboard,
-      app not allowed, focus
-      lost, USB storage, or
-      webcam: NoFace, Multiple-
-      Faces, LookingAway (head
-      pose), PhoneDetected,
-      Camera Covered/Frozen/
-      Unavailable
-    end note
+    :Guard
+    event<
     if (Enforce and
     app not allowed?) then ([yes])
-      :Kill process
-      (ProcessKilled);
+      :Kill
+      process;
     else ([no])
     endif
-    :Event to events/batch,
-    rate-limited screen
-    capture (webcam issue:
-    also a webcam snapshot)
-    to /screenshot>
-  repeat while (Session\nopen?) is ([yes]) not ([no])
+    :Send event
+    and screen
+    capture>
+  repeat while (Session\nopen?) is ([yes])
 fork again
   |Server|
   repeat
-    :Heartbeat, event
-    batch or capture<
-    :MonitoringController
-    stores it; a heartbeat
-    gets an ack (remaining
-    time, session status,
-    extra time, up to 5
-    warnings, unlock
-    deadline);
-    :Push "StudentHeartbeat",
-    "ViolationEvent" or
-    "ScreenshotUploaded"
-    to the live monitor;
-  repeat while (Session\nopen?) is ([yes]) not ([no])
+    :Request<
+    :Store it,
+    ack a
+    heartbeat;
+    :Push to
+    live monitor;
+  repeat while (Session\nopen?) is ([yes])
   |Desktop App|
 end fork
 :Stop guards,

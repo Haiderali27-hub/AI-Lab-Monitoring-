@@ -1,0 +1,44 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+' Lockdown enforcement (Module 4): Views/ExamWindow (Window_Loaded -> LockdownCoordinator.Start(this), Window_Closing -> Dispose).
+' Services/Lockdown/LockdownCoordinator: Start returns at once when the mode is Off; TaskManagerRegistryGuard.Apply (only when the
+' Task Manager policy is on), KeyboardHookService.Install, ClipboardGuardService.Start(window), ProcessGuardService.Start (2 s scan),
+' DeviceGuardService.Start (WMI: VirtualMachine, UsbInserted, MultiMonitor, RemoteSession). A failed Apply / Install is
+' Report("LockdownDegraded", ...), i.e. the same path as any violation. Report: 15 s cooldown keyed on reason|detail, then the
+' violation sink LiveMonitoringService.ReportViolation (encrypted MonitoringSpool + CaptureForViolation + fire-and-forget
+' FlushEventsAsync -> ApiClient.SendEventBatchAsync, POST /api/monitoring/events/batch; the server side is in seq_telemetry).
+' With no sink, LockdownCoordinator calls ApiClient.SendMonitoringEventAsync (POST /api/monitoring/event); with a sink but no
+' spool, LiveMonitoringService.ReportViolation makes that call itself (no screenshot). Both fire-and-forget.
+' Stop (from Dispose, OnCrash, OnProcessExit, OnDispatcherCrash): Restore, Uninstall, then Stop on the other three guards.
+' Open arrowhead (->>) = asynchronous message (C# event raised by a guard, fire-and-forget call).
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 2
+skinparam BoxPadding 2
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+
+participant "Lockdown\nCoordinator" as LC
+participant "Live\nMonitoring\nService" as LMS
+participant "ApiClient" as API
+LC -> LC ++ : report: once per\nviolation per 15 s
+alt monitoring service set
+  LC -> LMS : report violation
+  activate LMS
+  alt encrypted outbox present
+    LMS -> LMS : store in outbox;\ntake screenshot
+    LMS ->> API : send event batch\n(kept until sent)
+  else no outbox
+    LMS ->> API : send one event
+  end
+  LMS --> LC
+  deactivate LMS
+else no monitoring service
+  LC ->> API : send one event
+end
+deactivate LC
+@enduml

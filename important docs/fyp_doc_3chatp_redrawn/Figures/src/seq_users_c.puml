@@ -1,0 +1,58 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 200
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 6
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' User and role management (Module 7, UC-25 with UC-27's guard), part (c): device-binding reset.
+' Code: Admin_Web_Panel/src/pages/admin/UsersPage.tsx (handleResetBinding; also DeviceBindingsPage.tsx),
+' src/api/users.api.ts (usersApi.resetDeviceBinding);
+' Backend_API/Controllers/UsersController.cs (ResetDeviceBinding, GuardExistingAsync);
+' Services/RefreshTokenService.cs (RevokeOtherSessionsAsync); Services/AuditService.cs (Add, LogAsync).
+
+actor "Admin /\nSuperAdmin" as A
+participant "Users\npage (web)" as UI
+participant "Users\nController" as UC
+participant "RefreshToken\nService" as RT
+participant "Audit\nService" as AS
+database "AppDbContext" as DB
+
+A -> UI : reset device\nbinding (confirm)
+activate UI
+UI -> UC : reset binding
+activate UC
+UC -> UC : may the caller\nact on this user?
+alt target is Admin / SuperAdmin,\ncaller not SuperAdmin
+  UC -> AS : log denial
+  activate AS
+  AS -> DB : save PRIVILEGED_\nACCOUNT_DENIED
+  AS --> UC
+  deactivate AS
+  UC --> UI : refused
+else no binding
+  UC --> UI : not found
+else allowed
+  UC -> RT : revoke sessions
+  activate RT
+  RT -> DB : revoke tokens\nand sessions
+  RT --> UC : counts
+  deactivate RT
+  UC -> DB : remove binding
+  UC -> AS : DEVICE_\nBINDING_RESET
+  activate AS
+  AS -> DB : add audit row
+  deactivate AS
+  UC -> DB : save
+  UC --> UI : binding reset
+end
+deactivate UC
+UI --> A : result message
+deactivate UI
+@enduml

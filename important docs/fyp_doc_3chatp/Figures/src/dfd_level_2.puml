@@ -9,8 +9,8 @@
 ' 3.1 and 3.2 run in the WPF client on the lab PC; 3.3-3.5 run in the API.
 skinparam defaultFontSize 16
 skinparam ArrowFontSize 16
-skinparam nodesep 10
-skinparam ranksep 18
+skinparam nodesep 24
+skinparam ranksep 30
 skinparam defaultTextAlignment center
 skinparam rectangle<<entity>> {
   BorderThickness 2
@@ -31,30 +31,28 @@ skinparam label {
   FontSize 16
 }
 hide stereotype
-left to right direction
+top to bottom direction
 
 rectangle "Student" <<entity>> as STU
 usecase "**3.1**\nEnforce lockdown\n(client guards)" as P31
 usecase "**3.2**\nMonitor and send\n(client)" as P32
 label D2 [
 ----
-**D2** Exams,
-Questions,
-TestCases
+**D2** Exams
 ----
 ]
 usecase "**3.3**\nReceive telemetry\n(API, part b)" <<ref>> as P33
 
-' ---- client side (3.1, 3.2)
-STU --> P31 : activity on the\nPC (apps, keys,\nUSB, monitors,\nRDP/VM)
-STU <-- P31 : blocked keys,\nclosed apps;\nunlock
-D2 --> P31 : LockdownMode,\nAllowedApps
-STU --> P32 : screen, webcam\nimage
-STU <-- P32 : warnings, extra\ntime, remaining\ntime
-D2 --> P32 : capture\nintervals,\nRequireWebcam
+' ---- client side (3.1, 3.2); short labels, the chapter text gives the detail
+STU --> P31 : PC activity
+STU <-- P31 : blocked keys,\nclosed apps
+D2 --> P31 : lockdown mode,\nallowed apps
+STU --> P32 : screen,\nwebcam
+STU <-- P32 : warnings,\ntime left
+D2 --> P32 : capture\nsettings
 P31 --> P32 : lockdown\nevents
-P31 <-- P32 : unlock until\n(from the\nack)
+P31 <-- P32 : unlock
 
-P32 --> P33 : heartbeat\n(10 s), event\nbatch (5 s),\nscreenshots,\nwebcam\nsnapshots
-P32 <-- P33 : ack: warnings,\nextra time,\nunlock,\nremaining\ntime
+P32 --> P33 : heartbeat,\nevents, images
+P32 <-- P33 : reply: warnings,\nextra time, unlock
 @enduml

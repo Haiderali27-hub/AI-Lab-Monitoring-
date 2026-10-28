@@ -12,7 +12,8 @@
 ' Teacher, concurrently: POST /api/exams/{id}/grading/accept-ai (skips NeedsManualMark rows; Pending/Failed = notReady;
 ' audit AI_SUGGESTIONS_ACCEPTED), POST /api/answers/{id}/override (GRADE_OVERRIDDEN),
 ' POST /api/answers/{id}/regrade (AI_REGRADE_REQUESTED, back to the queue).
-' Printed pt = fontSize * 72 * printed_width_in / png_width_px.
+' Simplified labels: weights, k-gram settings, Docker limits and audit event names are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
 skinparam dpi 96
 skinparam defaultFontSize 28
 skinparam ArrowFontSize 27
@@ -23,100 +24,69 @@ skinparam swimlane {
 }
 |Server (API and GradingWorker)|
 start
-:SubmissionService.FinalizeAsync:
-session Submitted, ForceSubmitted
-or TimedOut, SHA-256 receipt;
-if (AiEvaluationEnabled?) then ([yes])
-  if (StageAsync: answer\ngraded at once?) then ([yes])
-    :MCQ: key. Theory (LLM off):
-    TF-IDF, 0.7 x cosine + 0.3 x
-    key-term coverage. Blank code:
-    0, High. Runner = None: not
-    run, 0, Low, CodeAnalyzer;
+:Finalise the session
+with a receipt;
+if (AI evaluation\non?) then ([yes])
+  if (Can mark\nat once?) then ([yes])
+    :Mark now: MCQ by key,
+    theory by TF-IDF
+    if the LLM is off,
+    blank or unrunnable
+    code as 0;
   else ([no])
-    :Pending
-    row, queued
-    (coding: and
-    test-case
-    rows);
+    :Queue the
+    answer;
   endif
 else ([no])
 endif
-if (Practice exam?) then ([no])
-  :PlagiarismService: k-gram
-  winnowing (k = 5, w = 4),
-  pairs >= threshold;
+if (Practice\nexam?) then ([no])
+  :Plagiarism check
+  (winnowing);
 else ([yes])
 endif
-:SaveChanges, then enqueue
-the queued answers;
+:Save, start the
+queue;
 fork
-  while (GradingWorker:\nanswer queued?) is ([yes])
+  while (Answer\nqueued?) is ([yes])
     if (Type?) then ([Theory])
       :LLM grader
-      (TheoryGrader
+      (TF-IDF
       fallback);
     else ([Coding])
-      if (Runner found\nand C/C++?) then ([no])
-        :Not run:
-        0, Low;
+      if (Runner and\nC/C++?) then ([no])
+        :Not run, 0;
       else ([yes])
-        :Compile, run each
-        test case: Docker
-        gcc:13 (no network,
-        memory, CPU, time
-        limits) or MinGW
-        g++ (not isolated),
-        up to 3 attempts;
+        :Run test cases
+        (Docker or
+        MinGW);
         switch (Result?)
         case ([failed])
-          :Failed,
-          0, Low;
-        case ([compile\nerror])
-          :0, High,
-          compiler
-          output;
+          :Failed;
         case ([ran])
-          :OutputComparer,
-          TestCaseScorer;
+          :Score the
+          test cases;
+        case ([compile\nerror])
+          :0, compiler
+          output;
         endswitch
       endif
-      :CodeAnalyzer (loops,
-      recursion, hard-coding);
+      :Code analysis;
     endif
-    :Save AiGradingResult,
-    TestCaseResults, audit
-    AI_GRADING_COMPLETED
-    (or _FAILED), hub
-    GradingCompleted;
+    :Save result,
+    audit, notify;
   endwhile ([no])
 fork again
   |Teacher (ResultsPage)|
   repeat
-    :Review AI
-    suggestions,
+    :Review marks,
     test cases,
-    plagiarism
-    heat map;
+    plagiarism;
     if (Action?) then ([accept\nall])
-      :accept-ai: Graded
-      rows with a real
-      suggestion
-      (Pending/Failed:
-      notReady, not run
-      or compile-only:
-      needsManualMark),
-      audit
-      AI_SUGGESTIONS_
-      ACCEPTED;
+      :Accept ready
+      suggestions;
     else ([one\nanswer])
-      :override
-      (GRADE_
-      OVERRIDDEN)
-      or regrade
-      (queued,
-      AI_REGRADE_
-      REQUESTED);
+      :Override
+      or regrade;
     endif
   repeat while (More to\nreview?) is ([yes]) not ([no])
 end fork

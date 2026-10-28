@@ -6,7 +6,8 @@
 ' GET /api/analytics/reports/{fileName} (bare name 400, no row 404, not owner 403, file missing 404). The summary PDF is
 ' not audited; the Module 12 exports (POST /api/analytics/reports/{type}) are audited as REPORT_GENERATED with the
 ' file's SHA-256 (ReportExportService).
-' Printed pt = fontSize * 72 * printed_width_in / png_width_px.
+' Simplified labels: endpoints, status codes and file details are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
 skinparam dpi 96
 skinparam defaultFontSize 28
 skinparam ArrowFontSize 27
@@ -17,49 +18,37 @@ skinparam swimlane {
 }
 |Staff (ReportsPage)|
 start
-:Teacher (exam owner),
-Admin or SuperAdmin
-selects an exam and
-clicks Generate New
-Report: POST /api
-/analytics/exams
-/{examId}/report;
+:Select an exam,
+click Generate
+New Report;
 |Server|
-if (DenyUnlessAsync(Owner):\nexam exists, caller is its\nowner, Admin or SuperAdmin?) then ([no])
-  :404 or 403;
+if (Exam exists, caller\nowner or admin?) then ([no])
+  :Refuse;
   stop
 else ([yes])
 endif
-:AnalyticsService.GetExamSummaryAsync:
-marks = override, else AI suggestion,
-score buckets, per-question averages,
-violation counts;
-:QuestPDF document: Summary Statistics,
-Per-Question Performance, Score Distribution;
-:Write Exam_Report_...pdf to Reports, insert
-an ExamReports row (ReportType = ExamSummary,
-GeneratedBy, FilePath), return downloadUrl;
+:Compute summary: marks,
+score buckets, question
+averages, violations;
+:Build PDF: summary,
+per-question results,
+score distribution;
+:Save file, record it,
+return a link;
 note right
-  Not audited. The exports
-  (POST /reports/{type}:
-  attendance, violations,
-  scores, excel, evidence-zip)
-  are audited as REPORT_
-  GENERATED + SHA-256.
+  Not audited. Other
+  exports are audited
+  with a SHA-256 hash.
 end note
 |Staff (ReportsPage)|
-:Reload the history
-(GET .../reports),
-then Download: GET
-/api/analytics/reports
-/{fileName};
+:Reload history,
+click Download;
 |Server|
-if (Bare file name, row in\nExamReports, caller owner?) then ([yes])
-  :Return the PDF
-  (application/pdf);
+if (Valid name, known\nreport, owner or admin?) then ([yes])
+  :Return
+  the PDF;
 else ([no])
-  :400, 404
-  or 403;
+  :Refuse;
 endif
 stop
 @enduml

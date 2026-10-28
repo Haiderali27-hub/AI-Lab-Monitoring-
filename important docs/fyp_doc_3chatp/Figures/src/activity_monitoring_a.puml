@@ -1,0 +1,61 @@
+@startuml
+!include style.iuml
+' Live monitoring of one session (Modules 5/10). One fork, one branch per concurrent loop, each branch in one lane;
+' the lanes talk through send-signal (>) and accept-event (<) actions; a join closes the fork.
+' Desktop: LiveMonitoringService heartbeat Timer (AppConfig.HeartbeatSeconds = 10) whose ack carries remainingSeconds,
+'   sessionStatus, up to 5 warnings, unlockedUntilUtc and capture settings; 1 s tick: EvidenceCaptureService.Tick
+'   (CaptureSchedule: mean ScreenshotIntervalSeconds x U[0.5,1.5)), EventBatcher flush every 5 s or at once when urgent
+'   (POST /api/monitoring/events/batch), capture upload every 5 s (POST /api/monitoring/screenshots, kind Screen|Webcam);
+'   LockdownCoordinator / focus loss / WebcamMonitorService.IssueChanged -> urgent event in the encrypted MonitoringSpool
+'   + CaptureForViolation (webcam issues also give a webcam snapshot).
+' Server: MonitoringController.Heartbeat (MarkAlive, SeatGuard re-check, ViolationClassifier.Classify -> tileStatus,
+'   StudentHeartbeat), PushEventBatch (ClientEventId dedup, ViolationClassifier.Resolve, audit MONITORING_VIOLATION,
+'   ViolationEvent for fresh violations), UploadScreenshot (30/min cap, WEBCAM_NOT_REQUIRED, ScreenshotUploaded);
+'   MonitoringHub SendWarning / ExtendStudentTime / UnlockSession / ForceSubmitSessionById (access check, audit);
+'   HeartbeatWatchdogService sweep every 5 s: InProgress, !IsDisconnected, silent 30 s -> Disconnected event,
+'   audit SESSION_DISCONNECTED, StudentDisconnected.
+' Web panel: LiveMonitorPage JoinExamGroup(examId), tiles Stable / Warning / Suspicious / Critical / Disconnected.
+' Part (a) of the portrait split: the Desktop App loops. Part (b) is activity_monitoring_b.
+' Simplified labels: intervals, endpoints and event names are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 28
+skinparam ArrowFontSize 27
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 29
+}
+|Desktop App|
+start
+:Session starts: lockdown on,
+webcam monitor if required;
+fork
+  repeat
+    :Heartbeat
+    every 10 s>
+    :Ack: time,
+    status,
+    warnings<
+  repeat while (In\nprogress?) is ([yes])
+fork again
+  repeat
+    :Screenshot
+    when due;
+    :Send events
+    and captures>
+  repeat while (In\nprogress?) is ([yes])
+fork again
+  repeat
+    :Lockdown,
+    focus or
+    webcam flag<
+    :Queue urgent
+    event, capture
+    the screen;
+  repeat while (In\nprogress?) is ([yes])
+end fork
+:Stop monitoring,
+send the rest;
+stop
+@enduml

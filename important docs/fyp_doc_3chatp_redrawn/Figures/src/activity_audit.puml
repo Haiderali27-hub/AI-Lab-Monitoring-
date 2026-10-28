@@ -1,0 +1,83 @@
+@startuml
+!include style.iuml
+' Audit logging: controllers, MonitoringHub and services call AuditService explicitly (no middleware). Add() stages a
+' row that the caller's SaveChanges commits with the change itself; LogAsync() = Add + SaveChanges at once (LOGIN_FAILED,
+' DEVICE_MISMATCH, MONITORING_VIOLATION ...). AppDbContext.SaveChanges[Async] -> AuditChain.SaveSealed[Async]: process
+' WriterLock + pg_advisory_xact_lock, read the head, Seal() (Sequence, PrevHash, Hash = SHA-256 over PrevHash and the
+' row's fields; genesis PrevHash = 64 zeros), base SaveChanges, commit - sealing happens inside that one save.
+' Viewing (AuditLogsPage, PrivateRoute Admin,SuperAdmin; AuditController [Authorize(Roles = "Admin,SuperAdmin")]):
+' getLogs (GET /api/audit-logs?take=200) and verifyChain (GET /api/audit-logs/verify) run in parallel; filtering is
+' client-side. VerifyAsync has three outcomes: valid, BrokenAt set, or unsealed rows (Valid = false, BrokenAt = null)
+' -> "n entries not sealed yet" + "Seal legacy entries" -> POST /api/audit-logs/backfill (AUDIT_CHAIN_BACKFILLED),
+' then verify again.
+' Simplified labels: locks, hash fields, endpoints and page names are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 28
+skinparam ArrowFontSize 27
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 29
+}
+|Server|
+|Admin (Audit page)|
+|Server|
+start
+:Audited action calls
+AuditService (actor,
+event, entity, details);
+if (Standalone\nevent?) then ([yes])
+  :Save at once
+  (e.g. LOGIN_
+  FAILED);
+else ([no])
+  :Save with the
+  change (e.g.
+  SEAT_MISMATCH);
+endif
+:Seal new rows: sequence,
+previous hash, SHA-256;
+end
+|Admin (Audit page)|
+start
+:Open the
+audit log;
+if (Admin?) then ([no])
+  :Redirect;
+  end
+else ([yes])
+endif
+fork
+  |Server|
+  :Load latest
+  200 entries;
+fork again
+  |Server|
+  :Verify the
+  hash chain;
+end fork
+|Admin (Audit page)|
+:List and filter
+entries;
+switch (Verify\nresult?)
+case ([valid])
+  :Chain
+  verified;
+case ([broken])
+  :Broken
+  at #n;
+case ([unsealed])
+  :n entries
+  not sealed;
+  if (Seal legacy\nentries?) then ([yes])
+    |Server|
+    :Seal old rows,
+    audit, verify
+    again;
+    |Admin (Audit page)|
+  else ([no])
+  endif
+endswitch
+end
+@enduml

@@ -1,0 +1,92 @@
+@startuml
+!include style.iuml
+' Overall student exam lifecycle. Sources: Student_Desktop_App (LoginViewModel, Core/DeviceFingerprint,
+' Core/Readiness/ReadinessPolicy, ViewModels/DashboardViewModel (ConfirmAttendanceAsync, StartExamAsync),
+' Services/ApiClient (api/exams/student/start), Views/ExamWindow, Services/Lockdown/LockdownCoordinator,
+' Services/LiveMonitoringService), Backend_API (AuthController.StudentLogin, ExamsController.StartExam
+' [POST api/exams/student/start], SaveAnswer, Submit, MonitoringController, SubmissionService.FinalizeAsync,
+' Services/Grading/*, SessionTimeoutService, GradingController accept-ai, ExamsController answers/{id}/override).
+' Simplified labels: endpoints, error codes and model names are given in the chapter text.
+' Large font at dpi 96 (PlantUML gaps are fixed in pixels). Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 30
+skinparam ArrowFontSize 29
+skinparam ArrowThickness 2
+skinparam activityBorderThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 31
+}
+
+|Student|
+start
+:Enter ID and
+password;
+|Desktop App|
+:Send login with
+device fingerprint;
+|Server|
+if (Login and
+device OK?) then ([no])
+  :Refuse;
+  stop
+else ([yes: tokens])
+endif
+|Desktop App|
+repeat
+:Run 7 readiness
+checks, send results;
+repeat while (Required
+check failed?) is ([yes])
+-> [no];
+|Student|
+:Check in,
+press Start;
+|Desktop App|
+:Request exam start;
+|Server|
+if (Eligible, open,
+seat and readiness
+OK?) then ([no])
+  :Refuse;
+  stop
+else ([yes])
+  :Start or resume
+  the session;
+endif
+|Desktop App|
+fork
+  |Student|
+  :Answer
+  questions;
+fork again
+  |Desktop App|
+  :Lockdown, auto-save,
+  heartbeat, events,
+  captures, webcam AI;
+  |Server|
+  :Store, push to
+  live monitor;
+  |Desktop App|
+end fork
+:Session ends: submit,
+timer, force-submit
+or timeout;
+|Server|
+:Finalise with receipt,
+auto-grade if AI on,
+plagiarism check if
+not practice;
+|Desktop App|
+:Release lockdown,
+verify receipt or
+show Exam Ended;
+|Server|
+:Run code tests
+in background;
+|Teacher|
+:Accept AI marks
+or override;
+stop
+@enduml

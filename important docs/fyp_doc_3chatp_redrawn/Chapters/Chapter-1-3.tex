@@ -1,0 +1,17 @@
+\section{Objectives}
+
+We want to replace the manual running of lab exams with one central and auditable system. The objectives follow the SMART criteria \cite{doran1981}: each is specific, is measured by the requirements named in brackets, is assigned to an owner through the role split in Section~\ref{sec:managerial}, is realistic for three members using only the free resources of Table~\ref{tab:resources}, and is time-bound by the 32-week plan in Table~\ref{tab:timeframe}. Our objectives are:
+
+\textbf{Objective 1 --- Central administration.} Manage users, roles (SuperAdmin, Admin, Teacher, Invigilator, Student), departments, courses, labs, workstations and exam schedules from one web panel, with role-based access control on the API \cite{rbac1}. \textit{(FR7--FR9, NFR1)}
+
+\textbf{Objective 2 --- Live visibility.} Give invigilators a live dashboard with one tile per student. Each tile shows the active window, the latest screenshot and the violation status, and a click opens the student's running processes and timeline, so staff do not have to walk behind every seat. \textit{(FR5, FR10, NFR4)}
+
+\textbf{Objective 3 --- Reliable evidence.} Store every answer and monitoring event with its student and session, and keep security-relevant staff actions in a tamper-evident audit log, so that a marking decision can be backed by records. \textit{(FR5, FR6, FR12, NFR6)}
+
+\textbf{Objective 4 --- Equal exam conditions.} Give every student the same locked environment. Students can only log in from their bound workstation, and any application the teacher has not allowed is reported (the default Report mode) or closed (Enforce mode). \textit{(FR1, FR2, FR4)}
+
+\textbf{Objective 5 --- Less manual work.} Automate attendance-based eligibility, answer collection, grading of coding and theory answers, plagiarism checks and reports, while the teacher keeps the final say on marks. \textit{(FR9, FR11.1--FR11.3, FR12)}
+
+\textbf{Objective 6 --- Achievable scope.} Deliver a working prototype in two semesters, built as modules that later teams can extend. \textit{(Table~\ref{tab:timeframe}, NFR5)}
+
+These objectives regroup the eight objectives of our FYP-I proposal; its scalability objective is now the performance requirement in Chapter~\ref{chap:srs}. Section~\ref{sec:managerial} lists the other changes since the FYP-I proposal.

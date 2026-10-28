@@ -3,8 +3,8 @@
 ' Pre-exam readiness check (Core/Readiness/ReadinessPolicy, Services/Readiness/ReadinessCheckService,
 ' DashboardViewModel.RunReadinessAsync / RetryReadinessItemAsync / ReportReadinessAsync /
 ' ConfirmAttendanceAsync / UpdateStartEligibility, Core/Dashboard/StartGate, ExamsController.SubmitReadiness / OpensAt)
-' Print sizing (D6): large font at dpi 96, so PlantUML's fixed pixel gaps stay small next to the text;
-' printed size = 22 * (printed width in pt) / (PNG width px), at least 7 pt at the width used in Chapter 5.
+' Simplified labels: thresholds, endpoint and event names are in the chapter text.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
 skinparam dpi 96
 skinparam defaultFontSize 22
 skinparam ArrowFontSize 22
@@ -13,42 +13,30 @@ skinparam padding 1
 skinparam swimlane {
   TitleFontSize 23
 }
-skinparam defaultTextAlignment left
 
 |Desktop App|
 start
-:GET /api/exams/student/current
-(exam requirements); the student
-presses Run check;
+:Load exam rules,
+press Run check;
 repeat
-  :ReadinessCheckService runs 7 checks:
-  <b>Network</b>: best round trip <= 2 s
-  <b>ClockSkew</b> <= 60 s from the server
-  <b>ScreenCapture</b>: the screen can be captured
-  <b>Camera</b> (a): a frame that is not dark, one face (YuNet)
-  <b>Microphone</b> (a): a device is present
-  <b>SecureMode</b> (b): one monitor if BlockMultiMonitor,
-     no remote session, no VM, keyboard hook works
-  <b>Disk</b> >= 200 MB free
-  (a) only if the exam requires it; (b) skipped if lockdown Off
-  Retry re-runs only the failed item; all results are re-sent;
+  :Run 7 checks: network,
+  clock, screen capture,
+  camera*, microphone*,
+  secure mode, disk
+  (* only if required);
   |Server|
-  :POST /api/exams/{id}/readiness:
-  ExamsController recomputes
-  passedAll, saves ReadinessCheck,
-  audits READINESS_PASSED or
-  READINESS_FAILED, pushes hub
-  "ReadinessUpdated";
+  :Recompute the result,
+  save and audit it,
+  update live monitor;
   |Desktop App|
-repeat while (passedAll, or\nRequireReadiness off?) is ([no: fix it,\npress Retry]) not ([yes])
+repeat while (Passed, or\nnot required?) is ([no: fix,\nRetry]) not ([yes])
 if (Checked in?) then ([no])
-  :Press Check In
-  (Attendance event);
+  :Press
+  Check In;
 else ([yes])
 endif
-:Start Exam is enabled once the exam opens
-(StartTime - EarlyJoinMinutes), the student is
-eligible and on the right seat; the pass stays valid
-30 min, else student/start returns READINESS_REQUIRED;
+:Start enabled when the
+exam opens (pass valid
+for 30 min);
 stop
 @enduml

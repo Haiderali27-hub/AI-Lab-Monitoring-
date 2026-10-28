@@ -1,0 +1,50 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' Code: Student_Desktop_App/Services/LiveMonitoringService.cs; Backend_API/Controllers/MonitoringController.cs (screenshot);
+' Services/Monitoring/HeartbeatWatchdogService.cs; Hubs/MonitoringHub.cs; Admin_Web_Panel/src/pages/teacher/LiveMonitorPage.tsx.
+
+participant "ExamDashboard\n(WPF client)" as VM
+participant "LiveMonitoring\nService" as LM
+participant "Exams\nController" as EC
+participant "Monitoring\nController" as MC
+participant "Heartbeat\nWatchdog" as WD
+database "AppDbContext" as DB
+participant "Live Monitor\npage (web)" as WEB
+participant "Monitoring\nHub" as HUB
+== screen and webcam captures; disconnect watchdog ==
+note over LM, MC : Runs in parallel with\nthe loops of part (a)
+loop screen at random intervals,\nwebcam if required, and on a violation
+  LM -> MC : upload capture
+  activate MC
+  MC -> DB : store image;\nadd Screenshots row
+  MC ->> WEB : ScreenshotUploaded
+  MC --> LM : screenshot id
+  deactivate MC
+end
+
+loop every 5 s
+  WD -> DB : find sessions silent\nfor 30 s or more
+  activate WD
+  DB --> WD : silent sessions
+  loop each silent session
+    WD -> DB : mark disconnected; add\nDisconnected event; audit\nSESSION_DISCONNECTED
+    WD ->> WEB : StudentDisconnected
+  end
+  deactivate WD
+end
+note over LM, WEB
+The next heartbeat marks the session reconnected, adds a
+Reconnected event, audits SESSION_RECONNECTED and pushes StudentReconnected.
+end note
+@enduml
