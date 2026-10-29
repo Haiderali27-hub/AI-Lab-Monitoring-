@@ -1,7 +1,5 @@
-% Chapter 7.2.3 -- System Testing
-\subsection{System Testing}\label{subsec:system_tests}
-
-System tests run complete exam flows through the web panel in a browser. In the same test, a student-client simulator sends the same requests as the desktop client, so a student action can be followed to the invigilator's screen.
+% Chapter 7.4.3 -- System Test Cases and 7.5 Bugs Report
+\subsection{System Test Cases}\label{subsec:system_tests}
 
 System testing runs one complete exam day through the web panel in a browser, with a student-client simulator in the same test. Table~\ref{tab:st_1} follows the order of an exam day, from the first sign-in to the audit log, and every row passed in the final run.
 
@@ -20,3 +18,45 @@ ST-08 & Warn, unlock and give extra time & 1.~The invigilator sends a warning fr
 ST-09 & Submit and get a receipt & 1.~The student answers and submits.\newline 2.~Teacher opens Results.\newline 3.~After the end the student opens the result.\newline 4.~In another exam the teacher clicks Force End Exam. & ``A stack is LIFO and a queue is FIFO.'' and an MCQ answer & The same receipt on every page; row Submitted, 15/15; after Force End a late save is refused. & Pass\\ \hline
 ST-10 & Review results, plagiarism, reports and the audit log & 1.~Teacher opens Results for wrong, then correct code.\newline 2.~Opens Analytics.\newline 3.~Generates a report on Reports.\newline 4.~Admin opens Audit Logs. & Code using undeclared arr and n; three identical answers; filter: successful logins & ``Compilation failed'' 0/20, then 20/20; the identical pair shows 100 on the heat map; a PDF row is added; ``Chain verified''. & Pass\\
 \end{longtable}}
+
+\section{Bugs Report}\label{sec:bugs}
+
+In total 49 defects (D-01 to D-49) were recorded, and all of them are fixed. Table~\ref{tab:bugs} lists the 21 with the largest effect on exam integrity, data access and reliability, with the use case it affects.
+
+{\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
+\begin{longtable}{@{}P{1.5cm}P{1.8cm}P{8.3cm}P{1.7cm}>{\centering\arraybackslash}p{1.3cm}@{}}
+\caption{Bugs Report}\label{tab:bugs}\\ \hline\hline
+\textbf{Bug ID} & \textbf{Use Case} & \textbf{Description} & \textbf{Severity} & \textbf{Status}\\ \hline
+\endfirsthead
+\multicolumn{5}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\textbf{Bug ID} & \textbf{Use Case} & \textbf{Description} & \textbf{Severity} & \textbf{Status}\\ \hline
+\endhead
+\hline \multicolumn{5}{r}{\footnotesize Continued on next page}\\
+\endfoot
+\hline\hline
+\multicolumn{5}{@{}p{\linewidth}@{}}{\footnotesize Severity: Critical = a leak of exam content or passwords, or a way around the desktop client; High = a broken access rule or a loss of exam time or data.}\\
+\endlastfoot
+D-01 & UC-08 & Exam details showed the students' password hashes. & Critical & Fixed\\
+D-02 & UC-03 & Starting from the desktop client did not mark the exam as active. & High & Fixed\\
+D-05 & UC-10 & Invigilator warnings never reached the student client. & High & Fixed\\
+D-08 & UC-03 & A session could be started before the exam start time. & High & Fixed\\
+D-09 & UC-09 & Each login added its PC to a default lab. & High & Fixed\\
+D-10 & UC-09 & Teachers could change other sections' eligibility. & High & Fixed\\
+D-12 & UC-01 & Logging out of the web panel left the session valid on the server. & High & Fixed\\
+D-14 & UC-01 & A password change left other sessions valid. & High & Fixed\\
+D-15 & UC-04 & A failed clean-up step left Task Manager disabled. & High & Fixed\\
+D-18 & UC-06 & A session could not be resumed after a crash. & High & Fixed\\
+D-25 & UC-05 & Clients could send events that only the server may create. & High & Fixed\\
+D-27 & UC-05 & A webcam error closed the exam app. & High & Fixed\\
+D-31 & UC-10 & Any teacher could edit or end any exam. & Critical & Fixed\\
+D-34 & UC-11 & Any teacher could change the marks of any exam. & Critical & Fixed\\
+D-39 & UC-10 & Teachers could open, report on and notify another section's exam. & High & Fixed\\
+D-40 & UC-01 & Resetting a device binding left the old PC signed in. & High & Fixed\\
+D-41 & UC-10 & A deactivated user kept live-monitor rights on an open connection. & High & Fixed\\
+D-42 & UC-03 & Students could read the questions days before the exam. & Critical & Fixed\\
+D-43 & UC-06 & A student could sit a submitted exam again. & High & Fixed\\
+D-44 & UC-09 & Teachers could add other teachers' students to their exams. & High & Fixed\\
+D-45 & UC-09 & A web-panel login could act in the lab PC's exam session. & Critical & Fixed\\
+\end{longtable}}
+
+In the final run on 26 October 2026, all 920 executed automated tests passed and none failed. Checks that need real lab PCs (the locked exam window, keyboard and USB events, a real webcam, a pulled network cable and the 40-client load test) were not part of this run and remain on the lab checklist.
