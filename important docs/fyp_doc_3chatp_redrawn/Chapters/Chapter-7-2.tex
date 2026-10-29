@@ -1,207 +1,363 @@
 \section{Test Cases}\label{sec:test_cases}
 
-This section lists the test cases by level: unit (UT), integration (IT) and system (ST), with one table per feature or module pair. A row is marked Pass only when its automated test passed in the final run of 26 October 2026. The last line of the Test Data cell gives the catalogue identifier (for example M1-U-03), so each row can be traced to its entry in the test catalogue (\texttt{Docs/\allowbreak{}TEST\_CASES.md}), which names the test class or method. Checks that need a lab PC or a load test were not run and are listed separately as pending. Section~\ref{subsec:worked_case} then writes one case, IT-01, out in full.
+% Header rows shared by every Test Case Data table of Section 7.4 (house style:
+% double rule above the header, single rule under it, no rules between rows, double rule at the end).
+\newcommand{\TCHead}{%
+\textbf{Step} & \textbf{Input / Action} & \textbf{Expected Result} & \textbf{Actual Result} & \textbf{Status}\\ \hline
+\endfirsthead
+\multicolumn{5}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
+\textbf{Step} & \textbf{Input / Action} & \textbf{Expected Result} & \textbf{Actual Result} & \textbf{Status}\\ \hline
+\endhead
+\hline \multicolumn{5}{r}{\footnotesize Continued on next page}\\
+\endfoot
+\hline\hline
+\endlastfoot}
+\newcommand{\TCRef}[1]{\newline {\footnotesize\textit{Ref: #1}}}
+
+This section gives sixteen test cases: twelve unit test cases, one for each module M1--M12 (Section~\ref{subsec:unit_tests}), three integration test cases that each join four modules (Section~\ref{sec:it_cases}) and one end-to-end system test case (Section~\ref{subsec:system_tests}). Each unit test case carries the name and number of the module's main use case (Table~\ref{tab:uc_trace}), so a test case can be read next to the use case it checks. Every test case has the same four parts: the test method, a description with its precondition and pass rule, a Test Case Data table with one row per step, and a short report. A step is marked Pass only when the tests it cites passed in the final run of 26 October 2026. The Ref line of each step gives the catalogue identifier (for example M1-U-03) or, where the test has no catalogue row, the xUnit test name, so each step can be traced to the test catalogue (\texttt{Docs/\allowbreak{}TEST\_CASES.md}). Steps that need a real lab PC were not run and are marked Pending (lab).
 
 \subsection{Unit Test Cases}\label{subsec:unit_tests}
 
-Unit tests check one class at a time without a database, network or user interface, unless a table says otherwise. They are in the xUnit projects for the WPF client (233 tests) and the server (507 tests, together with its API tests), all of which passed. Time-dependent logic uses a fake clock, the registry is an in-memory fake, and webcam frames are generated in code.
+The unit test cases check the rules of one module at a time without a database, network or user interface, unless the Test Method says otherwise. They come from the xUnit projects for the WPF client (233 tests) and the server (507 tests, together with its API tests), all of which passed. Time-dependent logic uses a fake clock, the registry is an in-memory fake, and webcam frames are generated in code.
 
-Table~\ref{tab:ut_auth} covers password hashing on the server, token refresh in the desktop client and the hardware fingerprint (HWID) that binds a student to one lab PC. UT-01 and UT-02 show that a new password gets a PBKDF2 hash with 600,000 iterations, while an older SHA-256 or 210,000-iteration hash still verifies but is flagged for rehashing. UT-03 and UT-04 show that parallel 401 replies cause only one refresh call and that a network error does not sign the student out, and UT-05 shows that placeholder serials are dropped before the HWID is built.
+% ---------------------------------------------------------------- M1
+\subsubsection{Unit Test Case for Log In and Bind Device (UC-01)}\label{subsubsec:utc_m1}
+This case checks module M1, Authentication and Device Binding (FR1, Table~\ref{tab:uct_auth_device}).
 
-{\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{1.1cm}P{2.5cm}P{3.5cm}P{2.6cm}P{2.9cm}>{\centering\arraybackslash}p{1.8cm}@{}}
-\caption{Unit Test Cases for Password Hashing, Token Refresh and HWID}\label{tab:ut_auth}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endfirsthead
-\multicolumn{6}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endhead
-\hline \multicolumn{6}{r}{\footnotesize Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-UT-01 & Hash a new password with PBKDF2 & 1. Hash the password. \newline 2. Verify it and a wrong password. & Correct\#\allowbreak{}Horse1; wrong \newline {\footnotesize\textit{Ref: SEC-U-01}} & Hash is \texttt{pbkdf2\$\allowbreak{}600000\$\allowbreak{}\ldots}; only the correct password verifies. & Pass\\
-UT-02 & Verify older hashes and flag them & 1. Verify a legacy salted SHA-256 hash with the right and a wrong password. \newline 2. Verify a PBKDF2 hash with 210,000 iterations. & Admin@123, Admin@124 \newline {\footnotesize\textit{Ref: SEC-U-02}} & Only Admin@123 verifies; \texttt{Needs\allowbreak{}Rehash} is true for both hashes. & Pass\\
-UT-03 & Refresh once for parallel 401 responses & 1. Two requests get 401 with a1. \newline 2. Both call the refresh gate. & Access a1 (expires in 20 min), refresh r1 \newline {\footnotesize\textit{Ref: M1-U-01}} & One refresh call; both get a2; r2 is stored. & Pass\\
-UT-04 & Keep the session on transient errors & 1. Classify each refresh failure. \newline 2. Log out during a refresh. & \texttt{NETWORK\_\allowbreak{}ERROR}, \texttt{HTTP\_\allowbreak{}503}, \texttt{HTTP\_\allowbreak{}401} \newline {\footnotesize\textit{Ref: M1-U-02}} & Transient codes keep the session, 401 ends it; the logout is kept. & Pass\\
-UT-05 & Build the HWID from clean serials & 1. Clean placeholder serials. \newline 2. Compose from three valid serials. & ``Default string'', ``0'' \newline bios-sn-1234, `` DISK-SN-5678 '', BOARD-SN-9012 \newline {\footnotesize\textit{Ref: M1-U-03}} & Placeholders become empty; result \texttt{v2|\allowbreak{}BIOS-\allowbreak{}SN-\allowbreak{}1234|\allowbreak{}DISK-\allowbreak{}SN-\allowbreak{}5678|\allowbreak{}BOARD-\allowbreak{}SN-\allowbreak{}9012}. & Pass\\
-\end{longtable}}
+\paragraph{Test Method}
+{\sloppy Steps 1--5 are white-box unit tests: \texttt{PasswordHelper} in \texttt{Backend\_\allowbreak{}API.\allowbreak{}Tests}, and \texttt{TokenRefreshGate} and \texttt{DeviceFingerprint} in \texttt{Student\_\allowbreak{}Desktop\_\allowbreak{}App.\allowbreak{}Tests}, called with fixed values. Steps 6--8 are the worked login case of earlier drafts: black-box tests in the Playwright \texttt{api} project (\texttt{tests/\allowbreak{}api/\allowbreak{}m1-auth.spec.ts}) that send HTTP requests to a separately started backend with a seeded in-memory database. M1-A-04 runs both logins; M1-A-03 repeats the first and checks its reply and the stored binding.\par}
 
-Table~\ref{tab:ut_readiness} covers the readiness policy that the desktop client runs before an exam; the tests feed it fixed measurements. The rows follow the checks in turn: network latency, clock difference, secure mode (second monitor, RDP or a virtual machine) and the combined decision. The key point is UT-09: one failed item makes the whole check fail, while a check the exam does not require, such as the camera, counts as passed.
+\paragraph{Test Case Description}
+{\sloppy \textbf{Precondition:} for steps 6--8 the seeded admin creates a new, active student through \texttt{POST /api/users}, so the student has no device binding. \textbf{Description:} a new password is stored as a PBKDF2 hash, older hashes still verify but are flagged, the desktop refreshes its token once for parallel 401 replies, the hardware ID (HWID) is built from clean serials, and the first PC that signs in is bound to the account while a second PC is refused. \textbf{Pass:} every step gives its expected result. \textbf{Fail:} any other value, status code or error code, or no audit row in step~8.\par}
+
+\paragraph{Test Case Data}
+Table~\ref{tab:utc_m1} lists the eight steps. Steps 1--5 feed fixed values into the classes, and steps 6--8 sign the new student in from fingerprint \texttt{HWID-X} and then \texttt{HWID-Y}. The key point is step~7: the binding made in step~6 is not changed by the refused login, so a second PC cannot take over the account.
 
 {\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{1.1cm}P{2.5cm}P{3.5cm}P{2.6cm}P{2.9cm}>{\centering\arraybackslash}p{1.8cm}@{}}
-\caption{Unit Test Cases for Pre-Exam Readiness Checks}\label{tab:ut_readiness}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endfirsthead
-\multicolumn{6}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endhead
-\hline \multicolumn{6}{r}{\footnotesize Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-UT-06 & Check network latency & 1. Evaluate 300 ms and 3000 ms probes. \newline 2. Evaluate failed probes. & 300 ms, 3000 ms, no reply \newline {\footnotesize\textit{Ref: M2-U-01}} & 300 ms passes; 3000 ms fails; no reply fails as ``unreachable''. & Pass\\
-UT-07 & Check the PC clock & 1. Compare clocks 10 s ahead and 120 s behind the server. & Server 2026-10-20 10:00 UTC \newline {\footnotesize\textit{Ref: M2-U-02}} & +10 s passes; $-$120 s fails. & Pass\\
-UT-08 & Fail secure mode on a second monitor, RDP or VM & 1. Evaluate two monitors, blocked and allowed. \newline 2. Evaluate RDP and a VM. & 2 monitors; ``innotek GmbH / VirtualBox'' \newline {\footnotesize\textit{Ref: M2-U-04, M2-U-05, M4-U-14}} & Fails only when blocked; RDP and VM fail; VirtualBox detected. & Pass\\
-UT-09 & Combine results into one decision & 1. Skip a camera the exam does not require. \newline 2. Add a failed item. & Camera: not required; Disk: low \newline {\footnotesize\textit{Ref: M2-U-03, M2-U-06}} & Skipped counts as passed; a failure makes \texttt{Passed\allowbreak{}All} false. & Pass\\
+\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
+\caption{Test Case Data for Log In and Bind Device (UC-01)}\label{tab:utc_m1}\\ \hline\hline
+\TCHead
+1 & Hash \texttt{Correct\#\allowbreak{}Horse1}; verify it and a wrong password. \TCRef{SEC-U-01} & Hash starts \texttt{pbkdf2\$\allowbreak{}600000\$}; only the correct password verifies. & Hash \texttt{pbkdf2\$\allowbreak{}600000\$\allowbreak{}\ldots}; wrong password rejected. & Pass\\
+2 & Verify a legacy salted SHA-256 hash and a PBKDF2 hash with 210,000 iterations (Admin@123, Admin@124). \TCRef{SEC-U-02} & Only Admin@123 verifies; \texttt{Needs\allowbreak{}Rehash} true for both. & As expected. & Pass\\
+3 & Two requests get 401 with access token a1 (expires in 20 min); both call the refresh gate. \TCRef{M1-U-01} & One refresh call; both callers get a2; r2 is stored. & One \texttt{POST /refresh}; both got a2. & Pass\\
+4 & Classify refresh failures \texttt{NETWORK\_\allowbreak{}ERROR}, \texttt{HTTP\_\allowbreak{}503}, \texttt{HTTP\_\allowbreak{}401}; log out during a refresh. \TCRef{M1-U-02} & Transient codes keep the session, 401 ends it; the logout is kept. & As expected. & Pass\\
+5 & Build the HWID from ``Default string'', ``0'', bios-sn-1234, `` DISK-SN-5678 '', BOARD-SN-9012. \TCRef{M1-U-03} & Placeholders dropped; \texttt{v2|\allowbreak{}BIOS-\allowbreak{}SN-\allowbreak{}1234|\allowbreak{}DISK-\allowbreak{}SN-\allowbreak{}5678|\allowbreak{}BOARD-\allowbreak{}SN-\allowbreak{}9012}. & Same string returned. & Pass\\
+6 & New student calls \texttt{POST /api/auth/\allowbreak{}student-login} with password \texttt{Student@123} and \texttt{HWID-X}. \TCRef{M1-A-03, M1-A-04} & 200, \texttt{deviceBound} true; a \texttt{Device\allowbreak{}Bindings} row with the SHA-256 of \texttt{HWID-X}. & 200, \texttt{deviceBound} true; PC name stored on the binding. & Pass\\
+7 & Same student repeats the login with \texttt{HWID-Y}. \TCRef{M1-A-04} & 401, \texttt{success} false, \texttt{DEVICE\_\allowbreak{}MISMATCH}; binding unchanged. & 401 \texttt{DEVICE\_\allowbreak{}MISMATCH}. & Pass\\
+8 & Admin reads \texttt{/api/audit-logs} filtered on \texttt{DEVICE\_\allowbreak{}MISMATCH}. \TCRef{M1-A-04} & A row for the student (outcome \texttt{access\_\allowbreak{}blocked}). & Row present; entity id is the student's id. & Pass\\
 \end{longtable}}
 
-Table~\ref{tab:ut_startgate} covers the \texttt{StartGate} rule that enables the Start Exam button. These are logic tests; they do not drive the user interface, so the window step of M3-D-01 stays on the lab checklist. UT-10 and UT-11 show that the button follows the server clock and the early-join setting, so moving the PC clock forward does not open the exam early. UT-12 shows that a new start is refused once the start window has closed, while a running session can still be resumed for a limited time.
+\paragraph{Test Case Report}
+All eight steps passed in the final run; the login tests passed at the first attempt. Before the test the student had only a \texttt{USER\_\allowbreak{}CREATED} audit row; step~6 added \texttt{DEVICE\_\allowbreak{}BOUND} and \texttt{LOGIN\_\allowbreak{}SUCCESS}, and step~7 added \texttt{DEVICE\_\allowbreak{}MISMATCH}. Result: Pass. Traceability: FR1 and NFR1 (Table~\ref{tab:test_criteria}).
+
+% ---------------------------------------------------------------- M2
+\subsubsection{Unit Test Case for Run Readiness Check (UC-02)}\label{subsubsec:utc_m2}
+This case checks module M2, Pre-Exam Verification and Practice Exam (FR2, Table~\ref{tab:uct_pre_exam_check}).
+
+\paragraph{Test Method}
+{\sloppy White-box unit tests of \texttt{ReadinessPolicy} in \texttt{Student\_\allowbreak{}Desktop\_\allowbreak{}App.\allowbreak{}Tests}. The policy takes plain measurements (latency, clock offset, monitor count, free disk space, camera result), so the tests feed it fixed values instead of probing the PC.\par}
+
+\paragraph{Test Case Description}
+{\sloppy \textbf{Precondition:} none; each test builds its own measurements. \textbf{Description:} each readiness item passes or fails at its limit, and one failed required item makes the whole check fail. \textbf{Pass:} each item gives the expected pass or fail and the combined decision follows. \textbf{Fail:} an item passes beyond its limit or the combined result ignores a failure.\par}
+
+\paragraph{Test Case Data}
+Table~\ref{tab:utc_m2} follows the checks in turn: network, clock, disk, secure mode, camera and the combined decision. The key row is step~6, where a check the exam does not require counts as passed, while any failed item makes \texttt{Passed\allowbreak{}All} false.
 
 {\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{1.1cm}P{2.5cm}P{3.5cm}P{2.6cm}P{2.9cm}>{\centering\arraybackslash}p{1.8cm}@{}}
-\caption{Unit Test Cases for the Exam Start Gate}\label{tab:ut_startgate}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endfirsthead
-\multicolumn{6}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endhead
-\hline \multicolumn{6}{r}{\footnotesize Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-UT-10 & Keep Start disabled until the exam opens & 1. Evaluate 10 min before and at the opening time. \newline 2. Evaluate a wrong seat. & Opens 09:10, now 09:00; seat Mismatch \newline {\footnotesize\textit{Ref: M3-D-01 (logic)}} & Disabled, then enabled at 09:10; blocked on the wrong seat. & Pass\\
-UT-11 & Honour early join and the server clock & 1. Evaluate at T$-$3 min with early join. \newline 2. Set the PC clock 30 min ahead. & \texttt{Early\allowbreak{}Join\allowbreak{}Minutes} = 5 \newline {\footnotesize\textit{Ref: M3-D-01 (logic)}} & Open only with early join; with the server offset the exam stays closed. & Pass\\
-UT-12 & Close the start window, allow resume & 1. Evaluate 61 min into a 60-min exam. \newline 2. Resume a running session at +0 and +31 min. & Session started 30 min ago \newline {\footnotesize\textit{Ref: M3-D-01 (logic), M6-U-09}} & Start refused; Resume offered, then refused at +31 min. & Pass\\
+\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
+\caption{Test Case Data for Run Readiness Check (UC-02)}\label{tab:utc_m2}\\ \hline\hline
+\TCHead
+1 & Network probes of 300 ms and 3000 ms, and a probe with no reply. \TCRef{M2-U-01} & 300 ms passes; 3000 ms fails; no reply fails as ``unreachable''. & As expected. & Pass\\
+2 & Clock 10 s ahead and 120 s behind the server (server 2026-10-20 10:00 UTC). \TCRef{M2-U-02} & +10 s passes; $-$120 s fails. & As expected. & Pass\\
+3 & Free disk space 199 MB, then 200 MB. \TCRef{M2-U-07} & Fail, then pass. & As expected. & Pass\\
+4 & Two monitors with \texttt{Block\allowbreak{}Multi\allowbreak{}Monitor}; an RDP session; WMI vendor ``innotek GmbH / VirtualBox''. \TCRef{M2-U-04, M2-U-05, M4-U-14} & Secure mode fails each time; VirtualBox detected. & Fails with its detail; vendor named. & Pass\\
+5 & Camera result with no device, a dark frame, three faces, one face. \TCRef{M2-U-09, M2-U-10} & Fail; fail ``dark or blocked''; fail ``3 faces visible''; pass ``face detected''. & As expected. & Pass\\
+6 & Camera not required by the exam; then add a failed Disk item. \TCRef{M2-U-03, M2-U-06} & Skipped camera counts as passed; a failed item makes \texttt{Passed\allowbreak{}All} false. & As expected. & Pass\\
 \end{longtable}}
 
-Table~\ref{tab:ut_lockdown} covers the keyboard filter, the process policy and the Task Manager block of the desktop client, using a fake registry and marker store. UT-13 to UT-17 show what is blocked: system shortcuts and unknown or escape programs are stopped, while normal typing, system processes and the allowed editor are not. UT-18 and UT-19 show that a restore marker is written before Task Manager is disabled, so the block can be removed even after the client has crashed.
+\paragraph{Test Case Report}
+All six steps passed in the final run. The checks on real hardware (webcam unplugged, a second monitor, a pulled network cable) need a lab PC and are listed in Table~\ref{tab:st_pending}. Result: Pass.
+
+% ---------------------------------------------------------------- M3
+\subsubsection{Unit Test Case for View Assigned Exam, Check In and Start (UC-04)}\label{subsubsec:utc_m3}
+This case checks module M3, Student Exam Dashboard (FR3, Table~\ref{tab:uct_start_exam}).
+
+\paragraph{Test Method}
+{\sloppy White-box unit tests of the \texttt{StartGate} rule (\texttt{StartGateTests}) that enables the Start Exam button of the desktop client. The tests give the rule the exam times, the server clock offset and the seat status; they do not drive the window, so the on-screen part of M3-D-01 stays on the lab checklist.\par}
+
+\paragraph{Test Case Description}
+{\sloppy \textbf{Precondition:} an exam that opens at 09:10, 60 minutes long. \textbf{Description:} Start stays disabled until the exam opens on the server clock, early join opens it a few minutes sooner, a wrong seat blocks it, and after the start window a running session can only be resumed. \textbf{Pass:} the button state matches each rule. \textbf{Fail:} Start is enabled early, on the wrong seat, or after the window.\par}
+
+\paragraph{Test Case Data}
+Table~\ref{tab:utc_m3} gives the times used. Steps 1 and 2 show that the button follows the server clock, so moving the PC clock forward does not open the exam early. Step~4 shows the resume rule used after a crash.
 
 {\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{1.1cm}P{2.5cm}P{3.5cm}P{2.6cm}P{2.9cm}>{\centering\arraybackslash}p{1.8cm}@{}}
-\caption{Unit Test Cases for Keyboard, Process and Task Manager Lockdown}\label{tab:ut_lockdown}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endfirsthead
-\multicolumn{6}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endhead
-\hline \multicolumn{6}{r}{\footnotesize Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-UT-13 & Block system shortcuts, allow typing & 1. Pass shortcuts and typing keys to \texttt{Should\allowbreak{}Block\allowbreak{}Key}. & Alt+Tab, Alt+F4, LWin; A, Ctrl+C \newline {\footnotesize\textit{Ref: M4-U-01 to M4-U-06}} & Shortcuts blocked; typing keys not blocked. & Pass\\
-UT-14 & Allow configured and system processes & 1. Configure the allowed editor in other spellings and evaluate the running process \texttt{code}. \newline 2. Evaluate system processes. & Allowed: Code.EXE, ``  CODE.exe '', C:\textbackslash{}\ldots{}\textbackslash{}code.exe; explorer, dwm \newline {\footnotesize\textit{Ref: M4-U-07, M4-U-08, M4-U-11}} & All return Allowed. & Pass\\
-UT-15 & Close unknown programs in Enforce mode & 1. Evaluate windowed chrome and notepad. \newline 2. Evaluate anydesk without a window. & Mode: Enforce; allowed list empty \newline {\footnotesize\textit{Ref: M4-U-09}} & All three return Kill. & Pass\\
-UT-16 & Report mode and the allowed list & 1. Evaluate chrome in Report mode, then allowed in Enforce mode. & Allowed: chrome.exe \newline {\footnotesize\textit{Ref: M4-U-10}} & Report, then Allowed. & Pass\\
-UT-17 & Catch windowless escape tools & 1. Evaluate escape tools without a window. \newline 2. Evaluate shells with and without a window. & taskmgr, regedit; cmd, powershell \newline {\footnotesize\textit{Ref: M4-U-15}} & Escape tools Kill; windowless shells Allowed, windowed shells Kill. & Pass\\
-UT-18 & Apply and restore the Task Manager block & 1. Apply and restore with no value set. \newline 2. Apply when the marker cannot be written. & \texttt{Disable\allowbreak{}TaskMgr} absent \newline {\footnotesize\textit{Ref: M4-U-16}} & Marker saved first; restore deletes the value; marker failure leaves the registry as it was. & Pass\\
-UT-19 & Repair the block after a crash & 1. Process 42 applies the block and is killed. \newline 2. Process 77 runs \texttt{Recover\allowbreak{}If\allowbreak{}Needed}. & \texttt{lockdown-\allowbreak{}restore.\allowbreak{}json} \newline {\footnotesize\textit{Ref: M4-U-17, M4-D-07 (logic)}} & Value removed and marker deleted. & Pass\\
+\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
+\caption{Test Case Data for View Assigned Exam, Check In and Start (UC-04)}\label{tab:utc_m3}\\ \hline\hline
+\TCHead
+1 & Evaluate at 09:00 and at 09:10 (opens 09:10); then with seat status Mismatch. \TCRef{M3-D-01 (logic)} & Disabled, then enabled at 09:10; blocked on the wrong seat. & As expected. & Pass\\
+2 & Evaluate at T$-$3 min with \texttt{Early\allowbreak{}Join\allowbreak{}Minutes} = 5; set the PC clock 30 min ahead. \TCRef{M3-D-01 (logic)} & Open only with early join; with the server offset the exam stays closed. & As expected. & Pass\\
+3 & Evaluate 61 min into the 60-min exam with no session. \TCRef{M3-D-01 (logic)} & New start refused. & Start refused. & Pass\\
+4 & Session started 30 min ago is InProgress on the server; evaluate at +0 and +31 min. \TCRef{M6-U-09} & ``Resume Exam'' offered without a new check-in, then refused at +31 min. & As expected. & Pass\\
+5 & Open the dashboard window before the start time on a lab PC. \TCRef{M3-D-01, M3-D-02} & Start disabled with ``STARTS IN''; timer follows an extension. & Not executed. & Pending (lab)\\
 \end{longtable}}
 
-Table~\ref{tab:ut_vision} covers event severity on the server and webcam findings in the client, using generated frames and a fake clock. UT-20 shows how events add up: two warnings stay at Warning, three make the student Suspicious, and two suspicious events or any severe event give Violation. UT-21 and UT-22 show that a covered camera is reported after 3~s and a frozen one after 15~s, and that head pose is estimated within 2$^\circ$ on synthetic faces.
+\paragraph{Test Case Report}
+Steps 1--4 passed in the final run. Step~5 needs the WPF window on a lab PC and was not run. Result: Pass for the decision logic; the on-screen step is pending.
+
+% ---------------------------------------------------------------- M4
+\subsubsection{Unit Test Case for Sit the Locked Exam (UC-06)}\label{subsubsec:utc_m4}
+This case checks module M4, Secure Exam Environment (FR4, Table~\ref{tab:uct_lockdown_telemetry}).
+
+\paragraph{Test Method}
+{\sloppy White-box unit tests of \texttt{LockdownPolicy}, \texttt{TaskManagerPolicy} and \texttt{LockdownTeardown} in \texttt{Student\_\allowbreak{}Desktop\_\allowbreak{}App.\allowbreak{}Tests}, with a fake registry and marker store, and of \texttt{ViolationClassifier} in \texttt{Backend\_\allowbreak{}API.\allowbreak{}Tests}. No keyboard hook is installed and no process is killed.\par}
+
+\paragraph{Test Case Description}
+{\sloppy \textbf{Precondition:} none. \textbf{Description:} system shortcuts and unknown or escape programs are blocked while normal typing, system processes and the allowed editor are not; the Task Manager block is applied with a restore marker and repaired after a crash; events are graded by severity. \textbf{Pass:} each decision matches. \textbf{Fail:} a shortcut or escape tool passes, an allowed program is killed, or the registry is left changed.\par}
+
+\paragraph{Test Case Data}
+Table~\ref{tab:utc_m4} first lists what is blocked (steps 1--5), then the Task Manager block (steps 6--8) and the severity rule (step~9). Steps 7 and 8 matter most for the student: the block is always removed, even when the client crashed or a teardown step failed.
 
 {\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{1.1cm}P{2.5cm}P{3.5cm}P{2.6cm}P{2.9cm}>{\centering\arraybackslash}p{1.8cm}@{}}
-\caption{Unit Test Cases for Violation Classification and Webcam Analysis}\label{tab:ut_vision}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endfirsthead
-\multicolumn{6}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endhead
-\hline \multicolumn{6}{r}{\footnotesize Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-UT-20 & Classify events by severity & 1. Classify one to three warning events. \newline 2. Classify suspicious and severe events. & KeyBlocked; UnauthorizedProcess; ProcessKilled \newline {\footnotesize\textit{Ref: M4-U-13}} & Two warnings stay Warning, three are Suspicious; two suspicious and any severe event give Violation. & Pass\\
-UT-21 & Detect a covered or frozen camera & 1. Feed black frames for 3.1 s. \newline 2. Feed identical frames for 15.1 s. & Synthetic frames \newline {\footnotesize\textit{Ref: M5-U-10, M5-U-11}} & CameraCovered once after 3 s; CameraFrozen after 15 s. & Pass\\
-UT-22 & Estimate head pose from landmarks & 1. Estimate yaw and pitch of synthetic faces. \newline 2. Give a tiny face and swapped landmarks. & Yaw $-$45 to 40$^\circ$, pitch $-$25 to 30$^\circ$, roll $\pm$20$^\circ$; one face rolled 180$^\circ$ \newline {\footnotesize\textit{Ref: M5-U-19}} & Within 2$^\circ$; the 180$^\circ$ face gives a pose; the other two give none. & Pass\\
+\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
+\caption{Test Case Data for Sit the Locked Exam (UC-06)}\label{tab:utc_m4}\\ \hline\hline
+\TCHead
+1 & Pass Alt+Tab, Alt+F4, LWin, Ctrl+Shift+Esc, PrintScreen and the typing keys A, Ctrl+C to \texttt{Should\allowbreak{}Block\allowbreak{}Key}. \TCRef{M4-U-01 to M4-U-06} & Shortcuts blocked; typing keys not blocked. & As expected. & Pass\\
+2 & Allowed editor configured as Code.EXE, ``  CODE.exe '', C:\textbackslash{}\ldots{}\textbackslash{}code.exe; running \texttt{code}, explorer, dwm. \TCRef{M4-U-07, M4-U-08, M4-U-11} & All return Allowed. & All Allowed. & Pass\\
+3 & Enforce mode, empty allowed list: windowed chrome and notepad, windowless anydesk. \TCRef{M4-U-09} & All three return Kill. & Kill for each. & Pass\\
+4 & chrome in Report mode, then listed as allowed in Enforce mode. \TCRef{M4-U-10} & Report, then Allowed. & As expected. & Pass\\
+5 & Windowless taskmgr and regedit; cmd and powershell with and without a window. \TCRef{M4-U-15} & Escape tools Kill; windowless shells Allowed, windowed shells Kill. & As expected. & Pass\\
+6 & Apply and restore with \texttt{Disable\allowbreak{}TaskMgr} absent; apply when the marker cannot be written. \TCRef{M4-U-16} & Marker saved first; restore deletes the value; no registry change without a marker. & As expected. & Pass\\
+7 & Process 42 applies the block and is killed; process 77 runs \texttt{Recover\allowbreak{}If\allowbreak{}Needed} with \texttt{lockdown-\allowbreak{}restore.\allowbreak{}json}. \TCRef{M4-U-17, M4-D-07 (logic)} & Value removed and marker deleted. & As expected. & Pass\\
+8 & A teardown step throws (cross-thread \texttt{Hwnd\allowbreak{}Source}). \TCRef{M4-U-18} & Later steps still run; Task Manager restored first. & As expected. & Pass\\
+9 & Classify three warning events (KeyBlocked, FocusLost, ClipboardBlocked); UnauthorizedProcess alone and with MultiMonitor; ProcessKilled. \TCRef{M4-U-13} & Three warnings give Suspicious; UnauthorizedProcess is Suspicious, with MultiMonitor Violation; ProcessKilled is Violation. & As expected. & Pass\\
+10 & On a lab PC: press Alt+F4, minimise, launch Notepad, paste, kill and relaunch the app. \TCRef{M4-D-01 to M4-D-08} & Window stays full screen; Notepad closed; paste empty; policy restored. & Not executed. & Pending (lab)\\
 \end{longtable}}
 
-Table~\ref{tab:ut_submission} covers autosave, the encrypted local backup and the SHA-256 submission receipt of the desktop client. UT-23 shows that an answer is saved 10~s after an edit and is not saved when nothing changed. UT-24 and UT-25 show that the backup cannot be read as plain text and that a change to any byte makes it rejected, and UT-26 shows that the client and the server compute the same receipt hash for the same answers.
+\paragraph{Test Case Report}
+Steps 1--9 passed in the final run. Step~10 needs the real exam window and keyboard hook and was not run; it is listed in Table~\ref{tab:st_pending}. Result: Pass for the decision logic.
+
+% ---------------------------------------------------------------- M5
+\subsubsection{Unit Test Case for Report to the API (UC-07)}\label{subsubsec:utc_m5}
+This case checks module M5, Live Monitoring Client Service (FR5, Table~\ref{tab:uct_lockdown_telemetry}).
+
+\paragraph{Test Method}
+{\sloppy White-box unit tests of the monitoring classes of the desktop client (offline outbox, batch flush, capture schedule, \texttt{Camera\allowbreak{}Tamper\allowbreak{}Detector}, head-pose and face debounce) with a fake clock and frames generated in code, and of the server's evidence storage (\texttt{EvidenceStorageTests}).\par}
+
+\paragraph{Test Case Description}
+{\sloppy \textbf{Precondition:} none. \textbf{Description:} queued events keep their order across a restart, batches and captures follow their timing rules, webcam findings are raised once per episode after their delay, and the server accepts only image evidence. \textbf{Pass:} each rule holds. \textbf{Fail:} an event is lost or reordered, a timer is wrong, or an issue is raised early or twice.\par}
+
+\paragraph{Test Case Data}
+Table~\ref{tab:utc_m5} covers the queue (steps 1--2), timing (steps 3--4), webcam analysis (steps 5--7) and evidence storage (step~8). Read together, they show that monitoring data is neither lost nor raised too eagerly, because each webcam issue must last a few seconds first.
 
 {\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{1.1cm}P{2.5cm}P{3.5cm}P{2.6cm}P{2.9cm}>{\centering\arraybackslash}p{1.8cm}@{}}
-\caption{Unit Test Cases for Autosave, Local Backup and Submission Receipt}\label{tab:ut_submission}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endfirsthead
-\multicolumn{6}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endhead
-\hline \multicolumn{6}{r}{\footnotesize Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-UT-23 & Autosave an edited answer after 10 s & 1. Run 30 s with no edits. \newline 2. Edit Q1, advance 9 s, then 1 s. & Fake clock; question Q1 \newline {\footnotesize\textit{Ref: M6-U-01, M6-U-02}} & No save without edits; one save of Q1 at 10 s. & Pass\\
-UT-24 & Encrypt the local backup & 1. Encode and decode a backup. \newline 2. Encode it twice; search for the answer text. & AES-256-GCM; ``int main()\ldots'' \newline {\footnotesize\textit{Ref: M6-U-03}} & Round trip equal; encodings differ; text not visible. & Pass\\
-UT-25 & Detect a tampered backup & 1. Flip one byte at each position. \newline 2. Decode with a wrong key. & Bytes 0, 4, 10, 16, 20, 31, 32, last \newline {\footnotesize\textit{Ref: M6-U-04}} & Each case rejected as Tampered; nothing restored. & Pass\\
-UT-26 & Match the server's receipt hash & 1. Hash the answers in desktop and backend code. \newline 2. Reorder; change one letter. & Three answers, one empty \newline {\footnotesize\textit{Ref: M6-U-05}} & Both give \texttt{6c6bc5de\ldots}; order is ignored; a changed letter changes it. & Pass\\
+\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
+\caption{Test Case Data for Report to the API (UC-07)}\label{tab:utc_m5}\\ \hline\hline
+\TCHead
+1 & Enqueue 5 events and replay them. \TCRef{M5-U-01} & Same order, same timestamps. & As expected. & Pass\\
+2 & Enqueue, dispose the queue, reopen it; inspect the file. \TCRef{M5-U-02, M5-U-03} & Items still present; file is not plain-text JSON. & As expected. & Pass\\
+3 & Fake clock: queue events and one violation. \TCRef{M5-U-06} & Flush at 5 s boundaries; the violation at once. & As expected. & Pass\\
+4 & Capture schedule with a 60 s mean and a random source. \TCRef{M5-U-09} & Waits between 30 and 90 s; at most one violation capture per 15 s. & As expected. & Pass\\
+5 & Black frames for 3.1 s; identical frames for 15.1 s. \TCRef{M5-U-10, M5-U-11} & CameraCovered once after 3 s; CameraFrozen after 15 s. & As expected. & Pass\\
+6 & Synthetic faces at yaw $-$45 to 40$^\circ$, pitch $-$25 to 30$^\circ$, roll $\pm$20$^\circ$; a tiny face; swapped landmarks. \TCRef{M5-U-19} & Yaw and pitch within 2$^\circ$; no pose for the last two. & As expected. & Pass\\
+7 & Detection sequences on a fake clock (no face, two faces, turned head, phone). \TCRef{M5-U-20} & NoFace after 5 s, MultipleFaces and LookingAway after 3 s, each once; a 2 s glance never raises. & As expected. & Pass\\
+8 & Save a JPEG, a PNG, an MZ executable and an SVG; read \texttt{../} paths. \TCRef{M5-U-14} & JPEG and PNG stored with SHA-256; MZ, SVG and traversal refused. & As expected. & Pass\\
+9 & On a lab PC: run 2 min at a 30 s interval; disable the network adapter 60 s; real webcam episodes. \TCRef{M5-D-01 to M5-D-03, M5-M-01} & About four screenshots; no event lost; each webcam issue once. & Not executed. & Pending (lab)\\
 \end{longtable}}
 
-Table~\ref{tab:ut_eligibility} covers attendance eligibility, the attendance CSV parser and the seat guard. M9-U-01 to M9-U-03 run through the attendance import endpoint of the in-memory test host. The key rule is the 75\% limit: UT-27 shows that exactly 75\% is eligible and 74.9\% is not, and UT-28 shows that zero classes do not cause a division by zero. UT-30 shows that the seat guard matches a PC to its seat by machine name or IP address, ignoring letter case and spaces in the name.
+\paragraph{Test Case Report}
+Steps 1--8 passed in the final run. Step~9 needs a lab PC with a webcam and network adapter and was not run. Result: Pass for the client and server logic.
+
+% ---------------------------------------------------------------- M6
+\subsubsection{Unit Test Case for Autosave and Submit Answers (UC-08)}\label{subsubsec:utc_m6}
+This case checks module M6, Submission and Backup (FR6, Table~\ref{tab:uct_submit}).
+
+\paragraph{Test Method}
+{\sloppy White-box unit tests of \texttt{AutosaveScheduler}, the encrypted backup codec, \texttt{OfflineSaveQueue}, \texttt{AnswerMerge} and \texttt{ReceiptHasher} in \texttt{Student\_\allowbreak{}Desktop\_\allowbreak{}App.\allowbreak{}Tests}, with a fake clock. The receipt test uses the same fixed vectors in the backend test project.\par}
+
+\paragraph{Test Case Description}
+{\sloppy \textbf{Precondition:} none. \textbf{Description:} an edited answer is saved after 10~s, the local backup is encrypted and rejected when changed, offline saves are replayed in order, a resume keeps the newest copy, and the client and server compute the same receipt. \textbf{Pass:} each rule holds. \textbf{Fail:} an answer is lost, a changed backup is restored, or the hashes differ.\par}
+
+\paragraph{Test Case Data}
+Table~\ref{tab:utc_m6} follows an answer from editing to submission. Steps 2 and 3 show that the backup cannot be read as plain text and that a change to any byte is detected. Step~6 shows that the receipt the student sees equals the one the server stores.
 
 {\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{1.1cm}P{2.5cm}P{3.5cm}P{2.6cm}P{2.9cm}>{\centering\arraybackslash}p{1.8cm}@{}}
-\caption{Unit Test Cases for Attendance Eligibility and Seat Guard}\label{tab:ut_eligibility}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endfirsthead
-\multicolumn{6}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endhead
-\hline \multicolumn{6}{r}{\footnotesize Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-UT-27 & Decide eligibility from attendance & 1. Import 30 of 40 classes. \newline 2. Decide 749 and 750 of 1000 at 75\%. & Students student@\allowbreak{}test.com (30/40, 749/1000), student2@\allowbreak{}test.com (750/1000) \newline {\footnotesize\textit{Ref: M9-U-01, M9-U-02, M9-U-05}} & 75\% eligible; 74.9\% not (``Attendance 74.9\% $<$ 75\%''); 750 eligible. & Pass\\
-UT-28 & Handle zero classes and no record & 1. Import 0 of 0 and recalculate. \newline 2. Decide with no record. & Total 0, attended 0 \newline {\footnotesize\textit{Ref: M9-U-03, M9-U-05}} & No division by zero; note ``no attendance''; not computed. & Pass\\
-UT-29 & Parse the attendance CSV & 1. Parse reordered columns. \newline 2. Parse invalid and duplicate rows. & ``Attended,\allowbreak{}EMAIL,\allowbreak{}Total''; ``a@x.com,\allowbreak{}ten,\allowbreak{}5''; A@X.com \newline {\footnotesize\textit{Ref: M9-U-04}} & Same row; ``whole numbers''; ``duplicate''. & Pass\\
-UT-30 & Match the PC to the seat & 1. Match by machine name, then by IP. \newline 2. Match an IPv4-mapped address. & Seat PC-01, 192.168.1.1; ``pc-01 '', PC-02 \newline {\footnotesize\textit{Ref: M9-U-06}} & ``pc-01 '' matches, PC-02 fails; the right and the mapped IP match. & Pass\\
+\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
+\caption{Test Case Data for Autosave and Submit Answers (UC-08)}\label{tab:utc_m6}\\ \hline\hline
+\TCHead
+1 & Run 30 s with no edits; edit Q1 and advance 9 s, then 1 s. \TCRef{M6-U-01, M6-U-02} & No save without edits; one save of Q1 at 10 s. & As expected. & Pass\\
+2 & Encode and decode a backup with ``int main()\ldots''; encode it twice. \TCRef{M6-U-03} & Round trip equal; encodings differ; text not visible. & As expected. & Pass\\
+3 & Flip one byte at positions 0, 4, 10, 16, 20, 31, 32 and the last; decode with a wrong key. \TCRef{M6-U-04} & Each rejected as Tampered; nothing restored. & As expected. & Pass\\
+4 & Three saves while offline, then online. \TCRef{M6-U-06} & Replayed in order; newest revision per answer. & As expected. & Pass\\
+5 & Server answers and a local backup with higher and equal revisions. \TCRef{M6-U-07} & Higher revision wins; server wins ties. & As expected. & Pass\\
+6 & Hash three answers (one empty) in desktop and backend code; reorder; change one letter. \TCRef{M6-U-05} & Both give \texttt{6c6bc5de\ldots}; order ignored; one letter changes it. & As expected. & Pass\\
+7 & On a lab PC: kill the app mid-exam and relaunch; answer offline; let the timer reach zero. \TCRef{M6-D-01 to M6-D-04} & ``Resume Exam'' restores answers; automatic submit; receipt dialog. & Not executed. & Pending (lab)\\
 \end{longtable}}
 
-Table~\ref{tab:ut_grading} covers output comparison and the scoring of coding answers into suggested marks and a confidence level. Read together, UT-31 to UT-33 show that marks follow the weights of the passed test cases, that a compile error gives zero marks with High confidence, and that a timed-out case fails on its own without stopping the others. UT-34 shows the comparison rules: line endings are ignored, inner spaces matter, and numbers match within 0.001.
+\paragraph{Test Case Report}
+Steps 1--6 passed in the final run. Step~7 needs the WPF client on a lab PC and was not run. Result: Pass for the decision logic.
+
+% ---------------------------------------------------------------- M7
+\subsubsection{Unit Test Case for Manage Users and Roles (UC-23)}\label{subsubsec:utc_m7}
+This case checks module M7, User and Role Management (FR7, Table~\ref{tab:uct_users}).
+
+\paragraph{Test Method}
+{\sloppy White-box unit tests in \texttt{Backend\_\allowbreak{}API.\allowbreak{}Tests}: \texttt{SuperAdminBootstrap.\allowbreak{}EnsureAsync} on an in-memory database, the demo seeder, and the \texttt{ExamGroupTracker} that records which users are joined to which live exam group.\par}
+
+\paragraph{Test Case Description}
+{\sloppy \textbf{Precondition:} an empty or seeded in-memory database. \textbf{Description:} a SuperAdmin is created or promoted only from valid configuration, the seed has exactly one SuperAdmin, and removing a user from an exam drops only that user's live connections in that exam. \textbf{Pass:} each outcome matches. \textbf{Fail:} a SuperAdmin is created from bad settings or the wrong connections are dropped.\par}
+
+\paragraph{Test Case Data}
+Table~\ref{tab:utc_m7} lists the five bootstrap outcomes in step~1 and the tracker rule in step~3. Step~3 is the basis for withdrawing an invigilator's access while the Live Monitor is open.
 
 {\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{1.1cm}P{2.5cm}P{3.5cm}P{2.6cm}P{2.9cm}>{\centering\arraybackslash}p{1.8cm}@{}}
-\caption{Unit Test Cases for Output Comparison and Test-Case Scoring}\label{tab:ut_grading}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endfirsthead
-\multicolumn{6}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endhead
-\hline \multicolumn{6}{r}{\footnotesize Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-UT-31 & Weight test cases in the score & 1. Pass cases of weight 1 and 1, fail weight 2. \newline 2. Score out of 20. & Weights 1, 1, 2 \newline {\footnotesize\textit{Ref: M11-U-03}} & Pass rate 0.5, 10 marks, Medium. & Pass\\
-UT-32 & Give zero for a compile error & 1. Score a run report with a compiler error. & ``'n' was not declared in this scope'' \newline {\footnotesize\textit{Ref: M11-U-04}} & 0 marks, High; ``Compilation failed''; cases Not run. & Pass\\
-UT-33 & Fail only the timed-out case & 1. Case 1 runs past the 2000 ms limit; case 2 is correct. & Outputs ``1'', ``2''; 10 marks \newline {\footnotesize\textit{Ref: M11-U-05}} & Case 1 TimedOut, case 2 passed; 5 marks. & Pass\\
-UT-34 & Compare outputs with tolerance & 1. Compare line ends and inner spacing. \newline 2. Compare numbers at 0.001. & ``5\textbackslash n''; ``1~~2''; 3.1416, 3.15 vs 3.14159 \newline {\footnotesize\textit{Ref: M11-U-06, M11-U-11}} & Line ends ignored, inner spacing fails; 3.1416 passes, 3.15 fails. & Pass\\
+\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
+\caption{Test Case Data for Manage Users and Roles (UC-23)}\label{tab:utc_m7}\\ \hline\hline
+\TCHead
+1 & Run the bootstrap with no configuration, a short password, a new email, an existing admin and an existing SuperAdmin. \TCRef{M7-U-01} & NotConfigured; InvalidPassword; Created (audited); Promoted (password kept); AlreadyPresent. & As expected. & Pass\\
+2 & Run \texttt{DbSeeder.\allowbreak{}SeedAsync}. \TCRef{M7-U-02} & One SuperAdmin; the invigilator proctors the open demo exam. & As expected. & Pass\\
+3 & Tracker: users join, leave and disconnect; revoke one exam, then all. \TCRef{M7-U-03} & Only that user's connections in that group removed and notified. & As expected. & Pass\\
 \end{longtable}}
 
-Table~\ref{tab:ut_similarity} covers static analysis, TF-IDF grading of theory answers \cite{salton1988} and k-gram winnowing for plagiarism in coding and theory answers \cite{winnowing}. M11-U-08 to M11-U-10 run the plagiarism engine through the submission and plagiarism endpoints of the in-memory test host. UT-35 shows that static analysis estimates loop complexity and flags code that hard-codes the expected output, and UT-36 shows that an answer identical to the model answer gets full marks, a partial one a middle mark and an unrelated one zero. UT-37 is the key plagiarism result: renamed and commented copies of one program score at least 90\% and 95\%, while a program with a different algorithm stays below 30\%.
+\paragraph{Test Case Report}
+All three steps passed in the final run. The role rules of user management depend on the API and are tested in Integration Test Case~1 (Section~\ref{subsubsec:itc_1}). Result: Pass.
+
+% ---------------------------------------------------------------- M8
+\subsubsection{Unit Test Case for Create and Configure an Exam (UC-13)}\label{subsubsec:utc_m8}
+This case checks module M8, Exam Creation and Configuration (FR8, Table~\ref{tab:uct_exam_config}).
+
+\paragraph{Test Method}
+{\sloppy M8 has no separate validation class, so its rules are tested at the smallest level available: one \texttt{POST /api/exams} request per rule against the in-memory test host (\texttt{Module8\allowbreak{}Exam\allowbreak{}Creation\allowbreak{}Tests}, \texttt{Module8\allowbreak{}Capture\allowbreak{}Settings\allowbreak{}Tests}), signed in as the seeded teacher.\par}
+
+\paragraph{Test Case Description}
+{\sloppy \textbf{Precondition:} the seeded teacher and section. \textbf{Description:} a valid exam is saved with all its fields, and each invalid setting is refused with 400. \textbf{Pass:} the valid exam round-trips and every invalid one returns 400. \textbf{Fail:} an invalid exam is saved.\par}
+
+\paragraph{Test Case Data}
+Table~\ref{tab:utc_m8} starts with one valid exam and then breaks one rule per step. Step~1 also shows the defaults: a 60~s screenshot and webcam interval when none is given.
 
 {\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{1.1cm}P{2.5cm}P{3.5cm}P{2.6cm}P{2.9cm}>{\centering\arraybackslash}p{1.8cm}@{}}
-\caption{Unit Test Cases for Static Analysis, Theory Grading and Plagiarism}\label{tab:ut_similarity}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endfirsthead
-\multicolumn{6}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endhead
-\hline \multicolumn{6}{r}{\footnotesize Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-UT-35 & Estimate complexity, flag hard-coding & 1. Analyse nested loops and recursion. \newline 2. Analyse code with 12 if statements, a lookup table and the expected output as a literal, passing only the visible case. & C++ snippets; sum(arr, n) \newline {\footnotesize\textit{Ref: M11-U-14}} & O(1) to O(n$^3$+); recursion found; hard-coding High. & Pass\\
-UT-36 & Grade theory answers with TF-IDF & 1. Grade an answer identical to the model. \newline 2. Grade a partial and an unrelated answer. & Identical: ``A stack is LIFO and a queue is FIFO.'' (model and answer) \newline Model (other cases): ``Stack is LIFO, queue is FIFO.'' \newline {\footnotesize\textit{Ref: M11-U-07, M11-U-15}} & 10 marks, High; partial 3--7, Medium; unrelated 0. & Pass\\
-UT-37 & Detect copies, separate algorithms & 1. Compare a renamed and a commented copy. \newline 2. Compare a recursive version. & sum(arr, n) vs addAll(values, count) \newline {\footnotesize\textit{Ref: M11-U-08 to M11-U-10}} & $\geq$ 90\%, $\geq$ 95\% and $<$ 30\%. & Pass\\
+\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
+\caption{Test Case Data for Create and Configure an Exam (UC-13)}\label{tab:utc_m8}\\ \hline\hline
+\TCHead
+1 & Create an exam with instructions, an MCQ (Queue, Stack, Linked List, Graph; key 1), a coding question (``Reverse an array in place.'') and a theory question; read it back. \TCRef{\texttt{CreateExam\_\allowbreak{}WithInstructions\allowbreak{}Mcq\ldots}, \texttt{Defaults\_\allowbreak{}Are60Seconds}} & 201; three questions, key 1, options kept; intervals 60 s. & As expected. & Pass\\
+2 & MCQ with options A, B and key index 5; MCQ with 0 or 1 options. \TCRef{M8-A-02, \texttt{CreateExam\_\allowbreak{}Mcq\allowbreak{}With\allowbreak{}Too\allowbreak{}Few\allowbreak{}Options\ldots}} & 400 each. & 400. & Pass\\
+3 & Coding question without test cases; MCQ with a test case. \TCRef{M8-A-03, \texttt{CreateExam\_\allowbreak{}Mcq\allowbreak{}With\allowbreak{}Test\allowbreak{}Cases\ldots}} & 400 each. & 400. & Pass\\
+4 & Plagiarism threshold 150; no questions. \TCRef{\texttt{CreateExam\_\allowbreak{}Plagiarism\allowbreak{}Threshold\ldots}, \texttt{CreateExam\_\allowbreak{}Without\allowbreak{}Questions\ldots}} & 400 each. & 400. & Pass\\
+5 & Screenshot interval 9 s or 601 s; webcam interval 0 or 1000 s; then 30 s and 120 s. \TCRef{M8-I-01} & 400 naming the interval; 30/120 saved and sent to the student client. & As expected. & Pass\\
+6 & A student posts a valid exam. \TCRef{\texttt{CreateExam\_\allowbreak{}AsStudent\_\allowbreak{}Returns403}} & 403. & 403. & Pass\\
 \end{longtable}}
 
-Table~\ref{tab:ut_audit_chain} covers the hash chain that makes the audit log tamper-evident (FR12): each row stores the previous row's hash, so a changed or deleted row breaks the chain. M12-U-01 to M12-U-03 and M12-U-05 create their audit rows by logging in through the in-memory test host and read them from its database. UT-38 shows that the chain starts from a previous hash of 64 zeros and that the sequence numbers have no gap. UT-39 shows that the check reports the row where the chain breaks, and UT-40 shows that reordering the JSON keys does not change the hash, so only a real change to the data breaks the chain.
+\paragraph{Test Case Report}
+All six steps passed in the final run. Result: Pass.
+
+% ---------------------------------------------------------------- M9
+\subsubsection{Unit Test Case for Import Attendance and Set Eligibility (UC-20)}\label{subsubsec:utc_m9}
+This case checks module M9, Eligibility and Access Control (FR9, Table~\ref{tab:uct_eligibility}).
+
+\paragraph{Test Method}
+{\sloppy White-box unit tests of the attendance CSV parser, the eligibility rule and \texttt{SeatGuard} (\texttt{EligibilityRulesTests}). M9-U-01 to M9-U-03 check the rule through the attendance import endpoint of the in-memory test host.\par}
+
+\paragraph{Test Case Description}
+{\sloppy \textbf{Precondition:} the seeded students \texttt{student@\allowbreak{}test.com} and \texttt{student2@\allowbreak{}test.com}. \textbf{Description:} eligibility is decided from attendance against a 75\% minimum without rounding, the CSV parser reports each bad row, and the seat guard matches a PC by name or IP address. \textbf{Pass:} each decision matches. \textbf{Fail:} a boundary case is decided wrongly or a bad row is accepted.\par}
+
+\paragraph{Test Case Data}
+Table~\ref{tab:utc_m9} centres on the 75\% limit. Step~1 shows that exactly 75\% is eligible and 74.9\% is not, and step~2 shows that zero classes do not cause a division by zero.
 
 {\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{1.1cm}P{2.5cm}P{3.5cm}P{2.6cm}P{2.9cm}>{\centering\arraybackslash}p{1.8cm}@{}}
-\caption{Unit Test Cases for the Audit Hash Chain}\label{tab:ut_audit_chain}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endfirsthead
-\multicolumn{6}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
-\textbf{Test Case} & \textbf{Test Objective} & \textbf{Test Steps} & \textbf{Test Data} & \textbf{Expected Results} & \textbf{Pass/Fail}\\ \hline
-\endhead
-\hline \multicolumn{6}{r}{\footnotesize Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-UT-38 & Link each audit entry to the previous one & 1. Generate audit entries by logging in (at least three). \newline 2. Recompute every hash. & At least three entries; first PrevHash is 64 zeros \newline {\footnotesize\textit{Ref: M12-U-01, M12-U-05}} & Sequence 1, 2, 3, \ldots{} with no gap; each PrevHash equals the previous Hash; every Hash recomputes. & Pass\\
-UT-39 & Detect a changed or deleted entry & 1. Change the details of row 2 and verify. \newline 2. Remove row 2 and verify. & Chain of at least three entries \newline {\footnotesize\textit{Ref: M12-U-02, M12-U-03}} & Broken at row 2 when changed; broken at row 3 (sequence gap) when deleted. & Pass\\
-UT-40 & Hash does not depend on JSON key order & 1. Hash the same details with the keys reordered. \newline 2. Change one value. & One nested JSON object written with its keys in two orders \newline {\footnotesize\textit{Ref: M12-U-04}} & Same hash for both orders; a changed value gives a different hash. & Pass\\
+\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
+\caption{Test Case Data for Import Attendance and Set Eligibility (UC-20)}\label{tab:utc_m9}\\ \hline\hline
+\TCHead
+1 & Import 30 of 40 classes; decide 749 and 750 of 1000 at 75\%. \TCRef{M9-U-01, M9-U-02, M9-U-05} & 75\% eligible; 74.9\% not (``Attendance 74.9\% $<$ 75\%''); 750 eligible. & As expected. & Pass\\
+2 & Import 0 of 0 and recalculate; decide with no record. \TCRef{M9-U-03, M9-U-05} & No division by zero; ``no attendance''; not computed. & As expected. & Pass\\
+3 & Parse ``Attended,\allowbreak{}EMAIL,\allowbreak{}Total''; ``a@x.com,\allowbreak{}ten,\allowbreak{}5''; a duplicate A@X.com. \TCRef{M9-U-04} & Same row; ``whole numbers''; ``duplicate''. & As expected. & Pass\\
+4 & Seat PC-01, 192.168.1.1: match ``pc-01 '', PC-02, the IP and its IPv4-mapped form. \TCRef{M9-U-06} & ``pc-01 '' matches, PC-02 fails; both IP forms match. & As expected. & Pass\\
+5 & \texttt{SeatGuard} with no setting, then with \texttt{Require\allowbreak{}Desktop\allowbreak{}Client\allowbreak{}For\allowbreak{}Start=\allowbreak{}false}. \TCRef{M9-U-07} & Desktop client required, then not required. & As expected. & Pass\\
 \end{longtable}}
+
+\paragraph{Test Case Report}
+All five steps passed in the final run. Seat enforcement on real lab PCs (M9-M-01) is pending (Table~\ref{tab:st_pending}). Result: Pass.
+
+% ---------------------------------------------------------------- M10
+\subsubsection{Unit Test Case for Supervise an Exam Live (UC-10)}\label{subsubsec:utc_m10}
+This case checks module M10, Live Proctoring Dashboard (FR10, Table~\ref{tab:uct_live_proctoring}).
+
+\paragraph{Test Method}
+{\sloppy White-box unit tests of the desktop side of the invigilator's actions: \texttt{WarningInbox} (\texttt{WarningInboxTests}) and \texttt{LockdownSuspendPolicy} (\texttt{Lockdown\allowbreak{}Suspend\allowbreak{}Policy\allowbreak{}Tests}). The board itself is a server and browser feature and is tested in Integration Test Case~3 and the system test case.\par}
+
+\paragraph{Test Case Description}
+{\sloppy \textbf{Precondition:} none. \textbf{Description:} a warning repeated in every heartbeat reply is shown once and stays gone once acknowledged, and an unlock is timed from the server's remaining time, capped at 30 minutes. \textbf{Pass:} each decision matches. \textbf{Fail:} a warning is shown twice or the unlock follows a wrong PC clock.\par}
+
+\paragraph{Test Case Data}
+Table~\ref{tab:utc_m10} covers warnings (steps 1--3) and the unlock (steps 4--6). Step~4 is the key one: a PC clock 7 minutes behind does not lengthen a 5-minute unlock.
+
+{\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
+\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
+\caption{Test Case Data for Supervise an Exam Live (UC-10)}\label{tab:utc_m10}\\ \hline\hline
+\TCHead
+1 & The same warning in three heartbeat replies. \TCRef{M10-U-01} & Raised once; stays current. & As expected. & Pass\\
+2 & Two warnings; acknowledge each; the server resends an acknowledged one. \TCRef{M10-U-02, M10-U-03} & Oldest first; acknowledged ones leave and are not shown again. & As expected. & Pass\\
+3 & Null list, empty id, blank body. \TCRef{M10-U-04} & Ignored. & As expected. & Pass\\
+4 & Server says unlocked until +5 min; PC clock 7 min behind. \TCRef{M10-U-05} & Local deadline = PC now + 5 min. & As expected. & Pass\\
+5 & Deadline null, past, now and +5 h. \TCRef{M10-U-06} & Null, null, null, capped at 30 min. & As expected. & Pass\\
+6 & Locked to unlocked, heartbeat jitter, a new unlock, relock, expiry, re-unlock. \TCRef{M10-U-07} & Suspend, None, Reschedule, Resume, Resume, Suspend. & As expected. & Pass\\
+7 & On a lab PC: send a warning and unlock for 5 min. \TCRef{M10-D-01, M10-D-02} & Banner within one heartbeat; guards off, then on again. & Not executed. & Pending (lab)\\
+\end{longtable}}
+
+\paragraph{Test Case Report}
+Steps 1--6 passed in the final run. Step~7 needs the WPF window on a lab PC and was not run. Result: Pass for the decision logic.
+
+% ---------------------------------------------------------------- M11
+\subsubsection{Unit Test Case for Review Suggested Marks (UC-16)}\label{subsubsec:utc_m11}
+This case checks module M11, AI-Assisted Evaluation (FR11.1--FR11.3, Table~\ref{tab:uct_compilation_evaluation}); step~7 covers the similarity check of UC-17.
+
+\paragraph{Test Method}
+{\sloppy White-box unit tests of \texttt{TestCaseScorer}, \texttt{OutputComparer}, \texttt{CodeAnalyzer}, \texttt{TheoryGrader} and the plagiarism engine in \texttt{Backend\_\allowbreak{}API.\allowbreak{}Tests}. M11-U-01, M11-U-02 and M11-U-08 to M11-U-10 also run through the submission and plagiarism endpoints of the in-memory test host.\par}
+
+\paragraph{Test Case Description}
+{\sloppy \textbf{Precondition:} none. \textbf{Description:} MCQ answers get full or zero marks, coding marks follow the weights of the passed test cases, a compile error or timeout is handled, theory answers are scored by TF-IDF \cite{salton1988}, and copies are found by k-gram winnowing \cite{winnowing}. \textbf{Pass:} each suggested mark and similarity value matches. \textbf{Fail:} any other mark, confidence or similarity range.\par}
+
+\paragraph{Test Case Data}
+Table~\ref{tab:utc_m11} goes from MCQ to coding, theory and plagiarism. Steps 2--4 show how a coding answer is scored, and step~7 is the key plagiarism result: renamed and commented copies score at least 90\% and 95\%, while a different algorithm stays below 30\%.
+
+{\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
+\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
+\caption{Test Case Data for Review Suggested Marks (UC-16)}\label{tab:utc_m11}\\ \hline\hline
+\TCHead
+1 & Submit the right and a wrong MCQ option. \TCRef{M11-U-01, M11-U-02} & Full marks; 0. & As expected. & Pass\\
+2 & Pass test cases of weight 1 and 1, fail weight 2; score out of 20. \TCRef{M11-U-03} & Pass rate 0.5, 10 marks, Medium. & As expected. & Pass\\
+3 & A run report with ``'n' was not declared in this scope''. \TCRef{M11-U-04} & 0 marks, High; ``Compilation failed''; cases Not run. & As expected. & Pass\\
+4 & Case 1 runs past the 2000 ms limit; case 2 is correct; 10 marks. \TCRef{M11-U-05} & Case 1 TimedOut, case 2 passed; 5 marks. & As expected. & Pass\\
+5 & Compare ``5\textbackslash n'' with ``5'', ``1~~2'' with ``1 2'', and 3.1416, 3.15 with 3.14159 at 0.001. \TCRef{M11-U-06, M11-U-11} & Line end ignored, inner spacing fails; 3.1416 passes, 3.15 fails. & As expected. & Pass\\
+6 & Theory: answer identical to the model ``A stack is LIFO and a queue is FIFO.''; a partial and an unrelated answer. \TCRef{M11-U-07, M11-U-15} & 10 marks, High; partial 3--7, Medium; unrelated 0. & As expected. & Pass\\
+7 & sum(arr, n) against a renamed copy addAll(values, count), a commented copy and a recursive version. \TCRef{M11-U-08 to M11-U-10} & $\geq$ 90\%, $\geq$ 95\% and $<$ 30\%. & As expected. & Pass\\
+8 & Analyse nested loops, recursion, and code with a lookup table and the expected output as a literal. \TCRef{M11-U-14} & O(1) to O(n$^3$+); recursion found; hard-coding High. & As expected. & Pass\\
+\end{longtable}}
+
+\paragraph{Test Case Report}
+All eight steps passed in the final run. The runner tests in Docker \texttt{gcc:13} and local MinGW (M11-U-18, M11-U-19) also ran, because both runners were present. Result: Pass.
+
+% ---------------------------------------------------------------- M12
+\subsubsection{Unit Test Case for Read the Audit Log and Verify the Hash Chain (UC-21)}\label{subsubsec:utc_m12}
+This case checks module M12, Logs, Analytics and Audit Trail (FR12, Table~\ref{tab:uct_audit}).
+
+\paragraph{Test Method}
+{\sloppy Tests of the audit hash chain in \texttt{Module12\allowbreak{}Audit\allowbreak{}Acceptance\allowbreak{}Tests}. M12-U-01 to M12-U-03 and M12-U-05 create their audit rows by logging in through the in-memory test host and read them from its database; M12-U-04 calls the canonical JSON writer directly.\par}
+
+\paragraph{Test Case Description}
+{\sloppy \textbf{Precondition:} a chain of at least three audit rows. \textbf{Description:} each row stores the previous row's hash, so a changed or deleted row breaks the chain at a known place, while reordering JSON keys does not change a hash. \textbf{Pass:} the chain recomputes and each change is found at the expected row. \textbf{Fail:} a change goes unnoticed or a harmless reordering breaks the chain.\par}
+
+\paragraph{Test Case Data}
+Table~\ref{tab:utc_m12} first builds a clean chain and then breaks it. Steps 2 and 3 show that the check names the row where the chain breaks.
+
+{\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
+\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
+\caption{Test Case Data for Read the Audit Log and Verify the Hash Chain (UC-21)}\label{tab:utc_m12}\\ \hline\hline
+\TCHead
+1 & Generate at least three audit rows by logging in; recompute every hash. \TCRef{M12-U-01, M12-U-05} & Sequence 1, 2, 3, \ldots{} with no gap; first PrevHash is 64 zeros; each PrevHash equals the previous Hash. & Every Hash recomputed. & Pass\\
+2 & Change the details of row 2 and verify. \TCRef{M12-U-02} & Broken at row 2. & Broken at row 2. & Pass\\
+3 & Remove row 2 and verify. \TCRef{M12-U-03} & Broken at row 3 (sequence gap). & Broken at row 3. & Pass\\
+4 & Hash one nested JSON object written with its keys in two orders; change one value. \TCRef{M12-U-04} & Same hash for both orders; a changed value gives another hash. & As expected. & Pass\\
+\end{longtable}}
+
+\paragraph{Test Case Report}
+All four steps passed in the final run. The verify endpoint, parallel writes and the report exports are tested in Integration Test Case~3. Result: Pass.
