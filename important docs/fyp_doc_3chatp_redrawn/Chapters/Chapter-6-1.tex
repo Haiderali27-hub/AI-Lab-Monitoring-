@@ -12,462 +12,472 @@ Students sit the exam in the desktop client, and staff and students use the web 
 \newlength{\UIindent}\setlength{\UIindent}{\parindent}
 \newcommand{\UItext}[1]{\hspace*{\UIindent}#1\par\vspace{8pt}}
 \emergencystretch=2em
+\clearpage
 \subsection{Student Desktop Client}
-\Needspace{695pt}
 \subsubsection{Desktop Client Login}
-The student signs in with email or roll number and password; the first login binds the account to this PC (UC-01, Figure~\ref{fig:ui_student_login}).
+The student signs in with email or roll number and password; the first login binds the account to this PC (UC-01, Figure~\ref{fig:ui_student_login}). A note under the fields says so, and the box below shows the server connection.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,height=600pt,keepaspectratio]{Figures/ui_student_login.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_student_login.png}
 \caption{Desktop Client Login}
 \label{fig:ui_student_login}
 \end{figure}
 
-\Needspace{566pt}
 \subsubsection{Exam Dashboard with Readiness Checks}
-The exam dashboard shows the exam and runs the readiness checks (UC-02, UC-03). Here secure mode fails, so \emph{Start Exam} stays disabled (Figure~\ref{fig:ui_student_diagnostics}).
+The exam dashboard runs the readiness checks (UC-02, UC-03) and shows the exam with its instructions and permitted applications. Secure mode fails here, so \emph{Start Exam} stays disabled (Figure~\ref{fig:ui_student_diagnostics}).
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,height=472pt,keepaspectratio]{Figures/ui_student_diagnostics.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_student_diagnostics.png}
 \caption{Exam Dashboard with Readiness Checks}
 \label{fig:ui_student_diagnostics}
 \end{figure}
+\clearpage
 
-\Needspace{380pt}
 \subsubsection{Desktop Exam Window}
-In the locked exam window (UC-04) the student picks a question from the list, and the footer shows the last autosave (UC-06, Figure~\ref{fig:ui_student_workspace}).
+In the locked exam window (UC-04) the student picks a question from the list, and the footer shows the last autosave (UC-06, Figure~\ref{fig:ui_student_workspace}). The header shows how many questions are answered, and a green dot marks each one.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.5\linewidth]{Figures/ui_student_workspace_p1.png}
+\includegraphics[width=0.5\linewidth,height=230pt,keepaspectratio]{Figures/ui_student_workspace_p1.png}
 \caption{Desktop Exam Window (a): Question List and Save Status (Empty Middle Omitted)}
 \label{fig:ui_student_workspace}
 \end{figure}
 
-\begin{figure}[H]
-\UItext{The question area shows the timer, the question with its marks, the answer box and the \emph{Submit Exam} button (Figure~\ref{fig:ui_student_workspace_b}).}
-\centering
-\includegraphics[width=\linewidth]{Figures/ui_student_workspace_p2.png}
-\caption{Desktop Exam Window (b): Coding Question, Timer and Answer Box}
-\label{fig:ui_student_workspace_b}
-\end{figure}
-
-\Needspace{149pt}
-\subsubsection{Invigilator Warning Banner in the Exam Window}
-A warning from the invigilator appears as a banner in the exam window until the student clicks \emph{Acknowledge} (Figure~\ref{fig:ui_student_warning}).
+The question area shows the timer, the question with its marks, the answer box and the \emph{Submit Exam} button (Figure~\ref{fig:ui_student_workspace_b}). Here the student writes C++ code for the 20-mark coding question; \emph{Previous} and \emph{Next} move between the questions.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_student_warning_banner.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_student_workspace_p2.png}
+\caption{Desktop Exam Window (b): Coding Question, Timer and Answer Box}
+\label{fig:ui_student_workspace_b}
+\end{figure}
+\clearpage
+
+\subsubsection{Invigilator Warning Banner in the Exam Window}
+A warning from the invigilator appears as a banner in the exam window until the student clicks \emph{Acknowledge} (Figure~\ref{fig:ui_student_warning}). The banner shows the time of the warning and its message.
+
+\nopagebreak
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_student_warning_banner.png}
 \caption{Invigilator Warning Banner in the Exam Window (Empty Middle Omitted)}
 \label{fig:ui_student_warning}
 \end{figure}
 
 \subsection{Exam Setup}
-\Needspace{504pt}
 \subsubsection{Teacher Dashboard}
-The teacher dashboard lists the teacher's scheduled exams with \emph{Manage}, \emph{Edit} and \emph{Delete}, and the ended exams waiting for grade review (Figure~\ref{fig:ui_teacher_dashboard}).
+The teacher dashboard counts the teacher's exams, the active exams and the pending reviews. It lists the scheduled exams with \emph{Manage}, \emph{Edit} and \emph{Delete}, and the ended exams that need a grade review (Figure~\ref{fig:ui_teacher_dashboard}).
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,height=410pt,keepaspectratio]{Figures/ui_teacher_dashboard.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_teacher_dashboard.png}
 \caption{Teacher Dashboard}
 \label{fig:ui_teacher_dashboard}
 \end{figure}
+\clearpage
 
-\Needspace{695pt}
 \subsubsection{Create Exam Wizard: Integrity Switches}
-The teacher creates an exam in a four-step wizard (UC-08). The rules step sets the allowed applications, the lockdown mode and the required checks (Figure~\ref{fig:ui_create_exam_rules}).
+The teacher creates an exam in a four-step wizard (UC-08). The rules step sets the allowed applications, the lockdown mode and the required checks, such as the webcam (Figure~\ref{fig:ui_create_exam_rules}).
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,height=600pt,keepaspectratio]{Figures/ui_create_exam_rules.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_create_exam_rules.png}
 \caption{Create-Exam Wizard, Rules Step: Integrity Switches}
 \label{fig:ui_create_exam_rules}
 \end{figure}
 
-\Needspace{510pt}
 \subsubsection{Create Exam Wizard: Intervals, Seat, AI and Plagiarism}
-Lower on the same step, the teacher sets the capture intervals, seat enforcement, AI evaluation and the plagiarism threshold (Figure~\ref{fig:ui_create_exam_rules_more}).
+Lower on the same step, the teacher sets the early join time, minimum attendance, capture intervals, seat enforcement, AI evaluation and a 70\,\% plagiarism threshold (Figure~\ref{fig:ui_create_exam_rules_more}).
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,height=416pt,keepaspectratio]{Figures/ui_create_exam_rules_more.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_create_exam_rules_more.png}
 \caption{Create-Exam Wizard, Rules Step: Intervals, Seat, AI and Plagiarism Settings}
 \label{fig:ui_create_exam_rules_more}
 \end{figure}
+\clearpage
 
-\Needspace{625pt}
 \subsubsection{Eligibility, Seats and Invigilators}
-On the eligibility page (UC-09) the teacher assigns the invigilators and gives each student a seat (Figure~\ref{fig:ui_eligibility}).
+On the eligibility page (UC-09) the teacher picks the exam, assigns the invigilators and gives each student a seat (Figure~\ref{fig:ui_eligibility}). Here Mr.~Bilal invigilates, and the six students sit at workstations of Lab A (Demo).
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.72\linewidth]{Figures/ui_eligibility_p1.png}
+\includegraphics[width=0.72\linewidth,height=230pt,keepaspectratio]{Figures/ui_eligibility_p1.png}
 \caption{Eligibility, Seats and Invigilators (a): Exam, Invigilators and Seats (Email Column Omitted)}
 \label{fig:ui_eligibility}
 \end{figure}
 
-\begin{figure}[H]
-\UItext{After the attendance upload, a student below the minimum attendance becomes ineligible, like Hamza Iqbal with 60\,\% (Figure~\ref{fig:ui_eligibility_b}).}
-\centering
-\includegraphics[width=\linewidth]{Figures/ui_eligibility_p2.png}
-\caption{Eligibility, Seats and Invigilators (b): Attendance and Eligibility (Same Rows as Part (a))}
-\label{fig:ui_eligibility_b}
-\end{figure}
-
-\Needspace{474pt}
-\subsubsection{Send Announcement Page}
-The teacher sends a message to all eligible students of an exam from the announcement page, and can also send it by email (Figure~\ref{fig:ui_announcement}).
+After the attendance upload, \emph{Recalculate} compares each student's attendance with the minimum of 75\,\%. A student below it becomes ineligible, like Hamza Iqbal with 60\,\% (Figure~\ref{fig:ui_eligibility_b}). The note column gives the reason.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.5\linewidth]{Figures/ui_announcement.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_eligibility_p2.png}
+\caption{Eligibility, Seats and Invigilators (b): Attendance and Eligibility (Same Rows as Part (a))}
+\label{fig:ui_eligibility_b}
+\end{figure}
+\clearpage
+
+\subsubsection{Send Announcement Page}
+The teacher sends a message to all eligible students of an exam from the announcement page, and can also send it by email (Figure~\ref{fig:ui_announcement}). Here the six students of the End-Term Lab Exam are asked to come early.
+
+\nopagebreak
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\linewidth,height=230pt,keepaspectratio]{Figures/ui_announcement.png}
 \caption{Send Announcement Page (Side Cards Omitted)}
 \label{fig:ui_announcement}
 \end{figure}
 
-\subsection{Live Invigilation}\suppressfloats[t]
-\Needspace{156pt}
+\subsection{Live Invigilation}
 \subsubsection{Live Monitor}
-The live monitor (UC-10) shows the exam, its remaining time and the \emph{Extend Time} and \emph{Force End Exam} buttons (Figure~\ref{fig:ui_teacher_live_monitoring}).
+The live monitor (UC-10) shows the exam, its remaining time and the \emph{Extend Time} and \emph{Force End Exam} buttons (Figure~\ref{fig:ui_teacher_live_monitoring}). A green badge counts the four active students, and a drop-down list switches to another exam.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_live_monitor_a_p1.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_live_monitor_a_p1.png}
 \caption{Live Monitor (a): Header with Remaining Time and Exam Controls}
 \label{fig:ui_teacher_live_monitoring}
 \end{figure}
+\clearpage
 
+Each student has a tile built from the monitoring data (UC-05), with the seat, the PC, the latest screen capture and the progress. Ali Hassan has submitted, and Sara Khan is a Warning for a blocked Alt+Tab (Figure~\ref{fig:ui_teacher_live_monitoring_tiles}).
+
+\nopagebreak
 \begin{figure}[H]
-\UItext{Each student has a tile built from the monitoring data (UC-05). Ali Hassan has submitted, and Sara Khan is a Warning for a blocked Alt+Tab (Figure~\ref{fig:ui_teacher_live_monitoring_tiles}).}
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_live_monitor_a_p2.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_live_monitor_a_p2.png}
 \caption{Live Monitor (b): First Row, Tiles of Ali Hassan and Sara Khan}
 \label{fig:ui_teacher_live_monitoring_tiles}
 \end{figure}
 
+Usman Tariq is Critical: he opened Chrome, which is not allowed, and Enforce mode closed it (Figure~\ref{fig:ui_teacher_live_monitoring_tile3}). His tile shows two alerts, one incident and the browser page from his last screen capture.
+
+\nopagebreak
 \begin{figure}[H]
-\UItext{Usman Tariq is Critical: he opened Chrome, which is not allowed, and Enforce mode closed it (Figure~\ref{fig:ui_teacher_live_monitoring_tile3}).}
 \centering
-\includegraphics[width=0.52\linewidth]{Figures/ui_live_monitor_a_p3.png}
+\includegraphics[width=0.52\linewidth,height=230pt,keepaspectratio]{Figures/ui_live_monitor_a_p3.png}
 \caption{Live Monitor (c): First Row, Tile of Usman Tariq}
 \label{fig:ui_teacher_live_monitoring_tile3}
 \end{figure}
+\clearpage
 
+In the second row, Ayesha Malik is Suspicious because a phone is in view, and Fatima Noor has been idle for nine minutes (Figure~\ref{fig:ui_teacher_live_monitoring_b}). Fatima Noor's tile is still Stable, and the progress bars show 2/3 and 1/3 questions answered.
+
+\nopagebreak
 \begin{figure}[H]
-\UItext{In the second row, Ayesha Malik is Suspicious because a phone is in view, and Fatima Noor has been idle for nine minutes (Figure~\ref{fig:ui_teacher_live_monitoring_b}).}
 \centering
-\includegraphics[width=\linewidth,height=293pt,keepaspectratio]{Figures/ui_live_monitor_b.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_live_monitor_b.png}
 \caption{Live Monitor (d): Second Row of Tiles}
 \label{fig:ui_teacher_live_monitoring_b}
 \end{figure}
 
-\Needspace{695pt}
 \subsubsection{Student Drawer}
-Clicking a tile opens the student drawer with the latest captures, the readiness result and the applications seen on the PC (Figure~\ref{fig:ui_live_drawer}).
+Clicking a tile opens the student drawer with the latest captures, the readiness result and the applications seen on the PC (Figure~\ref{fig:ui_live_drawer}). For Usman Tariq all checks passed, and Chrome is crossed out in the list of applications.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,height=600pt,keepaspectratio]{Figures/ui_live_drawer_evidence.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_live_drawer_evidence.png}
 \caption{Student Drawer (a): Evidence}
 \label{fig:ui_live_drawer}
 \end{figure}
+\clearpage
 
+From the action panel the invigilator sends a warning, records an incident, unlocks the PC, grants extra time or force-submits the session (Figure~\ref{fig:ui_live_drawer_b}). Here a warning has just been sent, and \emph{Unlock 5 min} sits next to a short note.
+
+\nopagebreak
 \begin{figure}[H]
-\UItext{From the action panel the invigilator sends a warning, records an incident, unlocks the PC, grants extra time or force-submits the session (Figure~\ref{fig:ui_live_drawer_b}).}
 \centering
-\includegraphics[width=0.55\linewidth]{Figures/ui_live_drawer_actions.png}
+\includegraphics[width=0.55\linewidth,height=230pt,keepaspectratio]{Figures/ui_live_drawer_actions.png}
 \caption{Student Drawer (b): Actions}
 \label{fig:ui_live_drawer_b}
 \end{figure}
 
-\begin{figure}[H]
-\UItext{Further down are the student's open incidents and the activity timeline, newest first (Figure~\ref{fig:ui_live_timeline}).}
-\centering
-\includegraphics[width=0.60\linewidth,height=418pt,keepaspectratio]{Figures/ui_live_timeline.png}
-\caption{Student Drawer (c): Incident and Activity Timeline}
-\label{fig:ui_live_timeline}
-\end{figure}
-
-\subsection{Evaluation}\suppressfloats[t]
-\Needspace{420pt}
-\subsubsection{Results Page}
-The results page (UC-11) lists each submission with its score and a \emph{Review} link, below cards for the class average and plagiarism flags (Figure~\ref{fig:ui_results_list}).
+Further down are the student's open incidents and the activity timeline, newest first (Figure~\ref{fig:ui_live_timeline}). The high incident for opening Chrome can be escalated or marked resolved, and the timeline shows the warning, the incident and the closed application.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_results_list.png}
+\includegraphics[width=0.60\linewidth,height=230pt,keepaspectratio]{Figures/ui_live_timeline.png}
+\caption{Student Drawer (c): Incident and Activity Timeline}
+\label{fig:ui_live_timeline}
+\end{figure}
+\clearpage
+
+\subsection{Evaluation}
+\subsubsection{Results Page}
+The results page (UC-11) lists each submission with its status, score, receipt and a \emph{Review} link, below cards for the class average, highest and lowest score and plagiarism flags (Figure~\ref{fig:ui_results_list}). All five students have submitted.
+
+\nopagebreak
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_results_list.png}
 \caption{Results Page: Score Cards and Submissions}
 \label{fig:ui_results_list}
 \end{figure}
 
-\Needspace{459pt}
 \subsubsection{AI Evaluation of a Coding Answer}
-Opening a submission shows each question with the student's answer. Usman Tariq's code gives a wrong answer when all the numbers are negative (Figure~\ref{fig:ui_teacher_ai_grading}).
+Opening a submission shows each question with the student's answer. Usman Tariq's code gives a wrong answer when all the numbers are negative, because it starts the maximum at zero (Figure~\ref{fig:ui_teacher_ai_grading}).
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\linewidth,height=370pt,keepaspectratio]{Figures/ui_ai_grading_answer.png}
+\includegraphics[width=0.85\linewidth,height=230pt,keepaspectratio]{Figures/ui_ai_grading_answer.png}
 \caption{AI Evaluation of a Coding Answer (a): Question and Submitted Code}
 \label{fig:ui_teacher_ai_grading}
 \end{figure}
+\clearpage
 
+The evaluation suggests 10 of 20 marks because one of the two test cases passes; the teacher accepts it or saves an override (Figure~\ref{fig:ui_teacher_ai_grading_b}). Hidden case 2 expects $-1$ but gets 0, and the confidence is medium.
+
+\nopagebreak
 \begin{figure}[H]
-\UItext{The evaluation suggests 10 of 20 marks because one of the two test cases passes; the teacher accepts it or saves an override (Figure~\ref{fig:ui_teacher_ai_grading_b}).}
 \centering
-\includegraphics[width=\linewidth,height=565pt,keepaspectratio]{Figures/ui_ai_grading_eval.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_ai_grading_eval.png}
 \caption{AI Evaluation of a Coding Answer (b): Suggested Mark, Test Cases and Override}
 \label{fig:ui_teacher_ai_grading_b}
 \end{figure}
 
-\Needspace{657pt}
 \subsubsection{Plagiarism Heat Map and Matched Pair}
-The plagiarism tab shows a similarity heat map. Ali Hassan and Sara Khan reach 100\,\% because only their variable names differ (Figure~\ref{fig:ui_plagiarism}).
+The plagiarism tab shows a similarity heat map. Ali Hassan and Sara Khan reach 100\,\% because only their variable names differ; the pair below shows both programs side by side (Figure~\ref{fig:ui_plagiarism}).
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,height=562pt,keepaspectratio]{Figures/ui_plagiarism.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_plagiarism.png}
 \caption{Plagiarism Heat Map and Matched Pair}
 \label{fig:ui_plagiarism}
 \end{figure}
+\clearpage
 
-\Needspace{407pt}
 \subsubsection{Exam Analytics Page}
-The analytics page (UC-12) summarises one exam: average score, pass rate, score bands and the success rate of each question (Figure~\ref{fig:ui_exam_analytics}).
+The analytics page (UC-12) summarises one exam: average score, pass rate, highest score, violations, score bands and the success rate of each question (Figure~\ref{fig:ui_exam_analytics}). The second question has the lowest rate, 38\,\%.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\linewidth]{Figures/ui_exam_analytics.png}
+\includegraphics[width=0.85\linewidth,height=230pt,keepaspectratio]{Figures/ui_exam_analytics.png}
 \caption{Exam Analytics Page (Heat Map and Leaderboard Omitted)}
 \label{fig:ui_exam_analytics}
 \end{figure}
 
-\Needspace{288pt}
 \subsubsection{Reports and Exports Page}
-The reports page builds the exam summary PDF and exports the attendance, violations, scores and evidence of an exam as files (Figure~\ref{fig:ui_reports}).
+The reports page builds the exam summary PDF and exports the attendance, violations, scores and evidence of an exam as files (Figure~\ref{fig:ui_reports}). Each export is logged, and the built reports can be downloaded.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_reports.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_reports.png}
 \caption{Reports and Exports Page}
 \label{fig:ui_reports}
 \end{figure}
+\clearpage
 
-\subsection{Administration and Student Portal}\suppressfloats[t]
-\Needspace{378pt}
+\subsection{Administration and Student Portal}
 \subsubsection{Web Panel Login}
-All web users sign in on one login page with email and password and are taken to the home page of their role (Figure~\ref{fig:ui_web_login}).
+All web users sign in on one login page with email and password and are taken to the home page of their role (Figure~\ref{fig:ui_web_login}). A note below the form says that all access attempts are logged.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.62\linewidth]{Figures/ui_web_login.png}
+\includegraphics[width=0.62\linewidth,height=230pt,keepaspectratio]{Figures/ui_web_login.png}
 \caption{Web Panel Login (Sign-In Form)}
 \label{fig:ui_web_login}
 \end{figure}
 
-\Needspace{421pt}
 \subsubsection{Admin Dashboard}
-The admin dashboard counts the student accounts, the running exams and the students with no bound PC, and lists the recent exams (Figure~\ref{fig:ui_admin_dashboard}).
+The admin dashboard counts the student accounts, the running exams and the students with no bound PC, and lists the recent exams with their course, status, date and duration (Figure~\ref{fig:ui_admin_dashboard}).
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_admin_dashboard.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_admin_dashboard.png}
 \caption{Admin Dashboard (Labs Card Omitted)}
 \label{fig:ui_admin_dashboard}
 \end{figure}
+\clearpage
 
-\Needspace{624pt}
 \subsubsection{User Management Page}
-On the user management page (UC-07) the administrator finds, adds, edits or deletes accounts, or imports them from a CSV file (Figure~\ref{fig:ui_users}).
+On the user management page (UC-07) the administrator finds, adds, edits or deletes accounts, or imports them from a CSV file (Figure~\ref{fig:ui_users}). Tabs filter by role, and each student row shows if the account is bound.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_users.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_users.png}
 \caption{User Management Page}
 \label{fig:ui_users}
 \end{figure}
 
-\Needspace{669pt}
 \subsubsection{Departments and Courses}
-Administrators manage departments and courses; a department or course that is still in use cannot be deleted (Figure~\ref{fig:ui_academics}).
+The administrator manages departments and courses; a department or course that is still in use cannot be deleted (Figure~\ref{fig:ui_academics}). The demo has three departments and six courses with their section counts.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,height=600pt,keepaspectratio]{Figures/ui_academics.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_academics.png}
 \caption{Departments and Courses}
 \label{fig:ui_academics}
 \end{figure}
+\clearpage
 
-\Needspace{513pt}
 \subsubsection{Labs and Workstations}
-Administrators register the labs and their workstations; each seat card shows the student signed in on that PC (Figure~\ref{fig:ui_labs_workstations}).
+Administrators register the labs and their workstations; each seat card shows the student signed in on that PC (Figure~\ref{fig:ui_labs_workstations}). Lab A (Demo) has six seats with their IP addresses, and seat R2C2 is still free.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,height=418pt,keepaspectratio]{Figures/ui_labs_workstations.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_labs_workstations.png}
 \caption{Labs and Workstations}
 \label{fig:ui_labs_workstations}
 \end{figure}
 
-\Needspace{595pt}
 \subsubsection{Device Bindings}
-The device-binding page lists the PC each student is bound to; \emph{Reset Binding} lets the student's next login bind a new PC (Figure~\ref{fig:ui_device_bindings}).
+The device-binding page lists the PC each student is bound to; \emph{Reset Binding} lets the student's next login bind a new PC (Figure~\ref{fig:ui_device_bindings}). A switch shows only the unbound students, such as Hamza Iqbal.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,height=500pt,keepaspectratio]{Figures/ui_device_bindings.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_device_bindings.png}
 \caption{Device Bindings (Email, Windows User and Registered Columns Omitted)}
 \label{fig:ui_device_bindings}
 \end{figure}
+\clearpage
 
-\Needspace{695pt}
 \subsubsection{Audit Log Page}
-The audit log page (UC-12) lists security and staff actions, such as logins, submissions and grade overrides, and shows that the log chain verifies (Figure~\ref{fig:ui_audit_logs}).
+The audit log page (UC-12) lists security and staff actions, such as logins, submissions and grade overrides, and shows that the log chain verifies (Figure~\ref{fig:ui_audit_logs}). Each row gives the time, the actor, the event and the entity.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,height=600pt,keepaspectratio]{Figures/ui_audit_logs.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_audit_logs.png}
 \caption{Audit Log Page (Details Column Omitted)}
 \label{fig:ui_audit_logs}
 \end{figure}
 
-\Needspace{538pt}
 \subsubsection{System Analytics Page}
-System analytics counts the students, teachers, exams and violations of the whole platform, with exams by month and violations by day (Figure~\ref{fig:ui_system_analytics}).
+System analytics counts the students, teachers, exams and violations of the whole platform, with exams by month and violations by day (Figure~\ref{fig:ui_system_analytics}). Data Structures is the top course with five exams.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_system_analytics.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_system_analytics.png}
 \caption{System Analytics Page}
 \label{fig:ui_system_analytics}
 \end{figure}
+\clearpage
 
-\Needspace{281pt}
 \subsubsection{Staff Notifications Page}
-Teachers and administrators share one notifications page. It is empty here, because in this version all notifications go to students (Figure~\ref{fig:ui_staff_notifications}).
+Teachers and administrators share one notifications page. It is empty here, because in this version all notifications go to students (Figure~\ref{fig:ui_staff_notifications}). Tabs filter the list by type.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_staff_notifications.png}
+\includegraphics[width=0.7\linewidth,height=230pt,keepaspectratio]{Figures/ui_staff_notifications.png}
 \caption{Staff Notifications Page (Empty State)}
 \label{fig:ui_staff_notifications}
 \end{figure}
 
-\Needspace{385pt}
 \subsubsection{Student Dashboard}
-On the web, the student dashboard lists the student's exams and an overview of exams taken, average score and latest results (Figure~\ref{fig:ui_student_dashboard}).
+On the web, the student dashboard lists the student's exams and an overview of exams taken, average score and latest results (Figure~\ref{fig:ui_student_dashboard}). It also shows that Ali Hassan's device is bound and that he has no flags.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[height=290pt]{Figures/ui_student_dashboard_roster.png}\hfill
-\includegraphics[height=290pt]{Figures/ui_student_dashboard_overview.png}
+\includegraphics[width=\linewidth,height=115pt,keepaspectratio]{Figures/ui_student_dashboard_roster.png}\hfill
+\includegraphics[width=\linewidth,height=115pt,keepaspectratio]{Figures/ui_student_dashboard_overview.png}
 \caption{Student Dashboard: Exam Roster and Academic Overview (Next-Exam Panel Omitted)}
 \label{fig:ui_student_dashboard}
 \end{figure}
+\clearpage
 
-\Needspace{507pt}
 \subsubsection{My Exams Page}
-\emph{My Exams} shows each assigned exam as a card; here Ali Hassan has two upcoming exams (Figure~\ref{fig:ui_student_exams}).
+\emph{My Exams} shows each assigned exam as a card; here Ali Hassan has two upcoming exams (Figure~\ref{fig:ui_student_exams}). Filters show the passed, failed or upcoming exams, and a scheduled exam shows \emph{Results Unavailable}.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.55\linewidth]{Figures/ui_student_exams.png}
+\includegraphics[width=0.55\linewidth,height=230pt,keepaspectratio]{Figures/ui_student_exams.png}
 \caption{My Exams Page: Upcoming Exams (Ended-Exam Cards Omitted)}
 \label{fig:ui_student_exams}
 \end{figure}
 
-\Needspace{407pt}
 \subsubsection{Student Exam Result Page}
-The result page of an ended exam gives the score, the submission receipt and the grader's feedback on the answers (Figure~\ref{fig:ui_student_exam_result}).
+The result page of an ended exam gives the score, the submission receipt and the grader's feedback on the answers (Figure~\ref{fig:ui_student_exam_result}). Ali Hassan passed with 87.1\,\%, and the feedback lists his strengths and what to improve.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_student_exam_result.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_student_exam_result.png}
 \caption{Student Exam Result Page, AI Feedback Tab (Session Length Omitted)}
 \label{fig:ui_student_exam_result}
 \end{figure}
+\clearpage
 
-\Needspace{208pt}
 \subsubsection{Student Performance Page}
-The performance page shows the exams taken, the average and best score and the integrity flags of the student (Figure~\ref{fig:ui_student_performance}).
+The performance page shows the exams taken, the average and best score and the integrity flags of the student (Figure~\ref{fig:ui_student_performance}). Ali Hassan has taken four exams, with an average of 85.9\,\% and no flags.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_student_performance_a_p1.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_student_performance_a_p1.png}
 \caption{Student Performance Page (a): Summary Cards}
 \label{fig:ui_student_performance}
 \end{figure}
 
+The score trend draws the same scores in date order above a pass-mark line at 50\,\% (Figure~\ref{fig:ui_student_performance_trend}). All four exams of Ali Hassan are above the line, and a badge marks the trend as improving.
+
+\nopagebreak
 \begin{figure}[H]
-\UItext{The score trend draws the same scores in date order above a pass-mark line at 50\,\% (Figure~\ref{fig:ui_student_performance_trend}).}
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_student_performance_a_p2.png}
+\includegraphics[width=\linewidth,height=230pt,keepaspectratio]{Figures/ui_student_performance_a_p2.png}
 \caption{Student Performance Page (b): Score Trend}
 \label{fig:ui_student_performance_trend}
 \end{figure}
+\clearpage
 
+The page also shows the score of each exam as bars and as a timeline with dates (Figure~\ref{fig:ui_student_performance_b}). Lab Quiz 2 on stacks and queues is his best exam at 93\,\%, and the timeline lists the newest exam first.
+
+\nopagebreak
 \begin{figure}[H]
-\UItext{The page also shows the score of each exam as bars and as a timeline with dates (Figure~\ref{fig:ui_student_performance_b}).}
 \centering
-\includegraphics[width=0.7\linewidth]{Figures/ui_student_performance_scores.png}\\[4pt]
-\includegraphics[width=0.7\linewidth]{Figures/ui_student_performance_timeline.png}
+\includegraphics[width=0.7\linewidth,height=115pt,keepaspectratio]{Figures/ui_student_performance_scores.png}\\[4pt]
+\includegraphics[width=0.7\linewidth,height=115pt,keepaspectratio]{Figures/ui_student_performance_timeline.png}
 \caption{Student Performance Page (c): Score by Exam and Exam Timeline Cards}
 \label{fig:ui_student_performance_b}
 \end{figure}
 
-\Needspace{192pt}
 \subsubsection{Student Violation History}
-The violation history lists the violations recorded in the student's sessions; here Usman Tariq has the two Chrome events of the Mid-Term (Figure~\ref{fig:ui_student_violations}).
+The violation history lists the violations recorded in the student's sessions; here Usman Tariq has the two Chrome events of the Mid-Term (Figure~\ref{fig:ui_student_violations}). A note says the events are recorded automatically.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{Figures/ui_student_violations_head.png}\\[4pt]
-\includegraphics[width=0.65\linewidth]{Figures/ui_student_violations_list.png}
+\includegraphics[width=\linewidth,height=115pt,keepaspectratio]{Figures/ui_student_violations_head.png}\\[4pt]
+\includegraphics[width=0.65\linewidth,height=115pt,keepaspectratio]{Figures/ui_student_violations_list.png}
 \caption{Student Violation History: Header and Violation Cards (Side Cards Omitted)}
 \label{fig:ui_student_violations}
 \end{figure}
+\clearpage
 
-\Needspace{236pt}
 \subsubsection{Student Notifications Page}
-The student's notifications list the announcements and invigilator warnings, newest first; unread ones have a blue edge (Figure~\ref{fig:ui_student_notifications}).
+The student's notifications list the announcements and invigilator warnings, newest first; unread ones have a blue edge (Figure~\ref{fig:ui_student_notifications}). Here both are unread: the End-Term announcement and a proctor warning.
 
 \nopagebreak
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\linewidth]{Figures/ui_student_notifications.png}
+\includegraphics[width=0.85\linewidth,height=230pt,keepaspectratio]{Figures/ui_student_notifications.png}
 \caption{Student Notifications Page}
 \label{fig:ui_student_notifications}
 \end{figure}
