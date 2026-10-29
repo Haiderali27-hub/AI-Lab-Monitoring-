@@ -1,0 +1,63 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 400
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-01 Log In and Bind Device (M1). Built from seq_login / seq_login_b.
+' Code: Student_Desktop_App/ViewModels/LoginViewModel.cs, Core/DeviceFingerprint.cs;
+' Backend_API/Controllers/AuthController.cs (Login for the web panel, StudentLogin; both rate limited
+' "login" = 10 requests/min per IP), Services/RefreshTokenService.cs; Admin_Web_Panel LoginPage.tsx.
+
+actor User
+participant "Web Panel\n(login page)" as WEB
+participant "Desktop App\n(login window)" as APP
+participant "Server" as SRV
+database "Database" as DB
+
+alt web panel (any user)
+User -> WEB : email and password
+activate WEB
+WEB -> SRV : log in
+activate SRV
+break more than 10 tries a minute,\nwrong password or inactive account
+  SRV -> DB : log failed login\n(not for too many tries)
+  SRV --> WEB : login refused (error shown)
+end
+SRV -> DB : save session, refresh\ntoken and audit entry
+SRV --> WEB : access and refresh tokens
+deactivate SRV
+WEB --> User : open the dashboard\nof the user's role
+deactivate WEB
+else desktop app (student on a lab PC)
+User -> APP : email or roll no. and password
+activate APP
+APP -> SRV : log in (details and\nthis PC's fingerprint)
+activate SRV
+SRV -> DB : find user and\ndevice binding
+DB --> SRV : user, binding
+break wrong password, or not a student account
+  SRV -> DB : log failed login\n(wrong password only)
+  SRV --> APP : login refused (error shown)
+end
+opt first login (no binding yet)
+  SRV -> DB : bind account\nto this PC
+end
+break PC is not the bound PC
+  SRV -> DB : log device mismatch
+  SRV --> APP : login refused\n("device mismatch" shown)
+end
+SRV -> DB : save session, refresh\ntoken and audit entry
+SRV --> APP : access and refresh tokens
+deactivate SRV
+APP --> User : open exam dashboard
+deactivate APP
+end
+@enduml

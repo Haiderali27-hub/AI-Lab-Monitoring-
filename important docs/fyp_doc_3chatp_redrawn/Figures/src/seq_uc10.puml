@@ -1,0 +1,67 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-10 Supervise Exam Live (M10). Built from seq_telemetry (live pushes) and seq_view_database(_b) (timeline);
+' actions from Backend_API/Hubs/MonitoringHub.cs (JoinExamGroup, SendWarning, ForceSubmitSessionById: access via
+' ExamAccessService, notification + PROCTOR_WARNING_SENT / SESSION_FORCE_SUBMITTED audit) and
+' MonitoringController.Heartbeat (ack carries warnings and sessionStatus; the WPF client has no SignalR link).
+' Web: Admin_Web_Panel/src/pages/teacher/LiveMonitorPage.tsx. Client: LiveMonitoringService, ExamWindow.OnServerSessionStatus.
+
+actor Invigilator as I
+participant "Live Monitor\npage (web)" as WEB
+participant "Server" as SRV
+database "Database" as DB
+participant "Desktop App\n(student PC)" as APP
+
+I -> WEB : open Live Monitor,\npick an exam
+activate WEB
+WEB -> SRV : load live board;\njoin the exam's group
+activate SRV
+SRV --> WEB : one tile per student (only for the\nowner, an assigned invigilator or admin)
+deactivate SRV
+loop during the exam
+  SRV ->> WEB : heartbeat, violation, capture\nand disconnect updates (UC-05)
+end
+opt open a student's tile
+  WEB -> SRV : get timeline and captures
+  activate SRV
+  SRV --> WEB : events, captures, warnings\nand incidents, newest first
+  deactivate SRV
+end
+alt send a warning
+  I -> WEB : warning text
+  WEB -> SRV : send warning
+  activate SRV
+  SRV -> DB : save warning\nand audit entry
+  deactivate SRV
+  APP -> SRV : next heartbeat
+  activate SRV
+  SRV --> APP : reply carries the warning;\nthe app shows it
+  deactivate SRV
+else force-submit
+  I -> WEB : Force submit
+  WEB -> SRV : force-submit session
+  activate SRV
+  SRV -> DB : submit as Force\nsubmitted; audit entry
+  deactivate SRV
+  APP -> SRV : next heartbeat
+  activate SRV
+  SRV --> APP : status Force submitted;\nthe app closes the exam
+  deactivate SRV
+end
+note over WEB, APP
+Extra time, unlock and relock reach
+the desktop app in the same way.
+end note
+deactivate WEB
+@enduml

@@ -1,0 +1,62 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-06 Autosave and Submit Answers (M6). Built from seq_recovery, seq_recovery_b, seq_submission(_b,_c).
+' Code: Student_Desktop_App/ViewModels/ExamSessionViewModel.cs (SyncTickAsync, SubmitAsync, RestoreAnswersAsync),
+' Services/AnswerBackupStore.cs, OfflineSaveQueue; Backend_API/Controllers/ExamsController.cs (save-answer, submit),
+' Services/SubmissionService.cs (FinalizeAsync), ReceiptHasher.
+
+actor Student
+participant "Exam\nWindow" as EW
+participant "Local Backup\nand Queue" as LS
+participant "Server" as SRV
+database "Database" as DB
+
+Student ->> EW : edit answer
+loop every second
+  activate EW
+  opt save due (10 s after the first unsaved\nedit, or on a question change)
+    EW -> SRV : save answer
+    alt server replies (session in progress,\nbefore the deadline)
+      activate SRV
+      SRV -> DB : store answer
+      SRV --> EW : saved
+      deactivate SRV
+    else no reply (network down)
+      EW -> LS : queue newest copy;\nresend every 5 s
+    end
+  end
+  EW -> LS : write encrypted\nbackup if changed
+  deactivate EW
+end
+note over EW, LS
+After a crash, answers come back from the server and
+the backup; the higher revision wins.
+end note
+Student -> EW : Submit and confirm\n(or the timer ends)
+activate EW
+EW -> SRV : send unsent saves first
+break a save is still offline
+  EW --> Student : "Waiting for network";\nwindow stays open
+end
+EW -> SRV : submit exam
+activate SRV
+SRV -> SRV : own session?\nin progress?
+SRV -> DB : one save: status Submitted,\nreceipt hash, audit entry
+SRV ->>] : pass answers to\nevaluation (UC-11)
+SRV --> EW : receipt hash
+deactivate SRV
+EW -> EW : own hash = server hash?\n(Verified or Mismatch)
+EW --> Student : show receipt;\nclose window
+deactivate EW
+@enduml

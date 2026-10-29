@@ -1,0 +1,73 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-08 Create and Configure Exam (M8). Built from seq_config.
+' Code: Admin_Web_Panel Create Exam page; Backend_API/Controllers/ExamsController.cs (sections, get exam,
+' section students, Create, Update). Announcement: AnnouncementPage.tsx -> NotificationsController AnnounceToExam
+' (owner or admin, eligible students, refused if none) -> NotificationService (in-app + SMTP email if SendEmail).
+
+actor Teacher
+participant "Web panel\n(teacher pages)" as P
+participant "Server" as SRV
+database "Database" as DB
+participant "Email\nserver" as MAIL
+
+Teacher -> P : New exam / Edit
+activate P
+P -> SRV : get sections
+activate SRV
+SRV --> P : own sections (all for an admin)
+deactivate SRV
+opt edit an exam
+  P -> SRV : get exam
+  activate SRV
+  SRV --> P : exam, questions, test cases
+  deactivate SRV
+end
+P -> SRV : get section students
+activate SRV
+SRV --> P : students
+deactivate SRV
+P --> Teacher : exam form
+deactivate P
+
+Teacher -> P : fill in settings, questions,\ntest cases, students; Save
+activate P
+P -> SRV : create or update exam
+activate SRV
+opt update
+  SRV -> SRV : exam exists? own section?\nstill Scheduled?
+end
+SRV -> SRV : validate exam; own students\nonly (teacher)
+alt invalid or not allowed
+  SRV --> P : error message
+else valid
+  SRV -> DB : save exam, questions, test\ncases, students, audit entry
+  SRV --> P : created / updated
+end
+deactivate SRV
+P --> Teacher : error, or back to the dashboard
+deactivate P
+opt announce the exam
+  Teacher -> P : pick the exam, title,\nmessage, "also send via email"
+  activate P
+  P -> SRV : send announcement
+  activate SRV
+  SRV -> DB : notify each eligible student
+  SRV ->> MAIL : email each one (if ticked)
+  SRV --> P : "sent to N students", or the\nerror (not own exam, none eligible)
+  deactivate SRV
+  P --> Teacher : result message
+  deactivate P
+end
+@enduml

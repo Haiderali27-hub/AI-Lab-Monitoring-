@@ -1,0 +1,88 @@
+@startuml
+!include style.iuml
+' UC-09 Manage Eligibility and Seats (M9). Built from activity_seating, seq_eligibility, seq_eligibility_b,
+' seq_eligibility_c and seq_uc09.
+' Code: LabsController (add workstation: unique machine number, valid IP, audit WORKSTATION_CREATED);
+' AttendanceController.Import (CSV, 1 MB, bad rows reported by line, ATTENDANCE_IMPORTED);
+' ExamsController RecalculateEligibility (409 after the exam ended; overridden rows skipped; EligibilityCalculator,
+' MinAttendancePercent default 75), UpdateEligibility (manual override, ELIGIBILITY_OVERRIDDEN),
+' AssignWorkstation (one seat per exam, 409 seat taken, WORKSTATION_ASSIGNED), AssignProctor (invigilator or
+' teacher, active account; PROCTOR_ASSIGNED; panel on the teacher's Eligibility page).
+' Plain labels: endpoints, status codes and audit event names are left out.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 25
+}
+
+|Admin|
+|Teacher|
+|Server|
+|Admin|
+start
+:Add lab workstations
+(number, PC name, IP);
+|Server|
+:Save each valid one
+(unique number,
+valid IP), log it;
+|Teacher|
+:Import the section's
+attendance CSV file;
+|Server|
+:Save attended and
+total classes, report
+bad rows by line;
+|Teacher|
+:Press
+Recalculate;
+|Server|
+if (Exam already\nended?) then ([yes])
+  :Refuse;
+else ([no])
+  :Each student not set by
+  hand: eligible if attendance
+  >= minimum (75 % default);
+endif
+|Teacher|
+if (Change a student\nby hand?) then ([yes])
+  :Set eligibility
+  and a note;
+  |Server|
+  :Save as a
+  manual override;
+else ([no])
+endif
+|Teacher|
+:Assign a workstation
+(seat) to a student;
+|Server|
+if (Seat free in\nthis exam?) then ([yes])
+  :Save the seat;
+else ([no])
+  :Refuse: seat
+  taken;
+endif
+|Teacher|
+:Assign invigilators
+to the exam;
+|Server|
+if (Invigilator or teacher
+with an active account?) then ([yes])
+  :Save the
+  assignment;
+else ([no])
+  :Refuse;
+endif
+:Log each change
+in the audit log;
+|Teacher|
+:See the updated
+lists;
+stop
+@enduml

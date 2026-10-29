@@ -1,0 +1,54 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-03 View Exam Dashboard and Start Exam (M3). Built from seq_telemetry (start) and seq_readiness_b (start gates).
+' Code: Student_Desktop_App/ViewModels/DashboardViewModel.cs (InitializeAsync, ConfirmAttendanceAsync,
+' UpdateStartEligibility, StartExamAsync); Backend_API/Controllers/ExamsController.cs (student/current, StartStudentExam).
+
+actor Student
+participant "Desktop App\n(dashboard)" as APP
+participant "Server" as SRV
+database "Database" as DB
+
+Student -> APP : open dashboard
+activate APP
+APP -> SRV : get current exam
+activate SRV
+SRV -> DB : assignment, exam,\nseat, readiness
+DB --> SRV : rows
+SRV --> APP : exam, server time and\neligibility, readiness\nand seat status
+deactivate SRV
+APP --> Student : exam details\nand countdown
+Student -> APP : Check In
+APP -> SRV : check-in
+activate SRV
+SRV --> APP : accepted
+deactivate SRV
+APP -> APP : enable Start at the opening\ntime, after check-in and a\nreadiness pass (if required)
+Student -> APP : Start Exam
+APP -> SRV : start exam
+activate SRV
+SRV -> DB : load assignment
+DB --> SRV : assignment
+SRV -> SRV : eligible? exam open?\nright seat? readiness\npass (if required)?
+alt a check fails
+  SRV --> APP : refused, with reason
+  APP --> Student : show the reason
+else all checks pass
+  SRV -> DB : create session (In Progress),\nor reuse the running one
+  SRV --> APP : session
+  APP --> Student : open exam window
+end
+deactivate SRV
+deactivate APP
+@enduml

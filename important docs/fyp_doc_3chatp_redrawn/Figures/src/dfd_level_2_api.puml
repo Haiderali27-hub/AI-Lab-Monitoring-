@@ -9,7 +9,7 @@
 ' 3.1 and 3.2 run in the WPF client on the lab PC; 3.3-3.5 run in the API.
 skinparam defaultFontSize 16
 skinparam ArrowFontSize 16
-skinparam nodesep 16
+skinparam nodesep 6
 skinparam ranksep 40
 skinparam defaultTextAlignment center
 skinparam rectangle<<entity>> {
@@ -100,7 +100,7 @@ D4 --> P33 : extra time,\nunlock
 D7 --> P33 : warnings
 P33 --> P34 : heartbeat
 P33 --> P35 : events
-P33 --> D5 : images,\nseat mismatch
+P33 --> D5 : images,\nseat\nmismatch
 P33 --> D8 : seat\nmismatch
 P33 --> P4 : screenshot,\nseat alerts
 
@@ -109,7 +109,7 @@ P34 --> D1 : last seen
 P34 <-- D5b : violations
 P34 --> D5b : heartbeat,\ndisconnect
 P34 --> D8b : disconnect,\nreconnect
-P34 --> P4 : heartbeat,\nconnection
+P34 --> "heartbeat,\nconnection" P4
 
 P35 --> D5 : new events
 P35 --> D8 : violations

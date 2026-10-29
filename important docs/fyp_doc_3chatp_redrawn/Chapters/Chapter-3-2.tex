@@ -1,24 +1,10 @@
 \section{Deliverables of the Project}
 
-A deliverable is a concrete output that we hand over and that can be checked \cite{del1}. Our deliverables fall into five groups.
-
-\subsection{Requirements and Analysis Deliverables}
-These are the problem statement, the scope statement, the review of existing systems, the record of our interviews and brainstorming sessions (Section~\ref{sec:gathering}), and the Software Requirements Specification: the functional and non-functional requirements in Chapter~\ref{chap:srs}. Together they fix the goals and boundaries of the system \cite{srs1}.
-
-\subsection{Design Deliverables}
-These are the system architecture, the module breakdown, the use case diagram, the ERD, the data flow diagrams, the UML structure and behaviour diagrams, and the user interface designs and physical database design of Chapter~\ref{chap:system_interface_physical_design}. They split the system into modules that we can assign to team members and sprints.
-
-\subsection{Prototype and Module Deliverables}
-A working system of twelve modules, built as three parts:
-\begin{enumerate}
-    \item \textbf{Student WPF client:} device-bound login, readiness check, lockdown, live monitoring, autosave and encrypted local backup.
-    \item \textbf{React web panel:} user and exam management, eligibility, the live proctoring dashboard over SignalR, grade review and reports.
-    \item \textbf{ASP.NET Core 9 API:} authentication, exam and eligibility rules, monitoring intake, the violation classifier, AI-assisted evaluation and audit logging, with data in Neon PostgreSQL.
-\end{enumerate}
-A module counts as delivered when its API endpoints pass the xUnit integration tests, its web screens pass the Playwright end-to-end tests and its desktop logic passes the client unit tests. Checks that need a real lab PC are tracked as pending lab verification (Table~\ref{tab:st_pending}).
-
-\subsection{Testing and Validation Deliverables}
-These are unit and API integration tests (xUnit with an in-memory database), headless browser tests (Playwright with a simulated student client), manual lab checklists, and the test plan and test report (Chapter~\ref{chap:testing}), which list the results and known limits.
-
-\subsection{Documentation and Presentation Deliverables}
-These are this report, the presentation slides and our responses to supervisor feedback.
+A deliverable is an output of the project that is handed over and can be checked \cite{del1}. Our deliverables are:
+\begin{itemize}
+    \item \textbf{Software Requirements Specification:} the functional and non-functional requirements of Chapter~\ref{chap:srs} \cite{srs1}.
+    \item \textbf{Design documents:} the use case model, the system design diagrams, the user interface designs and the database design (Chapters~4 to~6).
+    \item \textbf{Working system:} the student desktop client for the lab PCs, the web panel for staff and the server with its database, covering all twelve modules.
+    \item \textbf{Test plan and test report:} the test cases and their results (Chapter~\ref{chap:testing}).
+    \item \textbf{Final report and presentation:} this report and the slides for the final demonstration.
+\end{itemize}

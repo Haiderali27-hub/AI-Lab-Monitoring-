@@ -1,0 +1,55 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-11 Evaluate Answers (M11), part (b): teacher review.
+' Built from seq_plagiarism_matrix; review from ExamsController (GET results, POST answers/{id}/override:
+' 0..question marks, GRADE_OVERRIDDEN) and GradingController.AcceptAiSuggestions (only answers with no override;
+' skips answers that need a manual mark). Web: Admin_Web_Panel/src/pages/teacher/ResultsPage.tsx.
+' Access: exam owner (teacher of the section) or admin only.
+
+actor Teacher as T
+participant "Results\npage (web)" as WEB
+participant "Server" as SRV
+database "Database" as DB
+
+T -> WEB : open results
+activate WEB
+WEB -> SRV : get results
+activate SRV
+SRV -> SRV : exam owner\nor admin?
+SRV -> DB : answers, suggested\nmarks, similar pairs
+SRV --> WEB : results
+deactivate SRV
+opt open the similarity heat map
+  WEB -> SRV : get matrix (not for\na practice exam)
+  activate SRV
+  SRV -> SRV : compare every pair\nof students
+  SRV --> WEB : highest similarity\nper pair, threshold
+  deactivate SRV
+end
+alt accept the suggestions
+  T -> WEB : Accept AI suggestions
+  WEB -> SRV : accept suggestions
+  activate SRV
+  SRV -> DB : final mark = suggestion where\nthere is no final mark yet (not\nanswers needing a manual mark);\naudit entry
+  deactivate SRV
+else mark by hand
+  T -> WEB : final mark and note
+  WEB -> SRV : save final mark
+  activate SRV
+  SRV -> DB : save final mark (0 to the\nquestion's marks); keep the\nsuggestion; audit entry
+  deactivate SRV
+end
+WEB --> T : updated results
+deactivate WEB
+@enduml

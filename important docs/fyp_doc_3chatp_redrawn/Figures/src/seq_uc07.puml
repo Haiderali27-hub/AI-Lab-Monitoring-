@@ -1,0 +1,66 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-07 Manage Users and Roles (M7). Built from seq_users, seq_users_b, seq_users_c, seq_users_d.
+' Code: Backend_API/Controllers/UsersController.cs (Create, Import, ResetDeviceBinding, ForceLogout,
+' GuardExistingAsync), Services/RefreshTokenService.cs, Services/AuditService.cs; Admin_Web_Panel Users page.
+' Departments & Courses page: DepartmentsController / CoursesController (duplicate name or code refused,
+' no delete while courses or sections remain, DEPARTMENT_* / COURSE_* audit).
+
+actor "Admin" as A
+participant "Admin pages\n(web panel)" as UI
+participant "Server" as SRV
+database "Database" as DB
+
+A -> UI : Add User (name, email, password,\nrole), or upload a CSV file
+activate UI
+UI -> SRV : create user or import rows
+activate SRV
+SRV -> SRV : role valid and allowed?\nemail and roll no. free?
+alt Admin or SuperAdmin role, caller not SuperAdmin
+  SRV -> DB : log the denial
+  SRV --> UI : refused
+else unknown role, or email or roll no. in use
+  SRV --> UI : error
+else allowed
+  SRV -> DB : save user (hashed password)\nand audit entry
+  SRV --> UI : created (import: created\nand skipped rows)
+end
+deactivate SRV
+UI --> A : updated list, or the error
+deactivate UI
+== reset device binding, or force logout ==
+A -> UI : reset binding or force logout
+activate UI
+UI -> SRV : reset binding / force logout
+activate SRV
+break target is Admin or SuperAdmin, caller not SuperAdmin
+  SRV -> DB : log the denial
+  SRV --> UI : refused
+end
+SRV -> DB : revoke tokens and sessions;\nremove binding (reset only);\naudit entry
+SRV --> UI : done
+deactivate SRV
+UI --> A : result message
+deactivate UI
+== departments and courses ==
+A -> UI : add, edit or delete a\ndepartment or course
+activate UI
+UI -> SRV : save
+activate SRV
+SRV -> DB : if valid: save it and audit entry
+SRV --> UI : saved, or the error (name or\ncode taken, or still in use)
+deactivate SRV
+UI --> A : updated list or error
+deactivate UI
+@enduml

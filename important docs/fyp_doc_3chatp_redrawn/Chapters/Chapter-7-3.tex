@@ -1,110 +1,47 @@
-% Chapter 7.4.2 -- Integration Test Cases (from TEST_CASES.md and the final run of 2026-10-26)
+% Chapter 7.4.2 -- Integration Test Cases (sample format; every row backed by a passing test of the final run)
 \subsection{Integration Test Cases}
 \label{sec:it_cases}
 
-Each integration test case joins four modules and checks that the API controllers, the database, the role policies, the background workers and the SignalR hub work together across them. The xUnit acceptance tests (layer I) start the full ASP.NET Core pipeline in memory with a seeded database; the Playwright \texttt{api} tests (layer A) send black-box HTTP requests to a separately started backend. Accounts ending in \texttt{@test.com} belong to the xUnit seed and accounts ending in \texttt{@smartexam.com} to the Playwright seed. Every step below passed in the final run of 26 October 2026.
+Integration testing checks that the use cases work together through the server, the database, sign-in and the live updates. Each table below joins four use cases, and every row passed in the final run.
 
-% ---------------------------------------------------------------- IT 1
-\subsubsection{Integration Test Case 1: Access and Exam Set-up (M1, M7, M8, M9)}\label{subsubsec:itc_1}
-This case joins Authentication and Device Binding (M1), User and Role Management (M7), Exam Creation and Configuration (M8) and Eligibility and Access Control (M9): everything that must be in place before a student may start an exam.
+% ---------------------------------------------------------------- IT group 1
+\Needspace{14\baselineskip}
+Table~\ref{tab:it_1} checks everything that must be in place before a student may start: the accounts and roles, the invigilator's assignment, eligibility and the seat. A refused request must not change any data.
 
-\paragraph{Test Method}
-{\sloppy Black-box integration tests. Steps use the xUnit acceptance tests (\texttt{Module1\allowbreak{}Auth\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Ownership\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Module7\allowbreak{}User\allowbreak{}Mgmt\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Module9\allowbreak{}Eligibility\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Session\allowbreak{}Integrity\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Security\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{NotificationTests}) and the Playwright \texttt{api} specs \texttt{m1-auth}, \texttt{m7-users} and \texttt{m8-m9-exams-eligibility}. Each test creates the users and exams it needs.\par}
-
-\paragraph{Test Case Description}
-{\sloppy \textbf{Precondition:} a seeded admin, SuperAdmin, teacher and students. \textbf{Description:} accounts are created only by the right role, tokens and device bindings end when they should, the exam is validated and announced, and the eligibility, seat and section rules refuse every start or change they should refuse. \textbf{Pass:} every step returns its expected status and error code, and nothing is changed by a refused request. \textbf{Fail:} any other status, or a refused request that changes data.\par}
-
-\paragraph{Test Case Data}
-Table~\ref{tab:itc_1} goes from accounts (steps 1--5) to the exam (steps 6--7) and to the start rules (steps 8--11). Steps 3 and 4 show that a copied refresh token or the old PC cannot keep a session open. Steps 8 and 9 show that low attendance and a wrong seat both stop a start, and that the wrong-seat attempt is audited and raised as an alert.
-
-{\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
-\caption{Test Case Data for Integration Test Case 1: Access and Exam Set-up}\label{tab:itc_1}\\ \hline\hline
-\TCHead
-1 & Admin (admin@\allowbreak{}smartexam.\allowbreak{}com) creates a user with role Admin; root@\allowbreak{}smartexam.\allowbreak{}com (SuperAdmin) sends the same request. \TCRef{M7-A-01, M7-A-05} & Admin 403 \texttt{SUPERADMIN\_\allowbreak{}REQUIRED}; SuperAdmin 201. & 403, then 201. & Pass\\
-2 & Admin deactivates a signed-in user; the old token is used. \TCRef{M7-A-04} & 401. & 401. & Pass\\
-3 & student@\allowbreak{}test.com refreshes with RT1 to get RT2, sends RT1 again, then uses RT2. \TCRef{M1-I-03} & Rotation 200; replay 401; RT2 then 401; \texttt{REFRESH\_\allowbreak{}TOKEN\_\allowbreak{}REUSE} audited. & As expected. & Pass\\
-4 & Student signs in on OLD-PC; admin deletes the binding; old tokens are used; student signs in on NEW-PC. \TCRef{M1-I-14} & Old tokens 401; \texttt{DEVICE\_\allowbreak{}BINDING\_\allowbreak{}RESET} audited; NEW-PC 200. & As expected. & Pass\\
-5 & Invigilator opens an exam with one hidden test case before, during and after assignment. \TCRef{M7-I-07} & 404; 200 without answer key or hidden case; 404 again. & As expected. & Pass\\
-6 & Teacher posts an exam with an MCQ (options A, B; key index 5). \TCRef{M8-A-02} & 400; the message names the correct option. & 400. & Pass\\
-7 & Teacher sends an announcement, then the schedule and grades notices; student lists notifications; student tries to announce. \TCRef{M8-I-02 to M8-I-04} & 200 each; the student has an unread notification; student 403. & As expected. & Pass\\
-8 & Teacher imports attendance (student@\allowbreak{}test.com: 24 of 40, minimum 75\%) and recalculates; the student starts the exam. \TCRef{M9-I-02} & Ineligible with ``Attendance 60\% $<$ 75\%''; start 400. & As expected. & Pass\\
-9 & Student assigned to PC-01 signs in on PC-02 and starts the exam. \TCRef{M9-I-06} & 403 \texttt{SEAT\_\allowbreak{}MISMATCH}; audited; alert to the exam group; no session. & As expected. & Pass\\
-10 & Teacher B (BSCS-6B) creates an exam with teacher A's student (BSCS-6A), then adds that student later. \TCRef{M9-I-21} & 403 \texttt{STUDENT\_\allowbreak{}NOT\_\allowbreak{}IN\_\allowbreak{}YOUR\_\allowbreak{}SECTIONS} both times. & As expected. & Pass\\
-11 & Student starts on PC-01; the same account saves and submits from the web. \TCRef{M9-I-22} & 403 \texttt{DESKTOP\_\allowbreak{}CLIENT\_\allowbreak{}REQUIRED}; desktop answer kept; desktop submit 200. & As expected. & Pass\\
-12 & Login limit set to 3 per minute; four failed logins from one IP, then a correct one; a login from another IP. \TCRef{SEC-I-04} & 401 three times, then 429 even for the right password; other IP 200. & As expected. & Pass\\
+{\TTStart
+\begin{longtable}{Q}
+\caption{Integration Testing for Log In and Bind Device, Manage Users and Roles, Create and Configure Exam and Manage Eligibility and Seats}\label{tab:it_1}\\ \hline\hline
+\TTHead
+IT-01 & A demoted administrator loses admin rights at once & 1.~Super administrator creates an Admin.\newline 2.~The Admin signs in.\newline 3.~Super administrator changes the role to Teacher.\newline 4.~The old session is used, then the user signs in again. & root@\allowbreak{}smartexam.com\newline Password: Super@123\newline A new Admin account & The old session is refused; the new login has role Teacher and admin pages are refused. & Pass\\ \hline
+IT-02 & An invigilator sees only the assigned exam & 1.~Teacher assigns the invigilator to exam~A.\newline 2.~The invigilator lists exams and opens exams A and~B.\newline 3.~Teacher removes the assignment. & One invigilator; exams A and~B & Only exam~A is listed, without the answer key; exam~B is not found; after removal the list is empty. & Pass\\ \hline
+IT-03 & Low attendance stops the start & 1.~Teacher imports attendance and recalculates.\newline 2.~The student signs in and starts the exam. & student@\allowbreak{}test.com: 24 of 40 classes; minimum 75\% & Not eligible with ``Attendance 60\% \textless{} 75\%''; the start is refused. & Pass\\ \hline
+IT-04 & A wrong seat stops the start & 1.~Teacher assigns seat PC-01.\newline 2.~The student signs in on PC-02.\newline 3.~The student starts the exam. & Seat: PC-01\newline PC used: PC-02 & Start refused as a seat mismatch; the attempt is audited and an alert goes to the Live Monitor; no session is created. & Pass\\
 \end{longtable}}
 
-\paragraph{Test Case Report}
-All twelve steps passed in the final run. In step~7 the announcement is sent in the app only (the panel's e-mail switch is off by default); the schedule and grade notices also try SMTP, which fails silently on the test host, so e-mail delivery was not tested. Step~12 lowers the login limit for the test; the shipped setting is 10 per minute. Result: Pass.
+% ---------------------------------------------------------------- IT group 2
+\Needspace{14\baselineskip}
+Table~\ref{tab:it_2} follows one sitting on the server side, from the readiness result to the receipt. It shows that the server does not simply trust the client and that saved answers are protected.
 
-% ---------------------------------------------------------------- IT 2
-\subsubsection{Integration Test Case 2: Taking the Exam (M2, M3, M4, M6)}\label{subsubsec:itc_2}
-This case joins Pre-Exam Verification (M2), the Student Exam Dashboard (M3), the Secure Exam Environment (M4) and Submission and Backup (M6): the server side of a student's sitting, from the readiness result to the receipt.
-
-\paragraph{Test Method}
-{\sloppy Black-box integration tests in xUnit (\texttt{Module2\allowbreak{}Readiness\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Module3\allowbreak{}Dashboard\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Module4\allowbreak{}Lockdown\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Module6\allowbreak{}Submission\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Session\allowbreak{}Integrity\allowbreak{}Acceptance\allowbreak{}Tests}). The tests call the same endpoints as the WPF client (readiness, \texttt{student/\allowbreak{}current}, \texttt{student/\allowbreak{}start}, events, save-answer, submit).\par}
-
-\paragraph{Test Case Description}
-{\sloppy \textbf{Precondition:} an exam assigned to the seeded students; where a step needs it, the exam requires readiness or the webcam. \textbf{Description:} the server does not simply trust the client: it checks the readiness result, the exam window and the sitting before it serves questions, records lockdown events against the right session, and protects saved answers and the receipt. \textbf{Pass:} each step returns its expected status and stored data. \textbf{Fail:} a start, read or save is accepted when it should be refused, or an answer is lost.\par}
-
-\paragraph{Test Case Data}
-Table~\ref{tab:itc_2} follows one sitting in order: readiness (steps 1--3), start (steps 4--5), lockdown events (steps 6--8) and answers (steps 9--12). Step~3 shows that a required webcam check cannot be skipped by the client. Steps 9 and 12 show that an older save cannot overwrite a newer one and that a finished session cannot be started again.
-
-{\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
-\caption{Test Case Data for Integration Test Case 2: Taking the Exam}\label{tab:itc_2}\\ \hline\hline
-\TCHead
-1 & Student posts a readiness result with all checks passed (network 120 ms, clock 2 s, camera ok, 12 GB free). \TCRef{M2-I-01} & 200; stored with \texttt{Passed\allowbreak{}All=\allowbreak{}true}; \texttt{READINESS\_\allowbreak{}PASSED} audited. & As expected. & Pass\\
-2 & With \texttt{require\allowbreak{}Readiness=\allowbreak{}true}: start without a check, then with a check 31 min old. \TCRef{M2-I-02, M2-I-05} & 400 \texttt{READINESS\_\allowbreak{}REQUIRED} both times. & As expected. & Pass\\
-3 & With \texttt{require\allowbreak{}Webcam=\allowbreak{}true}: the client claims all passed with a Network result only; then starts. \TCRef{M2-I-10} & \texttt{passed\allowbreak{}All=\allowbreak{}false}, Camera missing; start 400 \texttt{READINESS\_\allowbreak{}REQUIRED}. & As expected. & Pass\\
-4 & Start an exam that opens in 1 h; call \texttt{student/\allowbreak{}start} at T$-$3 min (5 min early join) and after the end. \TCRef{M3-I-01, M3-I-05} & 400 \texttt{EXAM\_\allowbreak{}NOT\_\allowbreak{}STARTED}; 200; 400 \texttt{EXAM\_\allowbreak{}CLOSED}. & As expected. & Pass\\
-5 & Student opens the exam before, during and after the sitting. \TCRef{M3-I-08} & Questions only during the sitting; the teacher always sees them. & As expected. & Pass\\
-6 & Exam with \texttt{Lockdown\allowbreak{}Mode=\allowbreak{}Enforce}; student reads \texttt{student/\allowbreak{}current}. \TCRef{M4-I-01} & Mode and allowed apps returned to the client. & As expected. & Pass\\
-7 & Post an \texttt{Unauthorized\allowbreak{}Process} event; then 1 and 3 FocusLost events and one ProcessKilled. \TCRef{M4-I-02, M4-I-03} & 200, stored with its type; tile Warning, Suspicious, then Violation. & As expected. & Pass\\
-8 & Student A posts an event, a legacy event and a heartbeat to B's session. \TCRef{M4-I-04} & 404 each; nothing stored, no live alert. & As expected. & Pass\\
-9 & Client saves revision 3 (``rev 3 text''), then revision 2. \TCRef{M6-I-01} & 200, then 409 \texttt{STALE\_\allowbreak{}REVISION}; ``rev 3 text'' kept. & As expected. & Pass\\
-10 & Student saves a C++ and a theory answer and submits; teacher opens the results. \TCRef{M6-I-02} & 200, \texttt{answer\allowbreak{}Count=\allowbreak{}2}, 64-character SHA-256; teacher sees the same hash. & As expected. & Pass\\
-11 & Student 1 gets 10 extra minutes; the exam end is set 5 min ago; both students save (grace 2 min). \TCRef{M6-I-07} & Student 1: 200; student 2: 400. & As expected. & Pass\\
-12 & A student submits and calls \texttt{student/\allowbreak{}start}; a force-submitted student does the same. \TCRef{M6-I-21} & 409 \texttt{ALREADY\_\allowbreak{}SUBMITTED} for both; one session each. & As expected. & Pass\\
+{\TTStart
+\begin{longtable}{Q}
+\caption{Integration Testing for Run Readiness Check, View Exam Dashboard and Start Exam, Sit the Locked Exam and Autosave and Submit Answers}\label{tab:it_2}\\ \hline\hline
+\TTHead
+IT-05 & The exam needs a passed readiness check & 1.~Teacher sets the exam to need readiness and the webcam.\newline 2.~The student starts without a check, then with an old check.\newline 3.~The client sends a check with no camera result and starts. & Check 31~min old; a result with the network item only & Each start is refused because readiness is required; the missing camera result marks the check as failed. & Pass\\ \hline
+IT-06 & Lockdown settings and events reach the server & 1.~Teacher sets lockdown to Enforce.\newline 2.~The student opens the current exam.\newline 3.~The client sends focus-lost events and a program-killed event. & 1 and 3 focus-lost events; 1 program killed & The lockdown mode and allowed apps reach the client; the tile shows Warning, Suspicious, then Violation. & Pass\\ \hline
+IT-07 & An older save cannot replace a newer one & 1.~The client saves revision~3.\newline 2.~The client sends revision~2. & Revision 3: ``rev 3 text''; then revision~2 & Revision~2 is refused as out of date; ``rev 3 text'' is kept. & Pass\\ \hline
+IT-08 & Receipt on submission and no second sitting & 1.~The student saves a C++ and a theory answer.\newline 2.~The student submits.\newline 3.~Teacher opens the results.\newline 4.~The student starts the exam again. & Two answers & Receipt with 2 answers and a 64-character hash; the teacher sees the same hash; the new start is refused as already submitted. & Pass\\
 \end{longtable}}
 
-\paragraph{Test Case Report}
-All twelve steps passed in the final run. The same rules seen from the exam window (the readiness checklist, the locked window and the receipt dialog) need a lab PC and are pending (Table~\ref{tab:st_pending}). Result: Pass.
+% ---------------------------------------------------------------- IT group 3
+\Needspace{14\baselineskip}
+Table~\ref{tab:it_3} follows the monitoring data and the answers after the student has sent them. It checks screenshots, warnings, grading and the audit chain, and that only the exam's staff can see them.
 
-% ---------------------------------------------------------------- IT 3
-\subsubsection{Integration Test Case 3: Monitoring and Results (M5, M10, M11, M12)}\label{subsubsec:itc_3}
-This case joins the Live Monitoring Client Service (M5), the Live Proctoring Dashboard (M10), AI-Assisted Evaluation (M11) and Logs, Analytics and Audit Trail (M12): what happens to monitoring data and answers after the student has sent them.
-
-\paragraph{Test Method}
-{\sloppy Black-box integration tests in xUnit (\texttt{Module5\allowbreak{}Monitoring\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Module10\allowbreak{}Proctoring\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Module11\allowbreak{}Evaluation\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Module12\allowbreak{}Audit\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Ownership\allowbreak{}Acceptance\allowbreak{}Tests}, \texttt{Session\allowbreak{}Integrity\allowbreak{}Acceptance\allowbreak{}Tests}) and the Playwright \texttt{api} specs \texttt{m3-m5-dashboard-monitoring} and \texttt{m11-m12-evaluation-audit}. Step~7 opens a real WebSocket connection to the hub (\texttt{RawHubClient}). Grading uses the fake runner unless a step says otherwise.\par}
-
-\paragraph{Test Case Description}
-{\sloppy \textbf{Precondition:} an exam with students who have started it. \textbf{Description:} monitoring data reaches the board once and on time, invigilator actions reach the student, only the exam's supervisors see or act on it, grading runs after submission without leaking hidden tests, and the audit log and reports are protected and tamper-evident. \textbf{Pass:} each step returns its expected status, broadcast or stored data. \textbf{Fail:} duplicated or lost data, a leak of hidden tests, or access by another user.\par}
-
-\paragraph{Test Case Data}
-Table~\ref{tab:itc_3} goes from monitoring (steps 1--3) to supervision (steps 4--7), grading (steps 8--10) and the audit trail (steps 11--15). Steps 6 and 7 are regression tests for defects D-39 and D-41 (Table~\ref{tab:bugs}). Step~14 shows that the hash chain stays valid under 50 parallel writes and after a user is deleted.
-
-{\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
-\caption{Test Case Data for Integration Test Case 3: Monitoring and Results}\label{tab:itc_3}\\ \hline\hline
-\TCHead
-1 & Client posts a batch of 20 events with unique \texttt{client\allowbreak{}Event\allowbreak{}Id}s, then the same batch again. \TCRef{M5-I-06} & Both 200; 20 events stored. & As expected. & Pass\\
-2 & Student sends one heartbeat and stops (threshold 2 s, raised to the 5 s minimum; production 30 s); then sends again. \TCRef{M5-I-08} & \texttt{Student\allowbreak{}Disconnected} to the exam group within 15 s, then \texttt{Student\allowbreak{}Reconnected}. & As expected. & Pass\\
-3 & Client sends MultipleFaces and PhoneDetected; heartbeats report LookingAway, then ``Smiling''. \TCRef{M5-A-06} & Tile LookingAway, 2 violations; events on the timeline; unknown status dropped. & As expected. & Pass\\
-4 & Teacher sends ``Eyes on your own screen'' through the hub; client heartbeats, then marks it read. \TCRef{M10-I-09} & Warning in each heartbeat reply until read; sending and reading audited. & As expected. & Pass\\
-5 & A student sends a heartbeat, a KeyBlocked (Alt+Tab) event and a capture; teacher files an incident and opens the board. \TCRef{M10-I-11} & One tile, status Warning, with apps, capture and incident; other teacher 403. & As expected. & Pass\\
-6 & Another section's teacher calls each per-exam endpoint of ``Test Exam'' (BSCS-6A), then with unknown ids. \TCRef{M10-I-18} & 403 each, nothing changed; unknown ids 404; owner and admin 200. & As expected. & Pass\\
-7 & Teacher joins the exam group; admin force-logs the teacher out; the socket calls \texttt{Unlock\allowbreak{}Session} (5 min). \TCRef{M10-I-21} & Call refused and connection closed; session not unlocked. & As expected. & Pass\\
-8 & Student submits a coding answer (fake runner, 5,000 ms delay); teacher opens the results. \TCRef{M11-I-01} & Submit 200 in under 1 s; grading Pending. & As expected. & Pass\\
-9 & Coding answer with hidden output HIDDEN-\allowbreak{}EXPECTED-\allowbreak{}424242; after the end, student and teacher open the results. \TCRef{M11-I-03} & Student sees one case, never the hidden output; the teacher sees it. & As expected. & Pass\\
-10 & Theory answer is graded; teacher overrides to 3.5, then 4.0; student opens the result. \TCRef{M11-I-08} & 4.0 is final for teacher and student; the AI suggestion is kept. & As expected. & Pass\\
-11 & teacher@\allowbreak{}smartexam.\allowbreak{}com, then admin@\allowbreak{}smartexam.\allowbreak{}com, calls \texttt{GET /\allowbreak{}api/\allowbreak{}audit-\allowbreak{}logs}. \TCRef{M12-A-01} & Teacher 403; admin 200. & As expected. & Pass\\
-12 & Teacher generates and downloads the exam summary report; requests \texttt{.\allowbreak{}.\allowbreak{}\%2F\allowbreak{}.\allowbreak{}.\allowbreak{}\%2F\allowbreak{}appsettings.\allowbreak{}json}. \TCRef{M12-A-03, M12-A-04} & application/pdf starting with \%PDF, listed in history; crafted name 400 or 404, no connection string. & As expected. & Pass\\
-13 & Admin calls \texttt{GET /\allowbreak{}api/\allowbreak{}audit-\allowbreak{}logs/\allowbreak{}verify}; a row is changed in the database; verify again; a teacher calls verify. \TCRef{M12-I-01, M12-I-02} & \texttt{valid: true}; then \texttt{valid: false} with \texttt{brokenAt}; teacher 403. & As expected. & Pass\\
-14 & Write 50 audit entries in parallel; admin deletes a student who has audit rows. \TCRef{M12-I-03, M12-I-11} & Sequences unique with no gap; the rows remain and the chain stays valid. & As expected. & Pass\\
-15 & Post a violation and a batch with two violations; generate the attendance, violations and scores PDFs, the Excel file and the evidence ZIP (a PNG capture and an unreadable JPEG); another teacher and a student request an export. \TCRef{M12-I-04 to M12-I-08, M12-I-12, M12-I-13, M12-A-05 (xUnit)} & Violation audited, batch audited once with count 2; PDFs start with \%PDF; one Excel row per student; ZIP manifest hashes match; bad image skipped; \texttt{REPORT\_\allowbreak{}GENERATED} carries the SHA-256; others 403. & As expected. & Pass\\
+{\TTStart
+\begin{longtable}{Q}
+\caption{Integration Testing for Send Monitoring Data, Supervise Exam Live, Evaluate Answers and View Reports and Audit Log}\label{tab:it_3}\\ \hline\hline
+\TTHead
+IT-09 & Screenshots reach only the exam's staff & 1.~The client uploads a screenshot and a program file.\newline 2.~Teacher opens the screenshot.\newline 3.~The student and another teacher try to open it.\newline 4.~The client uploads after submitting. & A JPEG picture; a program file starting with MZ & The JPEG is stored and shown to the teacher; the program file, the other users and the late upload are refused. & Pass\\ \hline
+IT-10 & A warning reaches the student & 1.~Teacher sends a warning from the Live Monitor.\newline 2.~The client sends heartbeats.\newline 3.~The student marks it read. & Warning: ``Eyes on your own screen'' & The warning is in each heartbeat reply until it is read; sending and reading are both in the audit log. & Pass\\ \hline
+IT-11 & Grading after submission keeps hidden tests secret & 1.~The student submits a coding answer.\newline 2.~Teacher opens the results.\newline 3.~After the end the student opens the result. & Slow code runner (5~s); hidden expected output HIDDEN-EXPECTED-424242 & Submit returns in under 1~s with grading pending; the student sees only the visible case; the teacher sees the hidden one. & Pass\\ \hline
+IT-12 & The audit chain shows a changed row & 1.~Admin verifies the audit chain.\newline 2.~One row is changed in the database.\newline 3.~Admin verifies again.\newline 4.~A teacher tries to verify. & One changed audit row & First valid; then broken with the row number; the teacher is refused. & Pass\\
 \end{longtable}}
-
-\paragraph{Test Case Report}
-All fifteen steps passed in the final run. The load target of 40 clients per lab (M5-P-01) was not measured and is pending (Table~\ref{tab:st_pending}). Result: Pass.

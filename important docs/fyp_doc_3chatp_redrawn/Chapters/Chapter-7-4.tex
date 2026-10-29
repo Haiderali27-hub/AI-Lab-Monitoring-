@@ -1,110 +1,62 @@
-\subsection{System Test Case}\label{subsec:system_tests}
+% Chapter 7.4.3 -- System Test Cases and 7.5 Bugs Report
+\subsection{System Test Cases}\label{subsec:system_tests}
 
-The system test case runs one complete exam across the web panel, the backend and the student client, from the first account to the last audit check. It is executed in the Playwright \texttt{chromium} project, where the web panel runs in headless Chromium and the desktop-client simulator sends the HTTP calls of the WPF client in the same test, so one action can be followed from the student PC to the teacher's screen and back. All 113 tests of that project passed.
+System testing runs one complete exam day through the web panel in a browser, with a student-client simulator in the same test. Table~\ref{tab:st_1} follows the order of an exam day, from the first sign-in to the audit log, and every row passed in the final run.
 
-\subsubsection{System Test Case: Complete Exam from Set-up to Audit}\label{subsubsec:stc_1}
-This case covers all twelve modules and the five roles in the order of a real exam day.
-
-\paragraph{Test Method}
-{\sloppy Black-box end-to-end testing through the user interface. Each stage of the scenario is a separate Playwright test that creates its own students and exam, so the scenario is run as a chain of tests rather than as one long test; a stage may combine several catalogue tests of the same flow. The browser suite uses the seeded lab seats (R1C1, R1C2), so lab creation (step~3) is checked by an xUnit test against the in-memory host. The steps on the real WPF client cannot be driven by the browser and are on the lab checklist.\par}
-
-\paragraph{Test Case Description}
-{\sloppy \textbf{Precondition:} the Playwright seed accounts (\texttt{admin@\allowbreak{}smartexam.\allowbreak{}com}, \texttt{teacher@\allowbreak{}smartexam.\allowbreak{}com}, \texttt{root@\allowbreak{}smartexam.\allowbreak{}com}, \texttt{invigilator@\allowbreak{}smartexam.\allowbreak{}com}) and the seeded lab seats. \textbf{Description:} the admin creates users and labs, the teacher creates the exam and decides eligibility, the student signs in on the bound PC and sits the exam, the invigilator monitors and warns, and the exam is submitted, graded, exported and checked in the audit log. \textbf{Pass:} every stage shows the expected screen or reply. \textbf{Fail:} any stage shows another result or an error.\par}
-
-\paragraph{Test Case Data}
-Table~\ref{tab:stc_1} lists the stages in the order of an exam day: set-up (steps 1--7), the sitting (steps 8--13) and results (steps 14--19). Step~20 is the same sitting on a real lab PC, which was not run. The key steps are 8 and 10: a wrong seat and each lockdown event are visible on the invigilator's Live Monitor as soon as the client reports them.
-
-{\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{0.9cm}P{4.3cm}P{3.9cm}P{3.7cm}>{\centering\arraybackslash}p{1.7cm}@{}}
-\caption{Test Case Data for the System Test Case}\label{tab:stc_1}\\ \hline\hline
-\TCHead
-1 & Admin signs in with a wrong, then the right password (admin@\allowbreak{}smartexam.\allowbreak{}com / Admin@123); the access token is replaced by an invalid one; Users is opened; admin logs out and the refresh token is reused. \TCRef{M1-E-01, M1-E-02, M1-E-03, M1-E-05} & Error shown, then the dashboard; Users loads after a silent refresh; refresh after logout 401. & Dashboard shown; new JWT stored; 401. & Pass\\
-2 & Admin adds a Student with roll number bscs-pw-482913 (per run) in the Users dialog. \TCRef{M7-E-02, M1-E-06} & Row shows BSCS-PW-482913. & As expected. & Pass\\
-3 & Admin creates lab ``Lab Z'' (Block 9) and workstation PC-99 (10.0.0.99), then PC-99 again; a teacher creates a lab. \TCRef{\texttt{CreateLabAndWorkstation\_\allowbreak{}AsAdmin\_\allowbreak{}Works}, \texttt{CreateLab\_\allowbreak{}AsTeacher\_\allowbreak{}Returns403}} & 201, 201, then 409 for the duplicate; teacher 403. & As expected. & Pass\\
-4 & Teacher fills the exam wizard with a theory and an MCQ question; sets webcam, Enforce, intervals 5 s, then 30/120 s, and apps VS Code and \texttt{sublime\_\allowbreak{}text}; reopens the edit page. \TCRef{M8-E-01, M8-E-02, M8-E-03, M4-E-03, M2-E-03} & Exam listed; 5 s rejected; the edit page shows the saved webcam, lockdown, interval and app values. & As expected. & Pass\\
-5 & Teacher uploads attendance CSVs (\texttt{email,\allowbreak{}attended,\allowbreak{}total}; 24 of 40 for one student) and recalculates; the simulator tries to start. \TCRef{M9-E-03, M9-E-04} & Switch off with ``Attendance 60\% \textless{} 75\%''; start 400. & As expected. & Pass\\
-6 & Teacher switches a student off with the note ``Fee defaulter''; both students start; in another exam a manual note survives a recalculation. \TCRef{M9-E-02, M9-E-06} & Blocked student 400 with ``Fee defaulter'', the other 200; ``1 manual override(s) kept''. & As expected. & Pass\\
-7 & Teacher assigns invigilator@\allowbreak{}smartexam.\allowbreak{}com on the Eligibility page; the invigilator signs in. \TCRef{M7-E-07, M7-E-04} & Chip appears; the invigilator lands on the Live Monitor and lists only that exam. & As expected. & Pass\\
-8 & The simulator signs in by roll number with a hardware fingerprint; it starts at seat R1C1, then signs in again from R1C2. \TCRef{M1-E-06, M1-A-03, M9-E-05} & Login 200 and the PC bound; tile ``Seat mismatch: logged in from R1C2 (assigned R1C1)'', Critical. & As expected. & Pass\\
-9 & Clients post a passing check, no check and a failed camera check (``No device found''); teacher opens Eligibility; the failed client starts. \TCRef{M2-E-01, M2-E-02} & \cmark{}, a dash and \xmark{} with ``Camera: No device found''; start 400. & As expected. & Pass\\
-10 & The simulator starts through \texttt{student/\allowbreak{}start} and heartbeats from LAB-PC-\textless{}id\textgreater{}; then sends KeyBlocked, UnauthorizedProcess (chrome) and ProcessKilled. \TCRef{M5-E-01, M10-E-02, M10-E-03, M4-E-02} & Tile Stable, then Warning, Suspicious, Critical; ``Unauthorized app: chrome (Killed)''. & As expected. & Pass\\
-11 & Heartbeats report idle 185 s, camera Covered and two faces; a PhoneDetected event follows; heartbeats stop, then resume. \TCRef{M5-E-04, M5-E-05, M5-E-03} & ``Idle 3m'', ``Camera covered'', ``Multiple faces'', ``Mobile phone detected''; Disconnected within 40 s, then Stable. & As expected. & Pass\\
-12 & The invigilator sends ``Keep your eyes on your screen'' from the drawer; the simulator heartbeats, then acknowledges it. \TCRef{M10-E-13} & Each heartbeat reply carries the warning until it is read. & As expected. & Pass\\
-13 & Unlock from the drawer for 5 min, then Lock again; extend the exam and one student by 10 min. \TCRef{M10-E-09, M10-E-05, M6-E-06} & \texttt{unlocked\allowbreak{}Until\allowbreak{}Utc} set, then null; remaining time grows by 570--600 s; ack \texttt{extra\allowbreak{}Minutes} 10. & As expected. & Pass\\
-14 & The simulator saves ``A stack is LIFO and a queue is FIFO.'' and an MCQ answer and submits; the teacher and, after the end, the student open the results. \TCRef{M6-E-01, M6-E-04, M6-E-05} & SHA-256 receipt; row Submitted, 15/15; both pages show the receipt hash. & As expected. & Pass\\
-15 & A simulator saves a draft; the teacher clicks Force End Exam and it saves again; in another exam the teacher uses Force Submit Student. \TCRef{M6-E-02, M6-E-03} & Sessions ForceSubmitted, ``draft'' kept, late save 400; tile Force submitted. & As expected. & Pass\\
-16 & Submit non-compiling code (\texttt{arr}, \texttt{n} undeclared), then correct code; open Review; override a theory mark to 7; in another exam accept the AI suggestions. \TCRef{M11-E-01, M11-E-04, M11-E-02, M11-E-06} & ``Compilation failed'', 0 / 20, two test-case rows, the first Not run; 20 / 20; 7/10 Overridden; ``Accepted 2 suggestion(s)''. & As expected. & Pass\\
-17 & Three students submit the same answer; teacher opens Analytics; two submit a program and a copy with \texttt{best} renamed \texttt{top}. \TCRef{M11-E-03, M11-E-05} & 3$\times$3 heat map, cell 0-1 shows 100; flag ``100\% Similarity Match''. & As expected. & Pass\\
-18 & Teacher clicks Generate New Report, then Evidence ZIP on the Reports page. \TCRef{M12-E-02, M12-E-05} & A Download button and a \texttt{.pdf} row; a \texttt{.zip} download starts. & As expected. & Pass\\
-19 & Admin opens Audit Logs, filters \texttt{LOGIN\_\allowbreak{}SUCCESS} and searches for teacher@\allowbreak{}smartexam.\allowbreak{}com. \TCRef{M7-E-03, M12-E-01, M12-E-04} & Only \texttt{LOGIN\_\allowbreak{}SUCCESS} rows; the teacher found; badge ``Chain verified''. & As expected. & Pass\\
-20 & Sit the same exam in the WPF client on lab PCs: wrong seat, locked window, warning banner, unlock, receipt dialog. \TCRef{M9-M-01, M4-D-01 to M4-D-08, M10-D-01, M10-D-02, M6-D-04} & As in Table~\ref{tab:st_pending}. & Not executed. & Pending (lab)\\
-\end{longtable}}
-
-\paragraph{Test Case Report}
-Steps 1--19 passed in the final run. In step~14 the exam has an MCQ (5 marks), a theory question (10 marks) and a coding question (20 marks) with one visible and one hidden test case; only the MCQ and theory questions are answered, and the results page totals the marks of the answered questions, so it shows 15/15. In step~16 the AI suggestion is shown on the Review page, but the teacher's override or acceptance sets the mark. Step~20 was not run because it needs real lab PCs; its checks are listed below. Result: Pass for every automated stage; the lab stage is pending.
-
-\paragraph{Pending Lab Verification}\label{subsubsec:st_pending}
-Checks that need a real lab PC (WPF windows, keyboard and USB events, a webcam, a network cable or 40 machines) are on the manual lab checklist (layers D, M and P) and were not executed. Table~\ref{tab:st_pending} lists them as Pending: the 32 catalogue rows without a passing test and the on-screen step of four rows marked ``logic passed'', whose decision logic passed in the unit test cases above. Each row gives the catalogue rows, the procedure on the lab PC and the expected result, and every status is Pending because none was executed in the final run. For a row marked ``logic passed'', the rule itself is already covered by a passing unit test, for example the start gate in Section~\ref{subsubsec:utc_m3} and the Task Manager repair in Section~\ref{subsubsec:utc_m4}, so only the on-screen step is left.
-
-{\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{2.6cm}P{2.6cm}P{4.0cm}P{4.0cm}>{\centering\arraybackslash}p{1.4cm}@{}}
-\caption{System Checks Pending Lab Verification}\label{tab:st_pending}\\ \hline\hline
-\textbf{Catalogue Ref} & \textbf{Check} & \textbf{Procedure on the Lab PC} & \textbf{Expected Result} & \textbf{Status}\\ \hline
-\endfirsthead
-\multicolumn{5}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
-\textbf{Catalogue Ref} & \textbf{Check} & \textbf{Procedure on the Lab PC} & \textbf{Expected Result} & \textbf{Status}\\ \hline
-\endhead
-\hline \multicolumn{5}{r}{\footnotesize Continued on next page}\\
-\endfoot
-\hline\hline
-\endlastfoot
-M2-M-01 to 05 & Readiness on real hardware & Run the check with the webcam present, then unplugged; mute the microphone; add a monitor; pull the LAN cable. & Camera passes, then fails; secure mode and network fail with their reason. The microphone level check is not built (presence only). & Pending\\
-M2-D-01 to 03, M3-D-01 (logic passed), M3-D-02 & Desktop dashboard & Open the dashboard before the start time; fail and retry one check; extend the exam. & All checks listed; only the failed item reruns; Start disabled until the checks pass and the exam opens; timer follows the extension. & Pending\\
-M4-D-01 to 06, M4-D-07 (logic passed), M4-D-08, M4-M-02 & Exam window and guards & Press Alt+F4, minimise and Ctrl+\allowbreak{}Shift+\allowbreak{}Esc; launch Notepad; paste; kill the app and relaunch; submit, then press Alt+Tab. & Window stays full screen; Notepad closed; paste empty; Task Manager policy restored on relaunch; keys work again after submit. & Pending\\
-M4-M-01, 03 to 06 & Hardware and remote-session events & Press Ctrl+Alt+Del; insert a USB stick; plug a monitor; connect over RDP; run a Defender scan. & Focus loss, \texttt{UsbInserted} and \texttt{MultiMonitor} sent; RDP blocked at readiness; executable not quarantined. & Pending\\
-M5-D-01 to 03, M5-M-01 & Captures, offline replay, webcam & Run 2 min at a 30~s interval; disable the network adapter for 60~s; switch to an allowed app; leave the seat, add a second face, turn away, show a phone. & About four screenshots; no event lost; the app named in the heartbeat; NoFace, MultipleFaces, LookingAway and PhoneDetected each raised once. & Pending\\
-M6-D-01, 02 (logic passed), M6-D-03, 04 & Crash, offline answering, auto-submit & Kill the app mid-exam and relaunch; answer offline, then reconnect; let the timer reach zero; submit. & ``Resume Exam'' restores the answers and they reach the server; automatic submit (offline: retry every 10~s); receipt dialog shows the hash. & Pending\\
-M9-M-01, M10-D-01, 02 & Seat, warning and unlock & Sit at the wrong PC; send a warning; unlock from the drawer (5 min). & Start refused; banner within one heartbeat; guards off, then on again. & Pending\\
-M5-P-01 & Load (NFR4): 40 clients per lab & k6: 40 virtual students send heartbeats every 10~s and events. & p95 below 2~s, no errors. & Pending\\
+{\TTStart
+\begin{longtable}{Q}
+\caption{System Testing}\label{tab:st_1}\\ \hline\hline
+\TTHead
+ST-01 & Sign in and keep the session & 1.~Admin signs in with a wrong, then the right password.\newline 2.~The sign-in token is made invalid and Users is opened.\newline 3.~Admin logs out and the old session is reused. & admin@\allowbreak{}smartexam.com\newline Password: Admin@123 & Error, then the dashboard; Users opens after a silent renewal; the old session cannot be renewed after logout. & Pass\\ \hline
+ST-02 & Add a student who signs in at a lab PC & 1.~Admin adds a student with a roll number.\newline 2.~The student signs in from the desktop client by roll number. & Roll number: bscs-pw-482913 & The row shows BSCS-PW-482913; the login succeeds. & Pass\\ \hline
+ST-03 & Create an exam with monitoring settings & 1.~Teacher fills in the exam wizard.\newline 2.~Sets the webcam, Enforce lockdown, the intervals and the allowed apps.\newline 3.~Publishes and opens the edit page. & A theory and an MCQ question; interval 5~s, then 30~s and 120~s; VS Code, sublime\_text & Exam listed; 5~s rejected; the edit page shows the saved settings. & Pass\\ \hline
+ST-04 & Decide eligibility & 1.~Teacher uploads attendance and clicks Recalculate.\newline 2.~Teacher switches another student off with a note.\newline 3.~The students try to start. & 24 of 40 classes; note ``Fee defaulter'' & ``Attendance 60\% \textless{} 75\%'' and the start is refused; the switched-off student is refused with ``Fee defaulter''; an eligible student starts. & Pass\\ \hline
+ST-05 & Show readiness results to the teacher & 1.~Three clients send a passing check, no check and a failed camera check.\newline 2.~Teacher opens Eligibility.\newline 3.~The failed client tries to start. & Camera result: ``No device found'' & A tick, a dash and a cross with ``Camera: No device found''; the start is refused. & Pass\\ \hline
+ST-06 & Assign an invigilator and catch a wrong seat & 1.~Teacher assigns the invigilator on the Eligibility page.\newline 2.~The invigilator signs in.\newline 3.~A student starts at seat R1C1 and signs in again from R1C2. & invigilator@\allowbreak{}smartexam.com; seats R1C1 and R1C2 & The invigilator lands on Live Monitor with only that exam; the tile shows ``Seat mismatch: logged in from R1C2 (assigned R1C1)'', Critical. & Pass\\ \hline
+ST-07 & Show lockdown and webcam events live & 1.~The student client sends a blocked key and a closed app.\newline 2.~Heartbeats report idle time, a covered camera and two faces.\newline 3.~Heartbeats stop, then resume. & App: chrome; idle 185~s & ``Unauthorized app: chrome (Killed)''; ``Idle 3m'', ``Camera covered'', ``Multiple faces''; Disconnected within 40~s, then back. & Pass\\ \hline
+ST-08 & Warn, unlock and give extra time & 1.~The invigilator sends a warning from the student drawer.\newline 2.~Unlocks the student for 5~min, then locks again.\newline 3.~Gives the student 10 extra minutes. & Warning: ``Keep your eyes on your screen'' & The warning reaches the client until it is read; the tile shows Unlocked, then locked; the tile shows ``+10 min''. & Pass\\ \hline
+ST-09 & Submit and get a receipt & 1.~The student answers and submits.\newline 2.~Teacher opens Results.\newline 3.~After the end the student opens the result.\newline 4.~In another exam the teacher clicks Force End Exam. & ``A stack is LIFO and a queue is FIFO.'' and an MCQ answer & The same receipt on every page; row Submitted, 15/15; after Force End a late save is refused. & Pass\\ \hline
+ST-10 & Review results, plagiarism, reports and the audit log & 1.~Teacher opens Results for wrong, then correct code.\newline 2.~Opens Analytics.\newline 3.~Generates a report on Reports.\newline 4.~Admin opens Audit Logs. & Code using undeclared arr and n; three identical answers; filter: successful logins & ``Compilation failed'' 0/20, then 20/20; the identical pair shows 100 on the heat map; a PDF row is added; ``Chain verified''. & Pass\\
 \end{longtable}}
 
 \section{Bugs Report}\label{sec:bugs}
 
-In total 49 defects (D-01 to D-49) were recorded in the test catalogue, each with the test, review or implementation step that found it. Six (D-07, D-16, D-19, D-20, D-22, D-26) were found by code review and one (D-48) while implementing Module~12; two (D-33, D-49) were timing-sensitive tests rather than product defects. Table~\ref{tab:bugs} lists the 21 with the largest effect on exam integrity, data access and reliability. The test in its Found-by column is kept as a regression test and passed in the final run; D-01 was found while writing SEC-A-05 and is guarded by SEC-A-06. Severity is Critical for a leak of exam content or credentials or a bypass of the desktop client, High for a broken access rule or a loss of exam time or data, and Medium for a fault with a limited effect. No defect is open.
+In total 49 defects (D-01 to D-49) were recorded, and all of them are fixed. Table~\ref{tab:bugs} lists the 21 with the largest effect on exam integrity, data access and reliability, with the use case it affects.
 
 {\small\setlength{\tabcolsep}{4pt}\setlength{\doublerulesep}{1pt}
-\begin{longtable}{@{}P{1.5cm}P{2.1cm}P{8.0cm}P{1.7cm}>{\centering\arraybackslash}p{1.3cm}@{}}
+\begin{longtable}{@{}P{1.5cm}P{1.8cm}P{8.3cm}P{1.7cm}>{\centering\arraybackslash}p{1.3cm}@{}}
 \caption{Bugs Report}\label{tab:bugs}\\ \hline\hline
-\textbf{Bug ID} & \textbf{Found by} & \textbf{Description} & \textbf{Severity} & \textbf{Status}\\ \hline
+\textbf{Bug ID} & \textbf{Use Case} & \textbf{Description} & \textbf{Severity} & \textbf{Status}\\ \hline
 \endfirsthead
 \multicolumn{5}{c}{\footnotesize\tablename~\thetable{} -- continued from previous page}\\ \hline\hline
-\textbf{Bug ID} & \textbf{Found by} & \textbf{Description} & \textbf{Severity} & \textbf{Status}\\ \hline
+\textbf{Bug ID} & \textbf{Use Case} & \textbf{Description} & \textbf{Severity} & \textbf{Status}\\ \hline
 \endhead
 \hline \multicolumn{5}{r}{\footnotesize Continued on next page}\\
 \endfoot
 \hline\hline
+\multicolumn{5}{@{}p{\linewidth}@{}}{\footnotesize Severity: Critical = a leak of exam content or passwords, or a way around the desktop client; High = a broken access rule or a loss of exam time or data.}\\
 \endlastfoot
-D-01 & SEC-A-05 & Exam details exposed students' password hashes. & Critical & Fixed\\
-D-02 & M10-E-02 & Desktop start did not set the exam Active. & High & Fixed\\
-D-05 & M10-E-04 & Invigilator warnings never reached the student client. & High & Fixed\\
-D-08 & M3-I-01 & \texttt{start-\allowbreak{}session} ignored the exam start time. & High & Fixed\\
-D-09 & M9-I-10 & Each login added its PC to a default lab. & High & Fixed\\
-D-10 & M9-I-19 & Teachers could change other sections' eligibility. & High & Fixed\\
-D-12 & M1-E-05 & Web logout left the tokens valid on the server. & High & Fixed\\
-D-14 & M1-I-13 & A password change left other sessions valid. & High & Fixed\\
-D-15 & M4-U-18 & A failed teardown step left Task Manager disabled. & High & Fixed\\
-D-18 & M6-U-09 & No way to resume a session after a crash. & High & Fixed\\
-D-25 & M5-I-13 & Clients could post server-only events. & High & Fixed\\
-D-27 & M5-U-15/16 & Webcam thread errors closed the exam app. & High & Fixed\\
-D-31 & M10-I-15 & Any teacher could edit or end any exam. & Critical & Fixed\\
-D-34 & M11-I-09 & Any teacher could override grades of any exam. & Critical & Fixed\\
-D-39 & M10-I-18 & Other teachers could open, report on and notify another section's exam. & High & Fixed\\
-D-40 & M1-I-14 & Binding reset left the old PC's tokens valid. & High & Fixed\\
-D-41 & M10-I-21 & Deactivated users kept hub rights on open sockets. & High & Fixed\\
-D-42 & M3-I-08 & Students could read questions days before the exam. & Critical & Fixed\\
-D-43 & M6-I-21 & \texttt{student/\allowbreak{}start} allowed a re-sit after submission. & High & Fixed\\
-D-44 & M9-I-21 & Teachers could assign other teachers' students. & High & Fixed\\
-D-45 & M9-I-22 & A web token could act in the lab PC's session. & Critical & Fixed\\
+D-01 & UC-08 & Exam details showed the students' password hashes. & Critical & Fixed\\
+D-02 & UC-03 & Starting from the desktop client did not mark the exam as active. & High & Fixed\\
+D-05 & UC-10 & Invigilator warnings never reached the student client. & High & Fixed\\
+D-08 & UC-03 & A session could be started before the exam start time. & High & Fixed\\
+D-09 & UC-09 & Each login added its PC to a default lab. & High & Fixed\\
+D-10 & UC-09 & Teachers could change other sections' eligibility. & High & Fixed\\
+D-12 & UC-01 & Logging out of the web panel left the session valid on the server. & High & Fixed\\
+D-14 & UC-01 & A password change left other sessions valid. & High & Fixed\\
+D-15 & UC-04 & A failed clean-up step left Task Manager disabled. & High & Fixed\\
+D-18 & UC-06 & A session could not be resumed after a crash. & High & Fixed\\
+D-25 & UC-05 & Clients could send events that only the server may create. & High & Fixed\\
+D-27 & UC-05 & A webcam error closed the exam app. & High & Fixed\\
+D-31 & UC-10 & Any teacher could edit or end any exam. & Critical & Fixed\\
+D-34 & UC-11 & Any teacher could change the marks of any exam. & Critical & Fixed\\
+D-39 & UC-10 & Teachers could open, report on and notify another section's exam. & High & Fixed\\
+D-40 & UC-01 & Resetting a device binding left the old PC signed in. & High & Fixed\\
+D-41 & UC-10 & A deactivated user kept live-monitor rights on an open connection. & High & Fixed\\
+D-42 & UC-03 & Students could read the questions days before the exam. & Critical & Fixed\\
+D-43 & UC-06 & A student could sit a submitted exam again. & High & Fixed\\
+D-44 & UC-09 & Teachers could add other teachers' students to their exams. & High & Fixed\\
+D-45 & UC-09 & A web-panel login could act in the lab PC's exam session. & Critical & Fixed\\
 \end{longtable}}
 
-Most serious defects were access-control faults that appear only when two users of the same role meet, or failure paths of the desktop client (crash, network loss, camera error) found by unit tests with fakes. In summary, SmartExam was tested at three levels with 921 automated tests, of which 920 passed, none failed and one was skipped (SEC-A-01, covered by SEC-I-04), and every test case marked Pass in this chapter is backed by a passing test from that run. The 49 recorded defects are all fixed; those found by a test are kept as regression tests. The checks that need a real lab PC and the load test are still pending and are reported as such.
+In the final run on 26 October 2026, all 920 executed automated tests passed and none failed. Checks that need real lab PCs (the locked exam window, keyboard and USB events, a real webcam, a pulled network cable and the 40-client load test) were not part of this run and remain on the lab checklist.

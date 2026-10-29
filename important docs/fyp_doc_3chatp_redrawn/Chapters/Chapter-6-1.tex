@@ -1,439 +1,353 @@
 \chapter{SYSTEM INTERFACE AND PHYSICAL DESIGN}
 \label{chap:system_interface_physical_design}
 
-This chapter shows what each user sees and how the data is stored. Section~\ref{sec:system_user_interfaces} follows an exam from start to finish: the student's desktop client, exam set-up, live invigilation, evaluation, administration and the student portal. Section~\ref{sec:physical_tables} gives one table for each entity of the ERD (Figures~\ref{fig:erd_diagram} and~\ref{fig:erd_diagram_b}), with its fields, data types and keys.
+This chapter shows the screens of SmartExam and its database tables. Section~\ref{sec:system_user_interfaces} follows one exam from sign-in to reports, and Section~\ref{sec:physical_tables} gives the fields and keys of each table.
 
 \section{System User Interfaces}
 \label{sec:system_user_interfaces}
-SmartExam has two front ends: a WPF desktop client (.NET~9) in which students sit the exam, and a React web panel with one route group per role (\texttt{/admin}, \texttt{/teacher}, \texttt{/invigilator}, \texttt{/student}). Both follow common usability heuristics: the system status is always visible (connection, last save, tile status), final actions such as submit and force-submit ask for confirmation, and controls look the same across roles \cite{nielsen_heuristics}. The web figures are captured from the running panel by a Playwright script (\texttt{Admin\_Web\_Panel/tests/docs}) against the in-memory backend with the seeded demo data; a scripted client plays the desktop app and uploads the screen captures. The desktop figures are rendered off-screen from the client's own XAML (Extensible Application Markup Language) views with values from the same run, because the lockdown window cannot be captured safely on a development PC. The student, invigilation and evaluation figures show one exam, the Mid-Term Lab Exam (Demo), in Enforce mode with a required system check and webcam.
+Students sit the exam in the desktop client, and staff and students use the web panel. The screens follow common usability rules \cite{nielsen_heuristics} and show one demo exam, the Mid-Term Lab Exam (Demo).
 
-% Section 6.1 is mostly screenshots: let a tall figure share a page with text
-% (book defaults are restored before Section 6.2).
-\renewcommand{\topfraction}{0.9}\renewcommand{\bottomfraction}{0.9}
-\renewcommand{\textfraction}{0.07}\renewcommand{\floatpagefraction}{0.8}
+% Each screenshot is a fixed [H] figure that starts with its short explanation,
+% so the text and its screenshot always stay together on one page.
+\newlength{\UIindent}\setlength{\UIindent}{\parindent}
+\newcommand{\UItext}[1]{\hspace*{\UIindent}#1\par\vspace{8pt}}
 \subsection{Student Desktop Client}
-The student signs in with email or roll number (Figure~\ref{fig:ui_student_login}). The client reads the BIOS, system-disk and baseboard serials; the server hashes them with SHA-256 into the hardware ID (HWID) and keeps only the hash in \texttt{DeviceBindings}, so a login from another PC is refused (FR1). The window has one field for the email or roll number (here \texttt{BSCS-21-001}) and one for the password. The note above \emph{Sign In} warns that the device will be bound to the account, and the box at the bottom shows the connection state (\emph{Connected to server}), so the student knows before signing in that the server can be reached.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The student signs in with email or roll number and password; the first login binds the account to this PC (UC-01, Figure~\ref{fig:ui_student_login}).}
 \centering
-\includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{Figures/ui_student_login.png}
+\includegraphics[width=\linewidth,height=600pt,keepaspectratio]{Figures/ui_student_login.png}
 \caption{Desktop Client Login}
 \label{fig:ui_student_login}
 \end{figure}
-\SoftBarrierN
 
-The exam dashboard shows the student's current assigned exam with its instructions and permitted applications (Figure~\ref{fig:ui_student_diagnostics}); a side panel, not shown, gives the remaining time, lab, seat, attendance check-in and invigilator messages. An ineligible student still sees the exam, with \emph{Start Exam} disabled and the reason shown (FR3). In the figure, the blue header gives the exam title, its status (Active) and the teacher (Dr. Ahmed), and the permitted applications are \texttt{code.exe} and \texttt{codeblocks.exe}. In the \emph{System Check} list a green tick is a passed check, a dash is a skipped check and a red cross is a failed check with a \emph{Retry} button beside it. The dashboard runs the readiness checks (FR2): network, clock skew, screen capture, webcam, microphone, secure mode (monitors, remote session, virtual machine, keyboard hook) and disk space. This exam needs the webcam but not the microphone, so the microphone is skipped. Secure mode fails because a second monitor is attached, and since the exam requires the check (\texttt{RequireReadiness}), \emph{Start Exam} stays disabled until a passing check less than 30 minutes old exists.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The exam dashboard shows the exam and runs the readiness checks (UC-02, UC-03). Here secure mode fails, so \emph{Start Exam} stays disabled (Figure~\ref{fig:ui_student_diagnostics}).}
 \centering
 \includegraphics[width=\linewidth,height=472pt,keepaspectratio]{Figures/ui_student_diagnostics.png}
 \caption{Exam Dashboard with Readiness Checks}
 \label{fig:ui_student_diagnostics}
 \end{figure}
-\SoftBarrierN
 
-The exam window (Figures~\ref{fig:ui_student_workspace} and~\ref{fig:ui_student_workspace_b}) opens maximised, borderless and topmost (FR4). A low-level keyboard hook blocks the Windows and menu keys, PrintScreen, Alt+Tab, Alt+F4, Alt+Esc, Ctrl+Esc and Ctrl+Shift+Esc, while guard services watch processes, the clipboard and newly mounted USB storage devices. The student picks a question from the list on the left and types the answer; coding answers go into a monospace text box. Every edit is written within about a second to an AES-256-GCM encrypted backup on disk and saved to the server 10~s after the first unsaved edit; saves made offline are queued and replayed (FR6). The footer shows the last save time.
-
-The window is printed in two parts. Part~(a) is the left side panel: the exam title with the number of answered questions (2 of 3), the question list (1 Coding, 2 Theory, 3 Multiple Choice) with a green dot for each answered question, and the footer \emph{Saved 3:35:32 PM}; the empty middle of the panel is cut out. Part~(b) is the question area: the countdown timer (01:27:18) in the header, the type and marks of Question~1 (Coding, 20 marks), the C++ answer in the \emph{Your Code} box, and the \emph{Previous}, \emph{Next} and \emph{Submit Exam} buttons. So the student can always see how much is answered, how much time is left and when the work was last saved.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{In the locked exam window (UC-04) the student picks a question from the list, and the footer shows the last autosave (UC-06, Figure~\ref{fig:ui_student_workspace}).}
 \centering
 \includegraphics[width=0.5\linewidth]{Figures/ui_student_workspace_p1.png}
 \caption{Desktop Exam Window (a): Question List and Save Status (Empty Middle Omitted)}
 \label{fig:ui_student_workspace}
 \end{figure}
-\SoftBarrierN
 
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The question area shows the timer, the question with its marks, the answer box and the \emph{Submit Exam} button (Figure~\ref{fig:ui_student_workspace_b}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_student_workspace_p2.png}
 \caption{Desktop Exam Window (b): Coding Question, Timer and Answer Box}
 \label{fig:ui_student_workspace_b}
 \end{figure}
-\SoftBarrierN
 
-A warning sent by an invigilator reaches the client in the reply to its next heartbeat (every 10~s) and appears as a banner between the window header and the question (Figure~\ref{fig:ui_student_warning}, the warning sent in Figure~\ref{fig:ui_live_timeline}). The banner shows the title \emph{Proctor Warning} with the time it was sent (15:35), the invigilator's message and an \emph{Acknowledge} button; the empty middle of the wide banner is cut out. The banner stays until the student acknowledges it, further warnings wait in a queue and are shown one by one, and the student's \emph{Acknowledge} is written to the audit log (FR10).
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{A warning from the invigilator appears as a banner in the exam window until the student clicks \emph{Acknowledge} (Figure~\ref{fig:ui_student_warning}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_student_warning_banner.png}
 \caption{Invigilator Warning Banner in the Exam Window (Empty Middle Omitted)}
 \label{fig:ui_student_warning}
 \end{figure}
-\SoftBarrierN
 
 \subsection{Exam Setup}
-The teacher dashboard (Figure~\ref{fig:ui_teacher_dashboard}) counts the teacher's exams, the running ones and the ended exams waiting for grade review. It lists scheduled exams, including the seeded practice exam, which stays open for a week, with \emph{Manage}, \emph{Edit} and \emph{Delete}, and links each ended exam to \emph{Review Grades}. In the figure, Dr. Ahmed has six exams, one running now and three waiting for review. The left list holds the two scheduled exams, the practice exam (tagged \emph{Practice}) and the End-Term Lab Exam (tagged \emph{Ready}), and the right panel lists the three ended Data Structures exams. The page tells the teacher at a glance what is coming next and what still needs grading.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The teacher dashboard lists the teacher's scheduled exams with \emph{Manage}, \emph{Edit} and \emph{Delete}, and the ended exams waiting for grade review (Figure~\ref{fig:ui_teacher_dashboard}).}
 \centering
 \includegraphics[width=\linewidth,height=410pt,keepaspectratio]{Figures/ui_teacher_dashboard.png}
 \caption{Teacher Dashboard}
 \label{fig:ui_teacher_dashboard}
 \end{figure}
-\SoftBarrierN
 
-\begin{figure}[p]
+\begin{figure}[H]
+\UItext{The teacher creates an exam in a four-step wizard (UC-08). The rules step sets the allowed applications, the lockdown mode and the required checks (Figure~\ref{fig:ui_create_exam_rules}).}
 \centering
-\includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/ui_create_exam_rules.png}
+\includegraphics[width=\linewidth,height=600pt,keepaspectratio]{Figures/ui_create_exam_rules.png}
 \caption{Create-Exam Wizard, Rules Step: Integrity Switches}
 \label{fig:ui_create_exam_rules}
 \end{figure}
-\SoftBarrierN
 
-A four-step wizard creates an exam: basic information, questions (MCQ, coding with test cases, theory), rules, and students (FR8). Step~3 holds the integrity rules: allowed applications, lockdown mode (Off, Report, Enforce), the multi-monitor flag, the required system check, webcam and microphone, and the practice-exam switch (Figure~\ref{fig:ui_create_exam_rules}); then early join, minimum attendance, the screenshot and webcam intervals, seat enforcement, AI evaluation and the plagiarism threshold (Figure~\ref{fig:ui_create_exam_rules_more}).
-
-In Figure~\ref{fig:ui_create_exam_rules} the step bar shows that \emph{Basic Info} and \emph{Questions} are done and \emph{Rules \& Settings} is the current step. In this example only \texttt{code.exe} is allowed, and the lockdown mode is Enforce, which closes other programs without saving, so the hint says to use it only on lab PCs. The multi-monitor flag, the system check and the webcam are switched on, while the microphone and the practice-exam switch are off.
-
-Figure~\ref{fig:ui_create_exam_rules_more} shows the lower half of the same step. Here early join is 0 minutes, the minimum attendance is 75\,\%, both capture intervals are 60~s, seat enforcement and AI evaluation are on, and the plagiarism threshold is 70\,\%. The hint under the screenshot interval explains that each gap is randomised by $\pm$50\,\% (30--90~s for 60~s) and that a violation causes an immediate capture, so a student cannot predict when the next capture comes.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{Lower on the same step, the teacher sets the capture intervals, seat enforcement, AI evaluation and the plagiarism threshold (Figure~\ref{fig:ui_create_exam_rules_more}).}
 \centering
 \includegraphics[width=\linewidth,height=416pt,keepaspectratio]{Figures/ui_create_exam_rules_more.png}
 \caption{Create-Exam Wizard, Rules Step: Intervals, Seat, AI and Plagiarism Settings}
 \label{fig:ui_create_exam_rules_more}
 \end{figure}
-\SoftBarrierN
 
-On the eligibility page (Figure~\ref{fig:ui_eligibility}) the teacher uploads an attendance CSV (comma-separated values) file and clicks \emph{Recalculate}; students below the exam's minimum attendance become ineligible (FR9), as Hamza Iqbal (60\,\%) is here. Each row shows where its decision came from (\emph{Attendance} in the figure); a saved toggle for a single student becomes a \emph{Manual} override, which survives recalculation and is audited. The same page maps each student to a workstation (seat) and assigns invigilators, who then see only this exam.
-
-The page is printed in two parts that show the same six rows in the same order. Part~(a) (Figure~\ref{fig:ui_eligibility}) holds the exam selector with its minimum attendance of 75\,\%, the \emph{Invigilators} card with Mr. Bilal assigned, and each student's name with a seat drop-down (R1C1 to R2C2 in Lab~A). Part~(b) (Figure~\ref{fig:ui_eligibility_b}) holds the buttons \emph{Upload Attendance}, \emph{Recalculate}, \emph{Mark All Eligible} and \emph{Mark All Ineligible}, the invigilator picker, and for each row the system check, the attendance, the eligibility switch with its source tag and the reason. Five students have 77.5--95\,\% attendance and are eligible. The last row is Hamza Iqbal: with 60\,\% (24 of 40 classes) his switch is off and the reason \emph{Attendance 60\% < 75\%} is shown in red. A green tick in the system-check column means a passing check less than 30 minutes old; Hamza has a dash because no check is recorded for him.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{On the eligibility page (UC-09) the teacher assigns the invigilators and gives each student a seat (Figure~\ref{fig:ui_eligibility}).}
 \centering
 \includegraphics[width=0.72\linewidth]{Figures/ui_eligibility_p1.png}
 \caption{Eligibility, Seats and Invigilators (a): Exam, Invigilators and Seats (Email Column Omitted)}
 \label{fig:ui_eligibility}
 \end{figure}
-\SoftBarrierN
 
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{After the attendance upload, a student below the minimum attendance becomes ineligible, like Hamza Iqbal with 60\,\% (Figure~\ref{fig:ui_eligibility_b}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_eligibility_p2.png}
 \caption{Eligibility, Seats and Invigilators (b): Attendance and Eligibility (Same Rows as Part (a))}
 \label{fig:ui_eligibility_b}
 \end{figure}
-\SoftBarrierN
 
-Before the exam the teacher can send a message to its students from the announcement page (Figure~\ref{fig:ui_announcement}). The exam list holds only the exams the teacher may manage, and the blue box counts the eligible students of the chosen exam; \emph{Send Announcement} calls \texttt{POST /api/notifications/exam/\{id\}/announce}, which stores one notification of type \texttt{Announcement} for each eligible student and also e-mails it when \emph{Also send via email} is on. In the figure the End-Term Lab Exam is selected, all six of its students are eligible and the e-mail switch is off, so the message reaches the students only as a notification (Figure~\ref{fig:ui_student_notifications}).
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The teacher sends a message to all eligible students of an exam from the announcement page, and can also send it by email (Figure~\ref{fig:ui_announcement}).}
 \centering
 \includegraphics[width=0.5\linewidth]{Figures/ui_announcement.png}
 \caption{Send Announcement Page (Side Cards Omitted)}
 \label{fig:ui_announcement}
 \end{figure}
-\SoftBarrierN
 
 \subsection{Live Invigilation}\suppressfloats[t]
-SignalR carries live updates between the API and the web dashboard; the desktop client uses REST only and receives invigilator warnings, extra time, unlocks and force-submits in the reply to its next heartbeat (every 10~s). The client sends heartbeats, event batches and screen captures to \url{/api/monitoring}, and the server pushes each update to the live monitor (Figures~\ref{fig:ui_teacher_live_monitoring} to~\ref{fig:ui_teacher_live_monitoring_b}) over the hub \url{/hubs/monitoring} (FR5, FR10). Through \texttt{ExamProctors}, invigilators see only the exams assigned to them. The header of the live monitor (Figure~\ref{fig:ui_teacher_live_monitoring}) names the current exam with its course tag and an exam selector, and shows the remaining time (01:27:10) on the right. It also shows that four students are still sitting (Ali Hassan has already submitted) and gives the \emph{Extend Time} and \emph{Force End Exam} buttons, which act on the whole exam.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The live monitor (UC-10) shows the exam, its remaining time and the \emph{Extend Time} and \emph{Force End Exam} buttons (Figure~\ref{fig:ui_teacher_live_monitoring}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_live_monitor_a_p1.png}
 \caption{Live Monitor (a): Header with Remaining Time and Exam Controls}
 \label{fig:ui_teacher_live_monitoring}
 \end{figure}
-\SoftBarrierN
 
-Below the header each student has a tile (Figures~\ref{fig:ui_teacher_live_monitoring_tiles} to~\ref{fig:ui_teacher_live_monitoring_b}). Each tile shows the student's seat and PC with the Windows user, readiness, latest capture, latest alert and progress as answered questions with a bar. The heart icon and the border colour give the status: the classifier level as Stable (Normal), Warning, Suspicious or Critical (Violation); a client silent for 30~s is shown as Disconnected, and a finished session as Submitted, Force submitted or Timed out. The captures are small thumbnails, and their text is not meant to be read at this size.
-
-Ali Hassan (seat R1C1) has answered all three questions and submitted, and Sara Khan (R1C2) is a Warning with one alert, \emph{Blocked keys}, for her blocked Alt+Tab (Figure~\ref{fig:ui_teacher_live_monitoring_tiles}). Usman Tariq (R1C3) is Critical with two alerts and one incident (Figure~\ref{fig:ui_teacher_live_monitoring_tile3}): he opened Chrome, which is not on the allowed list, and Enforce mode closed it, as the line \emph{Unauthorized app closed: chrome (Killed)} says; his capture shows a browser search. In the second row (Figure~\ref{fig:ui_teacher_live_monitoring_b}), Ayesha Malik's phone in view makes her Suspicious, and Fatima Noor is Stable with an \emph{Idle 9m} badge, which means no keyboard or mouse input on her PC for nine minutes.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{Each student has a tile built from the monitoring data (UC-05). Ali Hassan has submitted, and Sara Khan is a Warning for a blocked Alt+Tab (Figure~\ref{fig:ui_teacher_live_monitoring_tiles}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_live_monitor_a_p2.png}
 \caption{Live Monitor (b): First Row, Tiles of Ali Hassan and Sara Khan}
 \label{fig:ui_teacher_live_monitoring_tiles}
 \end{figure}
-\SoftBarrierN
 
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{Usman Tariq is Critical: he opened Chrome, which is not allowed, and Enforce mode closed it (Figure~\ref{fig:ui_teacher_live_monitoring_tile3}).}
 \centering
 \includegraphics[width=0.52\linewidth]{Figures/ui_live_monitor_a_p3.png}
 \caption{Live Monitor (c): First Row, Tile of Usman Tariq}
 \label{fig:ui_teacher_live_monitoring_tile3}
 \end{figure}
-\SoftBarrierN
 
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{In the second row, Ayesha Malik is Suspicious because a phone is in view, and Fatima Noor has been idle for nine minutes (Figure~\ref{fig:ui_teacher_live_monitoring_b}).}
 \centering
 \includegraphics[width=\linewidth,height=293pt,keepaspectratio]{Figures/ui_live_monitor_b.png}
 \caption{Live Monitor (d): Second Row of Tiles}
 \label{fig:ui_teacher_live_monitoring_b}
 \end{figure}
-\SoftBarrierN
 
-Clicking a tile opens the student drawer, here for Usman Tariq (Figure~\ref{fig:ui_live_drawer}). Its top gives the seat, the PC and the Windows user with the number of active alerts and open incidents. Below are the latest captures (the newer one, outlined in orange, shows the browser search), the readiness result (all seven checks passed on LAB-A-PC03 at 3:35:26~PM) and the applications seen on the PC, where Chrome is struck through because it is no longer running. So the invigilator sees all the evidence for one student in one place before acting.
-
-\begin{figure}[p]
+\begin{figure}[H]
+\UItext{Clicking a tile opens the student drawer with the latest captures, the readiness result and the applications seen on the PC (Figure~\ref{fig:ui_live_drawer}).}
 \centering
-\includegraphics[width=\linewidth,height=628pt,keepaspectratio]{Figures/ui_live_drawer_evidence.png}
+\includegraphics[width=\linewidth,height=600pt,keepaspectratio]{Figures/ui_live_drawer_evidence.png}
 \caption{Student Drawer (a): Evidence}
 \label{fig:ui_live_drawer}
 \end{figure}
-\SoftBarrierN
 
-From the action panel (Figure~\ref{fig:ui_live_drawer_b}) the invigilator sends a warning, records an incident, unlocks the PC for five minutes with a short reason (the server allows 1--30 minutes), grants extra time or force-submits the session (FR10). The green line \emph{Warning Message Sent} confirms that the warning was sent. Force-submit is the red button because it ends the student's attempt; like the other actions, it reaches the desktop client in the reply to its next heartbeat.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{From the action panel the invigilator sends a warning, records an incident, unlocks the PC, grants extra time or force-submits the session (Figure~\ref{fig:ui_live_drawer_b}).}
 \centering
 \includegraphics[width=0.55\linewidth]{Figures/ui_live_drawer_actions.png}
 \caption{Student Drawer (b): Actions}
 \label{fig:ui_live_drawer_b}
 \end{figure}
-\SoftBarrierN
 
-Further down (Figure~\ref{fig:ui_live_timeline}) are the open incidents, with \emph{Escalate} and \emph{Mark resolved}, and the activity timeline. The incident card shows its severity (High), its status (Open), the note and who recorded it (Dr. Ahmed). The timeline lists the events newest first: Chrome closed by Enforce mode at 3:35:33~PM, the incident recorded at the same time, and the warning sent ten seconds later, which is the banner of Figure~\ref{fig:ui_student_warning}.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{Further down are the student's open incidents and the activity timeline, newest first (Figure~\ref{fig:ui_live_timeline}).}
 \centering
 \includegraphics[width=0.60\linewidth,height=418pt,keepaspectratio]{Figures/ui_live_timeline.png}
 \caption{Student Drawer (c): Incident and Activity Timeline}
 \label{fig:ui_live_timeline}
 \end{figure}
-\SoftBarrierN
 
 \subsection{Evaluation}\suppressfloats[t]
-The results page lists each submission with its score and SHA-256 receipt. Opening one (Figures~\ref{fig:ui_teacher_ai_grading} and~\ref{fig:ui_teacher_ai_grading_b}) shows every answer next to its AI evaluation: suggested mark, confidence, engine, justification, test-case results (hidden cases marked) and code-analysis signals. Coding answers (C or C++ only) are compiled and run against weighted test cases \cite{alamutka2005} in an isolated Docker \texttt{gcc:13} container when Docker is available; otherwise a local MinGW g++ runner, which is not isolated, is used, and with no runner the answer is left for teacher review (FR11.1). Theory answers get a TF-IDF similarity score \cite{salton1988} (FR11.2). The teacher accepts the mark or saves an override, stored in \texttt{TeacherGradeOverrides}.
-
-Figure~\ref{fig:ui_results_list} shows the results page of the Mid-Term after grading. The four cards give the class average (60\,\%), the highest and lowest scores (87\,\% and 13\,\%) and the number of flagged plagiarism pairs (one, the pair of Figure~\ref{fig:ui_plagiarism}); the table lists each student with the session status, the score, the start of the receipt and a \emph{Review} link. Fatima Noor is \emph{ForceSubmitted} because she was still sitting when the teacher ended the exam, and since the page adds up only the questions a student answered, she is marked out of 30 instead of 35 (she left the 5-mark MCQ blank). \emph{Accept AI suggestions} makes the AI mark final for every graded answer that has no override yet, after a confirmation.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The results page (UC-11) lists each submission with its score and a \emph{Review} link, below cards for the class average and plagiarism flags (Figure~\ref{fig:ui_results_list}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_results_list.png}
 \caption{Results Page: Score Cards and Submissions}
 \label{fig:ui_results_list}
 \end{figure}
-\SoftBarrierN
 
-Figure~\ref{fig:ui_teacher_ai_grading} shows the top of the review for Usman Tariq: his status (Submitted), the question with its type and maximum (Coding, 20 marks) and his submitted code. His program starts the maximum at 0 instead of at the first element, so it prints a wrong answer when all the numbers are negative. The evaluation card below shows how the grader finds this mistake.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{Opening a submission shows each question with the student's answer. Usman Tariq's code gives a wrong answer when all the numbers are negative (Figure~\ref{fig:ui_teacher_ai_grading}).}
 \centering
 \includegraphics[width=0.85\linewidth,height=370pt,keepaspectratio]{Figures/ui_ai_grading_answer.png}
 \caption{AI Evaluation of a Coding Answer (a): Question and Submitted Code}
 \label{fig:ui_teacher_ai_grading}
 \end{figure}
-\SoftBarrierN
 
-The AI evaluation card (Figure~\ref{fig:ui_teacher_ai_grading_b}) suggests 10 of 20 marks with medium confidence, from the isolated Docker engine. The test-case table explains the mark: the visible case passes, but the hidden case with the input $-1$, $-5$, $-2$ expects $-1$ and gets 0, so one of the two cases passes and half the marks are suggested. The code-analysis signals give O($n$) complexity, one loop and a medium hard-coding suspicion, because the code passes every visible case but fails a hidden one. The teacher can accept the 10 marks or enter another mark with a note and click \emph{Save Grade Override}.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The evaluation suggests 10 of 20 marks because one of the two test cases passes; the teacher accepts it or saves an override (Figure~\ref{fig:ui_teacher_ai_grading_b}).}
 \centering
 \includegraphics[width=\linewidth,height=565pt,keepaspectratio]{Figures/ui_ai_grading_eval.png}
 \caption{AI Evaluation of a Coding Answer (b): Suggested Mark, Test Cases and Override}
 \label{fig:ui_teacher_ai_grading_b}
 \end{figure}
-\SoftBarrierN
 
-The \emph{Plagiarism Flags} tab (Figure~\ref{fig:ui_plagiarism}) shows a pairwise heat map built by k-gram winnowing \cite{winnowing}, which ignores identifiers and comments in code (FR11.3). A pair at or above the exam's threshold gets a card with both answers side by side and the matched lines highlighted; here Sara's program is Ali's with renamed variables. The teacher records the decision as a grade override.
-
-In the heat map each row and column is a student (the columns use initials), and each cell is the highest similarity of that pair over all questions; darker cells are more similar, in 20\,\% steps. Only Ali Hassan and Sara Khan reach the 70\,\% threshold, at 100\,\%, while every other pair is at 25\,\% or below. The card below shows why: only the names differ (\texttt{largest}, \texttt{nums}, \texttt{top} against \texttt{findMax}, \texttt{arr}, \texttt{best}), so with identifiers ignored the code is the same. A note at the bottom reminds the teacher that similarity is evidence, not a verdict.
-
-\begin{figure}[p]
+\begin{figure}[H]
+\UItext{The plagiarism tab shows a similarity heat map. Ali Hassan and Sara Khan reach 100\,\% because only their variable names differ (Figure~\ref{fig:ui_plagiarism}).}
 \centering
 \includegraphics[width=\linewidth,height=562pt,keepaspectratio]{Figures/ui_plagiarism.png}
 \caption{Plagiarism Heat Map and Matched Pair}
 \label{fig:ui_plagiarism}
 \end{figure}
-\SoftBarrierN
 
-The analytics page (Figure~\ref{fig:ui_exam_analytics}) summarises one exam from the server's figures for the submitted sessions. For the Mid-Term it shows five students, an average of 59.4\,\%, a pass rate of 60\,\% (three of five at or above the 50\,\% pass mark), a highest score of 87.1\,\% and four violations by three students. The score distribution puts the five scores in 20-point bands, and each question's success rate is its average mark as a share of its maximum: 70\,\% for the coding question, 38\,\% for the theory question and 75\,\% for the MCQ. The server divides every score by the full 35 marks, so Fatima's 4 marks count as 11.4\,\% here and the average is a little lower than on the results page. The lower part of the page repeats the plagiarism heat map of Figure~\ref{fig:ui_plagiarism} and is not shown.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The analytics page (UC-12) summarises one exam: average score, pass rate, score bands and the success rate of each question (Figure~\ref{fig:ui_exam_analytics}).}
 \centering
 \includegraphics[width=0.85\linewidth]{Figures/ui_exam_analytics.png}
 \caption{Exam Analytics Page (Heat Map and Leaderboard Omitted)}
 \label{fig:ui_exam_analytics}
 \end{figure}
-\SoftBarrierN
 
-The reports page (Figure~\ref{fig:ui_reports}) turns an exam into files. \emph{Generate New Report} builds the exam summary PDF, which appears in the \emph{Report Generation Log} with its file name, type (\texttt{ExamSummary}), time and a \emph{Download} link. The five export buttons build an attendance, violations or scores PDF, the scores and attendance as an Excel workbook, or an evidence ZIP with the screenshots, an events CSV, the incidents, an audit extract and a SHA-256 manifest; each export is written to the audit log as \texttt{REPORT\_GENERATED} with the file's SHA-256, as the note on the card says.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The reports page builds the exam summary PDF and exports the attendance, violations, scores and evidence of an exam as files (Figure~\ref{fig:ui_reports}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_reports.png}
 \caption{Reports and Exports Page}
 \label{fig:ui_reports}
 \end{figure}
-\SoftBarrierN
 
 \subsection{Administration and Student Portal}\suppressfloats[t]
-Every web user, staff or student, signs in on one login page with email and password (Figure~\ref{fig:ui_web_login}) and is taken to the home page of their role. Neither front end offers self-registration or an emailed password reset: administrators create accounts or import them from a CSV file and can set a new password when editing an account (FR7), and staff change their own password from the panel (Figure~\ref{fig:seq_change_password}). The desktop client's sign-in and logout are drawn in Figures~\ref{fig:seq_login} and~\ref{fig:seq_logout}; on the web panel, sign-in, refresh and sign-out are tested in step~1 of the system test case (Table~\ref{tab:stc_1}). The figure shows the form filled in for the teacher account (\texttt{teacher@smartexam.com}), with an eye icon to show or hide the password. The note under \emph{Sign In} says that access attempts are logged, and this is true: the server writes every successful and failed login to the audit log (\texttt{LOGIN\_SUCCESS}, \texttt{LOGIN\_FAILED}).
-
-\begin{figure}[htbp]
+\begin{figure}[H]
+\UItext{All web users sign in on one login page with email and password and are taken to the home page of their role (Figure~\ref{fig:ui_web_login}).}
 \centering
 \includegraphics[width=0.62\linewidth]{Figures/ui_web_login.png}
 \caption{Web Panel Login (Sign-In Form)}
 \label{fig:ui_web_login}
 \end{figure}
-\SoftBarrierN
 
-An administrator lands on the dashboard (Figure~\ref{fig:ui_admin_dashboard}). Its cards count the student accounts (6), the exams running now (none, as the Mid-Term has ended) and the students with no bound PC (1, Hamza Iqbal), which the card labels \emph{Device Resets}. The \emph{Recent Exams} table lists five exams with course, status, date and duration in minutes; the practice exam shows 10080 minutes because it stays open for a week. A fourth card, \emph{Labs}, shows a fixed number in this version instead of the real count, so it is left out of the figure; the labs themselves are in Figure~\ref{fig:ui_labs_workstations}.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The admin dashboard counts the student accounts, the running exams and the students with no bound PC, and lists the recent exams (Figure~\ref{fig:ui_admin_dashboard}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_admin_dashboard.png}
 \caption{Admin Dashboard (Labs Card Omitted)}
 \label{fig:ui_admin_dashboard}
 \end{figure}
-\SoftBarrierN
 
-User management (Figure~\ref{fig:ui_users}) lists every account with name, email (and roll number where a student has one), role, status, device-binding state for students and creation date (FR7). The tabs filter by role, the search box matches name, email or roll number, and \emph{Upload CSV} and \emph{Add User} create accounts. The row menu edits or deletes an account and, for a bound student, resets the binding; an administrator may not manage administrator accounts, so the rows of Super Admin and Exam Cell Admin show a lock instead of the menu.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{On the user management page (UC-07) the administrator finds, adds, edits or deletes accounts, or imports them from a CSV file (Figure~\ref{fig:ui_users}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_users.png}
 \caption{User Management Page}
 \label{fig:ui_users}
 \end{figure}
-\SoftBarrierN
 
-Admins manage departments and courses (Figure~\ref{fig:ui_academics}); department names are unique, a course code is unique within its department, and a department or course still in use cannot be deleted (FR7). The upper card lists the three departments with their number of courses (Computer Science 3, Electrical Engineering 1, Software Engineering 2). The lower card lists the six courses with code, name, department and number of sections, and can be filtered by department. Only CS301 Data Structures has a section, the one that owns the demo exams, so it is the only course here that cannot be deleted.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{Administrators manage departments and courses; a department or course that is still in use cannot be deleted (Figure~\ref{fig:ui_academics}).}
 \centering
 \includegraphics[width=\linewidth,height=600pt,keepaspectratio]{Figures/ui_academics.png}
 \caption{Departments and Courses}
 \label{fig:ui_academics}
 \end{figure}
-\SoftBarrierN
 
-Admins register labs and workstations (machine number, Windows PC name, IP address) in Figure~\ref{fig:ui_labs_workstations}; each seat shows the student signed in on it. With \texttt{EnforceSeat} on, a student with a seat can start the exam only from that PC (FR9). The figure shows Lab~A (Demo) in Block~3, Ground Floor, with six workstations; each card gives the seat name, the IP address and the PC name. A green \emph{In use} card also shows the signed-in student, the Windows user and when the PC was last seen. R2C2 is \emph{Free} because Hamza Iqbal, who is seated there, is not eligible and has not signed in.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{Administrators register the labs and their workstations; each seat card shows the student signed in on that PC (Figure~\ref{fig:ui_labs_workstations}).}
 \centering
 \includegraphics[width=\linewidth,height=418pt,keepaspectratio]{Figures/ui_labs_workstations.png}
 \caption{Labs and Workstations}
 \label{fig:ui_labs_workstations}
 \end{figure}
-\SoftBarrierN
 
-The device-binding page (Figure~\ref{fig:ui_device_bindings}) lists each student's binding status, bound PC and last-seen time (FR1). \emph{Reset Binding} (\texttt{DELETE /api/users/\{id\}/device-binding}) removes the binding and revokes all the student's tokens, so the next login binds a new PC; \emph{Force Logout} only revokes the tokens. In the figure the five students who have signed in are \emph{Bound} to LAB-A-PC01 to LAB-A-PC05, while Hamza Iqbal is \emph{Unbound}, so his row has no PC and no actions. A search box and a \emph{Show unbound only} switch help the administrator find a student, and the note at the top says that an administrator can reset a binding after a genuine hardware change or a login problem.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The device-binding page lists the PC each student is bound to; \emph{Reset Binding} lets the student's next login bind a new PC (Figure~\ref{fig:ui_device_bindings}).}
 \centering
 \includegraphics[width=\linewidth,height=500pt,keepaspectratio]{Figures/ui_device_bindings.png}
 \caption{Device Bindings (Email, Windows User and Registered Columns Omitted)}
 \label{fig:ui_device_bindings}
 \end{figure}
-\SoftBarrierN
 
-The read-only audit page (Figure~\ref{fig:ui_audit_logs}) lists \texttt{AuditLogs} rows (time, actor, event, entity, JSON details) for security-relevant and staff actions, such as logins, grade overrides, completed AI grading and submissions (FR12). The newest rows come first, and the actor is a user with an email or \emph{System} for background jobs. The visible rows follow the end of the demo exam, from the warning sent to Usman (\texttt{PROCTOR\_WARNING\_SENT}, 3:35:43~PM) through three submissions (\texttt{SESSION\_SUBMITTED}) and the background grading (\texttt{AI\_GRADING\_COMPLETED}) to a grade override by Dr. Ahmed and a new login by Ali Hassan. The green badge \emph{Chain verified (91 entries)} at the top shows that the hash chain over these rows verifies, and \emph{Re-verify} runs the check again.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The audit log page (UC-12) lists security and staff actions, such as logins, submissions and grade overrides, and shows that the log chain verifies (Figure~\ref{fig:ui_audit_logs}).}
 \centering
-\includegraphics[width=\linewidth,height=622pt,keepaspectratio]{Figures/ui_audit_logs.png}
+\includegraphics[width=\linewidth,height=600pt,keepaspectratio]{Figures/ui_audit_logs.png}
 \caption{Audit Log Page (Details Column Omitted)}
 \label{fig:ui_audit_logs}
 \end{figure}
-\SoftBarrierN
 
-System analytics (Figure~\ref{fig:ui_system_analytics}) gives counts for the whole platform: 6 students, 2 teachers, 5 exams (practice exams are not counted), 5 exams starting in the last 30 days or later (the End-Term starts next week) and 4 violations in the last 30 days. The bar chart counts exams by start month, four in October and the End-Term in November, and the course list ranks courses by their number of exams (Data Structures, 5). The timeline plots violations per day; all four were recorded on the same day, so it has a single point.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{System analytics counts the students, teachers, exams and violations of the whole platform, with exams by month and violations by day (Figure~\ref{fig:ui_system_analytics}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_system_analytics.png}
 \caption{System Analytics Page}
 \label{fig:ui_system_analytics}
 \end{figure}
-\SoftBarrierN
 
-Teachers and administrators share one notification page (Figure~\ref{fig:ui_staff_notifications}) with the filters \emph{All}, \emph{Unread}, \emph{Exam}, \emph{Violations} and \emph{System}, a search box and \emph{Mark all read}. In this version every notification the server creates is addressed to students (announcements, proctor warnings and the exam-scheduled and grades-released notices), so a staff list stays empty. The figure therefore shows the page's empty state for Dr. Ahmed.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{Teachers and administrators share one notifications page. It is empty here, because in this version all notifications go to students (Figure~\ref{fig:ui_staff_notifications}).}
 \centering
 \includegraphics[width=0.7\linewidth]{Figures/ui_staff_notifications.png}
 \caption{Staff Notifications Page (Empty State)}
 \label{fig:ui_staff_notifications}
 \end{figure}
-\SoftBarrierN
 
-On the web, a student signs in on the same login page and lands on the dashboard (Figure~\ref{fig:ui_student_dashboard}). The left card is the roster of the exams assigned to the student with course and status; the right card is the academic overview from \texttt{GET /api/student/dashboard}, with exams taken, average score, total flags, the three latest graded exams with their marks and a small score trend. Ali Hassan's numbers are the same as on his performance page (Figure~\ref{fig:ui_student_performance}): four exams, an average of 85.9\,\% and no flags. The page also has a panel for the next exam with a countdown, which is left out because its location and section lines still show fixed sample text in this version.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{On the web, the student dashboard lists the student's exams and an overview of exams taken, average score and latest results (Figure~\ref{fig:ui_student_dashboard}).}
 \centering
 \includegraphics[height=290pt]{Figures/ui_student_dashboard_roster.png}\hfill
 \includegraphics[height=290pt]{Figures/ui_student_dashboard_overview.png}
 \caption{Student Dashboard: Exam Roster and Academic Overview (Next-Exam Panel Omitted)}
 \label{fig:ui_student_dashboard}
 \end{figure}
-\SoftBarrierN
 
-\emph{My Exams} (Figure~\ref{fig:ui_student_exams}) shows each assigned exam as a card, with the filters \emph{All}, \emph{Passed}, \emph{Failed} and \emph{Upcoming}. The figure shows Ali's two upcoming cards, the End-Term Lab Exam and the practice exam tagged \emph{Practice}; both are \emph{Scheduled}, so their results are not yet available. The cards of ended exams open the result page (Figure~\ref{fig:ui_student_exam_result}); they are left out because the exam list the page loads does not carry the score, duration and flag count, so those fields stay empty in this version.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{\emph{My Exams} shows each assigned exam as a card; here Ali Hassan has two upcoming exams (Figure~\ref{fig:ui_student_exams}).}
 \centering
 \includegraphics[width=0.55\linewidth]{Figures/ui_student_exams.png}
 \caption{My Exams Page: Upcoming Exams (Ended-Exam Cards Omitted)}
 \label{fig:ui_student_exams}
 \end{figure}
-\SoftBarrierN
 
-The result page of an ended exam (Figure~\ref{fig:ui_student_exam_result}) gives the date, the start of the SHA-256 submission receipt, which matches the receipt the desktop client showed at submission, and the score with \emph{Passed} or \emph{Failed} at 50\,\%; Ali has 30.5 of 35 marks (87.1\,\%). Of the three tabs, \emph{My Answers} lists each answer with its marks and the grader's confidence, and \emph{Violations} lists the session's violations, which is empty for Ali. The \emph{AI Feedback Summary} tab, shown here, collects the grader's remarks: the two passed test cases of the coding answer and the correct MCQ are strengths, and the theory answer's similarity of 0.63 with three key terms missing is the point to improve. The session length in the header is fixed text in this version and is left out of the figure.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The result page of an ended exam gives the score, the submission receipt and the grader's feedback on the answers (Figure~\ref{fig:ui_student_exam_result}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_student_exam_result.png}
 \caption{Student Exam Result Page, AI Feedback Tab (Session Length Omitted)}
 \label{fig:ui_student_exam_result}
 \end{figure}
-\SoftBarrierN
 
-In the student portal (Figures~\ref{fig:ui_student_performance} to~\ref{fig:ui_student_performance_b}) a student sees exams taken, average and best score, integrity flags, a score trend, the score of each exam and an exam timeline; practice exams do not count towards results (they are auto-marked but never plagiarism-checked and are hidden from the student's results). The summary cards (Figure~\ref{fig:ui_student_performance}) show four exams taken, an average of 85.9\,\%, a best score of 93.3\,\% and no flags; the flag count adds up the violations recorded in the student's sessions. The average matches the mean of the four scores in the timeline (80, 83.3, 93.3 and 87.1\,\%).
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The performance page shows the exams taken, the average and best score and the integrity flags of the student (Figure~\ref{fig:ui_student_performance}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_student_performance_a_p1.png}
 \caption{Student Performance Page (a): Summary Cards}
 \label{fig:ui_student_performance}
 \end{figure}
-\SoftBarrierN
 
-The \emph{Score Over Time} chart (Figure~\ref{fig:ui_student_performance_trend}) draws the same scores in date order, from Lab Exam~1 to the Mid-Term Lab Exam, above a dashed pass-mark line at 50\,\%. The \emph{Improving trend} badge appears because the latest score is higher than the first one. Figure~\ref{fig:ui_student_performance_b} shows the four exams again as bars, with the score rounded to a whole percent, and as a timeline, newest first, with the date and exact score of each exam.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The score trend draws the same scores in date order above a pass-mark line at 50\,\% (Figure~\ref{fig:ui_student_performance_trend}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_student_performance_a_p2.png}
 \caption{Student Performance Page (b): Score Trend}
 \label{fig:ui_student_performance_trend}
 \end{figure}
-\SoftBarrierN
 
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The page also shows the score of each exam as bars and as a timeline with dates (Figure~\ref{fig:ui_student_performance_b}).}
 \centering
 \includegraphics[width=0.7\linewidth]{Figures/ui_student_performance_scores.png}\\[4pt]
 \includegraphics[width=0.7\linewidth]{Figures/ui_student_performance_timeline.png}
 \caption{Student Performance Page (c): Score by Exam and Exam Timeline Cards}
 \label{fig:ui_student_performance_b}
 \end{figure}
-\SoftBarrierN
 
-The violation history (Figure~\ref{fig:ui_student_violations}), shown here for Usman Tariq, lists the violation events recorded in the student's sessions, newest first, with the flag count and a note that the events are kept for review. Each card gives the exam, the date and time and the stored event payload: Usman has the two Chrome events of the Mid-Term, \texttt{UnauthorizedProcess} when Chrome was reported and \texttt{ProcessKilled} when Enforce mode closed it (Figure~\ref{fig:ui_teacher_live_monitoring_tile3}). The API sends only the exam title, time and payload of each event, so the course line and the type badge show the page's default text (\emph{SmartExam Monitoring}, \emph{Focus Divergence}); the side cards of the page hold fixed text and are not shown.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The violation history lists the violations recorded in the student's sessions; here Usman Tariq has the two Chrome events of the Mid-Term (Figure~\ref{fig:ui_student_violations}).}
 \centering
 \includegraphics[width=\linewidth]{Figures/ui_student_violations_head.png}\\[4pt]
 \includegraphics[width=0.65\linewidth]{Figures/ui_student_violations_list.png}
 \caption{Student Violation History: Header and Violation Cards (Side Cards Omitted)}
 \label{fig:ui_student_violations}
 \end{figure}
-\SoftBarrierN
 
-The student's notifications (Figure~\ref{fig:ui_student_notifications}) list everything addressed to the student, newest first, with an unread badge and \emph{Mark all as read}. Usman's list holds the End-Term announcement of Figure~\ref{fig:ui_announcement} and the proctor warning sent to him during the Mid-Term (Figure~\ref{fig:ui_live_timeline}); both are unread, so they have a blue edge. Opening a notification marks it read, and marking a proctor warning read is written to the audit log as \texttt{PROCTOR\_WARNING\_ACKNOWLEDGED}, the same as acknowledging the banner in the exam window.
-
-\begin{figure}[tbp]
+\begin{figure}[H]
+\UItext{The student's notifications list the announcements and invigilator warnings, newest first; unread ones have a blue edge (Figure~\ref{fig:ui_student_notifications}).}
 \centering
 \includegraphics[width=0.85\linewidth]{Figures/ui_student_notifications.png}
 \caption{Student Notifications Page}
 \label{fig:ui_student_notifications}
 \end{figure}
-\SoftBarrierN
 
 \clearpage
-\renewcommand{\topfraction}{0.7}\renewcommand{\bottomfraction}{0.3}
-\renewcommand{\textfraction}{0.2}\renewcommand{\floatpagefraction}{0.5}
 \section{Physical Database Tables}
 \label{sec:physical_tables}
 \input{Chapters/B_tables}

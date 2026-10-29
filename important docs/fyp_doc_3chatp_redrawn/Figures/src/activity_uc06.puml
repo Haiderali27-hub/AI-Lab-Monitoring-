@@ -1,0 +1,76 @@
+@startuml
+!include style.iuml
+' UC-06 Autosave and Submit Answers (M6). Built from activity_recovery and activity_submission.
+' Code: ExamSessionViewModel (SyncTickAsync, SubmitAsync, RestoreAnswersAsync), AutosaveScheduler (10 s / question
+' change / focus loss), OfflineSaveQueue, AnswerBackupStore (encrypted backup), AnswerMerge (higher revision wins);
+' ExamWindow DoSubmit (one flush per submit; auto submit retries every 10 s, manual submit asks again);
+' ExamsController SaveAnswer / Submit, SubmissionService.FinalizeAsync (receipt hash, audit), ReceiptHasher.
+' Plain labels: encryption names, endpoints and status codes are left out.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 25
+}
+!pragma useVerticalIf on
+
+|Student|
+|Desktop App|
+|Server|
+|Student|
+start
+:Open the exam
+window (UC-04), or
+resume after a crash
+(the newer copy of
+each answer wins);
+|Desktop App|
+repeat
+  :Answer
+  edited<
+  :Update the encrypted
+  backup; save after 10 s
+  or on question change;
+  if (Server
+  reachable?) then ([no])
+    :Queue it,
+    resend later;
+  else ([yes])
+    |Server|
+    :Keep the newer
+    copy of the answer;
+    |Desktop App|
+  endif
+repeat while (Student submits,\nor timer at 0?) is ([no]) not ([yes])
+repeat
+  :Send unsent
+  answers first;
+backward :Keep the window
+open, retry later;
+repeat while (All sent?) is ([no]) not ([yes])
+|Server|
+if (Session in
+progress?) then ([yes])
+  :Mark Submitted,
+  make receipt hash,
+  log it, start
+  evaluation (UC-11);
+else ([no])
+endif
+|Desktop App|
+if (Submitted?) then ([yes])
+  :Check the receipt
+  hash, show the
+  receipt;
+else ([no])
+  :Show "exam
+  already ended";
+endif
+:Release lockdown,
+close the window;
+stop
+@enduml

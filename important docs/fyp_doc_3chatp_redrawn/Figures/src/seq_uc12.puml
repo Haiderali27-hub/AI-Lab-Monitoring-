@@ -1,0 +1,54 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-12 View Reports and Audit Log (M12). Built from seq_audit and seq_audit_b.
+' Code: Backend_API/Controllers/Analytics/AnalyticsController.cs (reports/{type}, download), Services/Analytics/ReportExportService.cs
+' (PDF / XLSX / evidence ZIP, file SHA-256, REPORT_GENERATED), Controllers/AuditController.cs (list, verify, Admin/SuperAdmin),
+' Services/AuditChain.VerifyAsync (Hash = SHA-256 of previous hash and row fields).
+
+actor "Teacher\nor Admin" as T
+participant "Reports and\nAudit Logs\npages (web)" as WEB
+participant "Server" as SRV
+database "Database" as DB
+
+T -> WEB : pick an exam and\na report (PDF, Excel\nor evidence ZIP)
+activate WEB
+WEB -> SRV : generate report
+activate SRV
+SRV -> SRV : known type? exam\nowner or admin?
+SRV -> DB : sessions, events,\nscores, evidence
+DB --> SRV : rows
+SRV -> SRV : build the file;\nfile hash (SHA-256)
+SRV -> DB : save report record\nand audit entry
+SRV --> WEB : file name, hash, link
+deactivate SRV
+WEB -> SRV : download file
+activate SRV
+SRV -> SRV : owner or admin?\nfile exists?
+SRV --> WEB : file
+deactivate SRV
+WEB --> T : file saved
+deactivate WEB
+== audit log (Admin or SuperAdmin only) ==
+T -> WEB : open Audit Logs
+activate WEB
+WEB -> SRV : read entries; verify chain
+activate SRV
+SRV -> DB : audit rows in order
+DB --> SRV : rows
+SRV -> SRV : recompute each hash from\nthe previous hash and the\nrow's fields
+SRV --> WEB : entries; chain valid,\nor the first broken row
+deactivate SRV
+WEB --> T : log and chain result
+deactivate WEB
+@enduml

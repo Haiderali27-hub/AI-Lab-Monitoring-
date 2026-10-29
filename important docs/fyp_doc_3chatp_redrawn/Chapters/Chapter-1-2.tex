@@ -1,9 +1,9 @@
 \section{Product Scope}
 
-SmartExam covers a lab exam from set-up to final report. We drew the scope boundary \cite[ch.~5]{pmbok6} around the institution's own lab: exams on Windows PCs on campus, not at home. The WPF client on each workstation and the React web panel both call an ASP.NET Core 9 API that stores data in PostgreSQL on Neon. They use REST calls, over plain HTTP on the shipped localhost configuration and HTTPS behind a TLS endpoint in a lab deployment; the API itself does not enforce HTTPS. SignalR carries live updates between the API and the web dashboard. The desktop client uses REST only and receives invigilator warnings, extra time, unlocks and force-submits in the reply to its next heartbeat (every 10 s). The work is split into twelve modules:
+SmartExam covers a lab exam from set-up to final report. We drew the scope boundary \cite[ch.~5]{pmbok6} around the institution's own lab: exams on Windows PCs on campus, not at home. The WPF client on each workstation and the React web panel both talk to an ASP.NET Core 9 API that stores data in PostgreSQL on Neon. The web dashboard gets live updates from the API, and the desktop client receives staff commands, such as a warning or extra time, with its next heartbeat (every 10 s). The work is split into twelve modules:
 
 \begin{itemize}[noitemsep]
-\item \textbf{M1 Authentication and Device Binding:} login rate limit, hardware-ID workstation binding, PBKDF2 password hashes, JWTs with rotating refresh tokens.
+\item \textbf{M1 Authentication and Device Binding:} secure login, hashed passwords and workstation binding by hardware ID.
 \item \textbf{M2 Pre-Exam Verification and Practice Exam:} network, clock, webcam and secure-mode checks, practice exams.
 \item \textbf{M3 Student Exam Dashboard:} assigned exam with start countdown, readiness and eligibility status, student web portal.
 \item \textbf{M4 Secure Exam Environment (lockdown):} fullscreen window, blocked shortcuts, clipboard guard, Report or Enforce mode for unapproved apps.
@@ -22,7 +22,7 @@ SmartExam covers a lab exam from set-up to final report. We drew the scope bound
 
 The manual process is described in Section~\ref{sec:productpurpose}. Existing tools each solve one part of it. We reviewed ten of them. Each is summarised below with its main features and its limitations for an exam held in a campus lab, and Table~\ref{tab:comparison} compares all ten.
 
-Table~\ref{tab:Abbreviations} lists the abbreviations used in this report. The rows are numbered and sorted alphabetically, and each gives a short form and its full form. A reader who meets an unfamiliar short form in a later chapter, such as HWID or WBS, can look it up here.
+Table~\ref{tab:Abbreviations} lists, in alphabetical order, the abbreviations used in this report with their full forms.
 
 \begin{longtable}{cl>{\raggedright\arraybackslash}p{9.6cm}}
 \caption{Abbreviations}
@@ -40,56 +40,36 @@ Table~\ref{tab:Abbreviations} lists the abbreviations used in this report. The r
 \endfoot
 \hline\hline
 \endlastfoot
-1 & AES-256-GCM & Advanced Encryption Standard in Galois/Counter Mode \\
-2 & AI & Artificial Intelligence \\
-3 & API & Application Programming Interface \\
-4 & BIOS & Basic Input/Output System \\
-5 & CPU & Central Processing Unit \\
-6 & CSV & Comma-Separated Values \\
-7 & DFD & Data Flow Diagram \\
-8 & DPAPI & Data Protection API (Windows) \\
-9 & EF Core & Entity Framework Core \\
-10 & ERD & Entity Relationship Diagram \\
-11 & FK & Foreign Key \\
-12 & FR & Functional Requirement \\
-13 & FYP & Final Year Project \\
-14 & GUID & Globally Unique Identifier \\
-15 & HMAC & Hash-based Message Authentication Code \\
-16 & HTTP(S) & Hypertext Transfer Protocol (Secure) \\
-17 & HWID & Hardware Identifier \\
-18 & IP & Internet Protocol \\
-19 & IT & Information Technology; Integration Test (IDs IT-$nn$) \\
-20 & JSON & JavaScript Object Notation \\
-21 & JWT & JSON Web Token \\
-22 & LAN & Local Area Network \\
-23 & LLM & Large Language Model \\
-24 & LMS & Learning Management System \\
-25 & MCQ & Multiple-Choice Question \\
-26 & NFR & Non-Functional Requirement \\
-27 & ONNX & Open Neural Network Exchange \\
-28 & PBKDF2 & Password-Based Key Derivation Function 2 \\
-29 & PC & Personal Computer \\
-30 & PDF & Portable Document Format \\
-31 & RDP & Remote Desktop Protocol \\
-32 & REST & Representational State Transfer \\
-33 & SHA-256 & Secure Hash Algorithm with a 256-bit digest \\
-34 & SMTP & Simple Mail Transfer Protocol \\
-35 & SRS & Software Requirements Specification \\
-36 & ST & System Test (IDs ST-$nn$) \\
-37 & TF-IDF & Term Frequency--Inverse Document Frequency \\
-38 & TLS & Transport Layer Security \\
-39 & UC & Use Case (IDs UC-$nn$) \\
-40 & UI & User Interface \\
-41 & UML & Unified Modeling Language \\
-42 & URL & Uniform Resource Locator \\
-43 & USB & Universal Serial Bus \\
-44 & UT & Unit Test (IDs UT-$nn$) \\
-45 & UTC & Coordinated Universal Time \\
-46 & VM & Virtual Machine \\
-47 & WBS & Work Breakdown Structure \\
-48 & WMI & Windows Management Instrumentation \\
-49 & WPF & Windows Presentation Foundation \\
-50 & XAML & Extensible Application Markup Language \\
+1 & AI & Artificial Intelligence \\
+2 & API & Application Programming Interface \\
+3 & CPU & Central Processing Unit \\
+4 & CSV & Comma-Separated Values \\
+5 & DFD & Data Flow Diagram \\
+6 & ERD & Entity Relationship Diagram \\
+7 & FR & Functional Requirement \\
+8 & FYP & Final Year Project \\
+9 & HTTP(S) & Hypertext Transfer Protocol (Secure) \\
+10 & HWID & Hardware Identifier \\
+11 & IP & Internet Protocol \\
+12 & JSON & JavaScript Object Notation \\
+13 & JWT & JSON Web Token \\
+14 & LAN & Local Area Network \\
+15 & LLM & Large Language Model \\
+16 & LMS & Learning Management System \\
+17 & MCQ & Multiple-Choice Question \\
+18 & NFR & Non-Functional Requirement \\
+19 & PBKDF2 & Password-Based Key Derivation Function 2 \\
+20 & PC & Personal Computer \\
+21 & PDF & Portable Document Format \\
+22 & REST & Representational State Transfer \\
+23 & SHA-256 & Secure Hash Algorithm with a 256-bit digest \\
+24 & SRS & Software Requirements Specification \\
+25 & TF-IDF & Term Frequency--Inverse Document Frequency \\
+26 & TLS & Transport Layer Security \\
+27 & UC & Use Case (IDs UC-$nn$) \\
+28 & USB & Universal Serial Bus \\
+29 & WBS & Work Breakdown Structure \\
+30 & WPF & Windows Presentation Foundation \\
 \end{longtable}
 
 \noindent\textbf{Respondus LockDown Browser} is a locked browser for LMS quizzes taken in a classroom or a proctored lab \cite{respondus1}. The student opens the quiz in this browser instead of a normal one, and the browser stays locked until the quiz is submitted.
@@ -294,7 +274,7 @@ Table~\ref{tab:Abbreviations} lists the abbreviations used in this report. The r
 
 None of these tools combines desktop lockdown, workstation binding, live supervision, code execution against test cases and an audit trail for an exam held in a physical lab. SmartExam is built to fill that gap.
 
-Table~\ref{tab:comparison} sets the ten tools against SmartExam on eight features. Each column is one tool and each row is one feature, so reading down a column shows what that tool offers. The last column, Proposed System, is SmartExam: it is the only one marked for code execution against test cases and for workstation binding, and only MOSS shares the code plagiarism check. SmartExam is not marked for a photo or face identity check, because it does no face matching.
+Table~\ref{tab:comparison} compares the ten tools with SmartExam (Proposed System) on eight features. Only SmartExam runs code against test cases and binds students to workstations, and only MOSS shares its code plagiarism check.
 
 \begin{table}[H]
 \centering
@@ -331,7 +311,7 @@ Workstation Binding and Seat Control & \xmark & \xmark & \xmark & \xmark & \xmar
 \end{tabularx}
 \end{table}
 
-\noindent\textbf{Note:} the marks were checked against each vendor's official product and documentation pages in October 2026 \cite{respondus1}--\cite{gclassroom_quiz}. A \cmark{} means that the feature is built in or offered as an official add-on, and a \xmark{} means that we found neither. Respondus is marked for photo/ID check and webcam flagging through its Monitor add-on \cite{respondus_webcam}, and ExamSoft through its ExamID and ExamMonitor add-ons. SEB Server adds live client monitoring and screen proctoring but no webcam analysis. Google Classroom's locked mode works only on school-managed Chromebooks \cite{gclassroom_quiz}, so it is not marked for lockdown. Moodle is marked without plugins. SmartExam's webcam check, used when an exam requires it, flags an unavailable, covered or frozen camera, no face or several faces, a head turned away and a phone in view, but does not match a face to an identity.
+\noindent\textbf{Note:} the marks were checked on each vendor's official pages in October 2026 \cite{respondus1}--\cite{gclassroom_quiz}. A \cmark{} means built in or offered as an official add-on, such as Respondus Monitor \cite{respondus_webcam} or ExamSoft's ExamID and ExamMonitor. Google Classroom's locked mode works only on school-managed Chromebooks \cite{gclassroom_quiz}, and Moodle is marked without plugins. SmartExam does no face matching.
 
 \subsection{Future System Usage Analysis}
 

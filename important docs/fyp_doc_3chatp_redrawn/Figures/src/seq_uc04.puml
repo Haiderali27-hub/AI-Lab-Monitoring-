@@ -1,0 +1,57 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-04 Sit the Locked Exam (M4). Built from seq_lockdown, seq_lockdown_b, seq_lockdown_c.
+' Code: Student_Desktop_App/Services/Lockdown/LockdownCoordinator.cs (Start, Report with 15 s cooldown, Dispose),
+' keyboard hook, Task Manager, clipboard, process and device guards; Services/LiveMonitoringService.cs (ReportViolation).
+
+actor Student
+participant "Exam\nWindow" as EW
+participant "Lockdown\nControl" as LC
+participant "Guards" as G
+participant "Monitoring\nService" as MS
+participant "Server" as SRV
+
+Student -> EW : exam opens (UC-03)
+activate EW
+EW -> LC : start lockdown
+activate LC
+opt lockdown mode is Report or Enforce
+  LC -> G : disable Task Manager;\nblock Alt+Tab and\nWindows keys
+  LC -> G : start clipboard, process\nand device guards
+  opt a step failed
+    LC -> LC : report\n"lockdown degraded"
+  end
+end
+LC --> EW : locked
+deactivate LC
+EW --> Student : full-screen exam
+loop during the exam
+  G ->> LC : violation: blocked key, outside\nclipboard, unapproved app,\nUSB, second monitor,\nremote session or VM
+  activate LC
+  LC -> LC : once per violation\nevery 15 s
+  LC -> MS : report violation
+  activate MS
+  MS -> MS : store in encrypted\noutbox; take screenshot
+  MS ->> SRV : send event at once\n(UC-05)
+  deactivate MS
+  deactivate LC
+end
+== submit, force-submit, crash or exit ==
+EW -> LC : stop lockdown
+activate LC
+LC -> G : restore Task Manager;\nremove key block;\nstop the guards
+LC --> EW : released
+deactivate LC
+deactivate EW
+@enduml

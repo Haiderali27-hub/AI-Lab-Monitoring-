@@ -14,8 +14,11 @@
 \usepackage{url}
 \usepackage{rotating}
 \usepackage{fancyhdr}
+\usepackage{needspace}
 \renewcommand{\arraystretch}{1.2}
 \renewcommand{\bibname}{References}
+% Words that must not be split at a line end.
+\hyphenation{plagiarism}
 
 \setlength{\intextsep}{5pt}
 % Long-table captions may use the full text width (no hyphenated wraps).
@@ -108,6 +111,30 @@
 % page instead of standing alone; its limits are 60%, 30% and 15%.
 \newcommand{\SoftBarrierN}{{\let\sb@flush\newpage
   \def\sb@a{0.6}\def\sb@b{0.3}\def\sb@c{0.15}\SoftBarrier}}
+% Each diagram in Chapters 4 and 5 is printed right after its short explanation
+% (at most two printed lines, checked on the PDF whenever a text is edited).
+% \DiagramFig{size}{file}{caption}{label}{text} starts a new page first when the
+% text, the diagram and its caption would not fit on the rest of the page, so the
+% text and its diagram always stay together. Diagram sizes keep the smallest
+% printed text at 6.5 pt or more.
+\newsavebox{\dg@box}
+\newcommand{\DiagramFig}[5]{%
+  \sbox{\dg@box}{\includegraphics[#1]{Figures/#2}}%
+  \par\begingroup
+    \dimen@=\ht\dg@box \advance\dimen@ by 7\baselineskip
+    \dimen@ii=\pagegoal \advance\dimen@ii by -\pagetotal
+    % When the page is already over full, TeX breaks it before this point by
+    % itself, so only a page with room left is checked.
+    \ifdim\pagegoal<\maxdimen \ifdim\dimen@ii>\z@
+      \ifdim\dimen@>\dimen@ii \aftergroup\newpage\fi\fi\fi
+  \endgroup
+  #5\par
+  \begin{figure}[H]
+  \centering
+  \usebox{\dg@box}
+  \caption{#3}
+  \label{#4}
+  \end{figure}}
 \makeatother
 
 \begin{document}

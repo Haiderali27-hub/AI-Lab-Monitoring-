@@ -1,0 +1,87 @@
+@startuml
+!include style.iuml
+' UC-08 Create and Configure Exam (M8). Built from activity_config and the teacher part of activity_applications.
+' Code: Admin_Web_Panel pages/teacher/CreateExamPage.tsx (four-step wizard, AllowedAppsPicker);
+' ExamsController CreateExam / UpdateExam / ValidateExamPayloadAsync / RefuseOtherTeachersStudentsAsync;
+' audit EXAM_CREATED / EXAM_UPDATED in the same save. Lockdown mode default Report.
+' Announcement: pages/notifications/AnnouncementPage.tsx ("Also send via email"); NotificationsController
+' AnnounceToExam (owner or admin only, eligible students only, refused if none) -> NotificationService.SendToManyAsync
+' (in-app notification, EmailService SMTP when SendEmail).
+' Plain labels: routes, status codes and the full validation list are left out.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 25
+}
+
+|Teacher (Web Panel)|
+|Server|
+|Teacher (Web Panel)|
+start
+:Open the exam
+wizard (new exam
+or edit);
+:1. Basic info: title,
+section, date, time,
+duration;
+:2. Questions: MCQ,
+theory, coding with
+test cases;
+:3. Rules: allowed apps,
+lockdown mode, webcam,
+readiness, seat;
+:4. Assign
+students;
+(A)
+:Save the
+exam;
+|Server|
+if (Edit: exam exists,
+own section, still
+Scheduled?) then ([no])
+  :Refuse with
+  the reason;
+  |Teacher (Web Panel)|
+  stop
+else ([yes or new])
+endif
+|Server|
+if (Section, questions,
+marks and test cases valid,
+students in own sections
+(teacher)?) then ([no])
+  |Teacher (Web Panel)|
+  :Show the error,
+  fix the step;
+  (A)
+  detach
+else ([yes])
+  |Server|
+  :Save the exam, its
+  questions and students,
+  log it in the audit log;
+endif
+|Teacher (Web Panel)|
+:Back to the
+dashboard;
+if (Announce
+the exam?) then ([yes])
+  :Pick the exam, write title
+  and message, tick "also
+  send via email", send;
+  |Server|
+  :Own exam with eligible
+  students? Notify each one,
+  also by email if ticked;
+  |Teacher (Web Panel)|
+  :See "sent to N
+  students" or error;
+else ([no])
+endif
+stop
+@enduml

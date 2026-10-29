@@ -1,0 +1,67 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-05 Send Monitoring Data (M5). Built from seq_telemetry / seq_telemetry_b.
+' Code: Student_Desktop_App/Services/LiveMonitoringService.cs, Services/Monitoring/EvidenceCaptureService.cs;
+' Backend_API/Controllers/MonitoringController.cs (heartbeat, events/batch, screenshots), Services/HeartbeatWatchdog.
+
+participant "Monitoring\nService\n(desktop app)" as LM
+participant "Server" as SRV
+database "Database" as DB
+participant "Disconnect\nWatchdog" as WD
+participant "Live Monitor\n(web)" as WEB
+
+[->> LM : exam session started
+activate LM
+par
+  loop every 10 s
+    LM -> SRV : heartbeat
+    activate SRV
+    SRV -> DB : save heartbeat;\ncheck seat
+    SRV ->> WEB : tile update
+    SRV --> LM : time left, status,\nwarnings
+    deactivate SRV
+  end
+else
+  loop every 5 s (at once on a violation)
+    LM -> SRV : event batch
+    activate SRV
+    SRV -> DB : save new events;\naudit violations
+    SRV ->> WEB : alert for each\nnew violation
+    SRV --> LM : accepted
+    deactivate SRV
+  end
+else
+  loop screen at random intervals,\nwebcam if required, and on a violation
+    LM -> SRV : upload capture
+    activate SRV
+    SRV -> DB : store image\nand its record
+    SRV ->> WEB : new capture
+    SRV --> LM : stored
+    deactivate SRV
+  end
+end
+deactivate LM
+loop every 5 s
+  WD -> DB : find sessions silent\nfor 30 s or more
+  activate WD
+  DB --> WD : silent sessions
+  WD -> DB : mark disconnected;\naudit entry
+  WD ->> WEB : student\ndisconnected
+  deactivate WD
+end
+note over SRV, WEB
+The next heartbeat marks the
+session reconnected.
+end note
+@enduml

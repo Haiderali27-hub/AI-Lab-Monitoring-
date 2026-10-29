@@ -9,7 +9,7 @@
 ' Portrait layout, short labels; the chapter text gives every flow in full.
 skinparam defaultFontSize 16
 skinparam ArrowFontSize 16
-skinparam nodesep 16
+skinparam nodesep 6
 skinparam ranksep 40
 skinparam defaultTextAlignment center
 skinparam rectangle<<entity>> {

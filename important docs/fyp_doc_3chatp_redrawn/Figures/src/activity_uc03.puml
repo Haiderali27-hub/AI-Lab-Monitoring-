@@ -1,0 +1,81 @@
+@startuml
+!include style.iuml
+' UC-03 View Exam Dashboard and Start Exam (M3). Built from activity_diagram (start gate), activity_diagnostics
+' (check-in, Start enabled at the opening time) and activity_seating (start checks).
+' Code: DashboardViewModel (InitializeAsync, ConfirmAttendanceAsync, UpdateStartEligibility, StartExamAsync);
+' ExamsController student/current and StartStudentExam: NOT_ELIGIBLE -> EXAM_CLOSED -> EXAM_NOT_STARTED ->
+' CheckSeatOnStartAsync (desktop client, SEAT_MISMATCH) -> resume an InProgress session -> already submitted ->
+' READINESS_REQUIRED -> new InProgress session.
+' Plain labels: endpoints and error codes are left out.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 25
+}
+!pragma useVerticalIf on
+
+|Student|
+|Desktop App|
+|Server|
+|Student|
+start
+:Open the exam
+dashboard;
+|Server|
+:Send the exam,
+server time and
+eligibility, readiness
+and seat status;
+|Desktop App|
+:Show exam details
+and countdown;
+|Student|
+:Press Check In;
+|Desktop App|
+:Enable Start when the
+exam opens, after check-in
+and a readiness pass
+(if the exam needs it);
+|Student|
+:Press Start Exam;
+|Server|
+if (Eligible and
+exam open?) then ([no])
+  :Refuse with
+  the reason;
+([yes]) elseif (Desktop app, on
+the right seat
+if enforced?) then ([no])
+  :Refuse; log a
+  wrong seat and
+  alert live monitor;
+([yes]) elseif (Session already
+running?) then ([yes])
+  :Resume that
+  session;
+([no]) elseif (Not submitted yet,
+readiness passed
+if needed?) then ([no])
+  :Refuse with
+  the reason;
+else ([yes])
+  :Create a new
+  session;
+endif
+|Desktop App|
+if (Session
+opened?) then ([yes])
+  :Open the locked
+  exam window
+  (UC-04);
+else ([no])
+  :Show the
+  reason;
+endif
+stop
+@enduml

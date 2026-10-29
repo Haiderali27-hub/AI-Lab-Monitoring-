@@ -1,0 +1,75 @@
+@startuml
+!include style.iuml
+' UC-07 Manage Users and Roles (M7). Built from seq_users, seq_users_b, seq_users_c, seq_users_d.
+' Code: Backend_API/Controllers/UsersController.cs (Create, Update, Delete, Import, ResetDeviceBinding, ForceLogout,
+' Deactivate, Activate; GuardPrivilegedAsync / GuardExistingAsync -> 403 SUPERADMIN_REQUIRED + audit
+' PRIVILEGED_ACCOUNT_DENIED; import skips rows that are invalid, duplicate or not allowed; USER_* audit events);
+' Services/RefreshTokenService.cs; Admin_Web_Panel Users page.
+' Departments & Courses page (AcademicsPage): DepartmentsController / CoursesController create, update, delete;
+' duplicate name or code refused, a department with courses or a course with sections is not deleted; audit logged.
+' Plain labels: endpoints, status codes and audit event names are left out.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 25
+}
+!pragma useVerticalIf on
+
+|Admin (Web Panel)|
+|Server|
+|Admin (Web Panel)|
+start
+if (Which page?) then ([Users])
+  :Open the Users page:
+  add, edit, import,
+  deactivate, delete,
+  reset PC binding
+  or force logout;
+  |Server|
+  if (Import a
+  CSV file?) then ([yes])
+    :Add valid rows, skip
+    bad, duplicate or
+    not-allowed rows,
+    log the import;
+  ([no]) elseif (Admin or SuperAdmin
+  account, and caller is
+  not a SuperAdmin?) then ([yes])
+    :Refuse, log
+    the denial;
+  ([no]) elseif (Add or edit: role
+  valid, email and
+  roll no. free?) then ([no])
+    :Refuse with
+    the error;
+  else ([yes])
+    :Save the change and
+    log it (reset and force
+    logout also end the
+    user's sessions);
+  endif
+else ([Departments\n& Courses])
+  |Admin (Web Panel)|
+  :Add, edit or
+  delete a
+  department
+  or course;
+  |Server|
+  :Save and log
+  it; refuse a
+  name or code
+  in use, or a
+  delete while
+  courses or
+  sections remain;
+endif
+|Admin (Web Panel)|
+:See the updated
+list or the error;
+stop
+@enduml

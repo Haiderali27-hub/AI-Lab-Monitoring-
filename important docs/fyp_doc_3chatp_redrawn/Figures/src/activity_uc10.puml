@@ -1,0 +1,69 @@
+@startuml
+!include style.iuml
+' UC-10 Supervise Exam Live (M10). Built from activity_monitoring_b and seq_uc10.
+' Code: Admin_Web_Panel LiveMonitorPage (JoinExamGroup, tiles Stable / Warning / Suspicious / Critical / Disconnected,
+' student drawer with timeline and captures); MonitoringHub SendWarning / ExtendStudentTime / UnlockSession /
+' ForceSubmitSessionById (ExamAccessService check, audit); MonitoringController.Heartbeat ack carries warnings,
+' remaining time, unlock time and session status to the desktop app.
+' Plain labels: hub method names, audit events and limits are left out.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 25
+}
+
+|Invigilator (Web Panel)|
+|Server|
+|Desktop App|
+|Invigilator (Web Panel)|
+start
+:Open Live Monitor,
+pick an exam;
+|Server|
+if (Owner, assigned
+invigilator or
+admin?) then ([no])
+  :Refuse;
+  stop
+else ([yes])
+  :Send one tile
+  per student;
+endif
+|Invigilator (Web Panel)|
+repeat
+  :Tile updates: heartbeats,
+  violations, screenshots,
+  disconnects (UC-05)<
+  if (Open a
+  student?) then ([yes])
+    :View timeline,
+    screenshots and
+    webcam snapshots;
+  else ([no])
+  endif
+  if (Act on the
+  student?) then ([yes])
+    :Warn, add time,
+    unlock, relock, record
+    an incident or
+    force-submit;
+    |Server|
+    :Check access,
+    save it, log it;
+    |Desktop App|
+    :Next heartbeat
+    reply: show the
+    warning, update
+    time, unlock or
+    end the exam;
+    |Invigilator (Web Panel)|
+  else ([no])
+  endif
+repeat while (Exam\nrunning?) is ([yes]) not ([no])
+stop
+@enduml

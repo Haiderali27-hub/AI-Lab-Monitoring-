@@ -1,5 +1,5 @@
 \section{Functional Requirements}
-Functional requirements state what the system must do. Table~\ref{tab:functionalrequirements} lists the functional requirements of SmartExam. FR$n$ belongs to module M$n$; module M11 has three (FR11.1--FR11.3). Each requirement has an identifier and a short description. Two rules apply across these requirements. Roles are kept apart, so only staff with access to an exam can read its monitoring data \cite{rbac1}. No penalty is automatic: the \texttt{ViolationClassifier} labels events, and all AI marks are suggestions that the teacher accepts or overrides; every override is audited.
+Functional requirements state what the system must do. Table~\ref{tab:functionalrequirements} lists them; FR$n$ belongs to module M$n$, and M11 has three (FR11.1--FR11.3).
 
 \begin{table}[H]
 \centering
@@ -35,7 +35,7 @@ Non-functional requirements set the quality levels and operating limits of the s
 \label{sec:qualityattributes}
 NFR1--NFR6 are the quality attributes of SmartExam. Where our name differs from the standard, the ISO/IEC 25010 characteristic is shown in brackets.
 \begin{itemize}
-    \item \textbf{Security (NFR1):} Passwords are stored as PBKDF2-HMAC-SHA256 hashes with a 32-byte salt and 600,000 iterations \cite{owasp_pwd}; older hashes are upgraded at the next login \cite{nist80063b}. Access tokens expire after 30 min, refresh tokens are single-use and rotate, and login allows 10 and refresh 30 requests per minute per IP address. Every endpoint except login, token refresh and the health check needs a valid JWT \cite{rfc7519} and a permitted role.
+    \item \textbf{Security (NFR1):} Passwords are stored as salted PBKDF2 hashes with 600,000 iterations \cite{owasp_pwd}, and older hashes are upgraded at the next login \cite{nist80063b}. Access tokens expire after 30 minutes, refresh tokens can be used only once, and each IP address may try to log in at most 10 times a minute. Every request except login, token refresh and the health check needs a valid JWT \cite{rfc7519} and a permitted role.
     \item \textbf{Reliability (NFR2):} A network outage of any length shall not lose an answer. Every edit reaches the encrypted local backup within about 1 s, failed saves and events are queued and sent in order later, and a restarted client resumes the session.
     \item \textbf{Usability (NFR3, interaction capability):} A student shall be able to log in, pass the readiness check and start an exam using only the on-screen instructions. Every refusal shows its reason, and final actions ask for confirmation.
     \item \textbf{Performance (NFR4, performance efficiency):} With 40 desktop clients sending heartbeats every 10 s, login, exam start, answer saves and heartbeats shall complete within 2 s at the 95th percentile.
@@ -49,7 +49,7 @@ NFR7--NFR10 fix where and how the system runs and what happens to its data:
 
 \textbf{Compatibility (NFR7):} The client runs on Windows 10 (22H2) or Windows 11 with the .NET 9 Desktop Runtime and was tested on Windows 11. The web panel runs in Chrome or Edge 111 or later.
 
-\textbf{Connectivity (NFR8):} The client and the web panel call the API over REST, with HTTPS behind a TLS endpoint in a lab deployment; no local lab server is needed. SignalR carries live updates to the web dashboard, and the desktop client receives staff commands in the reply to its next heartbeat (every 10 s).
+\textbf{Connectivity (NFR8):} The client and the web panel call the API over REST, with HTTPS behind a TLS endpoint in a lab deployment; no local lab server is needed. The web dashboard gets live updates, and the desktop client receives staff commands with its next heartbeat (every 10 s).
 
 \textbf{Privacy (NFR9):} No face recognition or identity matching is performed. Webcam frames are analysed on the PC, and webcam snapshots and screenshots can be viewed only by the exam's owner, its invigilators and administrators, and are deleted after 30 days.
 
@@ -57,7 +57,7 @@ NFR7--NFR10 fix where and how the system runs and what happens to its data:
 
 \section{Requirement Gathering Techniques Used}
 \label{sec:gathering}
-To understand what the users of SmartExam need, we used structured interviews, paper prototypes, two brainstorming sessions and an analysis of existing systems \cite{elicit1, sommerville}. Table~\ref{tab:gathering} links what each technique showed to the requirements it produced.
+To understand what the users of SmartExam need, we used structured interviews, paper prototypes, two brainstorming sessions and an analysis of existing systems \cite{elicit1, sommerville}.
 
 \subsection{Interviews}
 We asked teachers and lab coordinators how practical exams run today. Two needs came up most: watching workstations live, and keeping evidence that can settle disputes later.
@@ -74,29 +74,8 @@ We discussed monitoring, proctoring and reports. Face recognition was left out o
 \subsection{Analysis of Existing Systems}
 Section~\ref{sec:existingsystems} reviews ten existing tools, and Table~\ref{tab:comparison} compares them feature by feature. No tool binds a student to a lab workstation or runs code against test cases, and only MOSS checks code for plagiarism. Some tools offer lockdown or live monitoring, but none combines them with these features for an exam in a physical lab. These gaps set FR1, FR4, FR9, FR10, FR11.1 and FR11.3.
 
-Table~\ref{tab:gathering} sums up the five techniques above. Each row gives one technique, its main finding and the requirements it led to.
-
-\begin{table}[H]
-\centering
-\caption{Requirement Gathering Findings and Resulting Requirements}
-\label{tab:gathering}
-\renewcommand{\arraystretch}{1.2}
-\small
-\begin{tabular}{>{\raggedright\arraybackslash}p{2.9cm}>{\raggedright\arraybackslash}p{7.9cm}>{\raggedright\arraybackslash}p{3.4cm}}
-\hline\hline
-\textbf{Technique} & \textbf{Main finding} & \textbf{Requirements} \\
-\hline
-Interviews (teachers, lab coordinators) & Staff need to watch workstations live and to keep evidence that can settle a dispute. & FR5, FR10, FR12, NFR6 \\
-Paper prototypes & Users asked for a countdown timer, a live alert count at the top of each student's tile on the live dashboard and one question per screen. & FR3, FR10 \\
-Brainstorming 1 (team) & Mapping the exam life cycle and its most time-consuming manual steps set the build order of the foundation: role management, exam configuration and seat assignment. & FR7, FR8, FR9 \\
-Brainstorming 2 (team) & Face recognition is left out for privacy and effort; every exam needs attendance, violation and score reports. & NFR9, FR12 \\
-Existing systems & No tool combines workstation binding, code execution against test cases, code plagiarism checks and live lab supervision. & FR1, FR4, FR9, FR10, FR11.1, FR11.3 \\
-\hline\hline
-\end{tabular}
-\end{table}
-
 \section{Time Frame}
-The project runs over eight four-week sprints (Weeks 1--32), each ending with a working increment for supervisor review. Table~\ref{tab:timeframe} gives each sprint with its main work and its duration. Sprint 1 sets the requirements and the architecture, Sprints 2--7 each deliver one to three modules, and Sprint 8 adds no new module but joins and tests them all.
+The project runs over eight four-week sprints (Weeks 1--32), each ending with a working increment for supervisor review. Table~\ref{tab:timeframe} gives the main work and the duration of each sprint.
 
 \begin{table}[H]
 \centering
@@ -113,7 +92,7 @@ Sprint 3 (M8, M9): Exam creation, test cases, allowed apps, eligibility and seat
 Sprint 4 (M2, M3, M4): Readiness check, practice exams, student dashboard and lockdown & 4 weeks \\
 Sprint 5 (M5, M10): Monitoring client and live proctoring dashboard & 4 weeks \\
 Sprint 6 (M6, M11): Autosave and backup, test-case grading, theory scoring and plagiarism & 4 weeks \\
-Sprint 7 (M12): Hash-chained audit log, analytics, QuestPDF reports, and Excel and evidence-ZIP exports & 4 weeks \\
+Sprint 7 (M12): Hash-chained audit log, analytics, PDF reports, and Excel and evidence-ZIP exports & 4 weeks \\
 Sprint 8: Integration, end-to-end testing, bug fixing, documentation and demo & 4 weeks \\
 \hline
 \textbf{Total Duration} & \textbf{32 weeks} \\

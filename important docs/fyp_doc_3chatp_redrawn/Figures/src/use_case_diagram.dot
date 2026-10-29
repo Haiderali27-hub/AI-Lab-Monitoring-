@@ -1,0 +1,54 @@
+// UML use case diagram of the whole SmartExam system (Figure 4.1).
+// The 12 use cases UC-01 to UC-12 match modules M1 to M12; IDs and names are the same in the
+// user stories, use case tables, activity and sequence diagrams and unit test tables.
+// UC-01 (every user signs in) at the top of the right column; student use cases UC-02 to UC-06 in the
+// left column and staff use cases UC-07 to UC-12 below UC-01, both in ID order from top to bottom.
+// Actor positions were chosen to keep line crossings to a minimum.
+// Fixed positions (points); render from this folder with:
+//   neato -n2 -Tpng -Gdpi=150 use_case_diagram.dot -o ../use_case_diagram.png
+// Lines meet each use case at its outer tip so that no line crosses another use case.
+// actor.png is the stick figure from the PlantUML style used by the other diagrams.
+graph uc {
+  graph [splines=line, outputorder=nodesfirst, pad=0.15, bgcolor=white];
+  node  [fontname="Arial", fontsize=12, color="#333333"];
+  edge  [color="#333333", penwidth=1, dir=none, fontname="Arial", fontsize=12];
+
+  // system boundary
+  SYS [shape=box, style="rounded", label="SmartExam", fontname="Arial Bold", labelloc=t,
+       width=5.97, height=7.92, fixedsize=true, pos="360,275!"];
+
+  node [shape=ellipse, style=filled, fillcolor="#F2F2F2", width=2.45, height=0.88, fixedsize=true];
+  U01 [label="UC-01 Log In and\nBind Device",              pos="470,500!"];
+  U02 [label="UC-02 Run\nReadiness Check",                 pos="250,370!"];
+  U03 [label="UC-03 View Exam\nDashboard and\nStart Exam", pos="250,294!"];
+  U04 [label="UC-04 Sit the\nLocked Exam",                 pos="250,218!"];
+  U05 [label="UC-05 Send\nMonitoring Data",                pos="250,142!"];
+  U06 [label="UC-06 Autosave and\nSubmit Answers",         pos="250,66!"];
+  U07 [label="UC-07 Manage\nUsers and Roles",              pos="470,410!"];
+  U08 [label="UC-08 Create and\nConfigure Exam",           pos="470,334!"];
+  U09 [label="UC-09 Manage\nEligibility and Seats",        pos="470,258!"];
+  U10 [label="UC-10 Supervise\nExam Live",                 pos="470,182!"];
+  U11 [label="UC-11 Evaluate\nAnswers",                    pos="470,106!"];
+  U12 [label="UC-12 View Reports\nand Audit Log",          pos="470,30!"];
+
+  node [shape=none, style="", fixedsize=false, width=0, height=0, margin=0];
+  STU [pos="60,330!",  label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1"><TR><TD FIXEDSIZE="TRUE" WIDTH="22" HEIGHT="48"><IMG SRC="actor.png" SCALE="TRUE"/></TD></TR><TR><TD>Student</TD></TR></TABLE>>];
+  SUP [pos="740,420!", label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1"><TR><TD FIXEDSIZE="TRUE" WIDTH="22" HEIGHT="48"><IMG SRC="actor.png" SCALE="TRUE"/></TD></TR><TR><TD>SuperAdmin</TD></TR></TABLE>>];
+  ADM [pos="740,280!", label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1"><TR><TD FIXEDSIZE="TRUE" WIDTH="22" HEIGHT="48"><IMG SRC="actor.png" SCALE="TRUE"/></TD></TR><TR><TD>Admin</TD></TR></TABLE>>];
+  TEA [pos="620,220!", label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1"><TR><TD FIXEDSIZE="TRUE" WIDTH="22" HEIGHT="48"><IMG SRC="actor.png" SCALE="TRUE"/></TD></TR><TR><TD>Teacher</TD></TR></TABLE>>];
+  INV [pos="620,520!", label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1"><TR><TD FIXEDSIZE="TRUE" WIDTH="22" HEIGHT="48"><IMG SRC="actor.png" SCALE="TRUE"/></TD></TR><TR><TD>Invigilator</TD></TR></TABLE>>];
+
+  // every user signs in (UC-01): staff on the web panel, the student on the lab PC
+  STU -- U01:w; U01:e -- ADM; U01:e -- TEA; U01:e -- INV;
+  // Student: UC-02 to UC-06; UC-05 runs inside UC-04, so it has no direct actor line
+  STU -- U02:w; STU -- U03:w; STU -- U04:w; STU -- U06:w;
+  U04:s -- U05:n [dir=forward, style=dashed, arrowhead=vee, arrowsize=0.8];
+  INC [shape=plaintext, label="«include»", pos="292,180!"];
+
+  // staff: Admin (UC-07, UC-09 labs and PCs, UC-12 audit log), Teacher (UC-08 to UC-12),
+  // Invigilator (UC-10); SuperAdmin is a specialisation of Admin
+  U07:e -- ADM; U09:e -- ADM; U12:e -- ADM;
+  U08:e -- TEA; U09:e -- TEA; U10:e -- TEA; U11:e -- TEA; U12:e -- TEA;
+  U10:e -- INV;
+  SUP -- ADM [dir=forward, arrowhead=empty, arrowsize=1.4];
+}

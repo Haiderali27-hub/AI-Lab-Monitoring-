@@ -1,0 +1,81 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 400
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-09 Manage Eligibility and Seats (M9). Built from seq_eligibility, seq_eligibility_b, seq_eligibility_c;
+' seat step from ExamsController.AssignWorkstation (one seat per student per exam; WORKSTATION_ASSIGNED audit),
+' called from Admin_Web_Panel/src/pages/teacher/EligibilityPage.tsx.
+' Code: Backend_API/Controllers/AttendanceController.cs, ExamsController.cs (RecalculateEligibility,
+' UpdateEligibility, AssignWorkstation, AssignProctor), EligibilityCalculator; LabsController.cs
+' (CreateLab, CreateWorkstation: unique machine number per lab, valid IP; LAB_CREATED, WORKSTATION_CREATED)
+' from pages/admin/LabsPage.tsx; invigilator panel components/exam/ExamProctorsPanel.tsx (PROCTOR_ASSIGNED;
+' only an invigilator or teacher with an active account).
+
+actor Admin as A
+actor Teacher as T
+participant "Web Panel (Labs,\nEligibility pages)" as UI
+participant "Server" as SRV
+participant "Eligibility\nCalculator" as EL
+database "Database" as DB
+
+A -> UI : add a lab and its PCs\n(number, PC name, IP)
+activate UI
+UI -> SRV : save lab and workstations
+activate SRV
+SRV -> DB : save PCs (unique number, valid IP); audit
+deactivate SRV
+deactivate UI
+T -> UI : import attendance CSV
+activate UI
+UI -> SRV : upload file (max 1 MB)
+activate SRV
+SRV -> DB : save attended and total classes; audit entry
+SRV --> UI : counts, and bad rows by line
+deactivate SRV
+T -> UI : Recalculate
+UI -> SRV : recalculate eligibility
+activate SRV
+loop each student without a manual override
+  SRV -> EL : decide (attended, total, minimum)
+  activate EL
+  EL --> SRV : eligible if percent >=\nminimum (75 % by default)
+  deactivate EL
+end
+SRV -> DB : save decisions and audit entries
+SRV --> UI : summary
+deactivate SRV
+opt teacher changes a student by hand
+  T -> UI : set eligibility, note
+  UI -> SRV : save eligibility
+  activate SRV
+  SRV -> DB : save as a manual override; audit entry
+  SRV --> UI : updated list
+  deactivate SRV
+end
+T -> UI : pick a workstation for a student
+UI -> SRV : assign seat
+activate SRV
+alt seat taken by another student in this exam
+  SRV --> UI : conflict
+else seat free
+  SRV -> DB : save seat and audit entry
+  SRV --> UI : seat updated
+end
+deactivate SRV
+T -> UI : assign an invigilator
+UI -> SRV : assign invigilator to the exam
+activate SRV
+SRV -> DB : save (active invigilator\nor teacher only); audit entry
+SRV --> UI : invigilator list
+deactivate SRV
+deactivate UI
+@enduml

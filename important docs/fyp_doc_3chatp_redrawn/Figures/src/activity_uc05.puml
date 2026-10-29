@@ -1,0 +1,79 @@
+@startuml
+!include style.iuml
+' UC-05 Send Monitoring Data (M5). Built from activity_monitoring_a and activity_monitoring_b.
+' Code: LiveMonitoringService (heartbeat every 10 s; ack carries time left, status, warnings, unlock time),
+' EvidenceCaptureService (screenshot at a random 0.5-1.5 x interval), EventBatcher (every 5 s, at once when urgent),
+' encrypted MonitoringSpool (kept until sent); MonitoringController Heartbeat / PushEventBatch / UploadScreenshot
+' (dedup, audit of violations, hub pushes); HeartbeatWatchdogService (sweep every 5 s, Disconnected after 30 s).
+' Plain labels: intervals other than 10 s / 5 s / 30 s, endpoints and event names are left out.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 25
+}
+
+|Desktop App|
+|Server|
+|Desktop App|
+start
+:Exam session
+starts (UC-03);
+fork
+  |Desktop App|
+  repeat
+    :Send a
+    heartbeat
+    every 10 s>
+    :Reply: time
+    left, status,
+    warnings<
+  repeat while (In\nprogress?) is ([yes]) not ([no])
+fork again
+  |Desktop App|
+  repeat
+    :Queue events
+    (encrypted), take
+    screenshots
+    when due;
+    :Send events
+    every 5 s (a
+    violation at once)
+    and screenshots>
+  repeat while (In\nprogress?) is ([yes]) not ([no])
+fork again
+  |Server|
+  repeat
+    :Heartbeat, events
+    or screenshot<
+    :Store it, log
+    violations, check
+    the seat, reply;
+    :Update the
+    live monitor>
+  repeat while (In\nprogress?) is ([yes]) not ([no])
+fork again
+  |Server|
+  repeat
+    :Every 5 s, look
+    for silent
+    sessions;
+    if (Silent for
+    30 s?) then ([yes])
+      :Mark
+      disconnected,
+      log it, alert
+      live monitor>
+    else ([no])
+    endif
+  repeat while (In\nprogress?) is ([yes]) not ([no])
+  |Desktop App|
+end fork
+:Stop monitoring,
+send what is left;
+stop
+@enduml

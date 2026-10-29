@@ -1,0 +1,59 @@
+@startuml
+!include style.iuml
+' UC-12 View Reports and Audit Log (M12). Built from activity_report and activity_audit.
+' Code: ReportsPage -> AnalyticsController (summary PDF, ExamAccessService owner check; download re-checks) and
+' ReportExportService (attendance / violations / scores PDF, Excel, evidence ZIP; REPORT_GENERATED with SHA-256);
+' AuditLogsPage (Admin, SuperAdmin) -> AuditController getLogs (latest 200) + verify (hash chain: valid, broken at
+' #n, or unsealed rows; "Seal legacy entries" backfill).
+' Plain labels: endpoints, status codes, file details and the backfill step are left out.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 25
+}
+
+|Teacher or Admin|
+|Server|
+|Admin|
+|Teacher or Admin|
+start
+:Pick an exam and a
+report: summary PDF,
+attendance, violations,
+scores, Excel or
+evidence ZIP;
+|Server|
+if (Owner of the exam\nor admin?) then ([no])
+  :Refuse;
+  stop
+else ([yes])
+  :Build the file
+  and save it;
+  :Log exports (not the
+  summary PDF) with the
+  file's SHA-256 hash;
+endif
+|Teacher or Admin|
+:Download
+the file;
+stop
+|Admin|
+start
+:Open the
+audit log;
+|Server|
+:Load the latest
+200 entries, verify
+the hash chain;
+|Admin|
+:Filter the entries,
+see "verified" or
+where the chain
+breaks;
+stop
+@enduml

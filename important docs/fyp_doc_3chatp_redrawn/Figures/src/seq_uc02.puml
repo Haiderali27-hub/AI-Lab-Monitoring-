@@ -1,0 +1,69 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-02 Run Readiness Check (M2). Built from seq_diagnostics / seq_diagnostics_b.
+' Code: Student_Desktop_App/ViewModels/DashboardViewModel.cs (RunReadinessAsync, RetryReadinessItemAsync,
+' ReportReadinessAsync), Services/Readiness/ReadinessCheckService.cs; Backend_API/Controllers/ExamsController.cs
+' (SubmitReadiness: ReadinessCheck row + audit, hub ReadinessUpdated, pass valid 30 min).
+' Practice: ExamDashboard PracticeButton_OnClick -> start-session (IsMock: fresh attempt after each submit),
+' exam window in Report mode, no webcam; ungraded, excluded from stats.
+
+actor Student
+participant "Desktop App\n(dashboard)" as APP
+participant "Readiness\nChecker" as RC
+participant "Server" as SRV
+database "Database" as DB
+participant "Live Monitor\n(web)" as WEB
+
+Student -> APP : Run check
+activate APP
+loop each of the 7 checks
+  APP -> RC : run check
+  activate RC
+  RC --> APP : pass or fail
+  deactivate RC
+end
+note over RC, SRV
+Network, clock, screen capture,
+camera*, microphone*, secure mode,
+free disk space  (* only if the exam needs it)
+end note
+APP -> SRV : send results
+activate SRV
+SRV -> SRV : student assigned?\nall checks passed?
+SRV -> DB : save readiness\nresult and audit entry
+SRV ->> WEB : readiness updated
+SRV --> APP : result; a pass is\nvalid for 30 min
+deactivate SRV
+alt all checks passed
+  APP --> Student : "All checks passed";\nStart can be enabled
+else a check failed
+  APP --> Student : failed rows,\neach with Retry
+  Student -> APP : Retry
+  APP -> APP : run the check again\nand send the results
+else server not reached
+  APP --> Student : "Could not reach server";\nStart stays disabled
+end
+deactivate APP
+opt Practice (ungraded, any number of tries)
+  Student -> APP : pick a practice exam,\npress Practice
+  activate APP
+  APP -> SRV : start session
+  activate SRV
+  SRV -> DB : new practice attempt
+  SRV --> APP : session
+  deactivate SRV
+  APP --> Student : exam window (apps only\nreported, no webcam)
+  deactivate APP
+end
+@enduml

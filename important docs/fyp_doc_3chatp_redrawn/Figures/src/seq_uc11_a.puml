@@ -1,0 +1,58 @@
+@startuml
+!include style.iuml
+skinparam defaultFontSize 14
+skinparam ArrowFontSize 14
+skinparam maxMessageSize 220
+hide footbox
+hide unlinked
+skinparam ParticipantPadding 4
+skinparam BoxPadding 0
+skinparam sequence {
+  MessageAlign left
+  LifeLineBackgroundColor #E6E6E6
+}
+' UC-11 Evaluate Answers (M11), part (a): automatic marking and plagiarism check after a submit.
+' Built from seq_ai_plagiarism, seq_ai_plagiarism_b, seq_compilation, seq_compilation_b.
+' Code: Backend_API/Services/SubmissionService.cs (FinalizeAsync), Services/Grading/GradingService.cs (StageAsync,
+' GradeAsync, MaxAttempts 3), GradingWorker (2 in parallel), CodeRunnerResolver (Docker, else MinGW),
+' PlagiarismService/PlagiarismEngine (threshold per exam).
+
+participant "Server" as SRV
+participant "Grading\nWorker" as GW
+participant "Code Runner\n(Docker or\nMinGW)" as CR
+database "Database" as DB
+
+[-> SRV : exam submitted (UC-06)
+activate SRV
+opt AI evaluation is on for the exam
+  loop each answer
+    alt MCQ
+      SRV -> SRV : mark by the\nchosen option
+    else theory
+      SRV -> SRV : compare with the\nmodel answer (TF-IDF\nand key terms)
+    else coding
+      SRV -> SRV : queue for the\ncode runner
+    end
+  end
+end
+opt not a practice exam
+  SRV -> SRV : compare each coding\nand theory answer with\nother students' answers
+end
+SRV -> DB : save marks, and pairs at or\nabove the exam's threshold
+SRV ->> GW : queued coding answers
+deactivate SRV
+loop each queued coding answer
+  activate GW
+  alt no runner, or not C or C++
+    GW -> GW : 0 marks;\nteacher review
+  else runner available
+    GW -> CR : compile once; run each\ntest case with its time\nlimit (up to 3 tries)
+    activate CR
+    CR --> GW : test case results
+    deactivate CR
+    GW -> GW : marks from the\npassed test cases
+  end
+  GW -> DB : save suggested marks\nand audit entry
+  deactivate GW
+end
+@enduml

@@ -1,0 +1,85 @@
+@startuml
+!include style.iuml
+' UC-11 Evaluate Answers (M11: code test cases, theory and MCQ marking, plagiarism check, teacher review).
+' Built from activity_grading.
+' Code: SubmissionService.FinalizeAsync -> GradingService.StageAsync (when AiEvaluationEnabled: MCQ by key, theory by
+' TF-IDF when the LLM is off, blank or unrunnable code 0; else queued), PlagiarismService.DetectAsync (winnowing, not
+' for practice exams), GradingQueue / GradingWorker -> GradingService.ProcessAsync (LlmGrader with TF-IDF fallback;
+' CodeRunnerResolver: Docker gcc:13 or local MinGW; C/C++ only; 3 attempts -> Failed; compile error -> 0;
+' TestCaseScorer; CodeAnalyzer). Teacher: accept-ai, override, regrade; similarity matrix (threshold default 70 %).
+' Plain labels: weights, k-gram settings, runner limits and event names are left out.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 25
+}
+
+|Server|
+start
+:Exam submitted
+(UC-06);
+if (AI evaluation\non?) then ([yes])
+  if (Can mark\nat once?) then ([yes])
+    :Mark now: MCQ by
+    the key, theory by
+    TF-IDF if the LLM
+    is off, blank code 0;
+  else ([no])
+    :Queue the
+    answer;
+  endif
+else ([no])
+endif
+if (Practice\nexam?) then ([no])
+  :Plagiarism check:
+  compare with the
+  other submissions;
+else ([yes])
+endif
+fork
+  while (Answer\nqueued?) is ([yes])
+    if (Type?) then ([theory])
+      :LLM marks it
+      (TF-IDF if
+      it fails);
+    else ([coding])
+      if (Runner ready\nand C/C++?) then ([no])
+        :Not run,
+        mark 0;
+      else ([yes])
+        :Compile, run
+        the test cases;
+        :Score passed
+        test cases (0 on
+        a compile error);
+      endif
+    endif
+    :Save the
+    suggested mark;
+  endwhile ([no])
+fork again
+  |Teacher (Web Panel)|
+  repeat
+    :Review marks,
+    test cases and
+    similar pairs;
+    if (Action?) then ([accept\nall])
+      :Accept the
+      ready marks;
+    else ([one\nanswer])
+      :Change the
+      mark or ask
+      for a regrade;
+    endif
+  repeat while (More to\nreview?) is ([yes]) not ([no])
+end fork
+:Marks saved and
+logged in the
+audit log;
+stop
+@enduml

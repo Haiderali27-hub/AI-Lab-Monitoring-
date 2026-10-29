@@ -1,0 +1,70 @@
+@startuml
+!include style.iuml
+' UC-04 Sit the Locked Exam (M4). Built from activity_dashboard and activity_applications.
+' Code: Views/ExamWindow, Services/Lockdown/LockdownCoordinator (Start does nothing when mode = Off;
+' Report drops a repeat of the same reason within 15 s), ProcessGuardService (2 s scan; Enforce kills,
+' Report reports once per app), keyboard, clipboard and device guards, WebcamMonitorService (if RequireWebcam),
+' LiveMonitoringService.ReportViolation; heartbeat ack -> ShowProctorWarnings, ResyncRemaining, unlock deadline.
+' Plain labels: guard names, event kinds and endpoints are left out.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 25
+}
+
+|Student|
+|Desktop App|
+|Desktop App|
+start
+:Open the full-screen
+exam window;
+if (Lockdown
+mode Off?) then ([no])
+  :Block keys and Task
+  Manager, start the
+  clipboard, app and
+  USB guards;
+else ([yes])
+endif
+:Start the webcam
+check (if required);
+fork
+  |Student|
+  repeat
+    :Answer a
+    question;
+  repeat while (Exam\nopen?) is ([yes]) not ([no])
+fork again
+  |Desktop App|
+  repeat
+    :Guard finds a
+    violation<
+    if (Enforce mode and
+    app not allowed?) then ([yes])
+      :Close
+      the app;
+    else ([no])
+    endif
+    :Report it and take
+    a screenshot (UC-05)>
+  repeat while (Exam\nopen?) is ([yes]) not ([no])
+fork again
+  |Desktop App|
+  repeat
+    :Heartbeat
+    reply<
+    :Show warnings,
+    update the timer,
+    unlock or relock;
+  repeat while (Exam\nopen?) is ([yes]) not ([no])
+end fork
+:Stop the guards,
+give back the
+desktop;
+stop
+@enduml

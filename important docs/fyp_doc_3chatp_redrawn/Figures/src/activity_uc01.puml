@@ -1,0 +1,79 @@
+@startuml
+!include style.iuml
+' UC-01 Log In and Bind Device (M1). Built from activity_auth.
+' Code: Student_Desktop_App/ViewModels/LoginViewModel.cs, Core/DeviceFingerprint.cs;
+' Backend_API/Controllers/AuthController.cs (Login for the web panel, StudentLogin for the desktop client;
+' both rate limited "login" = 10 requests/min per IP); Admin_Web_Panel/src/pages/auth/LoginPage.tsx
+' (opens the home page of the user's role).
+' Plain labels: endpoint, status codes, audit event names and the v1->v2 binding upgrade are left out.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 25
+}
+!pragma useVerticalIf on
+
+|User|
+start
+:Enter email (on the
+desktop app: or roll
+no.) and password;
+|Web Panel or Desktop App|
+if (Desktop
+app?) then ([yes])
+  :Read this PC's
+  fingerprint;
+else ([no, web
+panel])
+endif
+:Send login;
+|Server|
+if (More than 10
+tries a minute?) then ([yes])
+  :Refuse: too
+  many tries;
+([no]) elseif (Password right,
+account active?) then ([no])
+  :Refuse, log the
+  failed login;
+([yes]) elseif (From the
+web panel?) then ([yes])
+  :Issue tokens,
+  log the login;
+([no]) elseif (Student account,
+PC ID sent?) then ([no])
+  :Refuse;
+else ([yes])
+  if (Account bound
+  to a PC?) then ([no])
+    :Bind account
+    to this PC;
+  else ([yes])
+  endif
+  if (Same PC as
+  the bound one?) then ([no])
+    :Refuse, log
+    device mismatch;
+  else ([yes])
+    :Issue tokens,
+    log the login;
+  endif
+endif
+|Web Panel or Desktop App|
+if (Login
+OK?) then ([yes])
+  :Save tokens, open
+  the dashboard (on the
+  desktop app: the
+  exam dashboard);
+else ([no])
+  :Show the
+  error;
+endif
+stop
+@enduml

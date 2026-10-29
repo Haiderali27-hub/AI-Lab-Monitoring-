@@ -1,0 +1,76 @@
+@startuml
+!include style.iuml
+' UC-02 Run Readiness Check (M2). Built from activity_diagnostics.
+' Code: Core/Readiness/ReadinessPolicy, Services/Readiness/ReadinessCheckService,
+' DashboardViewModel.RunReadinessAsync / RetryReadinessItemAsync / ReportReadinessAsync,
+' ExamsController.SubmitReadiness (recomputes the pass, ReadinessCheck row + audit, hub ReadinessUpdated),
+' ReadinessValidity = 30 min.
+' Practice branch: ExamDashboard PracticeButton_OnClick (list of IsMock exams, start-session gives a fresh
+' attempt after each submit, exam window in Report mode without webcam; ungraded, excluded from stats).
+' Plain labels: limits, endpoint and event names are left out.
+' Large font at dpi 96. Printed pt = fontSize * printed_width_pt / png_width_px.
+skinparam dpi 96
+skinparam defaultFontSize 24
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 1.5
+skinparam padding 1
+skinparam swimlane {
+  BorderColor #777777
+  TitleFontSize 25
+}
+
+|Student|
+|Desktop App|
+|Server|
+|Student|
+start
+if (Run check
+or Practice?) then ([Practice])
+  :Pick a practice
+  exam, press Practice;
+  |Server|
+  :Start a new attempt
+  (ungraded, any
+  number of tries);
+  |Student|
+  :Answer in the exam
+  window (apps only
+  reported, no webcam),
+  submit;
+  stop
+else ([Run check])
+  (A)
+  detach
+endif
+|Desktop App|
+(A)
+:Load the exam's
+requirements;
+:Run 7 checks: network,
+clock, screen capture,
+camera*, microphone*,
+secure mode, disk space
+(* only if the exam
+needs it);
+:Send the results;
+|Server|
+:Check the results again,
+save them, log them,
+update the live monitor;
+|Desktop App|
+:Show the result
+of each check;
+if (All needed\nchecks passed?) then ([no])
+  |Student|
+  :Fix the problem,
+  press Retry;
+  (A)
+  detach
+else ([yes])
+  |Desktop App|
+  :Show "All checks
+  passed" (valid
+  for 30 min);
+  stop
+endif
+@enduml
