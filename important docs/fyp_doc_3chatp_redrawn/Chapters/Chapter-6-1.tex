@@ -9,7 +9,11 @@ Section~\ref{sec:physical_tables} gives the physical design of the database. The
 \label{sec:system_user_interfaces}
 SmartExam has two user interfaces. Students sit the exam in the desktop client on a lab PC, and staff and students use the web panel in a browser. The screens follow common usability rules \cite{nielsen_heuristics} and all show one demo exam, the Mid-Term Lab Exam (Demo), so the same exam can be followed from one screen to the next.
 
+After the same login page, the web panel shows each user only the pages of their role. Administrators manage the user accounts, departments, courses, labs, workstations and device bindings, and see the audit log and the system analytics. Teachers create exams, assign seats and invigilators, send announcements and review the results. Invigilators, and the teacher of the exam, follow the students on the live monitor. Students see their exams, results, performance, violations and notifications.
+
 The 31 screens are grouped into five parts. Section~\ref{sec:ui_desktop} shows the student desktop client, from login and the readiness checks to the exam window. Section~\ref{sec:ui_setup} covers exam setup by the teacher, and Section~\ref{sec:ui_live} covers live invigilation during the exam. Section~\ref{sec:ui_eval} shows the evaluation of answers with results, plagiarism checks, analytics and reports. Section~\ref{sec:ui_admin} shows the administration pages and the student portal.
+
+The same demo data is used on all screens. Lab A (Demo) has six workstations, and students such as Ali Hassan, Usman Tariq and Sara Khan appear on the screens of the teacher, the invigilator and the student. This also shows how one action moves through the system: a warning sent by the invigilator appears as a banner in the student's exam window and later in the student's notifications.
 
 % Each screenshot is a fixed [H] figure that starts with its short explanation,
 % so the text and its screenshot always stay together on one page.
