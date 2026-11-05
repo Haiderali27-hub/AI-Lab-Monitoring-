@@ -1,11 +1,15 @@
 \chapter{SYSTEM INTERFACE AND PHYSICAL DESIGN}
 \label{chap:system_interface_physical_design}
 
-This chapter shows the screens of SmartExam and its database tables. Section~\ref{sec:system_user_interfaces} follows one exam from sign-in to reports, and Section~\ref{sec:physical_tables} gives the fields and keys of each table.
+This chapter presents the system interface and the physical design of SmartExam. Section~\ref{sec:system_user_interfaces} shows the screens of the system in the order in which an exam moves through it, from sign-in on the lab PC to the final reports. Each screen is shown with a screenshot of the running system, and a short description above it explains what the screen does and what the user sees on it.
+
+Section~\ref{sec:physical_tables} gives the physical design of the database. The data of SmartExam is kept in 29 tables, and each of them is described by a table of its fields and a table of its keys.
 
 \section{System User Interfaces}
 \label{sec:system_user_interfaces}
-Students sit the exam in the desktop client, and staff and students use the web panel. The screens follow common usability rules \cite{nielsen_heuristics} and show one demo exam, the Mid-Term Lab Exam (Demo).
+SmartExam has two user interfaces. Students sit the exam in the desktop client on a lab PC, and staff and students use the web panel in a browser. The screens follow common usability rules \cite{nielsen_heuristics} and all show one demo exam, the Mid-Term Lab Exam (Demo), so the same exam can be followed from one screen to the next.
+
+The 31 screens are grouped into five parts. Section~\ref{sec:ui_desktop} shows the student desktop client, from login and the readiness checks to the exam window. Section~\ref{sec:ui_setup} covers exam setup by the teacher, and Section~\ref{sec:ui_live} covers live invigilation during the exam. Section~\ref{sec:ui_eval} shows the evaluation of answers with results, plagiarism checks, analytics and reports. Section~\ref{sec:ui_admin} shows the administration pages and the student portal.
 
 % Each screenshot is a fixed [H] figure that starts with its short explanation,
 % so the text and its screenshot always stay together on one page.
@@ -13,7 +17,7 @@ Students sit the exam in the desktop client, and staff and students use the web 
 \newcommand{\UItext}[1]{\hspace*{\UIindent}#1\par\vspace{8pt}}
 \emergencystretch=2em
 \clearpage
-\subsection{Student Desktop Client}
+\subsection{Student Desktop Client}\label{sec:ui_desktop}
 \subsubsection{Desktop Client Login}
 The student signs in with email or roll number and password; the first login binds the account to this PC (UC-01, Figure~\ref{fig:ui_student_login}). A note under the fields says so, and the box below shows the server connection.
 
@@ -70,7 +74,7 @@ A warning from the invigilator appears as a banner in the exam window until the 
 \label{fig:ui_student_warning}
 \end{figure}
 
-\subsection{Exam Setup}
+\subsection{Exam Setup}\label{sec:ui_setup}
 \subsubsection{Teacher Dashboard}
 The teacher dashboard counts the teacher's exams, the active exams and the pending reviews. It lists the scheduled exams with \emph{Manage}, \emph{Edit} and \emph{Delete}, and the ended exams that need a grade review (Figure~\ref{fig:ui_teacher_dashboard}).
 
@@ -139,7 +143,7 @@ The teacher sends a message to all eligible students of an exam from the announc
 \label{fig:ui_announcement}
 \end{figure}
 
-\subsection{Live Invigilation}
+\subsection{Live Invigilation}\label{sec:ui_live}
 \subsubsection{Live Monitor}
 The live monitor (UC-10) shows the exam, its remaining time and the \emph{Extend Time} and \emph{Force End Exam} buttons (Figure~\ref{fig:ui_teacher_live_monitoring}). A green badge counts the four active students, and a drop-down list switches to another exam.
 
@@ -216,7 +220,7 @@ Further down are the student's open incidents and the activity timeline, newest 
 \end{figure}
 \clearpage
 
-\subsection{Evaluation}
+\subsection{Evaluation}\label{sec:ui_eval}
 \subsubsection{Results Page}
 The results page (UC-11) lists each submission with its status, score, receipt and a \emph{Review} link, below cards for the class average, highest and lowest score and plagiarism flags (Figure~\ref{fig:ui_results_list}). All five students have submitted.
 
@@ -285,7 +289,7 @@ The reports page builds the exam summary PDF and exports the attendance, violati
 \end{figure}
 \clearpage
 
-\subsection{Administration and Student Portal}
+\subsection{Administration and Student Portal}\label{sec:ui_admin}
 \subsubsection{Web Panel Login}
 All web users sign in on one login page with email and password and are taken to the home page of their role (Figure~\ref{fig:ui_web_login}). A note below the form says that all access attempts are logged.
 
